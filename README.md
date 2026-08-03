@@ -3,23 +3,24 @@
 A subscription tracker with the exact UI/UX and design language of
 [tryorbit.com](https://tryorbit.com) — the signature orbit animation, Magic
 Import, and a native-feeling installable PWA. Full-stack: **FastAPI** backend +
-**React (Vite) PWA** frontend, optionally backed by **Supabase**.
+**React (Vite) PWA** frontend, backed by **Supabase** (the sole data store).
 
 ```
 revolution/
-├── backend/    FastAPI — layered subscriptions API (Supabase / in-memory)
+├── backend/    FastAPI — layered subscriptions API (Supabase-only store)
 └── frontend/   React + Vite PWA — feature-based, sync-aware, offline-capable
 ```
 
 ## Quick start
 
-**Backend** — full CRUD, boots with an in-memory store if Supabase isn't set.
+**Backend** — full CRUD backed by Supabase. Requires Supabase credentials and a
+provisioned table (see **Supabase** below) before it will serve requests.
 
 ```bash
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env        # optional: add Supabase URL + key
+cp .env.example .env        # required: add Supabase URL + key
 uvicorn app.main:app --reload   # http://localhost:8000  (docs at /docs)
 ```
 
@@ -40,15 +41,15 @@ cp .env.example .env.local  # sets VITE_API_BASE_URL=http://localhost:8000
   and localStorage instantly, then write through to the API when sync is on.
 - On launch it hydrates from the backend, seeding the backend from local data if
   the backend is empty, and falls back to the local cache if it's unreachable.
-- The backend is **layered** (routes → services → repositories) with a swappable
-  store, so it works with or without Supabase.
+- The backend is **layered** (routes → services → repositories) with the data
+  store isolated behind a Protocol; Supabase is the only implementation.
 
-## Supabase (optional)
+## Supabase (required)
 
-Set `SUPABASE_URL` / `SUPABASE_KEY` in `backend/.env` (from **Project Settings →
+The backend stores all data in Supabase — there is no local store. Set
+`SUPABASE_URL` / `SUPABASE_KEY` in `backend/.env` (from **Project Settings →
 API**) and run [`backend/sql/subscriptions.sql`](backend/sql/subscriptions.sql)
-to create the `subscriptions` table. The API switches to Supabase automatically;
-`/health` reports which store is active.
+to create the `subscriptions` table before starting the API.
 
 See [`frontend/README.md`](frontend/README.md) and
 [`backend/README.md`](backend/README.md) for details.

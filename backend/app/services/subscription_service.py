@@ -12,7 +12,6 @@ from functools import lru_cache
 from ..schemas.subscription import Subscription, SubscriptionCreate, SubscriptionUpdate
 from ..supabase_client import get_supabase
 from ..repositories.subscription_repository import (
-    InMemorySubscriptionRepository,
     SubscriptionRepository,
     SupabaseSubscriptionRepository,
     to_model,
@@ -53,21 +52,13 @@ class SubscriptionService:
         if not self._repo.delete(sub_id):
             raise SubscriptionNotFound(sub_id)
 
-    @property
-    def is_persistent(self) -> bool:
-        return isinstance(self._repo, SupabaseSubscriptionRepository)
-
-
 @lru_cache
 def get_subscription_service() -> SubscriptionService:
     """Provider used as a FastAPI dependency.
 
-    Chooses the Supabase-backed repository when credentials are present,
-    otherwise falls back to the in-memory store so the app always boots.
+    Supabase is the only store — ``get_supabase()`` raises
+    ``SupabaseNotConfigured`` if credentials are missing, so there is no
+    local fallback.
     """
-    client = get_supabase()
-    if client is not None:
-        repo: SubscriptionRepository = SupabaseSubscriptionRepository(client)
-    else:
-        repo = InMemorySubscriptionRepository()
+    repo: SubscriptionRepository = SupabaseSubscriptionRepository(get_supabase())
     return SubscriptionService(repo)

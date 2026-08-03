@@ -1,12 +1,8 @@
 """Data access for subscriptions.
 
-Two interchangeable implementations behind one Protocol:
-
-* ``SupabaseSubscriptionRepository`` — persists to a Supabase ``subscriptions``
-  table (see ``backend/sql/subscriptions.sql``).
-* ``InMemorySubscriptionRepository`` — a process-local fallback used when
-  Supabase is not configured, so the API (and the frontend against it) still
-  works end-to-end in local dev, tests, and demos.
+``SupabaseSubscriptionRepository`` persists to a Supabase ``subscriptions``
+table (see ``backend/sql/subscriptions.sql``) — the app's sole source of
+truth; there is no local store.
 
 The service layer depends only on the ``SubscriptionRepository`` Protocol, so
 swapping the backing store never touches business logic.
@@ -43,37 +39,6 @@ class SubscriptionRepository(Protocol):
     def create(self, data: SubscriptionCreate) -> dict: ...
     def update(self, sub_id: str, patch: SubscriptionUpdate) -> Optional[dict]: ...
     def delete(self, sub_id: str) -> bool: ...
-
-
-class InMemorySubscriptionRepository:
-    """Ephemeral store. Data lives for the lifetime of the process."""
-
-    def __init__(self) -> None:
-        self._items: dict[str, dict] = {}
-
-    def list(self) -> list[dict]:
-        return list(self._items.values())
-
-    def get(self, sub_id: str) -> Optional[dict]:
-        return self._items.get(sub_id)
-
-    def create(self, data: SubscriptionCreate) -> dict:
-        sub_id = data.id or _new_id()
-        record = _serialize({**data.model_dump(exclude={"id"}), "id": sub_id})
-        self._items[sub_id] = record
-        return record
-
-    def update(self, sub_id: str, patch: SubscriptionUpdate) -> Optional[dict]:
-        existing = self._items.get(sub_id)
-        if existing is None:
-            return None
-        changes = _serialize(patch.model_dump(exclude_unset=True))
-        existing.update(changes)
-        self._items[sub_id] = existing
-        return existing
-
-    def delete(self, sub_id: str) -> bool:
-        return self._items.pop(sub_id, None) is not None
 
 
 class SupabaseSubscriptionRepository:

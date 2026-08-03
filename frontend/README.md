@@ -29,7 +29,9 @@ src/
 ```
 
 **Data flow:** components → `useStore()` → optimistic local update + write-through
-to the API. localStorage is always the offline cache; the backend is optional.
+to the API. localStorage is only an **offline cache** for the installed PWA —
+the durable source of truth is the backend (Supabase). When sync is enabled,
+every change writes through to the API.
 
 ## Run
 

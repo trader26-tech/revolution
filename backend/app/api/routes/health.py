@@ -2,12 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-
-from ...services.subscription_service import (
-    SubscriptionService,
-    get_subscription_service,
-)
+from fastapi import APIRouter
 
 router = APIRouter(tags=["health"])
 
@@ -18,11 +13,6 @@ def root() -> dict:
 
 
 @router.get("/health")
-def health(
-    service: SubscriptionService = Depends(get_subscription_service),
-) -> dict:
-    """Reports whether persistence is backed by Supabase or in-memory."""
-    return {
-        "status": "ok",
-        "persistence": "supabase" if service.is_persistent else "in-memory",
-    }
+def health() -> dict:
+    """Liveness probe. Persistence is always Supabase (the only store)."""
+    return {"status": "ok", "persistence": "supabase"}

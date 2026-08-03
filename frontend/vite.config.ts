@@ -10,6 +10,12 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  // `vite preview` in production (Railway) serves behind an unknown host.
+  // Allow it so it doesn't return "Blocked request. This host is not allowed."
+  preview: {
+    host: true,
+    allowedHosts: true,
+  },
   plugins: [
     react(),
     VitePWA({

@@ -1,7 +1,8 @@
 # Orbit API (FastAPI)
 
-Subscription-tracker backend for the Orbit PWA. Layered architecture with a
-swappable data store (Supabase or in-memory fallback).
+Subscription-tracker backend for the Orbit PWA. Layered architecture with
+**Supabase as the sole data store** — there is no local fallback, so the API
+requires Supabase credentials to run.
 
 ```
 app/
@@ -28,7 +29,7 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # optional: add Supabase URL + key for persistence
+cp .env.example .env   # required: add your Supabase URL + key
 ```
 
 ## Run
@@ -39,10 +40,12 @@ uvicorn app.main:app --reload
 
 - API root: http://localhost:8000
 - Interactive docs: http://localhost:8000/docs
-- Health: http://localhost:8000/health → reports `persistence: supabase | in-memory`
+- Health: http://localhost:8000/health → reports `persistence: supabase`
 
-Without Supabase credentials the API still boots and serves full CRUD from an
-in-memory store — handy for local dev and demos.
+Supabase is required: without `SUPABASE_URL` / `SUPABASE_KEY` the API raises a
+clear `SupabaseNotConfigured` error on first request. All data lives in
+Supabase — nothing is stored locally. Provision the table before running (see
+**Supabase** below).
 
 ## Endpoints
 
@@ -58,4 +61,5 @@ in-memory store — handy for local dev and demos.
 
 Set `SUPABASE_URL` and `SUPABASE_KEY` in `.env` (from **Settings → API**), then
 run [`sql/subscriptions.sql`](sql/subscriptions.sql) in the Supabase SQL editor
-to create the `subscriptions` table. The API switches to Supabase automatically.
+to create the `subscriptions` table. This is required — the API stores all data
+in Supabase and has no local fallback.

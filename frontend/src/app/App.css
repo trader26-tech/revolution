@@ -20,9 +20,9 @@
   display: flex;
   flex-direction: column;
 }
-/* the AnimatePresence page wrapper (unclassed motion.div) must fill the scroll
-   area so each screen can lay itself out to the full height */
-.app__main > * {
+/* Each screen wrapper fills the scroll area so a screen can lay itself out to
+   the full height. Screens stay mounted; the inactive ones carry `hidden`. */
+.app__screen {
   min-height: 100%;
   display: flex;
   flex-direction: column;
@@ -30,6 +30,23 @@
      so the app is strictly vertical-scroll only */
   max-width: 100%;
   overflow-x: clip;
+  /* a quick fade in on becoming active — cheap, compositor-only */
+  animation: screen-in 0.16s var(--ease) both;
+}
+
+/* `hidden` must win over the flex display above, or inactive screens would
+   still render (and their animations would keep running). */
+.app__screen[hidden] {
+  display: none;
+}
+
+@keyframes screen-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app__screen { animation: none; }
 }
 
 .app__add-switch {

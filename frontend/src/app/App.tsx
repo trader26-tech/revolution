@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { memo, useCallback, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { StoreProvider, useStore } from "@/data/store";
 import { TabBar } from "@/components/ui/TabBar";
 import type { Tab } from "@/components/ui/TabBar";

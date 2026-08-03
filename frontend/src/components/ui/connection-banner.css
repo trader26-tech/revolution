@@ -1,0 +1,42 @@
+.conn-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.75rem 1rem 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  backdrop-filter: blur(8px);
+}
+
+.conn-banner strong {
+  font-weight: 600;
+}
+
+.conn-banner__dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px currentColor;
+  opacity: 0.35;
+}
+
+/* Not configured — neutral warning (amber). */
+.conn-banner--disconnected {
+  background: rgba(255, 176, 32, 0.12);
+  border: 1px solid rgba(255, 176, 32, 0.4);
+  color: #ffcc66;
+}
+
+/* Configured but unreachable — error (red). */
+.conn-banner--error {
+  background: rgba(255, 74, 92, 0.12);
+  border: 1px solid rgba(255, 74, 92, 0.4);
+  color: #ff8c96;
+}
+
+.conn-banner__text {
+  color: #f2f2f7;
+}

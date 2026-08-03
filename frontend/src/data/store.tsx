@@ -10,10 +10,15 @@ import type { ReactNode } from "react";
 import type { Subscription } from "@/lib/types";
 import { SYNC_ENABLED } from "@/lib/env";
 import { localStore, newId } from "./localStore";
-import { seed } from "./seed";
 import { subscriptionsApi } from "./api/subscriptionsApi";
 
-export type SyncStatus = "local" | "syncing" | "synced" | "error";
+// "disconnected" — no backend configured (build-time VITE_API_BASE_URL missing).
+// "error"        — backend configured but unreachable / request failed.
+export type SyncStatus =
+  | "disconnected"
+  | "syncing"
+  | "synced"
+  | "error";
 
 interface Store {
   subs: Subscription[];
@@ -33,7 +38,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [subs, setSubs] = useState<Subscription[]>(localStore.loadSubs);
   const [currency, setCurrencyState] = useState<string>(localStore.loadCurrency);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
-    SYNC_ENABLED ? "syncing" : "local"
+    SYNC_ENABLED ? "syncing" : "disconnected"
   );
 
   // always keep the local cache in step with state
@@ -103,16 +108,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const get = (id: string) => subsRef.current.find((x) => x.id === id);
 
+  // Clear everything — both local cache and, if connected, the backend.
   const reset = () => {
-    const fresh = seed();
-    setSubs(fresh);
+    setSubs([]);
     if (SYNC_ENABLED) {
-      // replace the remote set with the fresh demo data
       (async () => {
         try {
           const remote = await subscriptionsApi.list();
           await Promise.all(remote.map((s) => subscriptionsApi.remove(s.id)));
-          await Promise.all(fresh.map((s) => subscriptionsApi.create(s)));
         } catch {
           setSyncStatus("error");
         }

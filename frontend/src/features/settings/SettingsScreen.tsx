@@ -4,10 +4,10 @@ import { CURRENCIES } from "@/lib/catalog";
 import "./settings.css";
 
 const SYNC_LABEL: Record<string, string> = {
-  local: "On this device",
-  syncing: "Syncing…",
+  disconnected: "Not connected to server",
+  syncing: "Connecting…",
   synced: "Synced to cloud",
-  error: "Offline — using local cache",
+  error: "Server unreachable",
 };
 
 export function SettingsScreen({ onInstall, canInstall }: { onInstall: () => void; canInstall: boolean }) {
@@ -78,10 +78,10 @@ export function SettingsScreen({ onInstall, canInstall }: { onInstall: () => voi
       <button
         className="set__reset"
         onClick={() => {
-          if (confirm("Reset all data to the sample subscriptions?")) reset();
+          if (confirm("Delete all subscriptions? This cannot be undone.")) reset();
         }}
       >
-        Reset demo data
+        Clear all data
       </button>
 
       <p className="set__made">Made with 💜 · An Orbit clone</p>

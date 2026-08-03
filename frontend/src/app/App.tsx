@@ -4,6 +4,7 @@ import { StoreProvider, useStore } from "@/data/store";
 import { TabBar } from "@/components/ui/TabBar";
 import type { Tab } from "@/components/ui/TabBar";
 import { Sheet } from "@/components/ui/Sheet";
+import { ConnectionBanner } from "@/components/ui/ConnectionBanner";
 import {
   SubscriptionsScreen,
   SubscriptionDetail,
@@ -63,6 +64,8 @@ function Shell() {
   return (
     <div className="app">
       <div className="space-bg" />
+
+      <ConnectionBanner />
 
       <main className="app__main no-scrollbar">
         <AnimatePresence mode="wait">

@@ -1,20 +1,19 @@
 import type { Subscription } from "@/lib/types";
-import { seed } from "./seed";
 
 const SUBS_KEY = "orbit.subs.v1";
 const CUR_KEY = "orbit.currency.v1";
 
-/** localStorage-backed cache. Doubles as the offline source of truth when
- *  the backend is unreachable or sync is disabled. */
+/** localStorage-backed cache of what the backend last returned. Never seeds
+ *  demo data — an empty/missing cache means "no data yet", not fake content. */
 export const localStore = {
   loadSubs(): Subscription[] {
     try {
       const raw = localStorage.getItem(SUBS_KEY);
       if (raw) return JSON.parse(raw) as Subscription[];
     } catch {
-      /* corrupt cache — fall through to seed */
+      /* corrupt cache — treat as empty */
     }
-    return seed();
+    return [];
   },
 
   saveSubs(subs: Subscription[]): void {

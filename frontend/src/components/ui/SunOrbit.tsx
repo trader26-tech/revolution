@@ -154,13 +154,6 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
                 revealed={revealed}
                 index={i}
                 heat={heat}
-                // rotation (deg) that points the sphere's top highlight AT the
-                // centre sun. Planet is at angle θ; direction to sun is θ+180°;
-                // the highlight sits at the SVG top (−90°), so rotate θ+270°.
-                sunAngle={SAMPLES.map(
-                  (s) => theta(phase + s * ring.dir) * (180 / Math.PI) + 270
-                )}
-                dur={ring.dur}
               />
             </motion.button>
           );
@@ -273,16 +266,12 @@ function MoonBody({
   revealed,
   index,
   heat,
-  sunAngle,
-  dur,
 }: {
   sub: Subscription;
   d: number;
   revealed: boolean;
   index: number;
   heat: Heat;
-  sunAngle: number[];
-  dur: number;
 }) {
   return (
     <div className="sun-orbit__flip" style={{ width: d, height: d }}>
@@ -297,16 +286,9 @@ function MoonBody({
           delay: index * 0.07,
         }}
       >
-        {/* the ash planet is lit toward the sun: rotate the sphere so its bright
-            (top) side always points at the centre. Only the sphere rotates —
-            the logo face stays upright. */}
-        <motion.div
-          className="sun-orbit__face sun-orbit__face--ash"
-          animate={{ rotate: sunAngle }}
-          transition={{ duration: dur, ease: "linear", repeat: Infinity, times: SAMPLES }}
-        >
+        <div className="sun-orbit__face sun-orbit__face--ash">
           <Moon d={d} heat={heat} />
-        </motion.div>
+        </div>
         <div className="sun-orbit__face sun-orbit__face--logo">
           <LogoTile sub={sub} d={d} />
         </div>
@@ -322,52 +304,50 @@ function MoonBody({
  *  surface (r ≈ 0.264·R), so the planet stays clearly silver. */
 function Moon({ d, heat }: { d: number; heat: Heat }) {
   const id = "moon-" + Math.round(d * 10);
-  const spot = "spot-" + heat.key + "-" + Math.round(d * 10);
   return (
-    <svg width={d} height={d} viewBox="0 0 100 100" style={{ display: "block" }}>
+    // extra viewBox room so the glowing halo isn't clipped at the edges
+    <svg width={d} height={d} viewBox="-8 -8 116 116" style={{ display: "block", overflow: "visible" }}>
       <defs>
-        {/* the silver/ash body sphere: lit from the top (sun side) */}
-        <radialGradient id={id} cx="50%" cy="32%" r="80%">
+        {/* the silver/ash body sphere, lit softly from the top-left */}
+        <radialGradient id={id} cx="38%" cy="30%" r="82%">
           <stop offset="0%" stopColor="#eceef4" />
           <stop offset="46%" stopColor="#c2c5d1" />
           <stop offset="80%" stopColor="#8f93a4" />
           <stop offset="100%" stopColor="#565a6d" />
         </radialGradient>
-        {/* SUN-LIT COAT: the sun-facing HALF is coated solidly in the flow
-            colour, then slopes down to transparent at the terminator (the
-            middle), so the far hemisphere stays ash. Vertical: top = sun side.
-            A soft sphere-shade multiplies over it so the coloured half still
-            reads as a curved surface (brighter at the lit edge, darker in). */}
-        <linearGradient id={spot} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={heat.spotHi} stopOpacity="1" />
-          <stop offset="20%" stopColor={heat.spot} stopOpacity="1" />
-          <stop offset="42%" stopColor={heat.spot} stopOpacity="0.9" />
-          <stop offset="55%" stopColor={heat.spot} stopOpacity="0.4" />
-          <stop offset="70%" stopColor={heat.spot} stopOpacity="0.12" />
-          <stop offset="100%" stopColor={heat.spot} stopOpacity="0" />
-        </linearGradient>
-        {/* radial shade to keep the coloured half looking spherical (lit at the
-            sun edge, falling to shadow) */}
-        <radialGradient id={spot + "-sh"} cx="50%" cy="26%" r="80%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.34" />
-          <stop offset="46%" stopColor="#ffffff" stopOpacity="0" />
-          <stop offset="100%" stopColor="#000000" stopOpacity="0.32" />
-        </radialGradient>
-        {/* clip the coat to the sphere so it never spills past the rim */}
-        <clipPath id={id + "-clip"}>
-          <circle cx="50" cy="50" r="47" />
-        </clipPath>
+        {/* soft blur for the halo's outer glow */}
+        <filter id={id + "-glow"} x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="3" />
+        </filter>
       </defs>
-      {/* ash sphere */}
+
+      {/* the flow halo: a soft outer glow ring + a crisp inner ring, in the
+          flow colour (green income / red expense). The planet body stays pure
+          silver — only this thin ring around it carries the meaning. */}
+      <circle
+        cx="50"
+        cy="50"
+        r="52"
+        fill="none"
+        stroke={heat.spot}
+        strokeWidth="5"
+        opacity="0.5"
+        filter={`url(#${id}-glow)`}
+      />
+      <circle
+        cx="50"
+        cy="50"
+        r="50.5"
+        fill="none"
+        stroke={heat.spotHi}
+        strokeWidth="2"
+        opacity="0.95"
+      />
+
+      {/* silver sphere */}
       <circle cx="50" cy="50" r="47" fill={`url(#${id})`} />
-      {/* coloured sun-lit hemisphere, clipped to the sphere */}
-      <g clipPath={`url(#${id}-clip)`}>
-        <rect x="0" y="0" width="100" height="100" fill={`url(#${spot})`} />
-        {/* spherical shading over the coloured coat */}
-        <rect x="0" y="0" width="100" height="100" fill={`url(#${spot}-sh)`} />
-      </g>
-      {/* faint rim so the planet reads as a sphere against space */}
-      <circle cx="50" cy="50" r="46.4" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.12" />
+      {/* faint bright rim so the sphere reads as 3D */}
+      <circle cx="50" cy="50" r="46.4" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.14" />
     </svg>
   );
 }

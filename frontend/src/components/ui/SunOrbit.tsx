@@ -1,6 +1,5 @@
 import { memo, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { motion } from "framer-motion";
 import type { Cycle, Subscription } from "@/lib/types";
 import { monthly } from "@/lib/money";
 import { BrandLogo } from "./BrandLogo";
@@ -13,23 +12,32 @@ interface Props {
   onSelect?: (id: string) => void;
 }
 
+/** HARD CAP on rendered moons. The orbit is a visual, not a data table: it
+ *  shows the biggest movers. Whether the user has 5 records or 5000, at most
+ *  this many animated elements exist — the orbit's cost is CONSTANT. */
+const MAX_MOONS = 16;
+
 /** The three billing cycles, mapped to rings from the inside out:
- *  weekly (fastest, closest) → monthly → yearly (slowest, farthest).
- *  All rings spin the SAME way — clockwise on screen (dir = 1) — only their
- *  speed differs, so the system reads as one coherent solar system. */
-const RINGS: { cycle: Cycle; rFactor: number; dur: number; dir: 1 | -1 }[] = [
-  { cycle: "weekly", rFactor: 0.22, dur: 26, dir: 1 },
-  { cycle: "monthly", rFactor: 0.31, dur: 40, dir: 1 },
-  { cycle: "yearly", rFactor: 0.4, dur: 58, dir: 1 },
+ *  weekly (fastest, closest) → monthly → yearly (slowest, farthest). */
+const RINGS: { cycle: Cycle; rFactor: number; dur: number }[] = [
+  { cycle: "weekly", rFactor: 0.22, dur: 26 },
+  { cycle: "monthly", rFactor: 0.31, dur: 40 },
+  { cycle: "yearly", rFactor: 0.4, dur: 58 },
 ];
 
-/** The home hero: a warm glowing sun ringed by three clean orbits — one per
- *  billing cycle. Each subscription rides *its* cycle's ring as a plain ash
- *  moon, sized by cost. Two guarantees hold no matter the data:
- *   1. moons on a ring never overlap (size capped to the ring's spacing);
- *   2. no moon ever leaves the box (ring radius + moon radius ≤ size/2).
- *  Tapping the sun flips every moon to reveal its brand logo (tap again to
- *  hide). Tapping a *revealed* moon opens that subscription. */
+/** The home hero: a warm glowing sun ringed by three orbits — one per billing
+ *  cycle — with subscriptions riding their ring as silver moons (income wears
+ *  a translucent ring). Tapping the sun flips the moons to their brand logos.
+ *
+ *  PERFORMANCE CONTRACT (the whole point of this component's design):
+ *  - Zero JavaScript per animation frame. Every motion — orbiting, staying
+ *    upright, the flip, the entrance, the sun pulse — is a CSS transform
+ *    animation, which runs entirely on the compositor thread.
+ *  - The orbit trick: each moon sits in a rotating 0×0 wrapper; an inner
+ *    element counter-rotates with the SAME duration and delay, so both share
+ *    one animation clock and the moon stays upright with zero drift.
+ *  - Phase offset is a negative animation-delay — free.
+ *  - At most MAX_MOONS moons render, ever. 1000 records cost what 16 cost. */
 export const SunOrbit = memo(function SunOrbit({
   subs,
   size = 300,
@@ -37,122 +45,130 @@ export const SunOrbit = memo(function SunOrbit({
 }: Props) {
   const [revealed, setRevealed] = useState(false);
 
-  // Group subscriptions by billing cycle so each ring carries its own set.
+  // Pick the moons to show: the biggest amounts win (they're what the user
+  // cares about seeing), then group them by cycle for their rings.
   const byCycle = useMemo(() => {
+    const shown =
+      subs.length <= MAX_MOONS
+        ? subs
+        : [...subs]
+            .sort((a, b) => monthly(b.amount, b.cycle) - monthly(a.amount, a.cycle))
+            .slice(0, MAX_MOONS);
     const map: Record<Cycle, Subscription[]> = {
       weekly: [],
       monthly: [],
       yearly: [],
     };
-    for (const s of subs) map[s.cycle].push(s);
+    for (const s of shown) map[s.cycle].push(s);
     return map;
   }, [subs]);
 
-  // Median monthly cost — the midpoint of the sigmoid so a couple of pricey
-  // outliers don't wash the whole scale to one extreme.
-  const median = useMemo(() => {
-    if (!subs.length) return 1;
-    const c = subs.map((s) => monthly(s.amount, s.cycle)).sort((a, b) => a - b);
-    const mid = Math.floor(c.length / 2);
-    return c.length % 2 ? c[mid] : (c[mid - 1] + c[mid]) / 2;
+  // Cost → size scale, computed once per data change (never per frame).
+  const [minCost, maxCost] = useMemo(() => {
+    if (!subs.length) return [0, 1];
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const s of subs) {
+      const c = monthly(s.amount, s.cycle);
+      if (c < lo) lo = c;
+      if (c > hi) hi = c;
+    }
+    return [lo, hi];
   }, [subs]);
 
-  /** Cost intensity 0→1 via a sigmoid around the median. Cheap → 0, pricey → 1;
-   *  drives BOTH the planet size and its heat colour. */
-  const costT = (s: Subscription) => {
-    const c = monthly(s.amount, s.cycle);
-    const x = Math.log((c + 1) / (median + 1)); // 0 at the median
-    return 1 / (1 + Math.exp(-1.1 * x));
-  };
-
-  /** Cost-driven moon diameter within [floor, ceil]. */
   const costSize = (s: Subscription) => {
     const floor = size * 0.05;
     const ceil = size * 0.1;
-    return floor + (ceil - floor) * costT(s);
+    const c = monthly(s.amount, s.cycle);
+    const t = maxCost === minCost ? 0.5 : (c - minCost) / (maxCost - minCost);
+    return floor + (ceil - floor) * t;
   };
 
   const hasSubs = subs.length > 0;
-
-  // Hard edge budget: a moon centred on ring radius r must keep its whole
-  // circle inside the size×size box → r + d/2 ≤ size/2 − EDGE_PAD.
   const EDGE_PAD = size * 0.01;
 
   return (
     <div className="sun-orbit" style={{ width: size, height: size }}>
-      {/* three clean orbit guide rings — brighten while revealed */}
-      {RINGS.map((ring, i) => (
+      {/* three orbit guide rings */}
+      {RINGS.map((ring) => (
         <div
           key={ring.cycle}
-          className={"sun-orbit__ring" + (revealed ? " is-open" : "")}
+          className="sun-orbit__ring"
           style={{
             width: ring.rFactor * 2 * size,
             height: ring.rFactor * 2 * size,
-            transitionDelay: `${i * 60}ms`,
           }}
           aria-hidden
         />
       ))}
 
-      {/* ash moons — always orbiting, locked to their ring, never off-screen */}
+      {/* moons — pure CSS orbits, capped count */}
       {RINGS.map((ring) => {
         const items = byCycle[ring.cycle];
         const r = ring.rFactor * size;
         const n = items.length;
         if (!n) return null;
 
-        // (1) NO OVERLAP: cap diameter to a fraction of the arc between moons.
+        // no-overlap: cap diameter to the arc between evenly spaced moons
         const gap = (2 * Math.PI * r) / n;
         const maxByGap = gap * 0.62;
-        // (2) NEVER OFF-SCREEN: the moon's outer edge must stay in the box.
+        // never off-screen: the moon's edge stays inside the box
         const maxByEdge = (size / 2 - r - EDGE_PAD) * 2;
 
         return items.map((sub, i) => {
-          const phase = i / n; // evenly spaced around the ring
           const d = Math.max(
             size * 0.036,
             Math.min(costSize(sub), maxByGap, maxByEdge)
           );
+          const phase = i / n;
+          const vars = {
+            "--dur": `${ring.dur}s`,
+            // negative delay starts the shared clock mid-cycle = phase offset
+            "--ph": `${(-phase * ring.dur).toFixed(3)}s`,
+            "--r": `${r}px`,
+          } as CSSProperties;
           return (
-            <motion.button
-              key={sub.id}
-              className={"sun-orbit__moon" + (revealed ? " is-revealed" : "")}
-              /* PERF: depth shadow lives in CSS as a box-shadow on the round
-                 face, never a `filter` — filters force a repaint every frame
-                 for every moon and disqualify cheap compositing. */
-              style={
-                {
-                  width: d,
-                  height: d,
-                  marginLeft: -d / 2,
-                  marginTop: -d / 2,
-                } as CSSProperties
-              }
-              initial={{ opacity: 0, scale: 0.2 }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-                // sample x/y around the circle so the moon rides its ring and
-                // can never drift off-orbit
-                x: SAMPLES.map((s) => Math.cos(theta(phase + s * ring.dir)) * r),
-                y: SAMPLES.map((s) => Math.sin(theta(phase + s * ring.dir)) * r),
-              }}
-              transition={{
-                opacity: { duration: 0.4, delay: i * 0.03 },
-                scale: { type: "spring", stiffness: 200, damping: 18, delay: i * 0.03 },
-                x: { duration: ring.dur, ease: "linear", repeat: Infinity, times: SAMPLES },
-                y: { duration: ring.dur, ease: "linear", repeat: Infinity, times: SAMPLES },
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (revealed) onSelect?.(sub.id);
-              }}
-              tabIndex={revealed ? 0 : -1}
-              title={revealed ? sub.name : undefined}
-              aria-label={revealed ? `Open ${sub.name}` : undefined}
-            >
-              <MoonBody sub={sub} d={d} revealed={revealed} index={i} />
-            </motion.button>
+            <div key={sub.id} className="sun-orbit__orbiter" style={vars} aria-hidden={!revealed}>
+              <button
+                className={"sun-orbit__moon" + (revealed ? " is-revealed" : "")}
+                style={{ width: d, height: d }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (revealed) onSelect?.(sub.id);
+                }}
+                tabIndex={revealed ? 0 : -1}
+                title={revealed ? sub.name : undefined}
+                aria-label={revealed ? `Open ${sub.name}` : undefined}
+              >
+                {/* counter-rotates on the same clock → always upright */}
+                <div className="sun-orbit__upright">
+                  {/* one-shot entrance, staggered */}
+                  <div
+                    className="sun-orbit__enter"
+                    style={{ animationDelay: `${i * 0.05}s` }}
+                  >
+                    <div
+                      className="sun-orbit__flip"
+                      style={{ transitionDelay: `${i * 0.06}s` }}
+                    >
+                      <div className="sun-orbit__face sun-orbit__face--ash">
+                        <Moon d={d} income={sub.flow === "income"} />
+                      </div>
+                      <div className="sun-orbit__face sun-orbit__face--logo">
+                        <BrandLogo
+                          name={sub.name}
+                          brandSlug={sub.brandSlug}
+                          mark={sub.mark}
+                          fallbackColor={sub.color}
+                          size={d}
+                          radius={d / 2}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            </div>
           );
         });
       })}
@@ -170,30 +186,15 @@ export const SunOrbit = memo(function SunOrbit({
   );
 });
 
-/** Evenly spaced keyframe samples across one lap (0 → 1).
- *
- *  PERF: framer interpolates every keyframe of every animated property on each
- *  moon. At 64 steps × 2 props × ~30 moons that is ~3.9k keyframes to carry.
- *  24 steps is a 15° chord — visually indistinguishable from a true circle at
- *  these radii (sub-pixel deviation) while cutting the work by ~60%. */
-const STEPS = 24;
-const SAMPLES = Array.from({ length: STEPS + 1 }, (_, i) => i / STEPS);
-
-/** Angle in radians for a normalised position around the orbit. */
-function theta(t: number) {
-  return (t % 1) * Math.PI * 2;
-}
-
-/** The glowing orange→pink→magenta star at the centre. */
+/** The glowing orange→pink→magenta star at the centre. CSS pulse, no JS. */
 function Sun({ size }: { size: number }) {
   return (
-    <motion.svg
+    <svg
       width={size}
       height={size}
       viewBox="0 0 100 100"
+      className="sun-orbit__sun-svg"
       style={{ display: "block", overflow: "visible" }}
-      animate={{ scale: [1, 1.03, 1] }}
-      transition={{ duration: 5, ease: "easeInOut", repeat: Infinity }}
       aria-hidden
     >
       <defs>
@@ -214,72 +215,28 @@ function Sun({ size }: { size: number }) {
       <ellipse cx="44" cy="40" rx="26" ry="18" fill="#ffb15a" opacity="0.35" />
       <ellipse cx="58" cy="62" rx="22" ry="14" fill="#ff2d78" opacity="0.3" />
       <circle cx="50" cy="50" r="42" fill="none" stroke="#ffd9a8" strokeWidth="1" opacity="0.4" />
-    </motion.svg>
+    </svg>
   );
 }
 
-/** A moon that flips between its plain ash face (default) and its brand logo
- *  (revealed). A single rotateY carries both faces for a physical coin-flip.
- *
- *  PERF: memoised. Its props are primitives plus a stable `sub` reference, so
- *  an unrelated parent re-render (currency toggle, filter change) can no longer
- *  re-render ~30 of these mid-orbit — which was a visible stutter. */
-const MoonBody = memo(function MoonBody({
-  sub,
-  d,
-  revealed,
-  index,
-}: {
-  sub: Subscription;
-  d: number;
-  revealed: boolean;
-  index: number;
-}) {
-  return (
-    <div className="sun-orbit__flip" style={{ width: d, height: d }}>
-      <motion.div
-        className="sun-orbit__flip-inner"
-        animate={{ rotateY: revealed ? 180 : 0 }}
-        transition={{
-          // a slow, smooth flip — no spring bounce, gentle ease. Moons flip
-          // in a soft cascade (staggered by index) rather than all at once.
-          duration: 0.9,
-          ease: [0.4, 0, 0.2, 1],
-          delay: index * 0.07,
-        }}
-      >
-        <div className="sun-orbit__face sun-orbit__face--ash">
-          <Moon d={d} income={sub.flow === "income"} />
-        </div>
-        <div className="sun-orbit__face sun-orbit__face--logo">
-          <LogoTile sub={sub} d={d} />
-        </div>
-      </motion.div>
-    </div>
-  );
-});
-
-/** A plain silver/ash sphere. Differentiation is by SHAPE, not colour:
- *  - expense → a bare silver planet
- *  - income  → the same silver planet wearing a soft silver-white halo ring.
- *  The ring is the whole signal, so there's no colour-matching to get wrong. */
-const Moon = memo(function Moon({ d, income }: { d: number; income: boolean }) {
+/** A plain silver/ash sphere. Income wears a translucent halo ring; expenses
+ *  are bare. Differentiation is by shape — no colour to mismatch. */
+function Moon({ d, income }: { d: number; income: boolean }) {
   const id = "moon-" + Math.round(d * 10);
   return (
-    // extra viewBox room so the halo ring isn't clipped at the edges
-    <svg width={d} height={d} viewBox="-16 -16 132 132" style={{ display: "block", overflow: "visible" }}>
+    <svg
+      width={d}
+      height={d}
+      viewBox="-16 -16 132 132"
+      style={{ display: "block", overflow: "visible" }}
+    >
       <defs>
-        {/* the silver/ash body sphere, lit softly from the top-left */}
         <radialGradient id={id} cx="38%" cy="30%" r="82%">
           <stop offset="0%" stopColor="#eceef4" />
           <stop offset="46%" stopColor="#c2c5d1" />
           <stop offset="80%" stopColor="#8f93a4" />
           <stop offset="100%" stopColor="#565a6d" />
         </radialGradient>
-        {/* across-the-band shading so the thick ring reads as a solid, lit metal
-            band (darker inner/outer edges, bright middle) instead of a flat line.
-            userSpaceOnUse + r=68 maps offsets to absolute radii: the band spans
-            ~56.5→67.5 (r 62 ± 5.5), so it's brightest at its centre (~62/68). */}
         <radialGradient
           id={id + "-band"}
           cx="50"
@@ -289,8 +246,6 @@ const Moon = memo(function Moon({ d, income }: { d: number; income: boolean }) {
           fy="50"
           gradientUnits="userSpaceOnUse"
         >
-          {/* very translucent — a real planetary ring you can see space through.
-              Barely peaks mid-band, fades to nothing at both edges. */}
           <stop offset="0%" stopColor="#c9cede" stopOpacity="0" />
           <stop offset="80%" stopColor="#c9cede" stopOpacity="0" />
           <stop offset="85%" stopColor="#d7dbec" stopOpacity="0.16" />
@@ -300,91 +255,17 @@ const Moon = memo(function Moon({ d, income }: { d: number; income: boolean }) {
         </radialGradient>
       </defs>
 
-      {/* INCOME halo ring — a THICK, real planetary ring band. Expenses render
-          none of this: a bare silver planet. */}
       {income && (
         <>
-          {/* Soft outer glow so the band feels lit against space.
-              PERF: this used to be an feGaussianBlur filter. SVG filters are
-              among the most expensive primitives to rasterise and this one was
-              instantiated per moon. Two stacked wide, low-opacity strokes give
-              the same soft falloff at this size for effectively zero cost. */}
-          <circle
-            cx="50"
-            cy="50"
-            r="62"
-            fill="none"
-            stroke="#eef1fb"
-            strokeWidth="17"
-            opacity="0.05"
-          />
-          <circle
-            cx="50"
-            cy="50"
-            r="62"
-            fill="none"
-            stroke="#eef1fb"
-            strokeWidth="13"
-            opacity="0.08"
-          />
-          {/* the thick band itself — very translucent, so space/stars read
-              through it like a real planetary ring */}
-          <circle
-            cx="50"
-            cy="50"
-            r="62"
-            fill="none"
-            stroke="#dfe3f2"
-            strokeWidth="11"
-            opacity="0.07"
-          />
-          <circle
-            cx="50"
-            cy="50"
-            r="62"
-            fill="none"
-            stroke={`url(#${id}-band)`}
-            strokeWidth="11"
-          />
-          {/* a whisper of a centre-line — just barely defines the ring's spine */}
-          <circle
-            cx="50"
-            cy="50"
-            r="62"
-            fill="none"
-            stroke="#ffffff"
-            strokeWidth="1.2"
-            opacity="0.22"
-          />
+          <circle cx="50" cy="50" r="62" fill="none" stroke="#eef1fb" strokeWidth="13" opacity="0.06" />
+          <circle cx="50" cy="50" r="62" fill="none" stroke="#dfe3f2" strokeWidth="11" opacity="0.07" />
+          <circle cx="50" cy="50" r="62" fill="none" stroke={`url(#${id}-band)`} strokeWidth="11" />
+          <circle cx="50" cy="50" r="62" fill="none" stroke="#ffffff" strokeWidth="1.2" opacity="0.22" />
         </>
       )}
 
-      {/* silver sphere */}
       <circle cx="50" cy="50" r="47" fill={`url(#${id})`} />
-      {/* faint bright rim so the sphere reads as 3D */}
       <circle cx="50" cy="50" r="46.4" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.14" />
     </svg>
   );
-});
-
-/** Revealed face: the subscription's real brand logo (or a tinted initial),
- *  as a round tile so it stays a clean circle matching the moon it flips from.
- *  Memoised: the brand SVG never needs re-rendering while the moon orbits. */
-const LogoTile = memo(function LogoTile({
-  sub,
-  d,
-}: {
-  sub: Subscription;
-  d: number;
-}) {
-  return (
-    <BrandLogo
-      name={sub.name}
-      brandSlug={sub.brandSlug}
-      mark={sub.mark}
-      fallbackColor={sub.color}
-      size={d}
-      radius={d / 2}
-    />
-  );
-});
+}

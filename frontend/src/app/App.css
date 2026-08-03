@@ -5,7 +5,16 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  /* Height strategy — avoid the mid-scroll resize/reflow:
+     100dvh is the DYNAMIC viewport, so in a browser it grows ~60px the moment
+     the URL bar retracts on scroll, physically resizing the whole app and
+     shifting the (fixed) nav bar — the "screen changes size when I scroll"
+     glitch. 100lvh is the LARGE (URL-bar-hidden) height: the app is always the
+     full screen and the bar just overlays it, so nothing resizes while
+     scrolling. Order matters: dvh is the fallback for engines without lvh. */
+  height: 100vh; /* oldest fallback */
+  height: 100dvh; /* modern fallback */
+  height: 100lvh; /* stable full height — wins where supported */
   overflow: hidden;
 }
 

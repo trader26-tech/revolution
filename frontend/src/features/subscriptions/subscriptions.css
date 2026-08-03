@@ -458,3 +458,13 @@
   border-radius: var(--radius);
   border-style: dashed;
 }
+
+/* "Show more" — the list renders in pages so a huge data set never floods the DOM */
+.home__more {
+  width: 100%;
+  padding: 13px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+}

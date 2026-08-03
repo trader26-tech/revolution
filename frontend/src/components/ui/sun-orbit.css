@@ -1,7 +1,17 @@
 /* ============================================================
-   SunOrbit — a warm glowing sun ringed by three clean cycle orbits
-   (weekly / monthly / yearly). Each subscription rides its ring as a
-   plain ash moon; tapping a moon opens it. Moons never overlap.
+   SunOrbit — a warm sun with three cycle orbits and silver moons.
+
+   PERFORMANCE CONTRACT
+   - Every animation here is a CSS `transform`/`opacity` animation:
+     they run on the compositor thread, so NO JavaScript executes per
+     frame and main-thread work (taps, scrolling, React) never janks
+     the orbit — and vice versa.
+   - The orbit trick: `.sun-orbit__orbiter` (a 0×0 point at the centre)
+     rotates; the moon sits offset by --r; `.sun-orbit__upright`
+     counter-rotates with the SAME duration + delay. Sharing one clock
+     keeps the moon perfectly upright forever — zero drift by
+     construction.
+   - Phase offsets are negative animation-delays: free.
    ============================================================ */
 
 .sun-orbit {
@@ -9,12 +19,9 @@
   margin: 0 auto;
   display: grid;
   place-items: center;
-  /* everything is positioned from the exact centre */
 }
 
-/* ---- orbit guide rings ---------------------------------------------
-   Thin, subtle purple circles — matching the reference's precise, quiet
-   orbits. */
+/* ---- orbit guide rings -------------------------------------------- */
 .sun-orbit__ring {
   position: absolute;
   left: 50%;
@@ -22,51 +29,81 @@
   transform: translate(-50%, -50%);
   border-radius: 50%;
   border: 1px solid rgba(168, 150, 240, 0.22);
-  box-shadow: 0 0 30px rgba(138, 28, 255, 0.05) inset;
   pointer-events: none;
 }
 
-/* ---- ash moon ------------------------------------------------------
-   Anchored at the exact centre; framer-motion's x/y ride it around its
-   ring. marginLeft/Top (inline, = -d/2) centre it on the computed point. */
-.sun-orbit__moon {
+/* ---- the rotating carrier (one per moon) --------------------------- */
+.sun-orbit__orbiter {
   position: absolute;
   left: 50%;
   top: 50%;
+  width: 0;
+  height: 0;
+  animation: so-spin var(--dur) linear infinite;
+  animation-delay: var(--ph);
+}
+
+@keyframes so-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes so-spin-rev {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+
+/* the moon itself, offset onto its ring */
+.sun-orbit__moon {
+  position: absolute;
+  left: 0;
+  top: 0;
   padding: 0;
   border-radius: 50%;
+  transform: translate(-50%, -50%) translateX(var(--r));
   pointer-events: auto;
   cursor: default;
   z-index: 2;
-  /* PERF: no `filter` here. A drop-shadow filter on ~30 continuously moving
-     moons forces a full repaint of each every frame; a box-shadow composites
-     instead. NOTE: framer-motion owns this element's `transform` (it writes
-     x/y inline every frame), so press feedback must live on the inner face —
-     never here, or the two would fight. */
-  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.5);
 }
-/* only once revealed does a moon become an actionable button */
 .sun-orbit__moon.is-revealed {
   cursor: pointer;
 }
-/* press feedback on the inner face, which framer does not drive */
-.sun-orbit__moon.is-revealed:active .sun-orbit__flip {
-  transform: scale(0.9);
-}
-.sun-orbit__flip {
-  transition: transform 0.16s var(--ease);
+
+/* counter-rotation on the same clock → the face never tilts */
+.sun-orbit__upright {
+  width: 100%;
+  height: 100%;
+  animation: so-spin-rev var(--dur) linear infinite;
+  animation-delay: var(--ph);
 }
 
-/* ---- flip mechanics (ash ⇄ logo) ---- */
+/* one-shot entrance: pop in, staggered via inline animation-delay */
+.sun-orbit__enter {
+  width: 100%;
+  height: 100%;
+  animation: so-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@keyframes so-enter {
+  from { opacity: 0; transform: scale(0.2); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ---- flip mechanics (ash ⇄ logo) ---------------------------------- */
 .sun-orbit__flip {
   position: relative;
-  perspective: 520px;
-}
-.sun-orbit__flip-inner {
-  position: absolute;
-  inset: 0;
+  width: 100%;
+  height: 100%;
   transform-style: preserve-3d;
+  /* the slow, smooth reveal — cascades via inline transition-delay */
+  transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.sun-orbit__moon.is-revealed .sun-orbit__flip {
+  transform: rotateY(180deg);
+}
+/* press feedback lives on the flip, which nothing else animates */
+.sun-orbit__moon.is-revealed:active .sun-orbit__flip {
+  scale: 0.9;
+}
+
 .sun-orbit__face {
   position: absolute;
   inset: 0;
@@ -74,24 +111,15 @@
   -webkit-backface-visibility: hidden;
   display: grid;
   place-items: center;
+  border-radius: 50%;
+  /* depth against space — box-shadow composites; never a filter */
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.5);
 }
 .sun-orbit__face--logo {
   transform: rotateY(180deg);
 }
 
-/* revealed brand logo — just the flat brand-colour circle + glyph. No gloss,
-   no rim, no inner shadows: clean and plain, exactly the logo and nothing more.
-   (The drop-shadow that gives it depth against space lives on .sun-orbit__moon.) */
-.sun-orbit__logo {
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: #fff;
-  font-weight: 800;
-  line-height: 1;
-}
-
-/* ---- the sun (tap to reveal / hide what each moon is) -------------- */
+/* ---- the sun (tap to reveal) -------------------------------------- */
 .sun-orbit__sun {
   position: absolute;
   left: 50%;
@@ -103,8 +131,26 @@
   padding: 0;
   z-index: 3;
   cursor: pointer;
-  transition: transform 0.2s var(--ease);
 }
-.sun-orbit__sun:active {
-  transform: translate(-50%, -50%) scale(0.95);
+.sun-orbit__sun:active .sun-orbit__sun-svg {
+  scale: 0.95;
+}
+.sun-orbit__sun-svg {
+  animation: so-pulse 5s ease-in-out infinite;
+  transition: scale 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes so-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.03); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sun-orbit__orbiter,
+  .sun-orbit__upright,
+  .sun-orbit__sun-svg {
+    animation-duration: 600s; /* effectively still, but layout stays valid */
+  }
+  .sun-orbit__enter {
+    animation: none;
+  }
 }

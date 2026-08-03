@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { StoreProvider, useStore } from "@/data/store";
 import { TabBar } from "@/components/ui/TabBar";
@@ -12,12 +12,22 @@ import {
   SubscriptionDetail,
   SubscriptionForm,
 } from "@/features/subscriptions";
-import { CalendarScreen } from "@/features/calendar";
 import { SettingsScreen } from "@/features/settings";
-import { MagicImportScreen } from "@/features/import";
-import { Onboarding } from "@/features/onboarding";
 import type { NewSub } from "@/features/onboarding";
 import "./App.css";
+
+/* PERF: these screens are the only remaining users of the animation library,
+   so they load as separate lazy chunks. The main bundle — what a phone parses
+   on every cold start — ships zero animation-library code. */
+const CalendarScreen = lazy(() =>
+  import("@/features/calendar").then((m) => ({ default: m.CalendarScreen }))
+);
+const MagicImportScreen = lazy(() =>
+  import("@/features/import").then((m) => ({ default: m.MagicImportScreen }))
+);
+const Onboarding = lazy(() =>
+  import("@/features/onboarding").then((m) => ({ default: m.Onboarding }))
+);
 
 const ONBOARDED_KEY = "revolution.onboarded.v1";
 
@@ -101,7 +111,9 @@ function Shell() {
           <SubscriptionsScreen onOpen={openDetail} onAdd={openAdd} />
         </Screen>
         <Screen active={tab === "calendar"}>
-          <CalendarScreen onOpen={openDetail} />
+          <Suspense fallback={null}>
+            <CalendarScreen onOpen={openDetail} />
+          </Suspense>
         </Screen>
         <Screen active={tab === "settings"}>
           <SettingsScreen onInstall={install} canInstall={!!installEvt} />
@@ -126,7 +138,11 @@ function Shell() {
             <SubscriptionForm onDone={() => setSheet(null)} />
           </div>
         )}
-        {sheet === "magic" && <MagicImportScreen onDone={() => setSheet(null)} />}
+        {sheet === "magic" && (
+          <Suspense fallback={null}>
+            <MagicImportScreen onDone={() => setSheet(null)} />
+          </Suspense>
+        )}
         {sheet === "detail" && active && (
           <SubscriptionDetail sub={active} onEdit={() => setSheet("edit")} />
         )}
@@ -152,9 +168,16 @@ const Screen = memo(function Screen({
   active: boolean;
   children: ReactNode;
 }) {
+  /* Lazy-mount: a screen renders NOTHING until the first time it becomes
+     active. Cold start therefore builds only the home screen — no hidden
+     Calendar DOM, and the lazy chunks (and the animation library inside them)
+     aren't even fetched until the user actually goes there. After the first
+     visit the subtree stays mounted (hidden) so returning is instant. */
+  const [everActive, setEverActive] = useState(active);
+  if (active && !everActive) setEverActive(true);
   return (
     <div className="app__screen" hidden={!active}>
-      {children}
+      {everActive ? children : null}
     </div>
   );
 });
@@ -185,7 +208,11 @@ function Root() {
   };
 
   if (!onboarded) {
-    return <Onboarding currency="INR" onFinish={finishOnboarding} />;
+    return (
+      <Suspense fallback={null}>
+        <Onboarding currency="INR" onFinish={finishOnboarding} />
+      </Suspense>
+    );
   }
   return <Shell />;
 }

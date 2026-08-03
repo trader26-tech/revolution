@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, animate } from "framer-motion";
+import { memo, useEffect, useMemo, useState } from "react";
 import { SunOrbit } from "@/components/ui/SunOrbit";
 import { useStore } from "@/data/store";
 import {
@@ -18,6 +17,11 @@ import "./subscriptions.css";
 const LISTS: (ListName | "All")[] = ["All", "Personal", "Family", "Business"];
 type FlowFilter = "all" | "expense" | "income";
 
+/** Rows rendered in "Up next" before the user asks for more. Rendering is the
+ *  cost with big data sets — the maths is trivial — so the DOM is capped and
+ *  grows only on demand. */
+const LIST_PAGE = 15;
+
 export function SubscriptionsScreen({
   onOpen,
   onAdd,
@@ -30,14 +34,10 @@ export function SubscriptionsScreen({
   const [flowFilter, setFlowFilter] = useState<FlowFilter>("all");
   const [period, setPeriod] = useState<"yearly" | "monthly">("yearly");
   const [listPickerOpen, setListPickerOpen] = useState(false);
+  const [visibleRows, setVisibleRows] = useState(LIST_PAGE);
 
-  // The orbit is the hero: it fills ~60% of the viewport height, capped by
-  // width so it always fits the phone, and clamped to a sensible range.
   const orbitSize = useOrbitSize();
 
-  // Scoped by the active list only — the headline figure reads from this, so
-  // the flow filter (which only narrows the "Up next" list) never changes the
-  // money total shown.
   const scoped = useMemo(
     () => (list === "All" ? subs : subs.filter((s) => s.list === list)),
     [subs, list]
@@ -61,13 +61,25 @@ export function SubscriptionsScreen({
     [filtered]
   );
 
-  const trialsEnding = filtered.filter(
-    (s) => s.isTrial && s.trialEnds && daysUntil(new Date(s.trialEnds + "T00:00:00")) <= 5
+  // collapse the list again whenever the data scope changes
+  useEffect(() => setVisibleRows(LIST_PAGE), [list, flowFilter]);
+  const shown = upcoming.slice(0, visibleRows);
+  const hiddenCount = upcoming.length - shown.length;
+
+  const trialsEnding = useMemo(
+    () =>
+      filtered.filter(
+        (s) =>
+          s.isTrial &&
+          s.trialEnds &&
+          daysUntil(new Date(s.trialEnds + "T00:00:00")) <= 5
+      ),
+    [filtered]
   );
 
   return (
     <div className="home">
-      {/* floating add button, top-right corner (like the reference) */}
+      {/* floating add button, top-right corner */}
       <button className="home__add" onClick={onAdd} aria-label="Add subscription">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden>
           <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
@@ -78,15 +90,8 @@ export function SubscriptionsScreen({
         <SunOrbit subs={filtered} size={orbitSize} onSelect={onOpen} />
       </div>
 
-      {/* headline row — count + list scope on the left, spend total on the
-          right. Left opens the list picker; the right figure taps to fluidly
-          toggle between the yearly and monthly amount. */}
-      <motion.div
-        className="home__headline"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      >
+      {/* headline row — count + list scope left, spend total right */}
+      <div className="home__headline">
         <button
           className="home__hcell home__hcell--left"
           onClick={() => setListPickerOpen(true)}
@@ -103,27 +108,15 @@ export function SubscriptionsScreen({
 
         <button
           className="home__hcell home__hcell--right"
-          onClick={() =>
-            setPeriod((p) => (p === "yearly" ? "monthly" : "yearly"))
-          }
+          onClick={() => setPeriod((p) => (p === "yearly" ? "monthly" : "yearly"))}
           aria-label={`Showing ${period} total — tap to switch`}
           aria-live="polite"
         >
-          <AnimatedMoney amount={headlineAmount} currency={currency} />
+          <span className="home__hmoney tabnum">
+            {formatMoney(headlineAmount, currency)}
+          </span>
           <span className="home__hlabel home__hlabel--right">
-            <span className="home__hswap">
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.span
-                  key={period}
-                  initial={{ y: 8, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -8, opacity: 0 }}
-                  transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  {period === "yearly" ? "Total yearly" : "Per month"}
-                </motion.span>
-              </AnimatePresence>
-            </span>
+            <span>{period === "yearly" ? "Total yearly" : "Per month"}</span>
             <svg
               className={"home__hsync" + (period === "monthly" ? " is-alt" : "")}
               viewBox="0 0 24 24"
@@ -135,50 +128,36 @@ export function SubscriptionsScreen({
             </svg>
           </span>
         </button>
-      </motion.div>
+      </div>
 
       {/* list scope picker */}
-      <AnimatePresence>
-        {listPickerOpen && (
-          <>
-            <motion.div
-              className="home__pick-scrim"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setListPickerOpen(false)}
-            />
-            <motion.div
-              className="home__pick glass glass--strong"
-              initial={{ opacity: 0, y: -6, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -6, scale: 0.96 }}
-              transition={{ type: "spring", stiffness: 420, damping: 30 }}
-            >
-              {LISTS.map((l) => {
-                const count =
-                  l === "All"
-                    ? subs.length
-                    : subs.filter((s) => s.list === l).length;
-                return (
-                  <button
-                    key={l}
-                    className={"home__pick-item" + (list === l ? " is-on" : "")}
-                    onClick={() => {
-                      setList(l);
-                      setListPickerOpen(false);
-                    }}
-                  >
-                    <span>{l}</span>
-                    <span className="home__pick-count tabnum">{count}</span>
-                  </button>
-                );
-              })}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
+      {listPickerOpen && (
+        <>
+          <div
+            className="home__pick-scrim"
+            onClick={() => setListPickerOpen(false)}
+          />
+          <div className="home__pick glass glass--strong">
+            {LISTS.map((l) => {
+              const count =
+                l === "All" ? subs.length : subs.filter((s) => s.list === l).length;
+              return (
+                <button
+                  key={l}
+                  className={"home__pick-item" + (list === l ? " is-on" : "")}
+                  onClick={() => {
+                    setList(l);
+                    setListPickerOpen(false);
+                  }}
+                >
+                  <span>{l}</span>
+                  <span className="home__pick-count tabnum">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {trialsEnding.length > 0 && (
         <div className="home__alert glass">
@@ -208,16 +187,23 @@ export function SubscriptionsScreen({
           <span className="home__section-note">soonest first</span>
         </div>
         <div className="home__list">
-          {upcoming.map(({ sub, date }, i) => (
+          {shown.map(({ sub, date }) => (
             <Row
               key={sub.id}
               sub={sub}
               currency={currency}
               date={date}
-              index={i}
-              onClick={() => onOpen(sub.id)}
+              onOpen={onOpen}
             />
           ))}
+          {hiddenCount > 0 && (
+            <button
+              className="home__more glass glass--tap"
+              onClick={() => setVisibleRows((v) => v + 50)}
+            >
+              Show more ({hiddenCount} remaining)
+            </button>
+          )}
           {upcoming.length === 0 && (
             <div className="home__empty glass">
               Nothing in orbit yet. Tap <b>+</b> to add income or an expense.
@@ -229,105 +215,43 @@ export function SubscriptionsScreen({
   );
 }
 
-/**
- * The headline money figure. When `amount` changes (the user taps to switch
- * yearly ↔ monthly) the digits roll smoothly from the old value to the new one
- * and the whole figure gives a subtle spring "pop" — so the number feels like
- * it's morphing in place rather than being swapped out.
- */
-function AnimatedMoney({
-  amount,
-  currency,
-}: {
-  amount: number;
-  currency: string;
-}) {
-  const textRef = useRef<HTMLSpanElement>(null);
-  const prev = useRef(amount);
-  const first = useRef(true);
+/** Headline money: compact above a million so it always fits the screen. */
+function formatMoney(amount: number, currency: string) {
   const sym = symbol(currency);
-  // Big figures are formatted compactly (1.3M, 1.3B) so the headline always
-  // fits the phone width and can never force horizontal scroll; normal amounts
-  // keep full digit grouping.
-  const format = (v: number) => {
-    const n = Math.round(v);
-    if (Math.abs(n) >= 1_000_000) {
-      const compact = new Intl.NumberFormat(undefined, {
+  const n = Math.round(amount);
+  if (Math.abs(n) >= 1_000_000) {
+    return (
+      sym +
+      new Intl.NumberFormat(undefined, {
         notation: "compact",
         maximumFractionDigits: 1,
-      }).format(n);
-      return sym + compact;
-    }
-    return sym + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  };
-
-  useEffect(() => {
-    const node = textRef.current;
-    if (!node) return;
-
-    // don't animate on the very first render — just show the value
-    if (first.current) {
-      first.current = false;
-      prev.current = amount;
-      node.textContent = format(amount);
-      return;
-    }
-
-    const from = prev.current;
-    prev.current = amount;
-
-    // roll the digits from the previous figure to the new one
-    const rolled = animate(from, amount, {
-      duration: 0.55,
-      ease: [0.22, 1, 0.36, 1],
-      onUpdate: (v) => {
-        node.textContent = format(v);
-      },
-    });
-    // a quick spring "pop" on the whole figure to punctuate the switch
-    const popped = animate(
-      textRef.current!.parentElement!,
-      { scale: [0.92, 1] },
-      { type: "spring", stiffness: 520, damping: 20 }
+      }).format(n)
     );
-    return () => {
-      rolled.stop();
-      popped.stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amount]);
-
-  return (
-    <span className="home__hmoney tabnum">
-      <span ref={textRef}>{format(amount)}</span>
-    </span>
-  );
+  }
+  return sym + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
-function Row({
+/** One "Up next" row. Memoised: with a long list, a state change re-renders
+ *  only what actually changed instead of every row. */
+const Row = memo(function Row({
   sub,
   currency,
   date,
-  index,
-  onClick,
+  onOpen,
 }: {
   sub: Subscription;
   currency: string;
   date: Date;
-  index: number;
-  onClick: () => void;
+  onOpen: (id: string) => void;
 }) {
   const inDays = daysUntil(date);
   const soon = inDays <= 3;
   const income = isIncome(sub);
 
   return (
-    <motion.button
+    <button
       className={"row glass glass--tap " + (income ? "is-income" : "is-expense")}
-      onClick={onClick}
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.035, 0.35), duration: 0.32 }}
+      onClick={() => onOpen(sub.id)}
     >
       <span className="row__logo" style={{ background: sub.color }}>
         {sub.mark}
@@ -351,22 +275,16 @@ function Row({
           {relativeDay(inDays)}
         </span>
       </span>
-    </motion.button>
+    </button>
   );
-}
+});
 
-/** Sizes the orbit to ~60% of the viewport height, capped so it never exceeds
- *  the phone width, and clamped to a comfortable range. Recomputes on resize
- *  / orientation change. */
+/** Sizes the orbit to ~60% of the viewport height, capped by width. */
 function useOrbitSize(): number {
   const compute = () => {
     if (typeof window === "undefined") return 340;
     const h = window.innerHeight;
     const w = window.innerWidth;
-    // The orbit is a size×size box and SunOrbit clamps every moon so its edge
-    // stays within size/2 — so the whole orbit is guaranteed to fit inside its
-    // own box. We therefore only need the BOX to fit the screen: cap size to
-    // the usable width (a hair under, for sub-pixel safety) and by height.
     const byWidth = w - 8;
     const target = Math.min(byWidth, h * 0.6);
     return Math.round(Math.max(280, Math.min(480, target)));

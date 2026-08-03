@@ -81,3 +81,12 @@
 .upd__btn--primary:active {
   filter: brightness(1.06);
 }
+
+/* CSS enter animations — no animation library */
+.upd__scrim { animation: upd-fade 0.2s ease-out; }
+.upd { animation: upd-pop 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes upd-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes upd-pop {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}

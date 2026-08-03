@@ -25,6 +25,15 @@ def list_subscriptions(
     return service.list()
 
 
+@router.get("/summary")
+def summary(
+    service: SubscriptionService = Depends(get_subscription_service),
+) -> dict:
+    """Server-side aggregates (counts + monthly/yearly totals) so clients can
+    show headline figures without crunching the full data set locally."""
+    return service.summary()
+
+
 @router.post("", response_model=Subscription, status_code=status.HTTP_201_CREATED)
 def create_subscription(
     payload: SubscriptionCreate,

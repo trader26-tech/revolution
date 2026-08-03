@@ -14,7 +14,11 @@ import { CalendarScreen } from "@/features/calendar";
 import { InsightsScreen } from "@/features/insights";
 import { SettingsScreen } from "@/features/settings";
 import { MagicImportScreen } from "@/features/import";
+import { Onboarding } from "@/features/onboarding";
+import type { NewSub } from "@/features/onboarding";
 import "./App.css";
+
+const ONBOARDED_KEY = "revolution.onboarded.v1";
 
 type SheetKind = null | "add" | "magic" | "detail" | "edit";
 
@@ -117,10 +121,41 @@ function Shell() {
   );
 }
 
+/** Gates the app behind first-run onboarding. Lives inside the store so
+ *  picks can be written straight through to the backend. */
+function Root() {
+  const store = useStore();
+  const [onboarded, setOnboarded] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(ONBOARDED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const finishOnboarding = (picks: NewSub[]) => {
+    // Match the reference: onboarding runs in INR.
+    store.setCurrency("INR");
+    // Persist chosen subscriptions to the backend (source of truth).
+    picks.forEach((p) => store.add(p));
+    try {
+      localStorage.setItem(ONBOARDED_KEY, "1");
+    } catch {
+      /* private mode — onboarding just shows again next launch */
+    }
+    setOnboarded(true);
+  };
+
+  if (!onboarded) {
+    return <Onboarding currency="INR" onFinish={finishOnboarding} />;
+  }
+  return <Shell />;
+}
+
 export default function App() {
   return (
     <StoreProvider>
-      <Shell />
+      <Root />
     </StoreProvider>
   );
 }

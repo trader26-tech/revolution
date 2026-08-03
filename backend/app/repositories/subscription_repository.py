@@ -64,6 +64,21 @@ class SupabaseSubscriptionRepository:
     def __init__(self, client) -> None:
         self._client = client
 
+    def _write_resilient(self, run, payload: dict) -> list:
+        """Run an insert/update, retrying without any optional columns the
+        deployed table is missing — one at a time until it succeeds. Lets the
+        app work before the `flow` / `brand_slug` migrations are applied."""
+        attempt = dict(payload)
+        dropped: dict = {}
+        while True:
+            try:
+                return (run(attempt).data or []), dropped
+            except Exception as exc:  # noqa: BLE001
+                column = _missing_column(exc)
+                if column is None or column not in attempt:
+                    raise
+                dropped[column] = attempt.pop(column)
+
     def list(self) -> list[dict]:
         res = self._client.table(TABLE).select("*").order("anchor_date").execute()
         return res.data or []
@@ -76,33 +91,22 @@ class SupabaseSubscriptionRepository:
     def create(self, data: SubscriptionCreate) -> dict:
         sub_id = data.id or _new_id()
         record = _serialize({**data.model_dump(exclude={"id"}), "id": sub_id})
-        try:
-            res = self._client.table(TABLE).insert(record).execute()
-        except Exception as exc:  # noqa: BLE001 - re-raised unless it's a known gap
-            column = _missing_column(exc)
-            if column is None:
-                raise
-            retry = {k: v for k, v in record.items() if k != column}
-            res = self._client.table(TABLE).insert(retry).execute()
-            return {**(res.data or [retry])[0], column: record.get(column)}
-        return (res.data or [record])[0]
+        rows, dropped = self._write_resilient(
+            lambda p: self._client.table(TABLE).insert(p).execute(), record
+        )
+        return {**(rows[0] if rows else record), **dropped}
 
     def update(self, sub_id: str, patch: SubscriptionUpdate) -> Optional[dict]:
         changes = _serialize(patch.model_dump(exclude_unset=True))
         if not changes:
             return self.get(sub_id)
-        try:
-            res = self._client.table(TABLE).update(changes).eq("id", sub_id).execute()
-        except Exception as exc:  # noqa: BLE001 - re-raised unless it's a known gap
-            column = _missing_column(exc)
-            if column is None:
-                raise
-            retry = {k: v for k, v in changes.items() if k != column}
-            if not retry:
-                return self.get(sub_id)
-            res = self._client.table(TABLE).update(retry).eq("id", sub_id).execute()
-        rows = res.data or []
-        return rows[0] if rows else None
+        rows, dropped = self._write_resilient(
+            lambda p: self._client.table(TABLE).update(p).eq("id", sub_id).execute(),
+            changes,
+        )
+        if not rows:
+            return None
+        return {**rows[0], **dropped}
 
     def delete(self, sub_id: str) -> bool:
         res = self._client.table(TABLE).delete().eq("id", sub_id).execute()

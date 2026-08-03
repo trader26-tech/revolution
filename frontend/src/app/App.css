@@ -1,4 +1,8 @@
 .app {
+  position: relative;
+  /* sit above the fixed starfield (.space, z-index 0) so content is never
+     dimmed or covered by it */
+  z-index: 1;
   display: flex;
   flex-direction: column;
   height: 100dvh;

@@ -71,7 +71,9 @@
   transform: rotateY(180deg);
 }
 
-/* revealed brand tile — a clean CIRCLE so it matches the moon it flips from */
+/* revealed brand logo — just the flat brand-colour circle + glyph. No gloss,
+   no rim, no inner shadows: clean and plain, exactly the logo and nothing more.
+   (The drop-shadow that gives it depth against space lives on .sun-orbit__moon.) */
 .sun-orbit__logo {
   display: grid;
   place-items: center;
@@ -79,24 +81,6 @@
   color: #fff;
   font-weight: 800;
   line-height: 1;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -7px 12px rgba(0, 0, 0, 0.26),
-    0 5px 12px -6px rgba(0, 0, 0, 0.7);
-}
-.sun-orbit__logo::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.4),
-    rgba(255, 255, 255, 0.05) 44%,
-    transparent 60%
-  );
-  pointer-events: none;
 }
 
 /* ---- the sun (tap to reveal / hide what each moon is) -------------- */

@@ -50,9 +50,14 @@
      list section below instead. */
   flex: 0 0 auto;
   margin: 10px 0 24px;
-  /* cancel the .home side padding so the orbit uses the full screen width */
-  margin-left: -18px;
-  margin-right: -18px;
+  /* Break out to the full SCREEN width without ever exceeding it. Cancelling
+     .home's 18px padding on each side via a centred 100%+36px box would let a
+     wide orbit push the page past the viewport, so we hard-cap at 100vw and
+     clip sideways bleed. Result: full-width orbit, zero horizontal page scroll. */
+  width: calc(100% + 36px);
+  max-width: 100vw;
+  margin-left: max(-18px, calc((100vw - 100%) / -2));
+  margin-right: max(-18px, calc((100vw - 100%) / -2));
   /* clip only sideways bleed from the wide guide rings — never vertically,
      which would cut the planets off */
   overflow-x: hidden;

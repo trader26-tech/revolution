@@ -1,0 +1,164 @@
+/* ============================================================
+   Orbit — global design system
+   Deep-space purple. Glassy. Native-app feel.
+   ============================================================ */
+
+:root {
+  /* Core palette (recreated from Orbit's brand language) */
+  --bg-0: #060010;          /* near-black space */
+  --bg-1: #0b0320;          /* deep purple-black */
+  --bg-2: #120a2e;          /* raised surface */
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-2: rgba(255, 255, 255, 0.08);
+  --surface-hi: rgba(255, 255, 255, 0.12);
+  --hairline: rgba(255, 255, 255, 0.09);
+  --hairline-2: rgba(255, 255, 255, 0.14);
+
+  --accent: #8a1cff;        /* signature purple */
+  --accent-hi: #a855ff;
+  --accent-glow: rgba(138, 28, 255, 0.55);
+  --moon: #f4f1ff;
+  --hot: #ff2d78;           /* pink planet */
+  --hot-2: #ff6a2b;         /* orange planet */
+
+  --text: #ffffff;
+  --text-1: rgba(255, 255, 255, 0.72);
+  --text-2: rgba(255, 255, 255, 0.5);
+  --text-3: rgba(255, 255, 255, 0.34);
+
+  --good: #37e0a6;
+  --warn: #ffb020;
+  --danger: #ff4d6d;
+
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 26px;
+  --radius-xl: 34px;
+
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 22px 48px -24px rgba(0, 0, 0, 0.9);
+  --shadow-pop: 0 30px 80px -30px rgba(0, 0, 0, 0.95),
+    0 0 0 1px var(--hairline);
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg-0);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+  /* native feel: no text selection / callouts on the chrome */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+/* space background — a starfield gradient shared across the app */
+.space-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(120% 80% at 78% -6%, rgba(138, 28, 255, 0.28), transparent 55%),
+    radial-gradient(90% 60% at 12% 4%, rgba(120, 40, 220, 0.18), transparent 55%),
+    radial-gradient(120% 90% at 50% 108%, rgba(255, 45, 120, 0.1), transparent 55%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0) 60%);
+}
+
+.space-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 70% 20%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 40% 70%, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1.5px 1.5px at 85% 60%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 55% 45%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 10% 85%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1.5px 1.5px at 90% 90%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 30% 12%, rgba(255, 255, 255, 0.5), transparent);
+  opacity: 0.5;
+  mask-image: linear-gradient(180deg, #000 0%, #000 55%, transparent 92%);
+}
+
+/* utility */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.tabnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

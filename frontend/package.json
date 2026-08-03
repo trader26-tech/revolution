@@ -5,10 +5,12 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
-    "watch": "ng build --watch --configuration development"
+    "watch": "ng build --watch --configuration development",
+    "serve:prod": "serve -s dist/revolution-frontend/browser -l ${PORT:-8080}"
   },
   "private": true,
   "dependencies": {
+    "serve": "^14.2.4",
     "@angular/animations": "^18.2.0",
     "@angular/common": "^18.2.0",
     "@angular/compiler": "^18.2.0",

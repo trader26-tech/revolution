@@ -4,6 +4,7 @@ import { StoreProvider, useStore } from "@/data/store";
 import { TabBar } from "@/components/ui/TabBar";
 import type { Tab } from "@/components/ui/TabBar";
 import { Sheet } from "@/components/ui/Sheet";
+import { SpaceBackground } from "@/components/ui/SpaceBackground";
 import { ConnectionBanner } from "@/components/ui/ConnectionBanner";
 import {
   SubscriptionsScreen,
@@ -67,7 +68,7 @@ function Shell() {
 
   return (
     <div className="app">
-      <div className="space-bg" />
+      <SpaceBackground />
 
       <ConnectionBanner />
 

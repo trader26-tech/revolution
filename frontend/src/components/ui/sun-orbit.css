@@ -30,28 +30,20 @@
   border-color: rgba(179, 160, 255, 0.28);
 }
 
-/* ---- a spinning square whose top-centre carries a planet ----------- */
-.sun-orbit__spin {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  transform-origin: center center;
-  pointer-events: none;
-}
-
-/* the planet button pinned to the top edge of its spinning square */
+/* ---- ash planet ---------------------------------------------------
+   Anchored at the exact centre of the orbit; framer-motion's x/y move it
+   onto its ring each frame. marginLeft/Top (set inline, = -d/2) centre the
+   planet on the computed point. */
 .sun-orbit__planet {
   position: absolute;
   left: 50%;
-  top: 0;
-  transform: translate(-50%, -50%);
-  transform-origin: center center;
+  top: 50%;
   padding: 0;
   border-radius: 50%;
   pointer-events: auto;
   filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.55));
   transition: filter 0.16s var(--ease);
+  z-index: 2;
 }
 .sun-orbit__planet:active {
   filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.6)) brightness(1.12);

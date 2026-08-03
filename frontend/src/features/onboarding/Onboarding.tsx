@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { CatalogItem, Subscription } from "@/lib/types";
 import { ONBOARDING_PICKS } from "./data";
+import { SpaceBackground } from "@/components/ui/SpaceBackground";
 import { WelcomeStep } from "./steps/WelcomeStep";
 import { StatStep } from "./steps/StatStep";
 import { PickStep } from "./steps/PickStep";
@@ -44,7 +45,7 @@ export function Onboarding({ currency, onFinish }: Props) {
 
   return (
     <div className="ob">
-      <div className="space-bg" />
+      <SpaceBackground />
 
       {/* progress rail */}
       <div className="ob__rail" aria-hidden>

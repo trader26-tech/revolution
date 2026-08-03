@@ -1,5 +1,9 @@
 export type Cycle = "weekly" | "monthly" | "yearly";
 export type ListName = "Personal" | "Family" | "Business";
+
+/** Direction of money. Drives the colour of the light falling on a planet:
+ *  income catches a soft green highlight, expense a soft red one. */
+export type Flow = "income" | "expense";
 export type Category =
   | "Streaming"
   | "Music"
@@ -10,7 +14,13 @@ export type Category =
   | "News"
   | "AI"
   | "Utilities"
-  | "Other";
+  | "Other"
+  // income-side categories
+  | "Salary"
+  | "Freelance"
+  | "Dividends"
+  | "Rental"
+  | "Refunds";
 
 export interface Subscription {
   id: string;
@@ -24,6 +34,8 @@ export interface Subscription {
   cycle: Cycle;
   category: Category;
   list: ListName;
+  /** Money in or money out. Defaults to "expense" for legacy records. */
+  flow?: Flow;
   paymentMethod: string;
   /** ISO date the plan first billed / next anchor */
   anchorDate: string;
@@ -40,4 +52,5 @@ export interface CatalogItem {
   mark: string;
   category: Category;
   amount: number;
+  flow?: Flow;
 }

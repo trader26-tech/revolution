@@ -15,6 +15,9 @@ create table if not exists public.subscriptions (
   category       text        not null default 'Other',
   "list"         text        not null default 'Personal'
                    check ("list" in ('Personal', 'Family', 'Business')),
+  -- Direction of money. Drives income vs expense throughout the app.
+  flow           text        not null default 'expense'
+                   check (flow in ('income', 'expense')),
   payment_method text        not null default '',
   anchor_date    date        not null,
   is_trial       boolean     not null default false,

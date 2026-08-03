@@ -1,50 +1,90 @@
 .orbit-hero {
   position: relative;
-  display: grid;
-  place-items: center;
   margin: 0 auto;
+  isolation: isolate;
 }
 
+/* ---------- star field ---------- */
+.orbit-hero__stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mask-image: radial-gradient(circle, #000 55%, transparent 78%);
+  -webkit-mask-image: radial-gradient(circle, #000 55%, transparent 78%);
+}
+
+.orbit-hero__star {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  animation: star-twinkle linear infinite;
+  will-change: opacity, transform;
+}
+
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.7); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+
+/* ---------- ambient glow ---------- */
 .orbit-hero__glow {
   position: absolute;
-  inset: 12%;
+  inset: 14%;
   border-radius: 50%;
   background: radial-gradient(
     circle,
     rgba(138, 28, 255, 0.5) 0%,
-    rgba(138, 28, 255, 0.12) 40%,
-    transparent 70%
+    rgba(138, 28, 255, 0.12) 42%,
+    transparent 72%
   );
-  filter: blur(18px);
-  animation: orbit-breathe 6s ease-in-out infinite;
+  filter: blur(20px);
+  animation: orbit-breathe 6.5s ease-in-out infinite;
+}
+
+.orbit-hero__glow.is-income {
+  background: radial-gradient(
+    circle,
+    rgba(47, 224, 138, 0.42) 0%,
+    rgba(47, 224, 138, 0.1) 42%,
+    transparent 72%
+  );
+}
+
+.orbit-hero__glow.is-expense {
+  background: radial-gradient(
+    circle,
+    rgba(255, 77, 109, 0.4) 0%,
+    rgba(255, 77, 109, 0.1) 42%,
+    transparent 72%
+  );
 }
 
 @keyframes orbit-breathe {
-  0%, 100% { opacity: 0.7; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.08); }
+  0%, 100% { opacity: 0.72; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.07); }
 }
 
-/* static dashed guide rings, centered via translate on a zero-size anchor */
+/* ---------- orbit guides (tilted ellipses) ---------- */
 .orbit-hero__guide {
   position: absolute;
   top: 50%;
   left: 50%;
-  margin-top: 0;
   border-radius: 50%;
-  transform: translate(-50%, -50%);
-  border: 1px dashed rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 0 40px rgba(138, 28, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow:
+    inset 0 0 30px rgba(138, 28, 255, 0.14),
+    0 0 24px rgba(138, 28, 255, 0.06);
+  pointer-events: none;
 }
 
-/* rotating layer fills the whole hero; its center == hero center,
-   so rotating it spins chips around the middle. */
+/* ---------- rotating rings ---------- */
 .orbit-hero__ring {
   position: absolute;
   inset: 0;
   transform-origin: center center;
+  pointer-events: none;
 }
 
-/* a slot sits at the ring center, then pushes its chip outward by radius */
 .orbit-hero__slot {
   position: absolute;
   top: 50%;
@@ -54,28 +94,91 @@
   transform-origin: center;
 }
 
+/* ---------- chips ----------
+   Anchored dead-centre; framer drives x/y around the ellipse from there. */
 .orbit-hero__chip {
   position: absolute;
-  top: -22px;
-  left: -22px;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  top: 50%;
+  left: 50%;
+  margin-top: calc(var(--chip, 40px) / -2);
+  margin-left: calc(var(--chip, 40px) / -2);
+  border-radius: 30%;
   display: grid;
   place-items: center;
   color: #fff;
   font-weight: 800;
-  font-size: 17px;
+  line-height: 1;
+  pointer-events: auto;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow:
-    0 6px 18px -6px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -8px 16px rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+    0 8px 20px -8px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.28);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  will-change: transform;
+  overflow: hidden;
+}
+
+.orbit-hero__chip::after {
+  /* glossy top-light on every chip */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.4),
+    rgba(255, 255, 255, 0.06) 42%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.orbit-hero__chip.is-income {
+  box-shadow:
+    0 8px 20px -8px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.28),
+    0 0 0 1.5px rgba(55, 224, 166, 0.75),
+    0 0 16px -2px rgba(55, 224, 166, 0.55);
+}
+
+.orbit-hero__chip.is-expense {
+  box-shadow:
+    0 8px 20px -8px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.28),
+    0 0 0 1.5px rgba(255, 92, 122, 0.6),
+    0 0 16px -3px rgba(255, 77, 109, 0.45);
+}
+
+.orbit-hero__chip:active {
+  transform: scale(0.88);
+}
+
+/* ---------- core ----------
+   The wrapper owns the centring so framer's `scale` on the inner element
+   can't clobber a translate. */
+.orbit-hero__core-anchor {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  pointer-events: none;
 }
 
 .orbit-hero__core {
-  position: relative;
-  z-index: 3;
   display: grid;
   place-items: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-hero__ring,
+  .orbit-hero__chip,
+  .orbit-hero__star,
+  .orbit-hero__glow {
+    animation: none !important;
+  }
 }

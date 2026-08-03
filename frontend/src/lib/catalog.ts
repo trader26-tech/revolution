@@ -33,6 +33,16 @@ export const CATALOG: CatalogItem[] = [
   { name: "GitHub Pro", color: "#24292f", mark: "⌘", category: "Productivity", amount: 4 },
 ];
 
+/** Recurring money coming *in*. Shown under the Income tab of the picker. */
+export const INCOME_CATALOG: CatalogItem[] = [
+  { name: "Salary", color: "#16a34a", mark: "₩", category: "Salary", amount: 4200, flow: "income" },
+  { name: "Freelance", color: "#0ea5e9", mark: "◆", category: "Freelance", amount: 800, flow: "income" },
+  { name: "Dividends", color: "#22c55e", mark: "▲", category: "Dividends", amount: 120, flow: "income" },
+  { name: "Rental income", color: "#14b8a6", mark: "⌂", category: "Rental", amount: 950, flow: "income" },
+  { name: "Refunds", color: "#84cc16", mark: "↺", category: "Refunds", amount: 40, flow: "income" },
+  { name: "Interest", color: "#10b981", mark: "%", category: "Dividends", amount: 25, flow: "income" },
+];
+
 export const CATEGORIES: { key: string; label: string; hue: string }[] = [
   { key: "Streaming", label: "Streaming", hue: "#ff2d78" },
   { key: "Music", label: "Music", hue: "#37e0a6" },
@@ -44,7 +54,18 @@ export const CATEGORIES: { key: string; label: string; hue: string }[] = [
   { key: "News", label: "News", hue: "#67e8f9" },
   { key: "Utilities", label: "Utilities", hue: "#94a3b8" },
   { key: "Other", label: "Other", hue: "#c4b5fd" },
+  { key: "Salary", label: "Salary", hue: "#16a34a" },
+  { key: "Freelance", label: "Freelance", hue: "#0ea5e9" },
+  { key: "Dividends", label: "Dividends", hue: "#22c55e" },
+  { key: "Rental", label: "Rental", hue: "#14b8a6" },
+  { key: "Refunds", label: "Refunds", hue: "#84cc16" },
 ];
+
+/** Light colours cast onto a planet by flow direction. */
+export const FLOW_LIGHT = {
+  income: { key: "#7cf7b0", warm: "#2fe08a", glow: "rgba(55,224,166,0.55)" },
+  expense: { key: "#ff9db0", warm: "#ff4d6d", glow: "rgba(255,77,109,0.5)" },
+} as const;
 
 export const CURRENCIES: Record<string, string> = {
   USD: "$",

@@ -25,6 +25,13 @@ class ListName(str, Enum):
     business = "Business"
 
 
+class Flow(str, Enum):
+    """Direction of money — drives the light colour on the planet."""
+
+    income = "income"
+    expense = "expense"
+
+
 class Category(str, Enum):
     streaming = "Streaming"
     music = "Music"
@@ -36,6 +43,12 @@ class Category(str, Enum):
     ai = "AI"
     utilities = "Utilities"
     other = "Other"
+    # income-side
+    salary = "Salary"
+    freelance = "Freelance"
+    dividends = "Dividends"
+    rental = "Rental"
+    refunds = "Refunds"
 
 
 class SubscriptionBase(BaseModel):
@@ -51,6 +64,7 @@ class SubscriptionBase(BaseModel):
     cycle: Cycle = Cycle.monthly
     category: Category = Category.other
     list: ListName = ListName.personal
+    flow: Flow = Flow.expense
     payment_method: str = Field("", max_length=80)
     anchor_date: date = Field(..., description="First / next billing anchor")
     is_trial: bool = False
@@ -77,6 +91,7 @@ class SubscriptionUpdate(BaseModel):
     cycle: Optional[Cycle] = None
     category: Optional[Category] = None
     list: Optional[ListName] = None
+    flow: Optional[Flow] = None
     payment_method: Optional[str] = Field(None, max_length=80)
     anchor_date: Optional[date] = None
     is_trial: Optional[bool] = None

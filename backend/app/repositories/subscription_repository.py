@@ -40,6 +40,24 @@ class SubscriptionRepository(Protocol):
     def delete(self, sub_id: str) -> bool: ...
 
 
+#: Columns added after the initial release. If the deployed Supabase table
+#: predates them, PostgREST rejects the whole write with PGRST204. We retry
+#: once without them so the app keeps working until the migration is applied
+#: (see the `flow` column note in backend/README.md).
+OPTIONAL_COLUMNS = ("flow",)
+
+
+def _missing_column(exc: Exception) -> Optional[str]:
+    """Return the optional column PostgREST complained about, if any."""
+    message = str(exc)
+    if "PGRST204" not in message and "schema cache" not in message:
+        return None
+    for column in OPTIONAL_COLUMNS:
+        if f"'{column}'" in message:
+            return column
+    return None
+
+
 class SupabaseSubscriptionRepository:
     """Persists subscriptions to a Supabase table."""
 
@@ -58,14 +76,31 @@ class SupabaseSubscriptionRepository:
     def create(self, data: SubscriptionCreate) -> dict:
         sub_id = data.id or _new_id()
         record = _serialize({**data.model_dump(exclude={"id"}), "id": sub_id})
-        res = self._client.table(TABLE).insert(record).execute()
+        try:
+            res = self._client.table(TABLE).insert(record).execute()
+        except Exception as exc:  # noqa: BLE001 - re-raised unless it's a known gap
+            column = _missing_column(exc)
+            if column is None:
+                raise
+            retry = {k: v for k, v in record.items() if k != column}
+            res = self._client.table(TABLE).insert(retry).execute()
+            return {**(res.data or [retry])[0], column: record.get(column)}
         return (res.data or [record])[0]
 
     def update(self, sub_id: str, patch: SubscriptionUpdate) -> Optional[dict]:
         changes = _serialize(patch.model_dump(exclude_unset=True))
         if not changes:
             return self.get(sub_id)
-        res = self._client.table(TABLE).update(changes).eq("id", sub_id).execute()
+        try:
+            res = self._client.table(TABLE).update(changes).eq("id", sub_id).execute()
+        except Exception as exc:  # noqa: BLE001 - re-raised unless it's a known gap
+            column = _missing_column(exc)
+            if column is None:
+                raise
+            retry = {k: v for k, v in changes.items() if k != column}
+            if not retry:
+                return self.get(sub_id)
+            res = self._client.table(TABLE).update(retry).eq("id", sub_id).execute()
         rows = res.data or []
         return rows[0] if rows else None
 

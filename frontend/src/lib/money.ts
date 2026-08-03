@@ -34,6 +34,29 @@ export function totalMonthly(subs: Subscription[]) {
   return subs.reduce((s, x) => s + monthly(x.amount, x.cycle), 0);
 }
 
+/** Records default to "expense" when the field is absent (legacy rows). */
+export function isIncome(sub: Subscription) {
+  return sub.flow === "income";
+}
+
+export function splitByFlow(subs: Subscription[]) {
+  const income = subs.filter(isIncome);
+  const expense = subs.filter((s) => !isIncome(s));
+  return { income, expense };
+}
+
+/** Monthly income, spend and the net difference for a set of records. */
+export function flowTotals(subs: Subscription[]) {
+  const { income, expense } = splitByFlow(subs);
+  const incomeTotal = totalMonthly(income);
+  const expenseTotal = totalMonthly(expense);
+  return {
+    income: incomeTotal,
+    expense: expenseTotal,
+    net: incomeTotal - expenseTotal,
+  };
+}
+
 export function cycleLabel(cycle: Cycle) {
   return cycle === "weekly" ? "wk" : cycle === "yearly" ? "yr" : "mo";
 }

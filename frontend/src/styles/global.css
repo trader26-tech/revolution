@@ -30,6 +30,16 @@
   --warn: #ffb020;
   --danger: #ff4d6d;
 
+  /* Money direction — income catches green light, expense red */
+  --income: #2fe08a;
+  --income-hi: #7cf7b0;
+  --income-dim: rgba(47, 224, 138, 0.14);
+  --income-line: rgba(47, 224, 138, 0.32);
+  --expense: #ff4d6d;
+  --expense-hi: #ff9db0;
+  --expense-dim: rgba(255, 77, 109, 0.13);
+  --expense-line: rgba(255, 77, 109, 0.3);
+
   --radius-sm: 12px;
   --radius: 18px;
   --radius-lg: 26px;
@@ -38,10 +48,33 @@
   --font: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display",
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
+  /* ---- glass system ----------------------------------------------
+     A glass surface = translucent fill + blur + a bright top hairline
+     + a soft ambient drop. `.glass` applies the whole recipe.        */
+  --glass-fill: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.11),
+    rgba(255, 255, 255, 0.035) 44%,
+    rgba(255, 255, 255, 0.02)
+  );
+  --glass-fill-strong: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0.05) 46%,
+    rgba(255, 255, 255, 0.03)
+  );
+  --glass-blur: blur(22px) saturate(1.5);
+  --glass-edge: rgba(255, 255, 255, 0.14);
+  --glass-sheen: rgba(255, 255, 255, 0.55);
+
   --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.06) inset,
     0 22px 48px -24px rgba(0, 0, 0, 0.9);
+  --shadow-glass: 0 18px 44px -22px rgba(0, 0, 0, 0.85),
+    0 2px 10px -6px rgba(0, 0, 0, 0.6);
   --shadow-pop: 0 30px 80px -30px rgba(0, 0, 0, 0.95),
     0 0 0 1px var(--hairline);
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -110,9 +143,10 @@ p {
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(120% 80% at 78% -6%, rgba(138, 28, 255, 0.28), transparent 55%),
-    radial-gradient(90% 60% at 12% 4%, rgba(120, 40, 220, 0.18), transparent 55%),
-    radial-gradient(120% 90% at 50% 108%, rgba(255, 45, 120, 0.1), transparent 55%),
+    radial-gradient(120% 80% at 78% -6%, rgba(138, 28, 255, 0.3), transparent 55%),
+    radial-gradient(90% 60% at 12% 4%, rgba(120, 40, 220, 0.2), transparent 55%),
+    radial-gradient(70% 50% at 92% 42%, rgba(56, 189, 248, 0.07), transparent 60%),
+    radial-gradient(120% 90% at 50% 108%, rgba(255, 45, 120, 0.12), transparent 55%),
     linear-gradient(180deg, var(--bg-1), var(--bg-0) 60%);
 }
 
@@ -131,6 +165,50 @@ p {
     radial-gradient(1px 1px at 30% 12%, rgba(255, 255, 255, 0.5), transparent);
   opacity: 0.5;
   mask-image: linear-gradient(180deg, #000 0%, #000 55%, transparent 92%);
+}
+
+/* ---------- glass ----------------------------------------------------
+   `.glass` is the base recipe used across cards, sheets, bars and rows:
+   translucent fill + backdrop blur + bright top edge + ambient shadow. */
+.glass {
+  position: relative;
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-glass);
+}
+
+/* the specular hairline along the top edge sells the material */
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--glass-sheen) 22%,
+    var(--glass-sheen) 78%,
+    transparent
+  );
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.glass--strong {
+  background: var(--glass-fill-strong);
+}
+
+/* interactive glass: lifts slightly on press */
+.glass--tap {
+  transition: transform 0.16s var(--ease), background 0.16s var(--ease);
+}
+.glass--tap:active {
+  transform: scale(0.985);
+  background: var(--glass-fill-strong);
 }
 
 /* utility */
@@ -153,6 +231,10 @@ p {
   font-weight: 600;
   color: var(--text-1);
 }
+
+/* money direction helpers */
+.amt-income { color: var(--income-hi); }
+.amt-expense { color: #fff; }
 
 .tabnum {
   font-variant-numeric: tabular-nums;

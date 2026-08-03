@@ -12,6 +12,7 @@ interface ApiSubscription {
   cycle: Subscription["cycle"];
   category: Subscription["category"];
   list: Subscription["list"];
+  flow: Subscription["flow"];
   payment_method: string;
   anchor_date: string;
   is_trial: boolean;
@@ -30,6 +31,7 @@ function fromApi(r: ApiSubscription): Subscription {
     cycle: r.cycle,
     category: r.category,
     list: r.list,
+    flow: r.flow ?? "expense",
     paymentMethod: r.payment_method,
     anchorDate: r.anchor_date,
     isTrial: r.is_trial,
@@ -52,6 +54,7 @@ function toApi(s: Partial<Subscription>): Partial<ApiSubscription> {
   if (s.cycle !== undefined) out.cycle = s.cycle;
   if (s.category !== undefined) out.category = s.category;
   if (s.list !== undefined) out.list = s.list;
+  if (s.flow !== undefined) out.flow = s.flow;
   if (s.paymentMethod !== undefined) out.payment_method = s.paymentMethod;
   if (s.anchorDate !== undefined) out.anchor_date = s.anchorDate;
   if (s.isTrial !== undefined) out.is_trial = s.isTrial;

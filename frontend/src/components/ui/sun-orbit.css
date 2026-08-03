@@ -1,17 +1,18 @@
 /* ============================================================
-   SunOrbit — a warm sun with three cycle orbits and silver moons.
+   SunOrbit — a warm sun with subscriptions orbiting as silver moons.
 
-   PERFORMANCE CONTRACT
-   - Every animation here is a CSS `transform`/`opacity` animation:
-     they run on the compositor thread, so NO JavaScript executes per
-     frame and main-thread work (taps, scrolling, React) never janks
-     the orbit — and vice versa.
-   - The orbit trick: `.sun-orbit__orbiter` (a 0×0 point at the centre)
-     rotates; the moon sits offset by --r; `.sun-orbit__upright`
-     counter-rotates with the SAME duration + delay. Sharing one clock
-     keeps the moon perfectly upright forever — zero drift by
-     construction.
-   - Phase offsets are negative animation-delays: free.
+   PERFORMANCE + STABILITY CONTRACT
+   - EXACTLY two animations per ring: `.sun-orbit__spin` rotates the whole
+     group; `.sun-orbit__counter` counter-rotates on the SAME clock so the
+     moons stay upright while still orbiting. This holds for 5 moons or 5000
+     — the animation count depends on ring count, never moon count.
+   - Every animation is a `transform` → it runs on the compositor/GPU thread,
+     so no JavaScript executes per frame and the main thread stays free for
+     taps and scrolling.
+   - Each moon's angular position is STATIC (a transform, not an animation):
+     rotate(a) translateX(r) rotate(-a). Changing the filter just re-lays these
+     static children inside a still-running animation — so nothing ever drifts
+     or misaligns when switching All / Expenses / Income.
    ============================================================ */
 
 .sun-orbit {
@@ -19,47 +20,62 @@
   margin: 0 auto;
   display: grid;
   place-items: center;
+  /* promote to its own layer so orbit repaints never touch the page */
+  contain: layout paint;
 }
 
-/* ---- orbit guide rings -------------------------------------------- */
-.sun-orbit__ring {
+/* faint decorative guide ring per cycle band */
+.sun-orbit__guide {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  border: 1px solid rgba(168, 150, 240, 0.22);
+  border: 1px solid rgba(168, 150, 240, 0.16);
   pointer-events: none;
 }
 
-/* ---- the rotating carrier (one per moon) --------------------------- */
-.sun-orbit__orbiter {
+/* ---- the spinning group (one per ring) -----------------------------
+   Both layers are 0×0 points at the centre. `.sun-orbit__spin` rotates the
+   group; `.sun-orbit__counter` runs the SAME keyframes at the SAME duration
+   but in the OPPOSITE animation-direction, so it perfectly cancels the parent
+   and the moons (its children) stay upright while the group orbits.
+   `--rev` is "reverse" for right-spinning rings and "normal" for left, so the
+   pair always cancels regardless of the ring's travel direction. */
+.sun-orbit__spin,
+.sun-orbit__counter {
   position: absolute;
   left: 50%;
   top: 50%;
   width: 0;
   height: 0;
-  animation: so-spin var(--dur) linear infinite;
-  animation-delay: var(--ph);
+  will-change: transform;
+}
+.sun-orbit__spin {
+  animation: so-rot var(--dur) linear infinite;
+  animation-direction: var(--spin-dir);
+}
+.sun-orbit__counter {
+  animation: so-rot var(--dur) linear infinite;
+  animation-direction: var(--counter-dir);
 }
 
-@keyframes so-spin {
+@keyframes so-rot {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
-@keyframes so-spin-rev {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(-360deg); }
-}
 
-/* the moon itself, offset onto its ring */
+/* ---- a moon, pinned at a STATIC angle on its ring ------------------ */
 .sun-orbit__moon {
   position: absolute;
   left: 0;
   top: 0;
   padding: 0;
   border-radius: 50%;
-  transform: translate(-50%, -50%) translateX(var(--r));
+  /* rotate to the angle, step out to the radius, rotate back upright. All
+     static — the ring's animation carries the whole group around. */
+  transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--r))
+    rotate(calc(-1 * var(--a)));
   pointer-events: auto;
   cursor: default;
   z-index: 2;
@@ -68,38 +84,18 @@
   cursor: pointer;
 }
 
-/* counter-rotation on the same clock → the face never tilts */
-.sun-orbit__upright {
-  width: 100%;
-  height: 100%;
-  animation: so-spin-rev var(--dur) linear infinite;
-  animation-delay: var(--ph);
-}
-
-/* one-shot entrance: pop in, staggered via inline animation-delay */
-.sun-orbit__enter {
-  width: 100%;
-  height: 100%;
-  animation: so-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-@keyframes so-enter {
-  from { opacity: 0; transform: scale(0.2); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
 /* ---- flip mechanics (ash ⇄ logo) ---------------------------------- */
 .sun-orbit__flip {
   position: relative;
+  display: block;
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
-  /* the slow, smooth reveal — cascades via inline transition-delay */
-  transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sun-orbit__moon.is-revealed .sun-orbit__flip {
   transform: rotateY(180deg);
 }
-/* press feedback lives on the flip, which nothing else animates */
 .sun-orbit__moon.is-revealed:active .sun-orbit__flip {
   scale: 0.9;
 }
@@ -112,7 +108,6 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  /* depth against space — box-shadow composites; never a filter */
   box-shadow: 0 5px 10px rgba(0, 0, 0, 0.5);
 }
 .sun-orbit__face--logo {
@@ -145,12 +140,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sun-orbit__orbiter,
-  .sun-orbit__upright,
+  .sun-orbit__spin,
+  .sun-orbit__counter,
   .sun-orbit__sun-svg {
-    animation-duration: 600s; /* effectively still, but layout stays valid */
-  }
-  .sun-orbit__enter {
-    animation: none;
+    animation-duration: 1200s;
   }
 }

@@ -12,32 +12,39 @@ interface Props {
   onSelect?: (id: string) => void;
 }
 
-/** HARD CAP on rendered moons. The orbit is a visual, not a data table: it
- *  shows the biggest movers. Whether the user has 5 records or 5000, at most
- *  this many animated elements exist — the orbit's cost is CONSTANT. */
-const MAX_MOONS = 16;
-
-/** The three billing cycles, mapped to rings from the inside out:
- *  weekly (fastest, closest) → monthly → yearly (slowest, farthest). */
-const RINGS: { cycle: Cycle; rFactor: number; dur: number }[] = [
-  { cycle: "weekly", rFactor: 0.22, dur: 26 },
-  { cycle: "monthly", rFactor: 0.31, dur: 40 },
-  { cycle: "yearly", rFactor: 0.4, dur: 58 },
+/** The three billing cycles map to bands from the inside out: weekly (fastest,
+ *  closest) → monthly → yearly (slowest, farthest). Each band can split into
+ *  several concentric sub-rings when it holds too many moons to fit one ring
+ *  without overlapping. */
+const BANDS: { cycle: Cycle; rInner: number; rOuter: number; baseDur: number }[] = [
+  { cycle: "weekly", rInner: 0.19, rOuter: 0.26, baseDur: 26 },
+  { cycle: "monthly", rInner: 0.29, rOuter: 0.37, baseDur: 40 },
+  { cycle: "yearly", rInner: 0.4, rOuter: 0.48, baseDur: 58 },
 ];
 
-/** The home hero: a warm glowing sun ringed by three orbits — one per billing
- *  cycle — with subscriptions riding their ring as silver moons (income wears
- *  a translucent ring). Tapping the sun flips the moons to their brand logos.
+/** One concrete ring to render: a radius, a set of moons, and a spin duration
+ *  + direction. Alternating directions on stacked sub-rings reads as depth. */
+interface Ring {
+  key: string;
+  r: number; // px
+  dur: number; // seconds per lap
+  dir: 1 | -1;
+  items: Subscription[];
+}
+
+/** The home hero: a glowing sun with subscriptions orbiting as silver moons.
  *
- *  PERFORMANCE CONTRACT (the whole point of this component's design):
- *  - Zero JavaScript per animation frame. Every motion — orbiting, staying
- *    upright, the flip, the entrance, the sun pulse — is a CSS transform
- *    animation, which runs entirely on the compositor thread.
- *  - The orbit trick: each moon sits in a rotating 0×0 wrapper; an inner
- *    element counter-rotates with the SAME duration and delay, so both share
- *    one animation clock and the moon stays upright with zero drift.
- *  - Phase offset is a negative animation-delay — free.
- *  - At most MAX_MOONS moons render, ever. 1000 records cost what 16 cost. */
+ *  PERFORMANCE + STABILITY CONTRACT
+ *  - ALL subscriptions render — no cap.
+ *  - Exactly TWO CSS animations per ring (spin + counter-spin), regardless of
+ *    how many moons that ring carries. 1000 moons across a handful of rings is
+ *    a handful of compositor animations, not 1000. Everything is a `transform`,
+ *    so it runs on the GPU/compositor thread — zero JS per frame.
+ *  - Moons keep orbiting even while their logos are revealed: the counter-spin
+ *    ring cancels the spin so each logo stays upright *without* freezing.
+ *  - FILTER-STABLE: a moon's angle is a pure function of its index in its ring
+ *    (i / n). No animation-delay tricks, so changing the filter just re-lays
+ *    the static children of a still-running animation — nothing drifts. */
 export const SunOrbit = memo(function SunOrbit({
   subs,
   size = 300,
@@ -45,25 +52,7 @@ export const SunOrbit = memo(function SunOrbit({
 }: Props) {
   const [revealed, setRevealed] = useState(false);
 
-  // Pick the moons to show: the biggest amounts win (they're what the user
-  // cares about seeing), then group them by cycle for their rings.
-  const byCycle = useMemo(() => {
-    const shown =
-      subs.length <= MAX_MOONS
-        ? subs
-        : [...subs]
-            .sort((a, b) => monthly(b.amount, b.cycle) - monthly(a.amount, a.cycle))
-            .slice(0, MAX_MOONS);
-    const map: Record<Cycle, Subscription[]> = {
-      weekly: [],
-      monthly: [],
-      yearly: [],
-    };
-    for (const s of shown) map[s.cycle].push(s);
-    return map;
-  }, [subs]);
-
-  // Cost → size scale, computed once per data change (never per frame).
+  // Cost → size scale (computed once per data change, never per frame).
   const [minCost, maxCost] = useMemo(() => {
     if (!subs.length) return [0, 1];
     let lo = Infinity;
@@ -76,101 +65,141 @@ export const SunOrbit = memo(function SunOrbit({
     return [lo, hi];
   }, [subs]);
 
-  const costSize = (s: Subscription) => {
+  const moonSize = (s: Subscription) => {
     const floor = size * 0.05;
-    const ceil = size * 0.1;
+    const ceil = size * 0.092;
     const c = monthly(s.amount, s.cycle);
     const t = maxCost === minCost ? 0.5 : (c - minCost) / (maxCost - minCost);
     return floor + (ceil - floor) * t;
   };
 
+  // Build the concrete rings: group by cycle, then split each cycle's moons
+  // across concentric sub-rings so no ring is ever overcrowded.
+  const rings = useMemo<Ring[]>(() => {
+    const byCycle: Record<Cycle, Subscription[]> = {
+      weekly: [],
+      monthly: [],
+      yearly: [],
+    };
+    for (const s of subs) byCycle[s.cycle].push(s);
+
+    // a representative moon diameter for spacing maths (the floor size)
+    const moonD = size * 0.05;
+    const out: Ring[] = [];
+
+    for (const band of BANDS) {
+      const items = byCycle[band.cycle];
+      if (!items.length) continue;
+
+      // how many moons fit on the innermost ring of this band without touching?
+      const rInnerPx = band.rInner * size;
+      const perRing = Math.max(4, Math.floor((2 * Math.PI * rInnerPx) / (moonD * 1.5)));
+      const subRingCount = Math.ceil(items.length / perRing);
+
+      for (let k = 0; k < subRingCount; k++) {
+        // spread sub-rings evenly across the band's radial thickness
+        const f =
+          subRingCount === 1 ? 0 : k / (subRingCount - 1);
+        const r = (band.rInner + (band.rOuter - band.rInner) * f) * size;
+        // deal moons round-robin so each sub-ring gets a fair, even share
+        const ringItems = items.filter((_, idx) => idx % subRingCount === k);
+        out.push({
+          key: `${band.cycle}-${k}`,
+          r,
+          // outer sub-rings a touch slower; alternate direction for depth
+          dur: band.baseDur * (1 + k * 0.12),
+          dir: k % 2 === 0 ? 1 : -1,
+          items: ringItems,
+        });
+      }
+    }
+    return out;
+  }, [subs, size]);
+
   const hasSubs = subs.length > 0;
-  const EDGE_PAD = size * 0.01;
+  const EDGE_PAD = size * 0.008;
 
   return (
     <div className="sun-orbit" style={{ width: size, height: size }}>
-      {/* three orbit guide rings */}
-      {RINGS.map((ring) => (
+      {/* faint guide ring per band (purely decorative, one per cycle) */}
+      {BANDS.map((band) => (
         <div
-          key={ring.cycle}
-          className="sun-orbit__ring"
+          key={band.cycle}
+          className="sun-orbit__guide"
           style={{
-            width: ring.rFactor * 2 * size,
-            height: ring.rFactor * 2 * size,
+            width: band.rInner * 2 * size,
+            height: band.rInner * 2 * size,
           }}
           aria-hidden
         />
       ))}
 
-      {/* moons — pure CSS orbits, capped count */}
-      {RINGS.map((ring) => {
-        const items = byCycle[ring.cycle];
-        const r = ring.rFactor * size;
-        const n = items.length;
-        if (!n) return null;
+      {/* each ring is ONE spinning group. Two animations per ring total. */}
+      {rings.map((ring) => {
+        const n = ring.items.length;
+        const gap = (2 * Math.PI * ring.r) / n;
+        const maxByGap = gap * 0.66;
+        const maxByEdge = (size / 2 - ring.r - EDGE_PAD) * 2;
 
-        // no-overlap: cap diameter to the arc between evenly spaced moons
-        const gap = (2 * Math.PI * r) / n;
-        const maxByGap = gap * 0.62;
-        // never off-screen: the moon's edge stays inside the box
-        const maxByEdge = (size / 2 - r - EDGE_PAD) * 2;
+        // spin one way, counter-spin the exact opposite; both same duration
+        const spinDir = ring.dir === 1 ? "normal" : "reverse";
+        const counterDir = ring.dir === 1 ? "reverse" : "normal";
+        const spinVars = {
+          "--dur": `${ring.dur}s`,
+          "--spin-dir": spinDir,
+          "--counter-dir": counterDir,
+        } as CSSProperties;
 
-        return items.map((sub, i) => {
-          const d = Math.max(
-            size * 0.036,
-            Math.min(costSize(sub), maxByGap, maxByEdge)
-          );
-          const phase = i / n;
-          const vars = {
-            "--dur": `${ring.dur}s`,
-            // negative delay starts the shared clock mid-cycle = phase offset
-            "--ph": `${(-phase * ring.dur).toFixed(3)}s`,
-            "--r": `${r}px`,
-          } as CSSProperties;
-          return (
-            <div key={sub.id} className="sun-orbit__orbiter" style={vars} aria-hidden={!revealed}>
-              <button
-                className={"sun-orbit__moon" + (revealed ? " is-revealed" : "")}
-                style={{ width: d, height: d }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (revealed) onSelect?.(sub.id);
-                }}
-                tabIndex={revealed ? 0 : -1}
-                title={revealed ? sub.name : undefined}
-                aria-label={revealed ? `Open ${sub.name}` : undefined}
-              >
-                {/* counter-rotates on the same clock → always upright */}
-                <div className="sun-orbit__upright">
-                  {/* one-shot entrance, staggered */}
-                  <div
-                    className="sun-orbit__enter"
-                    style={{ animationDelay: `${i * 0.05}s` }}
+        return (
+          <div key={ring.key} className="sun-orbit__spin" style={spinVars}>
+            {/* counter-spins on the SAME clock → children stay upright while
+                the group keeps orbiting */}
+            <div className="sun-orbit__counter" style={spinVars}>
+              {ring.items.map((sub, i) => {
+                const d = Math.min(moonSize(sub), maxByGap, maxByEdge);
+                const angle = (i / n) * 360; // STATIC — filter-stable
+                const moonVars = {
+                  "--a": `${angle}deg`,
+                  "--r": `${ring.r}px`,
+                } as CSSProperties;
+                return (
+                  <button
+                    key={sub.id}
+                    className={"sun-orbit__moon" + (revealed ? " is-revealed" : "")}
+                    style={{ ...moonVars, width: d, height: d } as CSSProperties}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (revealed) onSelect?.(sub.id);
+                    }}
+                    tabIndex={revealed ? 0 : -1}
+                    title={revealed ? sub.name : undefined}
+                    aria-label={revealed ? `Open ${sub.name}` : undefined}
                   >
-                    <div
-                      className="sun-orbit__flip"
-                      style={{ transitionDelay: `${i * 0.06}s` }}
-                    >
-                      <div className="sun-orbit__face sun-orbit__face--ash">
+                    <span className="sun-orbit__flip">
+                      <span className="sun-orbit__face sun-orbit__face--ash">
                         <Moon d={d} income={sub.flow === "income"} />
-                      </div>
-                      <div className="sun-orbit__face sun-orbit__face--logo">
-                        <BrandLogo
-                          name={sub.name}
-                          brandSlug={sub.brandSlug}
-                          mark={sub.mark}
-                          fallbackColor={sub.color}
-                          size={d}
-                          radius={d / 2}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </button>
+                      </span>
+                      {/* logo only mounts once revealed — keeps un-revealed
+                          orbit as light as possible at high moon counts */}
+                      {revealed && (
+                        <span className="sun-orbit__face sun-orbit__face--logo">
+                          <BrandLogo
+                            name={sub.name}
+                            brandSlug={sub.brandSlug}
+                            mark={sub.mark}
+                            fallbackColor={sub.color}
+                            size={d}
+                            radius={d / 2}
+                          />
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          );
-        });
+          </div>
+        );
       })}
 
       {/* the sun — tap to reveal / hide what each moon is */}
@@ -237,27 +266,28 @@ function Moon({ d, income }: { d: number; income: boolean }) {
           <stop offset="80%" stopColor="#8f93a4" />
           <stop offset="100%" stopColor="#565a6d" />
         </radialGradient>
-        <radialGradient
-          id={id + "-band"}
-          cx="50"
-          cy="50"
-          r="68"
-          fx="50"
-          fy="50"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="#c9cede" stopOpacity="0" />
-          <stop offset="80%" stopColor="#c9cede" stopOpacity="0" />
-          <stop offset="85%" stopColor="#d7dbec" stopOpacity="0.16" />
-          <stop offset="91%" stopColor="#ffffff" stopOpacity="0.34" />
-          <stop offset="97%" stopColor="#d7dbec" stopOpacity="0.16" />
-          <stop offset="100%" stopColor="#8f93a4" stopOpacity="0" />
-        </radialGradient>
+        {income && (
+          <radialGradient
+            id={id + "-band"}
+            cx="50"
+            cy="50"
+            r="68"
+            fx="50"
+            fy="50"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop offset="0%" stopColor="#c9cede" stopOpacity="0" />
+            <stop offset="80%" stopColor="#c9cede" stopOpacity="0" />
+            <stop offset="85%" stopColor="#d7dbec" stopOpacity="0.16" />
+            <stop offset="91%" stopColor="#ffffff" stopOpacity="0.34" />
+            <stop offset="97%" stopColor="#d7dbec" stopOpacity="0.16" />
+            <stop offset="100%" stopColor="#8f93a4" stopOpacity="0" />
+          </radialGradient>
+        )}
       </defs>
 
       {income && (
         <>
-          <circle cx="50" cy="50" r="62" fill="none" stroke="#eef1fb" strokeWidth="13" opacity="0.06" />
           <circle cx="50" cy="50" r="62" fill="none" stroke="#dfe3f2" strokeWidth="11" opacity="0.07" />
           <circle cx="50" cy="50" r="62" fill="none" stroke={`url(#${id}-band)`} strokeWidth="11" />
           <circle cx="50" cy="50" r="62" fill="none" stroke="#ffffff" strokeWidth="1.2" opacity="0.22" />

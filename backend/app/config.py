@@ -8,7 +8,8 @@ class Settings(BaseSettings):
 
     supabase_url: str = ""
     supabase_key: str = ""
-    cors_origins: str = "http://localhost:4200"
+    # Vite dev server (5173) + preview (4173). Comma-separated for prod.
+    cors_origins: str = "http://localhost:5173,http://localhost:4173"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

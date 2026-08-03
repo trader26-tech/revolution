@@ -11,11 +11,10 @@ venv/
 .env.local
 *.local
 
-# Node / Angular
+# Node / Vite
 node_modules/
 frontend/dist/
-frontend/.angular/
-frontend/out-tsc/
+frontend/dev-dist/
 
 # Editor / OS
 .DS_Store

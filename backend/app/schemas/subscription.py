@@ -59,6 +59,9 @@ class SubscriptionBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     color: str = Field("#8a1cff", description="Tile hex color")
     mark: str = Field("○", max_length=4, description="1–2 char logo glyph")
+    brand_slug: Optional[str] = Field(
+        None, max_length=64, description="simple-icons slug for the brand logo"
+    )
     amount: float = Field(..., ge=0)
     currency: str = Field("USD", min_length=3, max_length=3)
     cycle: Cycle = Cycle.monthly
@@ -86,6 +89,7 @@ class SubscriptionUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=120)
     color: Optional[str] = None
     mark: Optional[str] = Field(None, max_length=4)
+    brand_slug: Optional[str] = Field(None, max_length=64)
     amount: Optional[float] = Field(None, ge=0)
     currency: Optional[str] = Field(None, min_length=3, max_length=3)
     cycle: Optional[Cycle] = None

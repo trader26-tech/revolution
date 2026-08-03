@@ -7,6 +7,7 @@ interface ApiSubscription {
   name: string;
   color: string;
   mark: string;
+  brand_slug: string | null;
   amount: number;
   currency: string;
   cycle: Subscription["cycle"];
@@ -26,6 +27,7 @@ function fromApi(r: ApiSubscription): Subscription {
     name: r.name,
     color: r.color,
     mark: r.mark,
+    brandSlug: r.brand_slug ?? undefined,
     amount: r.amount,
     currency: r.currency,
     cycle: r.cycle,
@@ -49,6 +51,7 @@ function toApi(s: Partial<Subscription>): Partial<ApiSubscription> {
   if (s.name !== undefined) out.name = s.name;
   if (s.color !== undefined) out.color = s.color;
   if (s.mark !== undefined) out.mark = s.mark;
+  if (s.brandSlug !== undefined) out.brand_slug = s.brandSlug ?? null;
   if (s.amount !== undefined) out.amount = s.amount;
   if (s.currency !== undefined) out.currency = s.currency;
   if (s.cycle !== undefined) out.cycle = s.cycle;

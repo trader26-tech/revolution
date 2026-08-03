@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useStore } from "@/data/store";
-import { CATALOG, INCOME_CATALOG, PAYMENT_METHODS } from "@/lib/catalog";
+import { INCOME_CATALOG, PAYMENT_METHODS } from "@/lib/catalog";
+import { searchBrands, matchBrand } from "@/lib/brands";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import type {
   Category,
   CatalogItem,
@@ -56,11 +58,23 @@ export function SubscriptionForm({
     }
   );
 
-  const results = useMemo(() => {
-    const source = flow === "income" ? INCOME_CATALOG : CATALOG;
-    const q = query.trim().toLowerCase();
-    const base = q ? source.filter((c) => c.name.toLowerCase().includes(q)) : source;
-    return base.slice(0, 24);
+  const results = useMemo<CatalogItem[]>(() => {
+    if (flow === "income") {
+      const q = query.trim().toLowerCase();
+      const base = q
+        ? INCOME_CATALOG.filter((c) => c.name.toLowerCase().includes(q))
+        : INCOME_CATALOG;
+      return base.slice(0, 24);
+    }
+    // Expenses: search the real-logo brand suite.
+    return searchBrands(query, 40).map((b) => ({
+      name: b.name,
+      color: b.hex,
+      mark: b.name.trim().charAt(0).toUpperCase(),
+      brandSlug: b.slug,
+      category: b.category as Category,
+      amount: 9.99,
+    }));
   }, [query, flow]);
 
   /** Switching sides in the picker also switches the record being built. */
@@ -79,6 +93,7 @@ export function SubscriptionForm({
       name: c.name,
       color: c.color,
       mark: c.mark,
+      brandSlug: c.brandSlug,
       amount: c.amount,
       category: c.category,
       flow: c.flow ?? flow,
@@ -87,12 +102,32 @@ export function SubscriptionForm({
   };
 
   const custom = () => {
+    const typed = query.trim() || (flow === "income" ? "New income" : "New subscription");
+    // Try to auto-match a real brand logo from whatever they typed.
+    const brand = flow === "expense" ? matchBrand(typed) : null;
     setForm((f) => ({
       ...f,
-      name: query || (flow === "income" ? "New income" : "New subscription"),
+      name: brand ? brand.name : typed,
       flow,
+      ...(brand
+        ? { brandSlug: brand.slug, color: brand.hex, mark: brand.name.charAt(0).toUpperCase() }
+        : { brandSlug: undefined }),
     }));
     setStep("form");
+  };
+
+  /** As the user edits the name in the form, keep trying to attach a logo. */
+  const onNameChange = (name: string) => {
+    const brand = form.flow === "expense" ? matchBrand(name) : null;
+    setForm((f) => ({
+      ...f,
+      name,
+      brandSlug: brand ? brand.slug : undefined,
+      // only adopt the brand colour if the user hasn't got a custom one that
+      // differs from the previous brand match
+      color: brand ? brand.hex : f.color,
+      mark: name.trim().charAt(0).toUpperCase() || f.mark,
+    }));
   };
 
   const save = () => {
@@ -141,20 +176,30 @@ export function SubscriptionForm({
         <div className="ae__grid">
           {results.map((c) => (
             <button
-              key={c.name}
+              key={c.brandSlug || c.name}
               className="ae__tile glass glass--tap"
               onClick={() => pick(c)}
             >
-              <span className="ae__tile-logo" style={{ background: c.color }}>
-                {c.mark}
-              </span>
+              <BrandLogo
+                name={c.name}
+                brandSlug={c.brandSlug}
+                mark={c.mark}
+                fallbackColor={c.color}
+                size={46}
+                radius={14}
+              />
               <span className="ae__tile-name">{c.name}</span>
             </button>
           ))}
+          {results.length === 0 && (
+            <div className="ae__noresult">No matches — add it manually below.</div>
+          )}
         </div>
 
         <button className="ae__custom" onClick={custom}>
-          + Add “{query || "custom"}” manually
+          {query.trim()
+            ? `+ Add “${query.trim()}”`
+            : `+ Add a custom ${flow === "income" ? "income" : "expense"}`}
         </button>
       </div>
     );
@@ -165,9 +210,14 @@ export function SubscriptionForm({
   return (
     <div className="ae">
       <div className={"ae__preview glass " + (isIncomeForm ? "is-income" : "is-expense")}>
-        <span className="ae__preview-logo" style={{ background: form.color }}>
-          {form.mark}
-        </span>
+        <BrandLogo
+          name={form.name || "?"}
+          brandSlug={form.brandSlug}
+          mark={form.mark}
+          fallbackColor={form.color}
+          size={52}
+          radius={15}
+        />
         <div>
           <div className="ae__preview-name">
             {form.name || (isIncomeForm ? "New income" : "New subscription")}
@@ -200,7 +250,7 @@ export function SubscriptionForm({
         <input
           className="in"
           value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          onChange={(e) => onNameChange(e.target.value)}
           placeholder={isIncomeForm ? "Income source" : "Subscription name"}
         />
       </Field>

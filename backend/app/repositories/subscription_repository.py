@@ -44,7 +44,7 @@ class SubscriptionRepository(Protocol):
 #: predates them, PostgREST rejects the whole write with PGRST204. We retry
 #: once without them so the app keeps working until the migration is applied
 #: (see the `flow` column note in backend/README.md).
-OPTIONAL_COLUMNS = ("flow",)
+OPTIONAL_COLUMNS = ("flow", "brand_slug")
 
 
 def _missing_column(exc: Exception) -> Optional[str]:

@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useStore } from "@/data/store";
-import { CATALOG, PAYMENT_METHODS } from "@/lib/catalog";
+import { CATALOG, INCOME_CATALOG, PAYMENT_METHODS } from "@/lib/catalog";
 import type {
   Category,
   CatalogItem,
   Cycle,
+  Flow,
   ListName,
   Subscription,
 } from "@/lib/types";
@@ -16,9 +17,12 @@ const CYCLES: { key: Cycle; label: string }[] = [
   { key: "yearly", label: "Yearly" },
 ];
 const LISTS: ListName[] = ["Personal", "Family", "Business"];
-const CATS: Category[] = [
+const EXPENSE_CATS: Category[] = [
   "Streaming", "Music", "Productivity", "Cloud", "AI",
   "Gaming", "Fitness", "News", "Utilities", "Other",
+];
+const INCOME_CATS: Category[] = [
+  "Salary", "Freelance", "Dividends", "Rental", "Refunds", "Other",
 ];
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -33,6 +37,8 @@ export function SubscriptionForm({
   const { add, update, remove, currency } = useStore();
   const [step, setStep] = useState<"pick" | "form">(editing ? "form" : "pick");
   const [query, setQuery] = useState("");
+  /** Which side of the ledger the picker is showing. */
+  const [flow, setFlow] = useState<Flow>(editing?.flow ?? "expense");
 
   const [form, setForm] = useState<Omit<Subscription, "id" | "createdAt">>(
     editing ?? {
@@ -44,16 +50,28 @@ export function SubscriptionForm({
       cycle: "monthly",
       category: "Other",
       list: "Personal",
+      flow: "expense",
       paymentMethod: PAYMENT_METHODS[0],
       anchorDate: todayISO(),
     }
   );
 
   const results = useMemo(() => {
+    const source = flow === "income" ? INCOME_CATALOG : CATALOG;
     const q = query.trim().toLowerCase();
-    const base = q ? CATALOG.filter((c) => c.name.toLowerCase().includes(q)) : CATALOG;
+    const base = q ? source.filter((c) => c.name.toLowerCase().includes(q)) : source;
     return base.slice(0, 24);
-  }, [query]);
+  }, [query, flow]);
+
+  /** Switching sides in the picker also switches the record being built. */
+  const switchFlow = (next: Flow) => {
+    setFlow(next);
+    setForm((f) => ({
+      ...f,
+      flow: next,
+      category: next === "income" ? "Salary" : "Other",
+    }));
+  };
 
   const pick = (c: CatalogItem) => {
     setForm((f) => ({
@@ -63,12 +81,17 @@ export function SubscriptionForm({
       mark: c.mark,
       amount: c.amount,
       category: c.category,
+      flow: c.flow ?? flow,
     }));
     setStep("form");
   };
 
   const custom = () => {
-    setForm((f) => ({ ...f, name: query || "New subscription" }));
+    setForm((f) => ({
+      ...f,
+      name: query || (flow === "income" ? "New income" : "New subscription"),
+      flow,
+    }));
     setStep("form");
   };
 
@@ -82,7 +105,23 @@ export function SubscriptionForm({
   if (step === "pick") {
     return (
       <div className="ae">
-        <div className="ae__search">
+        {/* which side of the ledger are we adding? */}
+        <div className="ae__flow glass">
+          <button
+            className={"ae__flow-btn" + (flow === "expense" ? " is-on is-expense" : "")}
+            onClick={() => switchFlow("expense")}
+          >
+            − Expense
+          </button>
+          <button
+            className={"ae__flow-btn" + (flow === "income" ? " is-on is-income" : "")}
+            onClick={() => switchFlow("income")}
+          >
+            + Income
+          </button>
+        </div>
+
+        <div className="ae__search glass">
           <svg viewBox="0 0 24 24" fill="none" className="ae__search-ic">
             <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
             <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -91,13 +130,21 @@ export function SubscriptionForm({
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search Netflix, Spotify, Figma…"
+            placeholder={
+              flow === "income"
+                ? "Search Salary, Freelance…"
+                : "Search Netflix, Spotify, Figma…"
+            }
           />
         </div>
 
         <div className="ae__grid">
           {results.map((c) => (
-            <button key={c.name} className="ae__tile" onClick={() => pick(c)}>
+            <button
+              key={c.name}
+              className="ae__tile glass glass--tap"
+              onClick={() => pick(c)}
+            >
               <span className="ae__tile-logo" style={{ background: c.color }}>
                 {c.mark}
               </span>
@@ -113,24 +160,48 @@ export function SubscriptionForm({
     );
   }
 
+  const isIncomeForm = form.flow === "income";
+
   return (
     <div className="ae">
-      <div className="ae__preview">
+      <div className={"ae__preview glass " + (isIncomeForm ? "is-income" : "is-expense")}>
         <span className="ae__preview-logo" style={{ background: form.color }}>
           {form.mark}
         </span>
         <div>
-          <div className="ae__preview-name">{form.name || "New subscription"}</div>
+          <div className="ae__preview-name">
+            {form.name || (isIncomeForm ? "New income" : "New subscription")}
+          </div>
           <div className="ae__preview-sub">{form.category} · {form.list}</div>
         </div>
+        <span className={"ae__preview-flow " + (isIncomeForm ? "is-income" : "is-expense")}>
+          {isIncomeForm ? "Income" : "Expense"}
+        </span>
       </div>
+
+      <Field label="Type">
+        <div className="ae__flow glass">
+          <button
+            className={"ae__flow-btn" + (!isIncomeForm ? " is-on is-expense" : "")}
+            onClick={() => switchFlow("expense")}
+          >
+            − Expense
+          </button>
+          <button
+            className={"ae__flow-btn" + (isIncomeForm ? " is-on is-income" : "")}
+            onClick={() => switchFlow("income")}
+          >
+            + Income
+          </button>
+        </div>
+      </Field>
 
       <Field label="Name">
         <input
           className="in"
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
-          placeholder="Subscription name"
+          placeholder={isIncomeForm ? "Income source" : "Subscription name"}
         />
       </Field>
 
@@ -166,7 +237,7 @@ export function SubscriptionForm({
         />
       </Field>
 
-      <Field label="Next payment">
+      <Field label={isIncomeForm ? "Next payout" : "Next payment"}>
         <input
           className="in"
           type="date"
@@ -185,7 +256,7 @@ export function SubscriptionForm({
 
       <Field label="Category">
         <div className="ae__cats no-scrollbar">
-          {CATS.map((c) => (
+          {(isIncomeForm ? INCOME_CATS : EXPENSE_CATS).map((c) => (
             <button
               key={c}
               className={"chip" + (form.category === c ? " is-on" : "")}
@@ -197,7 +268,7 @@ export function SubscriptionForm({
         </div>
       </Field>
 
-      <Field label="Payment method">
+      <Field label={isIncomeForm ? "Paid into" : "Payment method"}>
         <select
           className="in"
           value={form.paymentMethod}
@@ -209,20 +280,23 @@ export function SubscriptionForm({
         </select>
       </Field>
 
-      <label className="ae__trial">
-        <span>Free trial</span>
-        <input
-          type="checkbox"
-          checked={!!form.isTrial}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              isTrial: e.target.checked,
-              trialEnds: e.target.checked ? form.anchorDate : undefined,
-            })
-          }
-        />
-      </label>
+      {/* trials only apply to money going out */}
+      {!isIncomeForm && (
+        <label className="ae__trial glass">
+          <span>Free trial</span>
+          <input
+            type="checkbox"
+            checked={!!form.isTrial}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                isTrial: e.target.checked,
+                trialEnds: e.target.checked ? form.anchorDate : undefined,
+              })
+            }
+          />
+        </label>
+      )}
 
       <div className="ae__actions">
         {editing && (
@@ -236,7 +310,10 @@ export function SubscriptionForm({
             Delete
           </button>
         )}
-        <button className="btn btn--primary" onClick={save}>
+        <button
+          className={"btn " + (isIncomeForm ? "btn--income" : "btn--primary")}
+          onClick={save}
+        >
           {editing ? "Save changes" : "Add to orbit"}
         </button>
       </div>

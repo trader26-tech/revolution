@@ -4,6 +4,35 @@
   gap: 14px;
 }
 
+/* ---- income / expense switch ---- */
+.ae__flow {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+}
+.ae__flow-btn {
+  flex: 1;
+  padding: 11px 0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-2);
+  transition: all 0.18s var(--ease);
+}
+.ae__flow-btn.is-on.is-expense {
+  color: #fff;
+  background: linear-gradient(160deg, var(--expense-hi), var(--expense));
+  box-shadow: 0 8px 18px -10px rgba(255, 77, 109, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.ae__flow-btn.is-on.is-income {
+  color: #04301d;
+  background: linear-gradient(160deg, var(--income-hi), var(--income));
+  box-shadow: 0 8px 18px -10px rgba(47, 224, 138, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
 /* ---- picker ---- */
 .ae__search {
   display: flex;
@@ -11,8 +40,6 @@
   gap: 10px;
   padding: 12px 14px;
   border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
 }
 .ae__search-ic {
   width: 20px;
@@ -44,13 +71,9 @@
   gap: 7px;
   padding: 12px 4px;
   border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  transition: transform 0.14s ease, background 0.14s ease;
 }
 .ae__tile:active {
   transform: scale(0.94);
-  background: var(--surface-2);
 }
 .ae__tile-logo {
   width: 46px;
@@ -91,8 +114,34 @@
   gap: 13px;
   padding: 14px;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(138, 28, 255, 0.14), rgba(138, 28, 255, 0.04));
-  border: 1px solid rgba(138, 28, 255, 0.24);
+}
+.ae__preview.is-expense {
+  border-color: var(--expense-line);
+  background: linear-gradient(160deg, var(--expense-dim), rgba(255, 255, 255, 0.03));
+}
+.ae__preview.is-income {
+  border-color: var(--income-line);
+  background: linear-gradient(160deg, var(--income-dim), rgba(255, 255, 255, 0.03));
+}
+.ae__preview > div {
+  flex: 1;
+  min-width: 0;
+}
+.ae__preview-flow {
+  flex: none;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+.ae__preview-flow.is-income {
+  color: #04301d;
+  background: linear-gradient(160deg, var(--income-hi), var(--income));
+}
+.ae__preview-flow.is-expense {
+  color: #fff;
+  background: linear-gradient(160deg, var(--expense-hi), var(--expense));
 }
 .ae__preview-logo {
   width: 52px;
@@ -197,8 +246,6 @@ select.in {
   justify-content: space-between;
   padding: 13px 14px;
   border-radius: 14px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
   font-weight: 700;
   font-size: 15px;
 }
@@ -230,6 +277,12 @@ select.in {
   background: linear-gradient(160deg, var(--accent-hi), var(--accent));
   box-shadow: 0 12px 30px -12px var(--accent-glow),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.btn--income {
+  color: #04301d;
+  background: linear-gradient(160deg, var(--income-hi), var(--income));
+  box-shadow: 0 12px 30px -12px rgba(47, 224, 138, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .btn--ghost {
   flex: 0 0 auto;

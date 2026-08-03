@@ -121,7 +121,7 @@ export function OrbitHero({ subs, size = 300, flow, onSelect }: Props) {
           animate={{ scale: [1, 1.035, 1] }}
           transition={{ duration: 5.5, ease: "easeInOut", repeat: Infinity }}
         >
-          <Planet size={size * 0.3} glow flow={flow} />
+          <Planet size={size * 0.27} glow flow={flow} />
         </motion.div>
       </div>
     </div>

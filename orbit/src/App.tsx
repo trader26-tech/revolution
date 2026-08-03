@@ -1,122 +1,121 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { StoreProvider, useStore } from "./lib/store";
+import { TabBar } from "./components/TabBar";
+import type { Tab } from "./components/TabBar";
+import { Sheet } from "./components/Sheet";
+import { Home } from "./screens/Home";
+import { Calendar } from "./screens/Calendar";
+import { Insights } from "./screens/Insights";
+import { Settings } from "./screens/Settings";
+import { AddEdit } from "./screens/AddEdit";
+import { MagicImport } from "./screens/MagicImport";
+import { Detail } from "./screens/Detail";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
+type SheetKind = null | "add" | "magic" | "detail" | "edit";
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: string }>;
 }
 
-export default App
+function Shell() {
+  const store = useStore();
+  const [tab, setTab] = useState<Tab>("home");
+  const [sheet, setSheet] = useState<SheetKind>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const h = (e: Event) => {
+      e.preventDefault();
+      setInstallEvt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", h);
+    return () => window.removeEventListener("beforeinstallprompt", h);
+  }, []);
+
+  const install = async () => {
+    if (!installEvt) return;
+    await installEvt.prompt();
+    await installEvt.userChoice;
+    setInstallEvt(null);
+  };
+
+  const openDetail = (id: string) => {
+    setActiveId(id);
+    setSheet("detail");
+  };
+  const active = activeId ? store.get(activeId) : undefined;
+
+  const sheetTitle =
+    sheet === "add"
+      ? "Add subscription"
+      : sheet === "magic"
+      ? "Magic Import"
+      : sheet === "edit"
+      ? "Edit subscription"
+      : active?.name;
+
+  return (
+    <div className="app">
+      <div className="space-bg" />
+
+      <main className="app__main no-scrollbar">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {tab === "home" && <Home onOpen={openDetail} />}
+            {tab === "calendar" && <Calendar onOpen={openDetail} />}
+            {tab === "insights" && <Insights />}
+            {tab === "settings" && (
+              <Settings onInstall={install} canInstall={!!installEvt} />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      <TabBar
+        active={tab}
+        onChange={(t) => {
+          setTab(t);
+          setSheet(null);
+        }}
+        onAdd={() => setSheet("add")}
+      />
+
+      <Sheet open={sheet !== null} onClose={() => setSheet(null)} title={sheetTitle}>
+        {sheet === "add" && (
+          <div className="app__add-tabs">
+            <div className="app__add-switch">
+              <button className="is-on">Add manually</button>
+              <button onClick={() => setSheet("magic")}>✨ Magic Import</button>
+            </div>
+            <AddEdit onDone={() => setSheet(null)} />
+          </div>
+        )}
+        {sheet === "magic" && <MagicImport onDone={() => setSheet(null)} />}
+        {sheet === "detail" && active && (
+          <Detail sub={active} onEdit={() => setSheet("edit")} />
+        )}
+        {sheet === "edit" && active && (
+          <AddEdit editing={active} onDone={() => setSheet(null)} />
+        )}
+      </Sheet>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <StoreProvider>
+      <Shell />
+    </StoreProvider>
+  );
+}

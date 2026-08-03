@@ -19,7 +19,6 @@ ALLOWED_PATHS=(
   backend
   frontend
   orbit
-  scripts
   .claude
   AGENTS.md
   README.md

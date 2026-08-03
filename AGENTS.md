@@ -6,13 +6,13 @@ without stepping on each other, and so changes are committed automatically.
 ## 1. Auto-commit + push
 
 A Claude Code **Stop hook** ([.claude/settings.json](.claude/settings.json))
-runs [scripts/auto-commit.sh](scripts/auto-commit.sh) after each agent turn.
+runs [.claude/scripts/auto-commit.sh](.claude/scripts/auto-commit.sh) after
+each agent turn.
 It:
 
 - stages **only known project paths** (an allow-list in the script:
-  `backend/`, `frontend/`, `orbit/`, `scripts/`, `.claude/`, and the root
-  docs) so stray files never get swept in — add a path there to track a new
-  area,
+  `backend/`, `frontend/`, `orbit/`, `.claude/`, and the root docs) so stray
+  files never get swept in — add a path there to track a new area,
 - commits those changes on the **current branch**,
 - pushes that branch to `origin`,
 - does nothing on a clean tree or a detached HEAD,
@@ -24,21 +24,21 @@ directly onto `main` unless that is the checked-out branch.
 ## 2. Isolation: one worktree + branch per agent
 
 Each agent gets its own git worktree and branch via
-[scripts/agent-worktree.sh](scripts/agent-worktree.sh):
+[.claude/scripts/agent-worktree.sh](.claude/scripts/agent-worktree.sh):
 
 ```bash
 # create an isolated workspace for an agent
-scripts/agent-worktree.sh new alice          # branch agent/alice
-scripts/agent-worktree.sh new bob            # branch agent/bob
+.claude/scripts/agent-worktree.sh new alice          # branch agent/alice
+.claude/scripts/agent-worktree.sh new bob            # branch agent/bob
 
 # see all active worktrees
-scripts/agent-worktree.sh list
+.claude/scripts/agent-worktree.sh list
 
 # when an agent's work is ready, open a PR into main
-scripts/agent-worktree.sh pr alice "Add login flow"
+.claude/scripts/agent-worktree.sh pr alice "Add login flow"
 
 # tear down the worktree (branch is kept)
-scripts/agent-worktree.sh rm alice
+.claude/scripts/agent-worktree.sh rm alice
 ```
 
 Worktrees are created in `../revolution-worktrees/<agent>` — beside the main

@@ -1,8 +1,9 @@
+import type { ReactNode } from "react";
 import "./tabbar.css";
 
 export type Tab = "home" | "calendar" | "insights" | "settings";
 
-const TABS: { key: Tab; label: string; icon: JSX.Element }[] = [
+const TABS: { key: Tab; label: string; icon: ReactNode }[] = [
   {
     key: "home",
     label: "Subs",
@@ -85,7 +86,7 @@ function TabButton({
   active,
   onClick,
 }: {
-  tab: { key: Tab; label: string; icon: JSX.Element };
+  tab: { key: Tab; label: string; icon: ReactNode };
   active: boolean;
   onClick: () => void;
 }) {

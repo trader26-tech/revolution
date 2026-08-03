@@ -18,7 +18,13 @@ import "./subscriptions.css";
 const LISTS: (ListName | "All")[] = ["All", "Personal", "Family", "Business"];
 type FlowFilter = "all" | "expense" | "income";
 
-export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }) {
+export function SubscriptionsScreen({
+  onOpen,
+  onAdd,
+}: {
+  onOpen: (id: string) => void;
+  onAdd: () => void;
+}) {
   const { subs, currency } = useStore();
   const [list, setList] = useState<ListName | "All">("All");
   const [flowFilter, setFlowFilter] = useState<FlowFilter>("all");
@@ -61,6 +67,13 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
 
   return (
     <div className="home">
+      {/* floating add button, top-right corner (like the reference) */}
+      <button className="home__add" onClick={onAdd} aria-label="Add subscription">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden>
+          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+        </svg>
+      </button>
+
       <div className="home__orbit">
         <SunOrbit subs={filtered} size={orbitSize} onSelect={onOpen} />
       </div>

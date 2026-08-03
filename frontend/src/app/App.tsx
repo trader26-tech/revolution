@@ -80,7 +80,12 @@ function Shell() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
-            {tab === "home" && <SubscriptionsScreen onOpen={openDetail} />}
+            {tab === "home" && (
+              <SubscriptionsScreen
+                onOpen={openDetail}
+                onAdd={() => setSheet("add")}
+              />
+            )}
             {tab === "calendar" && <CalendarScreen onOpen={openDetail} />}
             {tab === "settings" && (
               <SettingsScreen onInstall={install} canInstall={!!installEvt} />

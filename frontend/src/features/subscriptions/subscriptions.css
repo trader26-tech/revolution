@@ -5,6 +5,30 @@
   margin: 0 auto;
 }
 
+/* floating add button — top-right corner */
+.home__add {
+  position: absolute;
+  top: calc(10px + var(--safe-top));
+  right: 18px;
+  z-index: 20;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--glass-fill-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-glass);
+  transition: transform 0.16s var(--ease), background 0.16s var(--ease);
+}
+.home__add:active {
+  transform: scale(0.92);
+  background: var(--surface-hi);
+}
+
 /* the orbit is the hero — it fills ~60% of the screen. No header above it, so
    it gets top breathing room from the safe area and a clear gap below.
    The orbit box can be wider than the phone; the outer guide rings bleed off

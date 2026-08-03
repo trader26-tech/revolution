@@ -125,8 +125,12 @@ html {
     radial-gradient(90% 60% at 12% 4%, rgba(120, 40, 220, 0.2), transparent 55%),
     radial-gradient(120% 90% at 50% 108%, rgba(255, 45, 120, 0.12), transparent 55%),
     linear-gradient(180deg, var(--bg-1), var(--bg-0) 60%);
-  background-attachment: fixed;
-  background-color: var(--bg-0);
+  /* NO background-attachment: fixed — iOS WebKit doesn't support it, and when
+     the canvas extends into the safe-area strips the fixed gradient drops out
+     there, leaving only the background-color. That colour is therefore the
+     last-resort tone for any strip we can't paint: deep purple (--bg-1), which
+     blends with the scene — never near-black, which read as dead black bars. */
+  background-color: var(--bg-1);
 }
 
 body {
@@ -179,15 +183,35 @@ p {
 
 /* ---------- glass ----------------------------------------------------
    `.glass` is the base recipe used across cards, sheets, bars and rows:
-   translucent fill + backdrop blur + bright top edge + ambient shadow. */
+   translucent fill + a bright top edge + ambient shadow.
+
+   PERFORMANCE — why `.glass` has NO backdrop-filter:
+   backdrop-filter is the most expensive property on mobile: every element that
+   has one must re-sample and re-blur everything painted behind it on EVERY
+   frame. `.glass` is applied to every list row, so scrolling a list of rows was
+   compounding that cost per row and is what made scrolling feel glitchy.
+   Because these surfaces sit on a dark, low-contrast starfield, a layered
+   translucent gradient is visually indistinguishable from a real blur — at a
+   fraction of the cost. True blur is reserved for `.glass--blur`, used only on
+   the handful of large, FIXED surfaces (tab bar, sheet) where it reads and
+   where nothing scrolls behind it. */
 .glass {
   position: relative;
-  background: var(--glass-fill);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  background:
+    var(--glass-fill),
+    /* a soft dark base so the surface still separates from the background
+       without needing to sample it */
+    linear-gradient(160deg, rgba(24, 14, 52, 0.62), rgba(12, 6, 30, 0.72));
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
   box-shadow: var(--shadow-glass);
+}
+
+/* Real backdrop blur — ONLY for large fixed chrome (tab bar, sheet). Never put
+   this on anything that repeats in a scrolling list. */
+.glass--blur {
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 /* the specular hairline along the top edge sells the material */

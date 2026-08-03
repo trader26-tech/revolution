@@ -1,10 +1,25 @@
 /* ============================================================
-   Deep-space backdrop with a twinkling, parallaxed starfield.
-   Fixed behind all content; pointer-events off.
+   Deep-space backdrop: 3 parallax star layers.
+
+   PERFORMANCE CONTRACT
+   - Exactly 3 elements (not ~110). Stars are painted into each layer's
+     background-image, so there is zero per-star DOM/layout/animation cost.
+   - Only `transform` and `opacity` are animated: both run on the compositor,
+     so frames never trigger style recalc, layout or paint.
+   - `will-change` is deliberately NOT used. A transform animation already gets
+     its own layer; adding will-change to many elements is what caused the GPU
+     layer thrash (~110 layers) that made the app feel glitchy.
    ============================================================ */
 .space {
   position: fixed;
-  inset: 0;
+  /* Overshoot the viewport on every side. When iOS runs the PWA truly
+     edge-to-edge, fixed elements are positioned inside the safe-area viewport —
+     inset:0 would stop at the notch/home-indicator lines and the strips beyond
+     them showed the bare (near-black) canvas. Bleeding 120px past every edge
+     guarantees the starfield paints under the status bar and home indicator on
+     every device/mode. It's fixed + pointer-events:none, so the overshoot has
+     zero scroll or interaction cost. */
+  inset: -120px;
   /* z-index 0 (not -2) so the stars paint ABOVE the body's fixed gradient
      background — otherwise the body gradient hides them. Still behind all app
      content, which sits in the normal flow / its own stacking contexts. */
@@ -14,66 +29,71 @@
   /* transparent: the deep-space GRADIENT is on <body> (edge-to-edge, behind
      the safe areas). This layer contributes only the twinkling stars. */
   background: transparent;
+  /* isolate this subtree so its animation can never invalidate app layout */
+  contain: strict;
 }
 
-/* each layer drifts at its own pace for parallax */
 .space__layer {
   position: absolute;
-  inset: 0;
-  will-change: transform;
+  /* oversized so the slow drift never reveals an empty edge */
+  inset: -12% -10% -24%;
+  background-repeat: repeat;
+  /* tiling means a small painted area covers the whole screen cheaply */
+  background-size: 420px 420px;
+  transform: translate3d(0, 0, 0);
 }
+
+/* Each depth drifts at its own pace (parallax) and breathes at its own rate.
+   Two animations on the SAME element, both compositor-only. */
 .space__layer--far {
-  animation: star-drift-far 150s linear infinite;
+  --dim: 0.34;
+  --bright: 0.7;
+  background-size: 420px 420px;
+  animation: star-drift-420 240s linear infinite,
+    star-breathe 9s ease-in-out infinite;
 }
 .space__layer--mid {
-  animation: star-drift-mid 100s linear infinite;
+  --dim: 0.5;
+  --bright: 0.95;
+  background-size: 340px 340px;
+  animation: star-drift-340 160s linear infinite,
+    star-breathe 7s ease-in-out infinite;
+  animation-delay: 0s, -2.5s;
 }
 .space__layer--near {
-  animation: star-drift-near 70s linear infinite;
+  --dim: 0.6;
+  --bright: 1;
+  background-size: 560px 560px;
+  animation: star-drift-560 110s linear infinite,
+    star-breathe 5s ease-in-out infinite;
+  animation-delay: 0s, -1.2s;
 }
 
-@keyframes star-drift-far {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-24px); }
+/* Each layer drifts exactly ONE of its own tiles, so the loop is seamless. */
+@keyframes star-drift-420 {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, -420px, 0); }
 }
-@keyframes star-drift-mid {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-40px); }
+@keyframes star-drift-340 {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, -340px, 0); }
 }
-@keyframes star-drift-near {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-64px); }
-}
-
-/* individual star: a soft radial dot that twinkles opacity + scale */
-.space__star {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle, #fff 0%, rgba(255, 255, 255, 0.85) 40%, transparent 72%);
-  opacity: var(--min, 0.2);
-  animation-name: twinkle;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-  will-change: opacity, transform;
+@keyframes star-drift-560 {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, -560px, 0); }
 }
 
-/* near stars get a crisp core + coloured glow so a few "pop" */
-.space__layer--near .space__star {
-  background: radial-gradient(circle, #ffffff 0%, #eae2ff 45%, transparent 74%);
-  box-shadow:
-    0 0 6px rgba(255, 255, 255, 0.75),
-    0 0 12px rgba(168, 85, 247, 0.45);
-}
-
-@keyframes twinkle {
-  0%, 100% { opacity: var(--min, 0.2); transform: scale(0.75); }
-  50%      { opacity: 1;               transform: scale(1.15); }
+/* The collective "twinkle": a gentle opacity pulse per layer. Because the three
+   layers pulse at different rates and offsets, the field shimmers organically
+   without animating a single star individually. */
+@keyframes star-breathe {
+  0%, 100% { opacity: var(--dim); }
+  50%      { opacity: var(--bright); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .space__layer,
-  .space__star {
+  .space__layer {
     animation: none !important;
+    opacity: var(--bright);
   }
-  .space__star { opacity: 0.65; }
 }

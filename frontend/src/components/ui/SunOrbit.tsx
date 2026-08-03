@@ -113,14 +113,15 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
             <motion.button
               key={sub.id}
               className={"sun-orbit__moon" + (revealed ? " is-revealed" : "")}
+              /* PERF: depth shadow lives in CSS as a box-shadow on the round
+                 face, never a `filter` — filters force a repaint every frame
+                 for every moon and disqualify cheap compositing. */
               style={
                 {
                   width: d,
                   height: d,
                   marginLeft: -d / 2,
                   marginTop: -d / 2,
-                  // no glow — only a soft dark drop for depth against space
-                  filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.5))",
                 } as CSSProperties
               }
               initial={{ opacity: 0, scale: 0.2 }}
@@ -166,8 +167,13 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
 }
 
 
-/** Evenly spaced keyframe samples across one lap (0 → 1). */
-const STEPS = 64;
+/** Evenly spaced keyframe samples across one lap (0 → 1).
+ *
+ *  PERF: framer interpolates every keyframe of every animated property on each
+ *  moon. At 64 steps × 2 props × ~30 moons that is ~3.9k keyframes to carry.
+ *  24 steps is a 15° chord — visually indistinguishable from a true circle at
+ *  these radii (sub-pixel deviation) while cutting the work by ~60%. */
+const STEPS = 24;
 const SAMPLES = Array.from({ length: STEPS + 1 }, (_, i) => i / STEPS);
 
 /** Angle in radians for a normalised position around the orbit. */
@@ -263,34 +269,81 @@ function Moon({ d, income }: { d: number; income: boolean }) {
           <stop offset="80%" stopColor="#8f93a4" />
           <stop offset="100%" stopColor="#565a6d" />
         </radialGradient>
-        <filter id={id + "-glow"} x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="2.4" />
-        </filter>
+        {/* across-the-band shading so the thick ring reads as a solid, lit metal
+            band (darker inner/outer edges, bright middle) instead of a flat line.
+            userSpaceOnUse + r=68 maps offsets to absolute radii: the band spans
+            ~56.5→67.5 (r 62 ± 5.5), so it's brightest at its centre (~62/68). */}
+        <radialGradient
+          id={id + "-band"}
+          cx="50"
+          cy="50"
+          r="68"
+          fx="50"
+          fy="50"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#c9cede" stopOpacity="0" />
+          <stop offset="80%" stopColor="#c9cede" stopOpacity="0" />
+          <stop offset="84%" stopColor="#c9cede" stopOpacity="0.9" />
+          <stop offset="91%" stopColor="#ffffff" stopOpacity="1" />
+          <stop offset="98%" stopColor="#c9cede" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#8f93a4" stopOpacity="0" />
+        </radialGradient>
       </defs>
 
-      {/* INCOME halo ring — a bigger, soft silver-white ring around the planet.
-          Expenses render none of this: a bare silver planet. */}
+      {/* INCOME halo ring — a THICK, real planetary ring band. Expenses render
+          none of this: a bare silver planet. */}
       {income && (
         <>
-          {/* soft outer glow */}
+          {/* Soft outer glow so the band feels lit against space.
+              PERF: this used to be an feGaussianBlur filter. SVG filters are
+              among the most expensive primitives to rasterise and this one was
+              instantiated per moon. Two stacked wide, low-opacity strokes give
+              the same soft falloff at this size for effectively zero cost. */}
           <circle
             cx="50"
             cy="50"
-            r="61"
-            fill="none"
-            stroke="#f2f4ff"
-            strokeWidth="6"
-            opacity="0.28"
-            filter={`url(#${id}-glow)`}
-          />
-          {/* crisp bright ring */}
-          <circle
-            cx="50"
-            cy="50"
-            r="61"
+            r="62"
             fill="none"
             stroke="#eef1fb"
-            strokeWidth="3"
+            strokeWidth="17"
+            opacity="0.1"
+          />
+          <circle
+            cx="50"
+            cy="50"
+            r="62"
+            fill="none"
+            stroke="#eef1fb"
+            strokeWidth="13"
+            opacity="0.16"
+          />
+          {/* the thick band itself — a wide stroke with edge shading */}
+          <circle
+            cx="50"
+            cy="50"
+            r="62"
+            fill="none"
+            stroke="#dfe3f2"
+            strokeWidth="11"
+            opacity="0.55"
+          />
+          <circle
+            cx="50"
+            cy="50"
+            r="62"
+            fill="none"
+            stroke={`url(#${id}-band)`}
+            strokeWidth="11"
+          />
+          {/* a crisp bright centre-line down the middle of the band */}
+          <circle
+            cx="50"
+            cy="50"
+            r="62"
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="2"
             opacity="0.9"
           />
         </>

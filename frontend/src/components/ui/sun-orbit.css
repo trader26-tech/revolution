@@ -37,16 +37,24 @@
   border-radius: 50%;
   pointer-events: auto;
   cursor: default;
-  filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.5));
-  transition: filter 0.16s var(--ease);
   z-index: 2;
+  /* PERF: no `filter` here. A drop-shadow filter on ~30 continuously moving
+     moons forces a full repaint of each every frame; a box-shadow composites
+     instead. NOTE: framer-motion owns this element's `transform` (it writes
+     x/y inline every frame), so press feedback must live on the inner face —
+     never here, or the two would fight. */
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.5);
 }
 /* only once revealed does a moon become an actionable button */
 .sun-orbit__moon.is-revealed {
   cursor: pointer;
 }
-.sun-orbit__moon.is-revealed:active {
-  filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.6)) brightness(1.14);
+/* press feedback on the inner face, which framer does not drive */
+.sun-orbit__moon.is-revealed:active .sun-orbit__flip {
+  transform: scale(0.9);
+}
+.sun-orbit__flip {
+  transition: transform 0.16s var(--ease);
 }
 
 /* ---- flip mechanics (ash ⇄ logo) ---- */

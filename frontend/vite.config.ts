@@ -36,7 +36,11 @@ export default defineConfig({
         description:
           "The subscription tracker that stops surprise charges. See every bill before you're charged.",
         theme_color: "#0b0320",
-        background_color: "#060010",
+        /* iOS paints the status-bar / home-indicator strips (and the launch
+           screen) with this when it runs the app in opaque standalone mode.
+           #060010 read as pitch-black bars; deep purple matches the app's top
+           tone so the system chrome blends into the scene. */
+        background_color: "#0b0320",
         display: "standalone",
         orientation: "portrait",
         scope: "/",

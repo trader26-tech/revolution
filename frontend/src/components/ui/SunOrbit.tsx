@@ -168,8 +168,7 @@ export const SunOrbit = memo(function SunOrbit({
       </button>
     </div>
   );
-}
-
+});
 
 /** Evenly spaced keyframe samples across one lap (0 → 1).
  *

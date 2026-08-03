@@ -65,8 +65,7 @@ export interface CategorySlice {
 }
 
 /** Aggregate a set of records into per-category monthly slices, biggest first.
- *  `pct` is each category's share of the set total. Shared by Insights and the
- *  home breakdown sheet so the numbers can never drift between the two. */
+ *  `pct` is each category's share of the set total. */
 export function byCategory(subs: Subscription[]): CategorySlice[] {
   const map = new Map<string, number>();
   for (const s of subs) {

@@ -5,42 +5,20 @@
   margin: 0 auto;
 }
 
-.home__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2px;
-}
-.home__hi {
-  font-size: 23px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-}
-.home__count {
-  color: var(--text-2);
-  font-size: 13.5px;
-  margin-top: 1px;
-}
-.home__avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  font-size: 15px;
-  background: linear-gradient(150deg, var(--accent-hi), var(--hot));
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow: 0 8px 20px -10px var(--accent-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-
-/* the sun-orbit hero gets its own breathing room so orbiting planets never
-   collide with the text below */
+/* the orbit is the hero — it fills ~60% of the screen. No header above it, so
+   it gets top breathing room from the safe area and a clear gap below.
+   The orbit box can be wider than the phone; the outer guide rings bleed off
+   the sides. We clip that horizontal overflow here so it never scrolls, while
+   letting the (centred) sun + planets show fully. */
 .home__orbit {
   display: grid;
   place-items: center;
-  margin: 2px 0 64px;
+  margin: 10px 0 36px;
+  /* cancel the .home side padding so the orbit uses the full screen width */
+  margin-left: -18px;
+  margin-right: -18px;
+  /* guard against any sub-pixel horizontal overflow from the large orbit */
+  overflow: hidden;
 }
 
 /* ---------- headline row (count + list · yearly spend) ----------
@@ -82,6 +60,8 @@
   color: transparent;
 }
 .home__hmoney {
+  display: inline-block;
+  transform-origin: right center;
   font-size: 34px;
   font-weight: 800;
   letter-spacing: -1.4px;
@@ -91,11 +71,14 @@
   background-clip: text;
   color: transparent;
   filter: drop-shadow(0 6px 24px rgba(138, 28, 255, 0.28));
+  /* the live-rolled number is tabular so digits don't jitter width */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 .home__hlabel {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 15px;
   font-weight: 600;
   color: var(--text-2);
@@ -109,10 +92,27 @@
   height: 15px;
   color: var(--text-3);
 }
-.home__hgo {
-  width: 15px;
-  height: 15px;
+
+/* the label crossfades between "Total yearly" / "Per month"; the swap wrapper
+   clips the incoming/outgoing text so they slide within a fixed slot */
+.home__hswap {
+  position: relative;
+  display: inline-grid;
+  overflow: hidden;
+}
+.home__hswap > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+.home__hsync {
+  width: 14px;
+  height: 14px;
   color: var(--accent-hi);
+  transition: transform 0.45s var(--ease), color 0.25s var(--ease);
+}
+.home__hsync.is-alt {
+  color: var(--good);
+  transform: rotate(180deg);
 }
 
 /* ---------- list scope picker ---------- */

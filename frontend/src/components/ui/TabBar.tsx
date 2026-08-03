@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import "./tabbar.css";
 
-export type Tab = "home" | "calendar" | "insights" | "settings";
+export type Tab = "home" | "calendar" | "settings";
 
 const TABS: { key: Tab; label: string; icon: ReactNode }[] = [
   {
@@ -22,15 +22,6 @@ const TABS: { key: Tab; label: string; icon: ReactNode }[] = [
         <rect x="3.5" y="5" width="17" height="15" rx="3.5" stroke="currentColor" strokeWidth="1.6" />
         <path d="M3.5 9.5H20.5" stroke="currentColor" strokeWidth="1.6" />
         <path d="M8 3.5V6.5M16 3.5V6.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    key: "insights",
-    label: "Insights",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none">
-        <path d="M5 19V10M12 19V5M19 19V13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     ),
   },

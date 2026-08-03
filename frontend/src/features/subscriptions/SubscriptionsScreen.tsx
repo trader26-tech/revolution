@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, animate } from "framer-motion";
 import { SunOrbit } from "@/components/ui/SunOrbit";
 import { useStore } from "@/data/store";
 import {
   fmt,
+  symbol,
   flowTotals,
   nextBilling,
   daysUntil,
@@ -12,7 +13,6 @@ import {
   isIncome,
 } from "@/lib/money";
 import type { ListName, Subscription } from "@/lib/types";
-import { BreakdownSheet } from "./BreakdownSheet";
 import "./subscriptions.css";
 
 const LISTS: (ListName | "All")[] = ["All", "Personal", "Family", "Business"];
@@ -22,12 +22,16 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
   const { subs, currency } = useStore();
   const [list, setList] = useState<ListName | "All">("All");
   const [flowFilter, setFlowFilter] = useState<FlowFilter>("all");
-  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [period, setPeriod] = useState<"yearly" | "monthly">("yearly");
   const [listPickerOpen, setListPickerOpen] = useState(false);
 
-  // Scoped by the active list only — the breakdown sheet and the headline
-  // figures both read from this, so the flow filter (which only narrows the
-  // "Up next" list) never changes the money totals the user tapped.
+  // The orbit is the hero: it fills ~60% of the viewport height, capped by
+  // width so it always fits the phone, and clamped to a sensible range.
+  const orbitSize = useOrbitSize();
+
+  // Scoped by the active list only — the headline figure reads from this, so
+  // the flow filter (which only narrows the "Up next" list) never changes the
+  // money total shown.
   const scoped = useMemo(
     () => (list === "All" ? subs : subs.filter((s) => s.list === list)),
     [subs, list]
@@ -41,7 +45,7 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
   }, [scoped, flowFilter]);
 
   const totals = useMemo(() => flowTotals(scoped), [scoped]);
-  const yearlySpend = totals.expense * 12;
+  const headlineAmount = period === "yearly" ? totals.expense * 12 : totals.expense;
 
   const upcoming = useMemo(
     () =>
@@ -57,23 +61,13 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
 
   return (
     <div className="home">
-      <header className="home__top">
-        <div>
-          <div className="home__hi">Your orbit</div>
-          <div className="home__count">
-            {filtered.length} {filtered.length === 1 ? "record" : "records"} tracked
-          </div>
-        </div>
-        <div className="home__avatar">R</div>
-      </header>
-
       <div className="home__orbit">
-        <SunOrbit subs={filtered} size={272} onSelect={onOpen} />
+        <SunOrbit subs={filtered} size={orbitSize} onSelect={onOpen} />
       </div>
 
-      {/* headline row — count + list scope on the left, yearly spend on the
-          right. Both halves are tappable: left opens the list picker, right
-          opens the money breakdown. */}
+      {/* headline row — count + list scope on the left, spend total on the
+          right. Left opens the list picker; the right figure taps to fluidly
+          toggle between the yearly and monthly amount. */}
       <motion.div
         className="home__headline"
         initial={{ opacity: 0, y: 8 }}
@@ -96,14 +90,35 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
 
         <button
           className="home__hcell home__hcell--right"
-          onClick={() => setBreakdownOpen(true)}
-          aria-label="See money breakdown"
+          onClick={() =>
+            setPeriod((p) => (p === "yearly" ? "monthly" : "yearly"))
+          }
+          aria-label={`Showing ${period} total — tap to switch`}
+          aria-live="polite"
         >
-          <span className="home__hmoney tabnum">{fmt(yearlySpend, currency)}</span>
+          <AnimatedMoney amount={headlineAmount} currency={currency} />
           <span className="home__hlabel home__hlabel--right">
-            Total yearly
-            <svg className="home__hgo" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <span className="home__hswap">
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={period}
+                  initial={{ y: 8, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -8, opacity: 0 }}
+                  transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {period === "yearly" ? "Total yearly" : "Per month"}
+                </motion.span>
+              </AnimatePresence>
+            </span>
+            <svg
+              className={"home__hsync" + (period === "monthly" ? " is-alt" : "")}
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden
+            >
+              <path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M20 4v4h-4M4 20v-4h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
         </button>
@@ -151,13 +166,6 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
         )}
       </AnimatePresence>
 
-      <BreakdownSheet
-        open={breakdownOpen}
-        onClose={() => setBreakdownOpen(false)}
-        subs={scoped}
-        currency={currency}
-        scopeLabel={list === "All" ? "All records" : list}
-      />
 
       {trialsEnding.length > 0 && (
         <div className="home__alert glass">
@@ -205,6 +213,69 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
         </div>
       </section>
     </div>
+  );
+}
+
+/**
+ * The headline money figure. When `amount` changes (the user taps to switch
+ * yearly ↔ monthly) the digits roll smoothly from the old value to the new one
+ * and the whole figure gives a subtle spring "pop" — so the number feels like
+ * it's morphing in place rather than being swapped out.
+ */
+function AnimatedMoney({
+  amount,
+  currency,
+}: {
+  amount: number;
+  currency: string;
+}) {
+  const textRef = useRef<HTMLSpanElement>(null);
+  const prev = useRef(amount);
+  const first = useRef(true);
+  const sym = symbol(currency);
+  const format = (v: number) =>
+    sym + Math.round(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+  useEffect(() => {
+    const node = textRef.current;
+    if (!node) return;
+
+    // don't animate on the very first render — just show the value
+    if (first.current) {
+      first.current = false;
+      prev.current = amount;
+      node.textContent = format(amount);
+      return;
+    }
+
+    const from = prev.current;
+    prev.current = amount;
+
+    // roll the digits from the previous figure to the new one
+    const rolled = animate(from, amount, {
+      duration: 0.55,
+      ease: [0.22, 1, 0.36, 1],
+      onUpdate: (v) => {
+        node.textContent = format(v);
+      },
+    });
+    // a quick spring "pop" on the whole figure to punctuate the switch
+    const popped = animate(
+      textRef.current!.parentElement!,
+      { scale: [0.92, 1] },
+      { type: "spring", stiffness: 520, damping: 20 }
+    );
+    return () => {
+      rolled.stop();
+      popped.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amount]);
+
+  return (
+    <span className="home__hmoney tabnum">
+      <span ref={textRef}>{format(amount)}</span>
+    </span>
   );
 }
 
@@ -257,4 +328,37 @@ function Row({
       </span>
     </motion.button>
   );
+}
+
+/** Sizes the orbit to ~60% of the viewport height, capped so it never exceeds
+ *  the phone width, and clamped to a comfortable range. Recomputes on resize
+ *  / orientation change. */
+function useOrbitSize(): number {
+  const compute = () => {
+    if (typeof window === "undefined") return 340;
+    const h = window.innerHeight;
+    const w = window.innerWidth;
+    // As large as possible while keeping BOTH the guide rings and the orbiting
+    // planets fully on-screen. The outermost planet sits at ~0.43·size and can
+    // be up to ~0.0625·size in radius, so it stays within a width w when
+    //   0.4925·size ≤ w/2  →  size ≤ w/0.985.
+    // We also cap by height so tall/narrow screens don't overshoot.
+    const byWidth = w / 0.985;
+    const target = Math.min(byWidth, h * 0.62);
+    return Math.round(Math.max(300, Math.min(500, target)));
+  };
+
+  const [size, setSize] = useState(compute);
+
+  useEffect(() => {
+    const onResize = () => setSize(compute());
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
+  }, []);
+
+  return size;
 }

@@ -12,7 +12,6 @@ import {
   SubscriptionForm,
 } from "@/features/subscriptions";
 import { CalendarScreen } from "@/features/calendar";
-import { InsightsScreen } from "@/features/insights";
 import { SettingsScreen } from "@/features/settings";
 import { MagicImportScreen } from "@/features/import";
 import { Onboarding } from "@/features/onboarding";
@@ -83,7 +82,6 @@ function Shell() {
           >
             {tab === "home" && <SubscriptionsScreen onOpen={openDetail} />}
             {tab === "calendar" && <CalendarScreen onOpen={openDetail} />}
-            {tab === "insights" && <InsightsScreen />}
             {tab === "settings" && (
               <SettingsScreen onInstall={install} canInstall={!!installEvt} />
             )}

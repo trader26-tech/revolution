@@ -5,6 +5,12 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Baked in at build time and shown on the Settings screen, so any device can
+  // prove which deploy it is actually running (ends the "is my change live?"
+  // guessing game — a stale PWA shows a stale stamp).
+  define: {
+    __BUILD_TS__: JSON.stringify(new Date().toISOString()),
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

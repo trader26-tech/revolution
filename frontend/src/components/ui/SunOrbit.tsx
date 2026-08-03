@@ -109,8 +109,6 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
             size * 0.036,
             Math.min(costSize(sub), maxByGap, maxByEdge)
           );
-          const t = costT(sub);
-          const heat = heatColor(t, sub.flow === "income");
           return (
             <motion.button
               key={sub.id}
@@ -148,13 +146,7 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
               title={revealed ? sub.name : undefined}
               aria-label={revealed ? `Open ${sub.name}` : undefined}
             >
-              <MoonBody
-                sub={sub}
-                d={d}
-                revealed={revealed}
-                index={i}
-                heat={heat}
-              />
+              <MoonBody sub={sub} d={d} revealed={revealed} index={i} />
             </motion.button>
           );
         });
@@ -173,47 +165,6 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
   );
 }
 
-/** The colour of the small sun-glint on an otherwise silver planet. */
-interface Heat {
-  key: string; // stable id fragment for gradient uniqueness
-  spot: string; // the flow-tinted sun-glint colour
-  spotHi: string; // its bright core
-}
-
-/** The sun-glint colour: green for income, red for expense. Cost intensity
- *  t∈[0,1] just deepens/brightens the glint a touch, so pricier planets catch a
- *  slightly stronger coloured light — but the planet body stays silver. */
-function heatColor(t: number, income: boolean): Heat {
-  // playful but saturated so the lit hemisphere reads clearly as coloured
-  const base = income ? "#2fd982" : "#ff4d68"; // green / red
-  const hi = income ? "#8bffc0" : "#ff9aa8"; // brighter, near the sun-facing edge
-  return {
-    key: (income ? "i" : "e") + Math.round(t * 10),
-    // pricier → a touch deeper coat; cheaper → a touch lighter
-    spot: mix(base, income ? "#0f9e5a" : "#e01e3c", t * 0.5),
-    spotHi: hi,
-  };
-}
-
-/* ---- tiny colour helpers ---- */
-function hexToRgb(hex: string) {
-  const h = hex.replace("#", "");
-  return {
-    r: parseInt(h.slice(0, 2), 16),
-    g: parseInt(h.slice(2, 4), 16),
-    b: parseInt(h.slice(4, 6), 16),
-  };
-}
-function toHex(n: number) {
-  return Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
-}
-function mix(c1: string, c2: string, k: number) {
-  const a = hexToRgb(c1);
-  const b = hexToRgb(c2);
-  return `#${toHex(a.r + (b.r - a.r) * k)}${toHex(a.g + (b.g - a.g) * k)}${toHex(
-    a.b + (b.b - a.b) * k
-  )}`;
-}
 
 /** Evenly spaced keyframe samples across one lap (0 → 1). */
 const STEPS = 64;
@@ -265,13 +216,11 @@ function MoonBody({
   d,
   revealed,
   index,
-  heat,
 }: {
   sub: Subscription;
   d: number;
   revealed: boolean;
   index: number;
-  heat: Heat;
 }) {
   return (
     <div className="sun-orbit__flip" style={{ width: d, height: d }}>
@@ -287,7 +236,7 @@ function MoonBody({
         }}
       >
         <div className="sun-orbit__face sun-orbit__face--ash">
-          <Moon d={d} heat={heat} />
+          <Moon d={d} income={sub.flow === "income"} />
         </div>
         <div className="sun-orbit__face sun-orbit__face--logo">
           <LogoTile sub={sub} d={d} />
@@ -297,16 +246,15 @@ function MoonBody({
   );
 }
 
-/** A plain SILVER/ash sphere. The ONLY colour is a small specular spot where
- *  the sun strikes — tinted by flow (green income / red expense). The spot is
- *  placed at the sun-facing edge (top of the SVG) and the parent rotates the
- *  sphere so that edge always faces the centre sun. The spot covers ≤7% of the
- *  surface (r ≈ 0.264·R), so the planet stays clearly silver. */
-function Moon({ d, heat }: { d: number; heat: Heat }) {
+/** A plain silver/ash sphere. Differentiation is by SHAPE, not colour:
+ *  - expense → a bare silver planet
+ *  - income  → the same silver planet wearing a soft silver-white halo ring.
+ *  The ring is the whole signal, so there's no colour-matching to get wrong. */
+function Moon({ d, income }: { d: number; income: boolean }) {
   const id = "moon-" + Math.round(d * 10);
   return (
-    // extra viewBox room so the glowing halo isn't clipped at the edges
-    <svg width={d} height={d} viewBox="-8 -8 116 116" style={{ display: "block", overflow: "visible" }}>
+    // extra viewBox room so the halo ring isn't clipped at the edges
+    <svg width={d} height={d} viewBox="-16 -16 132 132" style={{ display: "block", overflow: "visible" }}>
       <defs>
         {/* the silver/ash body sphere, lit softly from the top-left */}
         <radialGradient id={id} cx="38%" cy="30%" r="82%">
@@ -315,34 +263,38 @@ function Moon({ d, heat }: { d: number; heat: Heat }) {
           <stop offset="80%" stopColor="#8f93a4" />
           <stop offset="100%" stopColor="#565a6d" />
         </radialGradient>
-        {/* soft blur for the halo's outer glow */}
         <filter id={id + "-glow"} x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="3" />
+          <feGaussianBlur stdDeviation="2.4" />
         </filter>
       </defs>
 
-      {/* the flow halo: a soft outer glow ring + a crisp inner ring, in the
-          flow colour (green income / red expense). The planet body stays pure
-          silver — only this thin ring around it carries the meaning. */}
-      <circle
-        cx="50"
-        cy="50"
-        r="52"
-        fill="none"
-        stroke={heat.spot}
-        strokeWidth="5"
-        opacity="0.5"
-        filter={`url(#${id}-glow)`}
-      />
-      <circle
-        cx="50"
-        cy="50"
-        r="50.5"
-        fill="none"
-        stroke={heat.spotHi}
-        strokeWidth="2"
-        opacity="0.95"
-      />
+      {/* INCOME halo ring — a bigger, soft silver-white ring around the planet.
+          Expenses render none of this: a bare silver planet. */}
+      {income && (
+        <>
+          {/* soft outer glow */}
+          <circle
+            cx="50"
+            cy="50"
+            r="61"
+            fill="none"
+            stroke="#f2f4ff"
+            strokeWidth="6"
+            opacity="0.28"
+            filter={`url(#${id}-glow)`}
+          />
+          {/* crisp bright ring */}
+          <circle
+            cx="50"
+            cy="50"
+            r="61"
+            fill="none"
+            stroke="#eef1fb"
+            strokeWidth="3"
+            opacity="0.9"
+          />
+        </>
+      )}
 
       {/* silver sphere */}
       <circle cx="50" cy="50" r="47" fill={`url(#${id})`} />

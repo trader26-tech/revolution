@@ -19,7 +19,15 @@ export function SettingsScreen({ onInstall, canInstall }: { onInstall: () => voi
         <Planet size={40} glow />
         <div>
           <h2>Revolution</h2>
-          <div className="set__ver">{subs.length} subscriptions · v1.0</div>
+          <div className="set__ver">
+            {subs.length} subscriptions · v1.0 · build{" "}
+            {new Date(__BUILD_TS__).toLocaleString(undefined, {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
         </div>
       </header>
 

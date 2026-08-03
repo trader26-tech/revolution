@@ -11,7 +11,7 @@ app/
 ├── supabase_client.py       cached Supabase client (optional)
 ├── schemas/                 Pydantic models (subscription.py)
 ├── repositories/            data access behind a Protocol
-│                            (Supabase + in-memory implementations)
+│                            (Supabase implementation)
 ├── services/                business logic (subscription_service.py)
 └── api/routes/              endpoints (health.py, subscriptions.py)
 sql/

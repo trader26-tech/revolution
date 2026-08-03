@@ -2,7 +2,7 @@
 
 Layered architecture:
 
-    api/routes  ->  services  ->  repositories  ->  Supabase / in-memory
+    api/routes  ->  services  ->  repositories  ->  Supabase
 
 Routes stay thin; business logic lives in services; data access is isolated in
 repositories behind a Protocol so the store is swappable.

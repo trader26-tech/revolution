@@ -37,33 +37,49 @@ export default defineConfig({
       registerType: "prompt",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
+        /* Stable identity for the installed app. Without an explicit id, Chrome
+           derives it from start_url; pinning it keeps the SAME installed app
+           across future start_url tweaks (avoids duplicate/"new" installs). */
+        id: "/?app=revolution",
         name: "Revolution — Subscription Tracker",
         short_name: "Revolution",
         description:
           "The subscription tracker that stops surprise charges. See every bill before you're charged.",
+        lang: "en",
+        dir: "ltr",
         theme_color: "#0b0320",
-        /* iOS paints the status-bar / home-indicator strips (and the launch
-           screen) with this when it runs the app in opaque standalone mode.
-           #060010 read as pitch-black bars; deep purple matches the app's top
-           tone so the system chrome blends into the scene. */
         background_color: "#0b0320",
-        /* "fullscreen", NOT "standalone". On modern iOS, when a manifest with
-           a display value exists it OVERRIDES the legacy
-           apple-mobile-web-app-status-bar-style meta — and "standalone" maps
-           to an OPAQUE system status bar: iOS shrinks the web viewport and
-           paints the top/bottom strips itself, so no CSS can ever put the
-           starfield there. "fullscreen" is what iOS maps to
-           standalone-with-translucent-status-bar: the page truly extends
-           edge-to-edge, env(safe-area-inset-*) reports real values, and our
-           overshooting starfield paints behind the clock and home indicator. */
-        display: "fullscreen",
+        /* Base display MUST be "standalone" for Android. When you Add to Home
+           Screen on Chrome, Android mints a Google-signed WebAPK from this
+           manifest; "fullscreen" made minting fall back to an UNSIGNED shortcut
+           APK, which Play Protect blocks as "unsafe app". "standalone" mints
+           cleanly. iOS never had that problem — its only issue was the opaque
+           status bar, which display_override below solves without breaking
+           Android. */
+        display: "standalone",
+        /* Per-platform display negotiation. Chrome/iOS walk this list and use
+           the first mode they support:
+             - iOS honours "fullscreen" here → translucent status bar, the page
+               extends edge-to-edge and the starfield paints behind the clock.
+             - Android/Chrome fall through to "standalone" for a clean WebAPK. */
+        display_override: ["fullscreen", "standalone"],
         orientation: "portrait",
         scope: "/",
         start_url: "/",
         categories: ["finance", "productivity"],
         icons: [
-          { src: "icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "icon-512.png", sizes: "512x512", type: "image/png" },
+          {
+            src: "icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
           {
             src: "icon-maskable-512.png",
             sizes: "512x512",

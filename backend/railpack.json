@@ -6,10 +6,12 @@
   },
   "steps": {
     "install": {
-      "commands": ["pip install -r requirements.txt"]
+      "commands": [
+        "if [ -f requirements.txt ]; then pip install -r requirements.txt; elif [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; else echo 'requirements.txt not found in . or backend/' && ls -la && exit 1; fi"
+      ]
     }
   },
   "deploy": {
-    "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    "startCommand": "if [ -d backend/app ]; then cd backend; fi; uvicorn app.main:app --host 0.0.0.0 --port $PORT"
   }
 }

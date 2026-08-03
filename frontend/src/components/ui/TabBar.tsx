@@ -45,26 +45,14 @@ const TABS: { key: Tab; label: string; icon: ReactNode }[] = [
 export function TabBar({
   active,
   onChange,
-  onAdd,
 }: {
   active: Tab;
   onChange: (t: Tab) => void;
-  onAdd: () => void;
 }) {
   return (
     <nav className="tabbar">
       <div className="tabbar__inner">
-        {TABS.slice(0, 2).map((t) => (
-          <TabButton key={t.key} tab={t} active={active === t.key} onClick={() => onChange(t.key)} />
-        ))}
-
-        <button className="tabbar__add" onClick={onAdd} aria-label="Add subscription">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 6v12M6 12h12" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-          </svg>
-        </button>
-
-        {TABS.slice(2).map((t) => (
+        {TABS.map((t) => (
           <TabButton key={t.key} tab={t} active={active === t.key} onClick={() => onChange(t.key)} />
         ))}
       </div>

@@ -100,7 +100,6 @@ function Shell() {
           setTab(t);
           setSheet(null);
         }}
-        onAdd={() => setSheet("add")}
       />
 
       <Sheet open={sheet !== null} onClose={() => setSheet(null)} title={sheetTitle}>

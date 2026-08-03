@@ -351,14 +351,13 @@ function useOrbitSize(): number {
     if (typeof window === "undefined") return 340;
     const h = window.innerHeight;
     const w = window.innerWidth;
-    // As large as possible while keeping BOTH the guide rings and the orbiting
-    // planets fully on-screen. The outermost planet sits at ~0.43·size and can
-    // be up to ~0.0625·size in radius, so it stays within a width w when
-    //   0.4925·size ≤ w/2  →  size ≤ w/0.985.
-    // We also cap by height so tall/narrow screens don't overshoot.
-    const byWidth = w / 0.985;
-    const target = Math.min(byWidth, h * 0.62);
-    return Math.round(Math.max(300, Math.min(500, target)));
+    // The orbit is a size×size box and SunOrbit clamps every moon so its edge
+    // stays within size/2 — so the whole orbit is guaranteed to fit inside its
+    // own box. We therefore only need the BOX to fit the screen: cap size to
+    // the usable width (a hair under, for sub-pixel safety) and by height.
+    const byWidth = w - 8;
+    const target = Math.min(byWidth, h * 0.6);
+    return Math.round(Math.max(280, Math.min(480, target)));
   };
 
   const [size, setSize] = useState(compute);

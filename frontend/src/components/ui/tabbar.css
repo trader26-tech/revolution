@@ -2,7 +2,10 @@
   position: sticky;
   bottom: 0;
   z-index: 40;
-  padding: 8px 16px calc(10px + var(--safe-bottom));
+  /* sit just above the home indicator — when there's no inset (browser) keep a
+     small 8px breath; in a PWA the inset alone is enough, no extra constant, so
+     the bar hugs the bottom instead of floating over a dead band */
+  padding: 8px 16px max(8px, var(--safe-bottom));
   background: linear-gradient(180deg, transparent, var(--bg-0) 46%);
   pointer-events: none;
 }

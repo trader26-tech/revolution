@@ -42,7 +42,10 @@
   left: 0;
   right: 0;
   bottom: 0;
-  padding: calc(var(--safe-top) + 34px) 24px calc(var(--safe-bottom) + 20px);
+  /* clear the safe area + the progress rail (which sits at safe-top + 10px and
+     is ~3px tall), then a small breath — no big constant, so there's no dead
+     band above the constellation in a PWA */
+  padding: calc(var(--safe-top) + 24px) 24px calc(var(--safe-bottom) + 16px);
   display: flex;
   flex-direction: column;
   align-items: stretch;

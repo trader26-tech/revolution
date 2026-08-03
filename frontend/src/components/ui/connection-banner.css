@@ -2,7 +2,8 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin: 0.75rem 1rem 0;
+  /* clear the status bar / Dynamic Island when installed as a PWA */
+  margin: calc(var(--safe-top) + 0.75rem) 1rem 0;
   padding: 0.7rem 0.9rem;
   border-radius: 12px;
   font-size: 0.85rem;

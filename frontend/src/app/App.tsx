@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { StoreProvider, useStore } from "@/data/store";
 import { TabBar } from "@/components/ui/TabBar";
@@ -34,6 +34,15 @@ function Shell() {
   const [sheet, setSheet] = useState<SheetKind>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  const mainRef = useRef<HTMLElement>(null);
+
+  /* Screens share ONE scroll container and stay mounted, so without this the
+     offset from the previous tab carries over — you'd land mid-screen (or past
+     the end of a shorter one) instead of at the top. Reset on every tab change. */
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [tab]);
 
   useEffect(() => {
     const h = (e: Event) => {
@@ -87,7 +96,7 @@ function Shell() {
              animation on the way back — the one switch that measurably stalled.
              Keeping them mounted makes every tab return a single cheap frame,
              and preserves each screen's scroll position for free. */}
-      <main className="app__main no-scrollbar">
+      <main ref={mainRef} className="app__main no-scrollbar">
         <Screen active={tab === "home"}>
           <SubscriptionsScreen onOpen={openDetail} onAdd={openAdd} />
         </Screen>

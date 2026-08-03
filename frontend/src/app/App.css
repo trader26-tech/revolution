@@ -23,6 +23,13 @@
 /* Each screen wrapper fills the scroll area so a screen can lay itself out to
    the full height. Screens stay mounted; the inactive ones carry `hidden`. */
 .app__screen {
+  /* CRITICAL: .app__main is a flex column, so a screen is a flex ITEM.
+     Without `flex: 1 0 auto` the item defaults to `0 1 auto` and SHRINKS to the
+     container height (e.g. 578px) while still holding ~3000px of content — the
+     overflow then renders outside the box, which clipped the orbit and left the
+     screen looking blank. `1 0 auto` lets it grow to its content and forbids
+     shrinking, so the wrapper always matches what it contains. */
+  flex: 1 0 auto;
   min-height: 100%;
   display: flex;
   flex-direction: column;

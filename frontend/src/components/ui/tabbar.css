@@ -1,5 +1,11 @@
 .tabbar {
-  position: sticky;
+  /* FIXED to the viewport bottom — pins the bar to the bottom of the screen
+     regardless of content height. (sticky failed when a screen's content was
+     shorter than the viewport: the bar then sat at the end of the content,
+     floating mid-screen.) */
+  position: fixed;
+  left: 0;
+  right: 0;
   bottom: 0;
   z-index: 40;
   /* sit just above the home indicator — when there's no inset (browser) keep a

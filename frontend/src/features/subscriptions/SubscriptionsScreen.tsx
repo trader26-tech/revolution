@@ -246,8 +246,20 @@ function AnimatedMoney({
   const prev = useRef(amount);
   const first = useRef(true);
   const sym = symbol(currency);
-  const format = (v: number) =>
-    sym + Math.round(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  // Big figures are formatted compactly (1.3M, 1.3B) so the headline always
+  // fits the phone width and can never force horizontal scroll; normal amounts
+  // keep full digit grouping.
+  const format = (v: number) => {
+    const n = Math.round(v);
+    if (Math.abs(n) >= 1_000_000) {
+      const compact = new Intl.NumberFormat(undefined, {
+        notation: "compact",
+        maximumFractionDigits: 1,
+      }).format(n);
+      return sym + compact;
+    }
+    return sym + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  };
 
   useEffect(() => {
     const node = textRef.current;

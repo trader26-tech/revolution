@@ -52,8 +52,10 @@
 
 .cal__grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
+  /* minmax(0,1fr) lets the 7 day-columns shrink below their content width so
+     the calendar always fits narrow phones without horizontal overflow */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
   margin-bottom: 18px;
 }
 .cal__wd {

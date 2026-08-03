@@ -180,35 +180,24 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
   );
 }
 
-/** The colour set a planet is painted with, by flow + cost intensity. */
+/** The colour of the small sun-glint on an otherwise silver planet. */
 interface Heat {
   key: string; // stable id fragment for gradient uniqueness
-  lit: string; // the sun-facing highlight (lit side)
-  mid: string; // the planet's main body colour
-  base: string; // shadow-side body
-  dark: string; // deepest limb (night side)
+  spot: string; // the flow-tinted sun-glint colour
+  spotHi: string; // its bright core
 }
 
-/** Just TWO playful hues: green for income, red for expense. Cost intensity
- *  t∈[0,1] deepens the tone — cheap = soft/pale, expensive = rich/deep — so
- *  the pricier a planet, the more intense its red (or green). No glow: the
- *  planet only lights up where the sun falls on it (handled by the gradient's
- *  lit side + the sun-facing rotation). */
+/** The sun-glint colour: green for income, red for expense. Cost intensity
+ *  t∈[0,1] just deepens/brightens the glint a touch, so pricier planets catch a
+ *  slightly stronger coloured light — but the planet body stays silver. */
 function heatColor(t: number, income: boolean): Heat {
-  // playful pastel (cheap) → rich saturated (expensive) endpoints
-  const cheap = income ? "#8fe6b0" : "#ff9db0"; // soft green / soft red
-  const pricey = income ? "#17c26a" : "#f5334f"; // vivid green / vivid red
-  const nightCheap = income ? "#2f6a4b" : "#7a3340";
-  const nightPricey = income ? "#0c5c34" : "#8a0f22";
-
-  const mid = mix(cheap, pricey, t);
-  const dark = mix(nightCheap, nightPricey, t);
+  const base = income ? "#3ee08a" : "#ff5a72"; // playful green / red
+  const hi = income ? "#b7ffd8" : "#ffd3da"; // bright core
   return {
-    key: (income ? "i" : "e") + Math.round(t * 20),
-    lit: lighten(mid, 0.42), // where the sun strikes
-    mid,
-    base: mix(mid, dark, 0.5),
-    dark,
+    key: (income ? "i" : "e") + Math.round(t * 10),
+    // pricier → a slightly deeper glint; cheaper → a touch paler
+    spot: lighten(base, 0.22 * (1 - t)),
+    spotHi: hi,
   };
 }
 
@@ -328,24 +317,36 @@ function MoonBody({
   );
 }
 
-/** A cost-coloured planet sphere. The bright side sits toward the TOP of the
- *  SVG; the parent .sun-orbit__sunlit wrapper rotates so that top always points
- *  at the centre sun — giving a solar-system day/night gradient. */
+/** A plain SILVER/ash sphere. The ONLY colour is a small specular spot where
+ *  the sun strikes — tinted by flow (green income / red expense). The spot is
+ *  placed at the sun-facing edge (top of the SVG) and the parent rotates the
+ *  sphere so that edge always faces the centre sun. The spot covers ≤7% of the
+ *  surface (r ≈ 0.264·R), so the planet stays clearly silver. */
 function Moon({ d, heat }: { d: number; heat: Heat }) {
-  const id = "planet-" + heat.key + "-" + Math.round(d * 10);
+  const id = "moon-" + Math.round(d * 10);
+  const spot = "spot-" + heat.key + "-" + Math.round(d * 10);
   return (
     <svg width={d} height={d} viewBox="0 0 100 100" style={{ display: "block" }}>
       <defs>
-        {/* highlight centred high (cy 22%) so the lit crescent is at the top =
-            sun-facing edge after the wrapper rotates it toward centre */}
-        <radialGradient id={id} cx="50%" cy="24%" r="86%">
-          <stop offset="0%" stopColor={heat.lit} />
-          <stop offset="42%" stopColor={heat.mid} />
-          <stop offset="82%" stopColor={heat.base} />
-          <stop offset="100%" stopColor={heat.dark} />
+        {/* the silver body: lit gently from the top (sun side), ashen below */}
+        <radialGradient id={id} cx="50%" cy="30%" r="80%">
+          <stop offset="0%" stopColor="#eceef4" />
+          <stop offset="46%" stopColor="#c2c5d1" />
+          <stop offset="80%" stopColor="#8f93a4" />
+          <stop offset="100%" stopColor="#565a6d" />
+        </radialGradient>
+        {/* the coloured sun-glint: bright flow colour fading to nothing within
+            ~13 units radius → ~7% of the planet's area */}
+        <radialGradient id={spot} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={heat.spotHi} stopOpacity="0.95" />
+          <stop offset="55%" stopColor={heat.spot} stopOpacity="0.7" />
+          <stop offset="100%" stopColor={heat.spot} stopOpacity="0" />
         </radialGradient>
       </defs>
+      {/* silver sphere */}
       <circle cx="50" cy="50" r="47" fill={`url(#${id})`} />
+      {/* coloured sun-spot near the top edge (the sun-facing side) */}
+      <circle cx="50" cy="26" r="13" fill={`url(#${spot})`} />
       {/* faint rim so the planet reads as a sphere against space */}
       <circle cx="50" cy="50" r="46.4" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.12" />
     </svg>

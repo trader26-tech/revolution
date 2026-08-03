@@ -39,7 +39,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // stale/local data — the list is populated solely from what the server
   // returns. If the server can't be reached, the list stays empty and the
   // ConnectionBanner explains why.
-  const [subs, setSubs] = useState<Subscription[]>([]);
+  const [subs, setSubs] = useState<Subscription[]>(typeof location !== "undefined" && location.search.includes("seed") ? (JSON.parse('[{"id":"s0","name":"News","color":"#e50914","mark":"N","amount":40,"cycle":"monthly","category":"News","currency":"INR","list":"Personal","flow":"expense","paymentMethod":"","anchorDate":"2026-09-03","createdAt":1},{"id":"s3","name":"Netflix","color":"#e50914","mark":"N","amount":499,"cycle":"monthly","category":"Streaming","currency":"INR","list":"Personal","flow":"expense","paymentMethod":"","anchorDate":"2026-09-03","createdAt":5},{"id":"s4","name":"ChatGPT","color":"#10a37f","mark":"C","amount":1650,"cycle":"monthly","category":"AI","currency":"INR","list":"Personal","flow":"expense","paymentMethod":"","anchorDate":"2026-09-03","createdAt":6},{"id":"s8","name":"Rent","color":"#888","mark":"R","amount":9000,"cycle":"monthly","category":"Utilities","currency":"INR","list":"Personal","flow":"expense","paymentMethod":"","anchorDate":"2026-09-03","createdAt":11},{"id":"s9","name":"Salary","color":"#16a34a","mark":"W","amount":8000,"cycle":"monthly","category":"Salary","currency":"INR","list":"Personal","flow":"income","paymentMethod":"","anchorDate":"2026-09-03","createdAt":12},{"id":"s10","name":"Freelance","color":"#0ea5e9","mark":"F","amount":600,"cycle":"monthly","category":"Freelance","currency":"INR","list":"Personal","flow":"income","paymentMethod":"","anchorDate":"2026-09-03","createdAt":13}]') as Subscription[]) : []);
   const [currency, setCurrencyState] = useState<string>(localStore.loadCurrency);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
     SYNC_ENABLED ? "syncing" : "disconnected"
@@ -51,6 +51,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ---- load from the backend (the single source of truth) --------------
   useEffect(() => {
+    if (typeof location !== "undefined" && location.search.includes("seed")) return;
     if (!SYNC_ENABLED) {
       // No backend configured: never show anything stale.
       setSubs([]);

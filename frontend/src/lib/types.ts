@@ -27,8 +27,11 @@ export interface Subscription {
   name: string;
   /** hex color for the tile */
   color: string;
-  /** short mark shown in the logo chip (1–2 letters or emoji) */
+  /** short mark shown when no brand logo is available (1–2 letters / emoji) */
   mark: string;
+  /** simple-icons slug of the matched brand logo, if any (e.g. "netflix").
+   *  When set, the app renders that brand's real SVG instead of `mark`. */
+  brandSlug?: string;
   amount: number;
   currency: string;
   cycle: Cycle;
@@ -50,6 +53,8 @@ export interface CatalogItem {
   name: string;
   color: string;
   mark: string;
+  /** simple-icons slug when this item has a real brand logo. */
+  brandSlug?: string;
   category: Category;
   amount: number;
   flow?: Flow;

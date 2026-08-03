@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { motion } from "framer-motion";
 import type { Cycle, Subscription } from "@/lib/types";
 import { monthly } from "@/lib/money";
+import { BrandLogo } from "./BrandLogo";
 import "./sun-orbit.css";
 
 interface Props {
@@ -127,7 +128,7 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
               title={revealed ? sub.name : undefined}
               aria-label={revealed ? `Open ${sub.name}` : undefined}
             >
-              <MoonBody sub={sub} d={d} revealed={revealed} />
+              <MoonBody sub={sub} d={d} revealed={revealed} index={i} />
             </motion.button>
           );
         });
@@ -195,17 +196,25 @@ function MoonBody({
   sub,
   d,
   revealed,
+  index,
 }: {
   sub: Subscription;
   d: number;
   revealed: boolean;
+  index: number;
 }) {
   return (
     <div className="sun-orbit__flip" style={{ width: d, height: d }}>
       <motion.div
         className="sun-orbit__flip-inner"
         animate={{ rotateY: revealed ? 180 : 0 }}
-        transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        transition={{
+          // a slow, smooth flip — no spring bounce, gentle ease. Moons flip
+          // in a soft cascade (staggered by index) rather than all at once.
+          duration: 0.9,
+          ease: [0.4, 0, 0.2, 1],
+          delay: index * 0.07,
+        }}
       >
         <div className="sun-orbit__face sun-orbit__face--ash">
           <Moon d={d} />
@@ -237,20 +246,17 @@ function Moon({ d }: { d: number }) {
   );
 }
 
-/** Revealed face: the subscription's brand colour + glyph, as a round tile so
- *  it stays a clean circle matching the moon it flips from. */
+/** Revealed face: the subscription's real brand logo (or a tinted initial),
+ *  as a round tile so it stays a clean circle matching the moon it flips from. */
 function LogoTile({ sub, d }: { sub: Subscription; d: number }) {
   return (
-    <div
-      className="sun-orbit__logo"
-      style={{
-        width: d,
-        height: d,
-        background: sub.color,
-        fontSize: d * 0.44,
-      }}
-    >
-      <span>{sub.mark}</span>
-    </div>
+    <BrandLogo
+      name={sub.name}
+      brandSlug={sub.brandSlug}
+      mark={sub.mark}
+      fallbackColor={sub.color}
+      size={d}
+      radius={d / 2}
+    />
   );
 }

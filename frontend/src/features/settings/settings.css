@@ -1,5 +1,6 @@
 .set {
-  padding: calc(10px + var(--safe-top)) 18px 24px;
+  /* bottom padding clears the floating tab bar so content never hides under it */
+  padding: calc(10px + var(--safe-top)) 18px calc(var(--tabbar-space) + 12px);
   max-width: 480px;
   margin: 0 auto;
 }

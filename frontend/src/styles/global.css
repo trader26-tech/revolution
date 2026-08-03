@@ -78,6 +78,11 @@
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Total height the floating tab bar occupies: 8px top pad + 70px pill +
+     its bottom pad. Screens add this as bottom padding so their content
+     scrolls clear of the bar instead of hiding underneath it. */
+  --tabbar-space: calc(78px + max(8px, var(--safe-bottom)));
 }
 
 * {

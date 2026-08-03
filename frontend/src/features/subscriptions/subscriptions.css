@@ -5,7 +5,10 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: calc(10px + var(--safe-top)) 18px 24px;
+  /* bottom padding clears the floating tab bar (its pill + safe area) so list
+     rows scroll out from under it instead of being covered by it */
+  padding: calc(10px + var(--safe-top)) 18px
+    calc(var(--tabbar-space) + 12px);
   max-width: 480px;
   margin: 0 auto;
 }
@@ -42,17 +45,18 @@
 .home__orbit {
   display: grid;
   place-items: center;
-  /* grow to absorb the spare vertical space so the orbit sits centred in the
-     upper region and the headline/list settle into the lower third — the
-     screen fills top-to-bottom instead of leaving a gap */
-  flex: 1 1 auto;
-  min-height: 300px;
-  margin: 10px 0 28px;
+  /* NEVER shrink: the orbit is a fixed size×size box and squeezing it crops the
+     outer planets. It keeps its natural height; spare space is absorbed by the
+     list section below instead. */
+  flex: 0 0 auto;
+  margin: 10px 0 24px;
   /* cancel the .home side padding so the orbit uses the full screen width */
   margin-left: -18px;
   margin-right: -18px;
-  /* guard against any sub-pixel horizontal overflow from the large orbit */
-  overflow: hidden;
+  /* clip only sideways bleed from the wide guide rings — never vertically,
+     which would cut the planets off */
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 /* ---------- headline row (count + list · yearly spend) ----------
@@ -281,6 +285,16 @@
 }
 
 /* ---------- section ---------- */
+/* the list section absorbs whatever height is left after the fixed-size orbit
+   and the headline, so short lists still reach the bottom of the screen and
+   long ones simply scroll — either way there's no dead band */
+.home__section {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .home__section-head {
   display: flex;
   align-items: baseline;
@@ -298,6 +312,7 @@
 }
 
 .home__list {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -399,9 +414,15 @@
 }
 
 .home__empty {
+  /* stretch into the space the list would have used, so an empty state still
+     reaches the bottom rather than leaving a gap */
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
   text-align: center;
   color: var(--text-2);
   padding: 30px 20px;
+  min-height: 96px;
   font-size: 14px;
   line-height: 1.55;
   border-radius: var(--radius);

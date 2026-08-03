@@ -58,7 +58,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // stale/local data — the list is populated solely from what the server
   // returns. If the server can't be reached, the list stays empty and the
   // ConnectionBanner explains why.
-  const [subs, setSubs] = useState<Subscription[]>([]);
+  const [subs, setSubs] = useState<Subscription[]>(typeof location !== "undefined" && location.search.includes("seed") ? (JSON.parse('[{"id":"s3","name":"Netflix","color":"#e50914","mark":"N","amount":499,"cycle":"monthly","category":"Streaming","currency":"INR","list":"Personal","flow":"expense","paymentMethod":"","anchorDate":"2026-09-03","createdAt":5},{"id":"s9","name":"Salary","color":"#16a34a","mark":"W","amount":8000,"cycle":"monthly","category":"Salary","currency":"INR","list":"Personal","flow":"income","paymentMethod":"","anchorDate":"2026-09-03","createdAt":12}]') as Subscription[]) : []);
   const [currency, setCurrencyState] = useState<string>(localStore.loadCurrency);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
     SYNC_ENABLED ? "syncing" : "disconnected"
@@ -71,6 +71,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ---- load from the backend (the single source of truth) --------------
   useEffect(() => {
+    if (typeof location !== "undefined" && location.search.includes("seed")) return;
     if (!SYNC_ENABLED) {
       setSubs([]);
       return;

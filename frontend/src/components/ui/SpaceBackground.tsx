@@ -19,7 +19,6 @@ export function SpaceBackground() {
 
   return (
     <div className="space" aria-hidden>
-      <div className="space__nebula" />
       <div className="space__layer space__layer--far">
         {far.map((s, i) => (
           <Star key={i} s={s} />

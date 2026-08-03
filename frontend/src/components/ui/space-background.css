@@ -16,23 +16,6 @@
     linear-gradient(180deg, var(--bg-1), var(--bg-0) 60%);
 }
 
-/* a faint drifting nebula wash for extra depth */
-.space__nebula {
-  position: absolute;
-  inset: -20%;
-  background:
-    radial-gradient(38% 30% at 24% 26%, rgba(138, 28, 255, 0.14), transparent 70%),
-    radial-gradient(34% 26% at 80% 68%, rgba(255, 45, 120, 0.08), transparent 70%),
-    radial-gradient(30% 24% at 62% 18%, rgba(56, 189, 248, 0.06), transparent 70%);
-  filter: blur(20px);
-  animation: nebula-drift 60s ease-in-out infinite alternate;
-}
-
-@keyframes nebula-drift {
-  0%   { transform: translate3d(0, 0, 0) scale(1); }
-  100% { transform: translate3d(2.5%, -2%, 0) scale(1.08); }
-}
-
 /* each layer drifts at its own pace for parallax */
 .space__layer {
   position: absolute;
@@ -135,7 +118,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .space__nebula,
   .space__layer,
   .space__star,
   .space__shooting {

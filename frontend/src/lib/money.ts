@@ -1,5 +1,5 @@
 import type { Cycle, Subscription } from "./types";
-import { CURRENCIES } from "./catalog";
+import { CURRENCIES, CATEGORIES } from "./catalog";
 
 export function symbol(currency: string) {
   return CURRENCIES[currency] ?? currency + " ";
@@ -55,6 +55,32 @@ export function flowTotals(subs: Subscription[]) {
     expense: expenseTotal,
     net: incomeTotal - expenseTotal,
   };
+}
+
+export interface CategorySlice {
+  cat: string;
+  amt: number;
+  hue: string;
+  pct: number;
+}
+
+/** Aggregate a set of records into per-category monthly slices, biggest first.
+ *  `pct` is each category's share of the set total. Shared by Insights and the
+ *  home breakdown sheet so the numbers can never drift between the two. */
+export function byCategory(subs: Subscription[]): CategorySlice[] {
+  const map = new Map<string, number>();
+  for (const s of subs) {
+    map.set(s.category, (map.get(s.category) || 0) + monthly(s.amount, s.cycle));
+  }
+  const total = [...map.values()].reduce((a, b) => a + b, 0);
+  return [...map.entries()]
+    .map(([cat, amt]) => ({
+      cat,
+      amt,
+      hue: CATEGORIES.find((c) => c.key === cat)?.hue || "#8a1cff",
+      pct: total ? (amt / total) * 100 : 0,
+    }))
+    .sort((a, b) => b.amt - a.amt);
 }
 
 export function cycleLabel(cycle: Cycle) {

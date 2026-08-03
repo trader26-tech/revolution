@@ -260,9 +260,17 @@
 .home__filters {
   display: flex;
   gap: 8px;
+  /* this row scrolls its OWN chips horizontally; it must not widen the page */
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
   padding-bottom: 2px;
   margin-bottom: 18px;
+}
+.home__filters::-webkit-scrollbar {
+  display: none;
 }
 .chip {
   flex: none;

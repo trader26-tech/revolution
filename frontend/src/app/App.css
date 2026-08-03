@@ -13,6 +13,9 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* vertical only — the page never pans sideways */
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
   -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;

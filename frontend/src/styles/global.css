@@ -105,6 +105,12 @@ body,
 #root {
   height: 100%;
   margin: 0;
+  /* The app is strictly VERTICAL. Ban horizontal page scroll everywhere:
+     clip any accidental overflow, forbid the rubber-band on the x axis, and
+     never let a stray wide child stretch the viewport past the screen edge. */
+  overflow-x: hidden;
+  max-width: 100%;
+  overscroll-behavior-x: none;
 }
 
 /* The deep-space gradient lives on <html> — the one surface that always spans

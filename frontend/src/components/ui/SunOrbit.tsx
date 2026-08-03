@@ -111,8 +111,6 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
           );
           const t = costT(sub);
           const heat = heatColor(t, sub.flow === "income");
-          // A cost-scaled coloured glow — the "intensity" grows with spend.
-          const glow = d * (0.14 + t * 0.5);
           return (
             <motion.button
               key={sub.id}
@@ -123,8 +121,8 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
                   height: d,
                   marginLeft: -d / 2,
                   marginTop: -d / 2,
-                  // coloured aura, brighter/larger for pricier planets
-                  filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 ${glow}px ${heat.glow})`,
+                  // no glow — only a soft dark drop for depth against space
+                  filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.5))",
                 } as CSSProperties
               }
               initial={{ opacity: 0, scale: 0.2 }}
@@ -182,49 +180,35 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
   );
 }
 
-/** The colour set a planet is painted with, by cost intensity + flow. */
+/** The colour set a planet is painted with, by flow + cost intensity. */
 interface Heat {
   key: string; // stable id fragment for gradient uniqueness
-  lit: string; // brightest — the sun-facing highlight
+  lit: string; // the sun-facing highlight (lit side)
   mid: string; // the planet's main body colour
   base: string; // shadow-side body
-  dark: string; // deepest limb
-  glow: string; // the coloured aura (rgba)
+  dark: string; // deepest limb (night side)
 }
 
-/** Map cost intensity t∈[0,1] to a playful, muted heat colour.
- *  Expenses run cool teal → amber → warm rose; income runs a green ramp.
- *  Kept desaturated so nothing shouts and the planets don't clash with the
- *  sun. Each stop lightens toward the sun-facing side via `lit`. */
+/** Just TWO playful hues: green for income, red for expense. Cost intensity
+ *  t∈[0,1] deepens the tone — cheap = soft/pale, expensive = rich/deep — so
+ *  the pricier a planet, the more intense its red (or green). No glow: the
+ *  planet only lights up where the sun falls on it (handled by the gradient's
+ *  lit side + the sun-facing rotation). */
 function heatColor(t: number, income: boolean): Heat {
-  const stops = income
-    ? // cheap → costly income: soft sage → vivid (but muted) green
-      [
-        { mid: "#6f9e86", dark: "#2c4a3c" },
-        { mid: "#57b483", dark: "#245a3f" },
-        { mid: "#43c98a", dark: "#1c6b46" },
-      ]
-    : // cheap → costly expense: cool teal → amber → warm rose (all muted)
-      [
-        { mid: "#5aa6bf", dark: "#26505f" }, // cool teal-blue
-        { mid: "#d9a05a", dark: "#6b4a24" }, // amber
-        { mid: "#d16f7e", dark: "#6b2f3a" }, // warm rose
-      ];
+  // playful pastel (cheap) → rich saturated (expensive) endpoints
+  const cheap = income ? "#8fe6b0" : "#ff9db0"; // soft green / soft red
+  const pricey = income ? "#17c26a" : "#f5334f"; // vivid green / vivid red
+  const nightCheap = income ? "#2f6a4b" : "#7a3340";
+  const nightPricey = income ? "#0c5c34" : "#8a0f22";
 
-  // two-segment lerp across the three anchors
-  const seg = t < 0.5 ? 0 : 1;
-  const k = t < 0.5 ? t / 0.5 : (t - 0.5) / 0.5;
-  const a = stops[seg];
-  const b = stops[seg + 1];
-  const mid = mix(a.mid, b.mid, k);
-  const dark = mix(a.dark, b.dark, k);
+  const mid = mix(cheap, pricey, t);
+  const dark = mix(nightCheap, nightPricey, t);
   return {
     key: (income ? "i" : "e") + Math.round(t * 20),
-    lit: lighten(mid, 0.5), // sun-facing highlight
+    lit: lighten(mid, 0.42), // where the sun strikes
     mid,
-    base: mix(mid, dark, 0.45),
+    base: mix(mid, dark, 0.5),
     dark,
-    glow: rgba(mid, 0.35 + t * 0.3), // brighter aura for pricier planets
   };
 }
 
@@ -249,10 +233,6 @@ function mix(c1: string, c2: string, k: number) {
 }
 function lighten(hex: string, k: number) {
   return mix(hex, "#ffffff", k);
-}
-function rgba(hex: string, alpha: number) {
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 /** Evenly spaced keyframe samples across one lap (0 → 1). */

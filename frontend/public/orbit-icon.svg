@@ -73,11 +73,14 @@
     <!-- a bright rim keeps the sun crisp against its own glow -->
     <circle cx="88" cy="424" r="132" fill="none" stroke="#ffd9a8" stroke-width="2.5" opacity="0.5"/>
 
-    <!-- 3. THE MOON — sitting ON the ring, up and to the right so it sits in
-         the icon's open space and balances the sun's mass. -->
+    <!-- 3. THE MOON — sitting ON the ring, up and to the right so it occupies
+         the icon's open space and balances the sun's mass.
+         Pushed further round the arc (and slightly smaller) so it reads as a
+         distinct satellite rather than crowding the sun. Centre is exactly on
+         the r=250 ring: (88,424) + 250·(cos -63.5°, sin -63.5°). -->
     <!-- contact shadow, offset away from the sun -->
-    <circle cx="267" cy="242" r="58" fill="#05010d" opacity="0.45"/>
-    <circle cx="263" cy="246" r="58" fill="url(#moon)"/>
-    <circle cx="263" cy="246" r="57" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.22"/>
+    <circle cx="205" cy="197" r="50" fill="#05010d" opacity="0.45"/>
+    <circle cx="201" cy="201" r="50" fill="url(#moon)"/>
+    <circle cx="201" cy="201" r="49" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.22"/>
   </g>
 </svg>

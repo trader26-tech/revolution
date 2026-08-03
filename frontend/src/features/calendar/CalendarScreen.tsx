@@ -104,26 +104,38 @@ export function CalendarScreen({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
 
       <div className="cal__list">
-        {list.map(({ day, sub }, i) => (
-          <motion.button
-            key={sub.id + day}
-            className="cal__row"
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: Math.min(i * 0.03, 0.3) }}
-            onClick={() => onOpen(sub.id)}
-          >
-            <span className="cal__row-date">
-              <b>{day}</b>
-              <span>{month.toLocaleDateString(undefined, { month: "short" })}</span>
-            </span>
-            <span className="cal__row-logo" style={{ background: sub.color }}>{sub.mark}</span>
-            <span className="cal__row-name">{sub.name}</span>
-            <span className="cal__row-amt tabnum">{fmt(sub.amount, sub.currency || currency)}</span>
-          </motion.button>
-        ))}
+        {list.map(({ day, sub }, i) => {
+          const income = sub.flow === "income";
+          return (
+            <motion.button
+              key={sub.id + day}
+              className={
+                "cal__row glass glass--tap " + (income ? "is-income" : "is-expense")
+              }
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: Math.min(i * 0.03, 0.3) }}
+              onClick={() => onOpen(sub.id)}
+            >
+              <span className="cal__row-date">
+                <b>{day}</b>
+                <span>{month.toLocaleDateString(undefined, { month: "short" })}</span>
+              </span>
+              <span className="cal__row-logo" style={{ background: sub.color }}>
+                {sub.mark}
+              </span>
+              <span className="cal__row-name">{sub.name}</span>
+              <span
+                className={"cal__row-amt tabnum " + (income ? "amt-income" : "")}
+              >
+                {income ? "+" : "−"}
+                {fmt(sub.amount, sub.currency || currency)}
+              </span>
+            </motion.button>
+          );
+        })}
         {list.length === 0 && (
-          <div className="home__empty">No payments this month.</div>
+          <div className="home__empty glass">Nothing scheduled this month.</div>
         )}
       </div>
     </div>

@@ -1,5 +1,5 @@
 import type { Subscription } from "@/lib/types";
-import { fmt, monthly, yearly, nextBilling, daysUntil, relativeDay } from "@/lib/money";
+import { fmt, monthly, yearly, nextBilling, daysUntil, relativeDay, isIncome } from "@/lib/money";
 import "./detail.css";
 
 export function SubscriptionDetail({
@@ -11,24 +11,32 @@ export function SubscriptionDetail({
 }) {
   const next = nextBilling(sub);
   const inDays = daysUntil(next);
+  const income = isIncome(sub);
 
   const facts: [string, string][] = [
     ["Billing cycle", sub.cycle[0].toUpperCase() + sub.cycle.slice(1)],
-    ["Per month", fmt(monthly(sub.amount, sub.cycle), sub.currency)],
-    ["Per year", fmt(yearly(sub.amount, sub.cycle), sub.currency)],
+    [income ? "Per month in" : "Per month", fmt(monthly(sub.amount, sub.cycle), sub.currency)],
+    [income ? "Per year in" : "Per year", fmt(yearly(sub.amount, sub.cycle), sub.currency)],
     ["Category", sub.category],
     ["List", sub.list],
-    ["Payment", sub.paymentMethod],
+    [income ? "Paid into" : "Payment", sub.paymentMethod],
   ];
 
   return (
-    <div className="detail">
-      <div className="detail__hero" style={{ ["--c" as string]: sub.color }}>
+    <div className={"detail " + (income ? "is-income" : "is-expense")}>
+      <div
+        className={"detail__hero glass " + (income ? "is-income" : "is-expense")}
+        style={{ ["--c" as string]: sub.color }}
+      >
+        <span className={"detail__flow " + (income ? "is-income" : "is-expense")}>
+          {income ? "Income" : "Expense"}
+        </span>
         <span className="detail__logo" style={{ background: sub.color }}>
           {sub.mark}
         </span>
         <div className="detail__name">{sub.name}</div>
         <div className="detail__price tabnum">
+          {income ? "+" : "−"}
           {fmt(sub.amount, sub.currency)}
           <span className="detail__per">
             /{sub.cycle === "yearly" ? "yr" : sub.cycle === "weekly" ? "wk" : "mo"}
@@ -37,9 +45,11 @@ export function SubscriptionDetail({
         {sub.isTrial && <div className="detail__trial">Free trial</div>}
       </div>
 
-      <div className="detail__next">
+      <div className="detail__next glass">
         <div>
-          <div className="detail__next-label">Next payment</div>
+          <div className="detail__next-label">
+            {income ? "Next payout" : "Next payment"}
+          </div>
           <div className="detail__next-date">
             {next.toLocaleDateString(undefined, {
               weekday: "short",
@@ -53,7 +63,7 @@ export function SubscriptionDetail({
         </div>
       </div>
 
-      <div className="detail__facts">
+      <div className="detail__facts glass">
         {facts.map(([k, v]) => (
           <div key={k} className="detail__fact">
             <span>{k}</span>
@@ -62,8 +72,11 @@ export function SubscriptionDetail({
         ))}
       </div>
 
-      <button className="btn btn--primary" onClick={onEdit}>
-        Edit subscription
+      <button
+        className={"btn " + (income ? "btn--income" : "btn--primary")}
+        onClick={onEdit}
+      >
+        {income ? "Edit income" : "Edit subscription"}
       </button>
     </div>
   );

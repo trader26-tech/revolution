@@ -9,13 +9,54 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 26px 20px 22px;
+  padding: 30px 20px 22px;
   border-radius: 22px;
   background:
-    radial-gradient(120% 90% at 50% -10%, color-mix(in srgb, var(--c) 40%, transparent), transparent 60%),
-    var(--surface);
-  border: 1px solid var(--hairline);
+    radial-gradient(120% 90% at 50% -10%, color-mix(in srgb, var(--c) 42%, transparent), transparent 60%),
+    var(--glass-fill);
   overflow: hidden;
+}
+.detail__hero.is-income { border-color: var(--income-line); }
+.detail__hero.is-expense { border-color: var(--expense-line); }
+
+/* the light this record casts — green for income, red for expense */
+.detail__hero::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: 50%;
+  width: 140%;
+  height: 100%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+}
+.detail__hero.is-income::after {
+  background: radial-gradient(circle, rgba(47, 224, 138, 0.22), transparent 65%);
+}
+.detail__hero.is-expense::after {
+  background: radial-gradient(circle, rgba(255, 77, 109, 0.2), transparent 65%);
+}
+
+.detail__flow {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  z-index: 1;
+}
+.detail__flow.is-income {
+  color: #04301d;
+  background: linear-gradient(160deg, var(--income-hi), var(--income));
+}
+.detail__flow.is-expense {
+  color: #fff;
+  background: linear-gradient(160deg, var(--expense-hi), var(--expense));
 }
 .detail__logo {
   width: 68px;
@@ -62,8 +103,6 @@
   justify-content: space-between;
   padding: 15px 16px;
   border-radius: 18px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
 }
 .detail__next-label {
   font-size: 12px;
@@ -93,8 +132,6 @@
 
 .detail__facts {
   border-radius: 18px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
   overflow: hidden;
 }
 .detail__fact {

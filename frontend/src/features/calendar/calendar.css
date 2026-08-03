@@ -25,8 +25,10 @@
   gap: 4px;
   padding: 4px;
   border-radius: 14px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
 }
 .cal__nav button {
   width: 30px;
@@ -110,11 +112,25 @@
   text-align: left;
   padding: 10px 13px;
   border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
+  overflow: hidden;
 }
-.cal__row:active {
-  background: var(--surface-2);
+/* coloured edge marks money in vs out */
+.cal__row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  pointer-events: none;
+}
+.cal__row.is-income::after {
+  background: linear-gradient(180deg, var(--income-hi), var(--income));
+  box-shadow: 0 0 12px rgba(47, 224, 138, 0.55);
+}
+.cal__row.is-expense::after {
+  background: linear-gradient(180deg, rgba(255, 157, 176, 0.5), rgba(255, 77, 109, 0.3));
 }
 .cal__row-date {
   flex: none;

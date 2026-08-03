@@ -8,6 +8,7 @@
 }
 
 .tabbar__inner {
+  position: relative;
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -17,11 +18,33 @@
   margin: 0 auto;
   padding: 8px 14px;
   border-radius: 26px;
-  background: rgba(20, 12, 46, 0.72);
-  backdrop-filter: blur(22px) saturate(1.4);
-  -webkit-backdrop-filter: blur(22px) saturate(1.4);
-  border: 1px solid var(--hairline-2);
-  box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.9);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03) 46%),
+    rgba(18, 10, 42, 0.66);
+  backdrop-filter: blur(26px) saturate(1.6);
+  -webkit-backdrop-filter: blur(26px) saturate(1.6);
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    0 20px 48px -22px rgba(0, 0, 0, 0.95),
+    0 2px 10px -6px rgba(0, 0, 0, 0.6);
+}
+
+/* specular hairline along the top edge */
+.tabbar__inner::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--glass-sheen) 22%,
+    var(--glass-sheen) 78%,
+    transparent
+  );
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .tabbar__btn {

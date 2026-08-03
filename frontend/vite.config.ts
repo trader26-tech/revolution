@@ -26,7 +26,7 @@ export default defineConfig({
         short_name: "Revolution",
         description:
           "The subscription tracker that stops surprise charges. See every bill before you're charged.",
-        theme_color: "#090217",
+        theme_color: "#0b0320",
         background_color: "#060010",
         display: "standalone",
         orientation: "portrait",

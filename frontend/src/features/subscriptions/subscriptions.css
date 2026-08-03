@@ -37,8 +37,8 @@
 /* ---------- headline net ---------- */
 .home__total {
   text-align: center;
-  margin-top: 16px;
-  margin-bottom: 16px;
+  margin-top: -18px;
+  margin-bottom: 18px;
 }
 .home__total-label {
   font-size: 11.5px;

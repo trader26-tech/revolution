@@ -24,8 +24,8 @@ export function OrbitHero({ subs, size = 300, flow, onSelect }: Props) {
   const stars = useMemo(() => makeStars(46, size), [size]);
 
   const rings = [
-    { r: size * 0.36, dur: 30, dir: 1, tilt: 14, chip: size * 0.125, chips: items.filter((_, i) => i % 2 === 0) },
-    { r: size * 0.48, dur: 46, dir: -1, tilt: 14, chip: size * 0.112, chips: items.filter((_, i) => i % 2 === 1) },
+    { r: size * 0.355, dur: 32, dir: 1, tilt: 12, chip: size * 0.115, chips: items.filter((_, i) => i % 2 === 0) },
+    { r: size * 0.475, dur: 48, dir: -1, tilt: 12, chip: size * 0.102, chips: items.filter((_, i) => i % 2 === 1) },
   ];
 
   return (

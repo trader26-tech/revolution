@@ -8,14 +8,14 @@ This monorepo hosts **two** Railway services from one repo:
 | `frontend` | `frontend/`    | Vite build served via `vite preview` on `$PORT` |
 
 > **The #1 thing to get right:** each service's **Root Directory** must point at
-> its folder (`backend` or `frontend`). If it's left at the repo root, the
-> builder analyzes the root — which has no app manifest — and the build fails
-> with "the app contents … contains ./ backend/ frontend/ …". Set the Root
-> Directory and each service builds from its own `railpack.json` / `railway.json`.
+> its folder (`backend` or `frontend`), so Railway builds that folder's
+> `Dockerfile`. Leaving it at the repo root builds the wrong context and fails.
 
-Each folder ships a `railpack.json` (build + start) and a `railway.json`
-(builder = `RAILPACK`, restart policy, health check). You only set the Root
-Directory and the variables below.
+Each folder ships a **`Dockerfile`** (the authoritative build — explicit
+`WORKDIR`/`COPY`, no working-directory guesswork) and a `railway.json` that
+selects `builder: DOCKERFILE`. You only set the Root Directory and the
+variables below. (We use Docker rather than Railpack/Nixpacks because it builds
+identically every time and sidesteps monorepo path-detection issues.)
 
 ## 1. Create the project
 
@@ -25,8 +25,8 @@ This creates one service; you'll add the second and point each at its folder.
 ## 2. Backend service
 
 - **Settings → Source → Root Directory:** `backend`
-- **Build / Start:** from `backend/railpack.json` + `backend/railway.json`
-  (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`). No override needed.
+- **Build / Start:** from `backend/Dockerfile` (installs `requirements.txt`,
+  runs `uvicorn app.main:app` on `$PORT`). No override needed.
 - **Health check:** `/health` (returns 200 even before Supabase is set, so the
   deploy goes live; data endpoints need the variables below).
 - **Variables** (Settings → Variables) — **required**, the backend is
@@ -48,7 +48,8 @@ Railway injects `$PORT` automatically — do **not** set it yourself. The
 ## 3. Frontend service
 
 - **New service** (same repo) → **Settings → Source → Root Directory:** `frontend`
-- **Build:** `npm ci` then `npm run build` (from `frontend/railpack.json`).
+- **Build:** `npm ci` then `npm run build` (from `frontend/Dockerfile`, a
+  multi-stage build → lean runtime image).
 - **Start:** `npm run serve:prod` → `vite preview` on `$PORT` (host + allowedHosts
   are enabled in `vite.config.ts`, so the public domain is accepted).
 - **Point the frontend at the backend** (Settings → Variables):

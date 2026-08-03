@@ -76,13 +76,23 @@
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Raw insets. These report real values only when the page is genuinely
+     edge-to-edge (installed PWA with viewport-fit=cover). In a plain Safari
+     tab — and in some simulator/launch contexts — they resolve to 0px. */
+  --safe-top-raw: env(safe-area-inset-top, 0px);
+  --safe-bottom-raw: env(safe-area-inset-bottom, 0px);
+
+  /* What layout actually uses. Both ends get a minimum floor so the chrome is
+     never flush against the screen edge when env() reports 0 — otherwise the
+     top collapses under the notch on one device while the bottom (which always
+     had a floor) looks fine, which is exactly the inconsistency that bit us. */
+  --safe-top: max(12px, var(--safe-top-raw));
+  --safe-bottom: max(8px, var(--safe-bottom-raw));
 
   /* Total height the floating tab bar occupies: 8px top pad + 70px pill +
      its bottom pad. Screens add this as bottom padding so their content
      scrolls clear of the bar instead of hiding underneath it. */
-  --tabbar-space: calc(78px + max(8px, var(--safe-bottom)));
+  --tabbar-space: calc(78px + var(--safe-bottom));
 }
 
 * {

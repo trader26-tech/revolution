@@ -5,7 +5,8 @@
   /* sit just above the home indicator — when there's no inset (browser) keep a
      small 8px breath; in a PWA the inset alone is enough, no extra constant, so
      the bar hugs the bottom instead of floating over a dead band */
-  padding: 8px 16px max(8px, var(--safe-bottom));
+  /* --safe-bottom already carries an 8px floor (see global.css) */
+  padding: 8px 16px var(--safe-bottom);
   /* a soft scrim so list rows fade as they scroll under the bar, but it fades
      into the space background (not solid black) so the bottom safe area reads
      as part of the app, never a dead band */

@@ -289,13 +289,13 @@ const Moon = memo(function Moon({ d, income }: { d: number; income: boolean }) {
           fy="50"
           gradientUnits="userSpaceOnUse"
         >
-          {/* faint at the edges, gently peaking mid-band — a delicate, see-
-              through ring where space shows faintly through */}
+          {/* very translucent — a real planetary ring you can see space through.
+              Barely peaks mid-band, fades to nothing at both edges. */}
           <stop offset="0%" stopColor="#c9cede" stopOpacity="0" />
           <stop offset="80%" stopColor="#c9cede" stopOpacity="0" />
-          <stop offset="85%" stopColor="#d7dbec" stopOpacity="0.35" />
-          <stop offset="91%" stopColor="#ffffff" stopOpacity="0.6" />
-          <stop offset="97%" stopColor="#d7dbec" stopOpacity="0.35" />
+          <stop offset="85%" stopColor="#d7dbec" stopOpacity="0.16" />
+          <stop offset="91%" stopColor="#ffffff" stopOpacity="0.34" />
+          <stop offset="97%" stopColor="#d7dbec" stopOpacity="0.16" />
           <stop offset="100%" stopColor="#8f93a4" stopOpacity="0" />
         </radialGradient>
       </defs>
@@ -327,8 +327,8 @@ const Moon = memo(function Moon({ d, income }: { d: number; income: boolean }) {
             strokeWidth="13"
             opacity="0.08"
           />
-          {/* the thick band itself — kept translucent so it reads as a delicate,
-              see-through planetary ring rather than a solid metal band */}
+          {/* the thick band itself — very translucent, so space/stars read
+              through it like a real planetary ring */}
           <circle
             cx="50"
             cy="50"
@@ -336,7 +336,7 @@ const Moon = memo(function Moon({ d, income }: { d: number; income: boolean }) {
             fill="none"
             stroke="#dfe3f2"
             strokeWidth="11"
-            opacity="0.16"
+            opacity="0.07"
           />
           <circle
             cx="50"
@@ -346,15 +346,15 @@ const Moon = memo(function Moon({ d, income }: { d: number; income: boolean }) {
             stroke={`url(#${id}-band)`}
             strokeWidth="11"
           />
-          {/* a soft bright centre-line — just enough to define the ring's spine */}
+          {/* a whisper of a centre-line — just barely defines the ring's spine */}
           <circle
             cx="50"
             cy="50"
             r="62"
             fill="none"
             stroke="#ffffff"
-            strokeWidth="1.4"
-            opacity="0.4"
+            strokeWidth="1.2"
+            opacity="0.22"
           />
         </>
       )}

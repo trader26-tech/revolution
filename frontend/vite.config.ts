@@ -41,7 +41,16 @@ export default defineConfig({
            #060010 read as pitch-black bars; deep purple matches the app's top
            tone so the system chrome blends into the scene. */
         background_color: "#0b0320",
-        display: "standalone",
+        /* "fullscreen", NOT "standalone". On modern iOS, when a manifest with
+           a display value exists it OVERRIDES the legacy
+           apple-mobile-web-app-status-bar-style meta — and "standalone" maps
+           to an OPAQUE system status bar: iOS shrinks the web viewport and
+           paints the top/bottom strips itself, so no CSS can ever put the
+           starfield there. "fullscreen" is what iOS maps to
+           standalone-with-translucent-status-bar: the page truly extends
+           edge-to-edge, env(safe-area-inset-*) reports real values, and our
+           overshooting starfield paints behind the clock and home indicator. */
+        display: "fullscreen",
         orientation: "portrait",
         scope: "/",
         start_url: "/",

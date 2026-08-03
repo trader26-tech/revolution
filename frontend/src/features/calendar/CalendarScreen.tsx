@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useStore } from "@/data/store";
 import { fmt, nextBilling } from "@/lib/money";
@@ -6,7 +6,13 @@ import "./calendar.css";
 
 const WD = ["M", "T", "W", "T", "F", "S", "S"];
 
-export function CalendarScreen({ onOpen }: { onOpen: (id: string) => void }) {
+/** PERF: memoised — `onOpen` is a stable callback from App, so this screen only
+ *  re-renders when the store data it reads actually changes. */
+export const CalendarScreen = memo(function CalendarScreen({
+  onOpen,
+}: {
+  onOpen: (id: string) => void;
+}) {
   const { subs, currency } = useStore();
   const today = new Date();
   const [month, setMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -140,4 +146,4 @@ export function CalendarScreen({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
     </div>
   );
-}
+});

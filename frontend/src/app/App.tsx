@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { StoreProvider, useStore } from "@/data/store";
 import { TabBar } from "@/components/ui/TabBar";
 import type { Tab } from "@/components/ui/TabBar";
@@ -51,10 +51,17 @@ function Shell() {
     setInstallEvt(null);
   };
 
-  const openDetail = (id: string) => {
+  /* PERF: stable identity. This is passed to the memoised <SunOrbit/>; if it
+     were re-created each render the memo would never hit and all ~30 orbiting
+     moons would re-render on every parent update. */
+  const openDetail = useCallback((id: string) => {
     setActiveId(id);
     setSheet("detail");
-  };
+  }, []);
+
+  /* Stable too — an inline arrow here would break SubscriptionsScreen's memo
+     and re-render the whole orbit on every parent update. */
+  const openAdd = useCallback(() => setSheet("add"), []);
   const active = activeId ? store.get(activeId) : undefined;
 
   const sheetTitle =
@@ -70,27 +77,26 @@ function Shell() {
     <div className="app">
       <ConnectionBanner />
 
+      {/* PERF — two deliberate choices here:
+          1. No <AnimatePresence mode="wait">. That mode serialises the swap: it
+             plays the outgoing screen's exit to completion BEFORE mounting the
+             incoming one, so every tap cost the exit duration before anything
+             appeared. That reads as lag, not polish.
+          2. Screens stay MOUNTED and are toggled with `hidden`. Unmounting the
+             home screen tore down the 30-moon orbit and re-ran every entry
+             animation on the way back — the one switch that measurably stalled.
+             Keeping them mounted makes every tab return a single cheap frame,
+             and preserves each screen's scroll position for free. */}
       <main className="app__main no-scrollbar">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          >
-            {tab === "home" && (
-              <SubscriptionsScreen
-                onOpen={openDetail}
-                onAdd={() => setSheet("add")}
-              />
-            )}
-            {tab === "calendar" && <CalendarScreen onOpen={openDetail} />}
-            {tab === "settings" && (
-              <SettingsScreen onInstall={install} canInstall={!!installEvt} />
-            )}
-          </motion.div>
-        </AnimatePresence>
+        <Screen active={tab === "home"}>
+          <SubscriptionsScreen onOpen={openDetail} onAdd={openAdd} />
+        </Screen>
+        <Screen active={tab === "calendar"}>
+          <CalendarScreen onOpen={openDetail} />
+        </Screen>
+        <Screen active={tab === "settings"}>
+          <SettingsScreen onInstall={install} canInstall={!!installEvt} />
+        </Screen>
       </main>
 
       <TabBar
@@ -122,6 +128,27 @@ function Shell() {
     </div>
   );
 }
+
+/** Keeps a screen mounted but hidden when it isn't the active tab.
+ *
+ *  `hidden` (the HTML attribute, via CSS `display:none`) removes the subtree
+ *  from layout, paint AND animation entirely — an offscreen orbit costs
+ *  nothing — while preserving component state and scroll position, so
+ *  switching back is a single cheap frame instead of a full remount.
+ *  It also correctly hides the subtree from assistive tech. */
+const Screen = memo(function Screen({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="app__screen" hidden={!active}>
+      {children}
+    </div>
+  );
+});
 
 /** Gates the app behind first-run onboarding. Lives inside the store so
  *  picks can be written straight through to the backend. */

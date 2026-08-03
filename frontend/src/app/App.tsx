@@ -132,6 +132,23 @@ function Root() {
     }
   });
 
+  // TEMP-SEED: dev-only visual check. Remove before commit.
+  useEffect(() => {
+    if (!new URLSearchParams(location.search).has("seed")) return;
+    const seed = [
+      { name: "Netflix", color: "#e50914", mark: "N", category: "Streaming", amount: 649, currency: "INR", cycle: "monthly", list: "Personal", paymentMethod: "Visa", anchorDate: "2026-08-12" },
+      { name: "Spotify", color: "#1db954", mark: "S", category: "Music", amount: 119, currency: "INR", cycle: "monthly", list: "Personal", paymentMethod: "Visa", anchorDate: "2026-08-03" },
+      { name: "Amazon Prime", color: "#00a8e1", mark: "a", category: "Streaming", amount: 1499, currency: "INR", cycle: "yearly", list: "Personal", paymentMethod: "Amex", anchorDate: "2026-09-03" },
+      { name: "ChatGPT Plus", color: "#10a37f", mark: "◉", category: "AI", amount: 1650, currency: "INR", cycle: "monthly", list: "Business", paymentMethod: "Visa", anchorDate: "2026-08-20" },
+    ] as unknown as Parameters<typeof store.add>[0][];
+    store.setCurrency("INR");
+    localStorage.setItem(ONBOARDED_KEY, "1");
+    setOnboarded(true);
+    const t = setTimeout(() => seed.forEach((s) => store.add(s)), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const finishOnboarding = (picks: NewSub[]) => {
     // Match the reference: onboarding runs in INR.
     store.setCurrency("INR");

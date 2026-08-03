@@ -31,8 +31,6 @@
   border-radius: 50%;
   color: #fff;
   background: var(--glass-fill-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-edge);
   box-shadow: var(--shadow-glass);
   transition: transform 0.16s var(--ease), background 0.16s var(--ease);
@@ -306,8 +304,6 @@
   font-weight: 600;
   color: var(--text-1);
   background: var(--glass-fill);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-edge);
   transition: all 0.18s var(--ease);
 }

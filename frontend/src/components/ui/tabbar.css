@@ -13,8 +13,8 @@
   background: linear-gradient(
     180deg,
     transparent,
-    rgba(6, 0, 16, 0.55) 55%,
-    rgba(6, 0, 16, 0.85)
+    rgba(11, 3, 32, 0.55) 55%,
+    rgba(11, 3, 32, 0.85)
   );
   pointer-events: none;
 }

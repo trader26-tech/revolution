@@ -19,7 +19,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      // "prompt" so a new deploy surfaces an in-app "Update available" dialog
+      // instead of swapping silently (which left users on the old UI until they
+      // happened to fully relaunch). See <UpdatePrompt/>.
+      registerType: "prompt",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "Revolution — Subscription Tracker",

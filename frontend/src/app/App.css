@@ -11,8 +11,18 @@
 
 .app__main {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+}
+/* the AnimatePresence page wrapper (unclassed motion.div) must fill the scroll
+   area so each screen can lay itself out to the full height */
+.app__main > * {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .app__add-switch {

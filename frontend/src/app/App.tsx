@@ -6,6 +6,7 @@ import type { Tab } from "@/components/ui/TabBar";
 import { Sheet } from "@/components/ui/Sheet";
 import { SpaceBackground } from "@/components/ui/SpaceBackground";
 import { ConnectionBanner } from "@/components/ui/ConnectionBanner";
+import { UpdatePrompt } from "@/components/ui/UpdatePrompt";
 import {
   SubscriptionsScreen,
   SubscriptionDetail,
@@ -159,6 +160,8 @@ export default function App() {
   return (
     <StoreProvider>
       <Root />
+      {/* surfaces the "Update available" dialog when a new version deploys */}
+      <UpdatePrompt />
     </StoreProvider>
   );
 }

@@ -1,5 +1,10 @@
 .home {
   position: relative;
+  /* fill the full scroll area so the layout can distribute its own height
+     instead of clustering at the top and leaving the screen half-empty */
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
   padding: calc(10px + var(--safe-top)) 18px 24px;
   max-width: 480px;
   margin: 0 auto;
@@ -37,7 +42,12 @@
 .home__orbit {
   display: grid;
   place-items: center;
-  margin: 10px 0 36px;
+  /* grow to absorb the spare vertical space so the orbit sits centred in the
+     upper region and the headline/list settle into the lower third — the
+     screen fills top-to-bottom instead of leaving a gap */
+  flex: 1 1 auto;
+  min-height: 300px;
+  margin: 10px 0 28px;
   /* cancel the .home side padding so the orbit uses the full screen width */
   margin-left: -18px;
   margin-right: -18px;

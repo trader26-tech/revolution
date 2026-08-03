@@ -17,8 +17,9 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Copy the application code.
 COPY app ./app
 
-# Railway injects $PORT at runtime; default to 8000 for local `docker run`.
-ENV PORT=8000
+# Railway injects $PORT at runtime and routes the domain to it — do NOT set
+# ENV PORT here, or it would override Railway's value and the proxy would get
+# no response. The :-8000 fallback is only for a local `docker run`.
 EXPOSE 8000
 
 # Shell form so $PORT expands. Binds all interfaces for the platform proxy.

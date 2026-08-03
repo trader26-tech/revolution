@@ -24,9 +24,10 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/vite.config.ts ./vite.config.ts
 
-ENV PORT=4173
+# Do NOT set ENV PORT — Railway injects $PORT and routes the domain to it.
+# serve:prod falls back to 4173 only for a local `docker run`.
 EXPOSE 4173
 
-# serve:prod → vite preview --host 0.0.0.0 --port $PORT (allowedHosts:true
-# in vite.config.ts accepts the Railway public domain).
+# serve:prod → vite preview --host 0.0.0.0 --port ${PORT:-4173} (allowedHosts:
+# true in vite.config.ts accepts the Railway public domain).
 CMD npm run serve:prod

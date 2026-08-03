@@ -63,8 +63,8 @@ function pathFor(slug) {
 const CURATED = [
   // Streaming / video
   ["Netflix", "Streaming"], ["Disney+", "Streaming", "disneyplus"],
-  ["Prime Video", "Streaming", "primevideo"], ["YouTube", "Streaming"],
-  ["YouTube Premium", "Streaming", "youtube"], ["HBO Max", "Streaming", "hbo"],
+  ["Prime Video", "Streaming", "primevideo"], ["YouTube Premium", "Streaming", "youtube"],
+  ["HBO Max", "Streaming", "hbo"],
   ["Max", "Streaming", "max"], ["Hulu", "Streaming", "hulu"],
   ["Paramount+", "Streaming", "paramountplus"], ["Apple TV+", "Streaming", "appletv"],
   ["Crunchyroll", "Streaming", "crunchyroll"], ["Twitch", "Streaming"],

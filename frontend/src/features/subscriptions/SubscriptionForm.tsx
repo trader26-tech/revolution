@@ -174,9 +174,9 @@ export function SubscriptionForm({
         </div>
 
         <div className="ae__grid">
-          {results.map((c) => (
+          {results.map((c, i) => (
             <button
-              key={c.brandSlug || c.name}
+              key={flow + "-" + c.name + "-" + i}
               className="ae__tile glass glass--tap"
               onClick={() => pick(c)}
             >

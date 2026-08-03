@@ -92,9 +92,23 @@ body,
   margin: 0;
 }
 
+/* html carries the darkest space tone so any overscroll / rubber-band beyond
+   the content still shows space, never black. */
+html {
+  background: var(--bg-0);
+}
+
 body {
   font-family: var(--font);
-  background: var(--bg-0);
+  /* The deep-space gradient fills the ENTIRE viewport — including the notch
+     and home-indicator safe areas — so the app reads edge-to-edge with no
+     bare black bars. The animated <SpaceBackground/> layers over this. */
+  background:
+    radial-gradient(120% 80% at 78% -6%, rgba(138, 28, 255, 0.3), transparent 55%),
+    radial-gradient(90% 60% at 12% 4%, rgba(120, 40, 220, 0.2), transparent 55%),
+    radial-gradient(120% 90% at 50% 108%, rgba(255, 45, 120, 0.12), transparent 55%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0) 60%);
+  background-attachment: fixed;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { SunOrbit } from "@/components/ui/SunOrbit";
 import { useStore } from "@/data/store";
 import {
@@ -12,6 +12,7 @@ import {
   isIncome,
 } from "@/lib/money";
 import type { ListName, Subscription } from "@/lib/types";
+import { BreakdownSheet } from "./BreakdownSheet";
 import "./subscriptions.css";
 
 const LISTS: (ListName | "All")[] = ["All", "Personal", "Family", "Business"];
@@ -21,15 +22,26 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
   const { subs, currency } = useStore();
   const [list, setList] = useState<ListName | "All">("All");
   const [flowFilter, setFlowFilter] = useState<FlowFilter>("all");
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [listPickerOpen, setListPickerOpen] = useState(false);
+
+  // Scoped by the active list only — the breakdown sheet and the headline
+  // figures both read from this, so the flow filter (which only narrows the
+  // "Up next" list) never changes the money totals the user tapped.
+  const scoped = useMemo(
+    () => (list === "All" ? subs : subs.filter((s) => s.list === list)),
+    [subs, list]
+  );
 
   const filtered = useMemo(() => {
-    let out = list === "All" ? subs : subs.filter((s) => s.list === list);
+    let out = scoped;
     if (flowFilter === "income") out = out.filter(isIncome);
     if (flowFilter === "expense") out = out.filter((s) => !isIncome(s));
     return out;
-  }, [subs, list, flowFilter]);
+  }, [scoped, flowFilter]);
 
-  const totals = useMemo(() => flowTotals(filtered), [filtered]);
+  const totals = useMemo(() => flowTotals(scoped), [scoped]);
+  const yearlySpend = totals.expense * 12;
 
   const upcoming = useMemo(
     () =>
@@ -59,42 +71,93 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
         <SunOrbit subs={filtered} size={272} onSelect={onOpen} />
       </div>
 
-      {/* headline net position */}
+      {/* headline row — count + list scope on the left, yearly spend on the
+          right. Both halves are tappable: left opens the list picker, right
+          opens the money breakdown. */}
       <motion.div
-        className="home__total"
+        className="home__headline"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="home__total-label">Net per month</div>
-        <div
-          className={
-            "home__total-value tabnum " + (totals.net >= 0 ? "is-income" : "is-expense")
-          }
+        <button
+          className="home__hcell home__hcell--left"
+          onClick={() => setListPickerOpen(true)}
+          aria-label="Change list"
         >
-          {totals.net < 0 ? "−" : ""}
-          {fmt(Math.abs(totals.net), currency)}
-        </div>
-        <div className="home__total-sub">
-          {totals.net >= 0 ? "left over after bills" : "short each month"}
-        </div>
+          <span className="home__hnum tabnum">{scoped.length}</span>
+          <span className="home__hlabel">
+            {list === "All" ? "All" : list}
+            <svg className="home__hchev" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M8 9l4-4 4 4M8 15l4 4 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </button>
+
+        <button
+          className="home__hcell home__hcell--right"
+          onClick={() => setBreakdownOpen(true)}
+          aria-label="See money breakdown"
+        >
+          <span className="home__hmoney tabnum">{fmt(yearlySpend, currency)}</span>
+          <span className="home__hlabel home__hlabel--right">
+            Total yearly
+            <svg className="home__hgo" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </button>
       </motion.div>
 
-      {/* income vs expense summary */}
-      <div className="home__flows">
-        <div className="home__flow glass is-income">
-          <span className="home__flow-label">
-            <i className="home__flow-dot" /> Income
-          </span>
-          <span className="home__flow-value tabnum">{fmt(totals.income, currency)}</span>
-        </div>
-        <div className="home__flow glass is-expense">
-          <span className="home__flow-label">
-            <i className="home__flow-dot" /> Expenses
-          </span>
-          <span className="home__flow-value tabnum">{fmt(totals.expense, currency)}</span>
-        </div>
-      </div>
+      {/* list scope picker */}
+      <AnimatePresence>
+        {listPickerOpen && (
+          <>
+            <motion.div
+              className="home__pick-scrim"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setListPickerOpen(false)}
+            />
+            <motion.div
+              className="home__pick glass glass--strong"
+              initial={{ opacity: 0, y: -6, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 420, damping: 30 }}
+            >
+              {LISTS.map((l) => {
+                const count =
+                  l === "All"
+                    ? subs.length
+                    : subs.filter((s) => s.list === l).length;
+                return (
+                  <button
+                    key={l}
+                    className={"home__pick-item" + (list === l ? " is-on" : "")}
+                    onClick={() => {
+                      setList(l);
+                      setListPickerOpen(false);
+                    }}
+                  >
+                    <span>{l}</span>
+                    <span className="home__pick-count tabnum">{count}</span>
+                  </button>
+                );
+              })}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <BreakdownSheet
+        open={breakdownOpen}
+        onClose={() => setBreakdownOpen(false)}
+        subs={scoped}
+        currency={currency}
+        scopeLabel={list === "All" ? "All records" : list}
+      />
 
       {trialsEnding.length > 0 && (
         <div className="home__alert glass">
@@ -114,19 +177,6 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
             onClick={() => setFlowFilter(f)}
           >
             {f === "all" ? "All" : f === "expense" ? "Expenses" : "Income"}
-          </button>
-        ))}
-      </div>
-
-      {/* list filter */}
-      <div className="home__filters no-scrollbar">
-        {LISTS.map((l) => (
-          <button
-            key={l}
-            className={"chip" + (list === l ? " is-on" : "")}
-            onClick={() => setList(l)}
-          >
-            {l}
           </button>
         ))}
       </div>

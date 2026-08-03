@@ -1,4 +1,5 @@
 .home {
+  position: relative;
   padding: calc(10px + var(--safe-top)) 18px 24px;
   max-width: 480px;
   margin: 0 auto;
@@ -42,93 +43,122 @@
   margin: 2px 0 64px;
 }
 
-/* ---------- headline net ---------- */
-.home__total {
-  text-align: center;
-  margin-top: 4px;
-  margin-bottom: 18px;
+/* ---------- headline row (count + list · yearly spend) ----------
+   Two tappable cells laid out like the reference screenshot: big number +
+   list scope on the left, big money + "Total yearly" on the right. Plain
+   type on the space background — no card — so the orbit stays the hero. */
+.home__headline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 4px 2px 20px;
 }
-.home__total-label {
-  font-size: 11.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1.6px;
-  color: var(--text-3);
+.home__hcell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  margin: -4px;
+  border-radius: 14px;
+  transition: transform 0.16s var(--ease), background 0.16s var(--ease);
 }
-.home__total-value {
-  font-size: 48px;
+.home__hcell--right {
+  align-items: flex-end;
+  text-align: right;
+}
+.home__hcell:active {
+  transform: scale(0.97);
+  background: rgba(255, 255, 255, 0.05);
+}
+.home__hnum {
+  font-size: 46px;
   font-weight: 800;
-  letter-spacing: -1.8px;
-  line-height: 1.05;
-  margin-top: 3px;
+  letter-spacing: -2px;
+  line-height: 1;
   background: linear-gradient(180deg, #fff, #d6c8ff);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
-.home__total-value.is-income {
-  background: linear-gradient(180deg, #ffffff, var(--income-hi));
+.home__hmoney {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -1.4px;
+  line-height: 1;
+  background: linear-gradient(180deg, #fff, #d6c8ff);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 6px 24px rgba(47, 224, 138, 0.28));
+  filter: drop-shadow(0 6px 24px rgba(138, 28, 255, 0.28));
 }
-.home__total-value.is-expense {
-  background: linear-gradient(180deg, #ffffff, var(--expense-hi));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 6px 24px rgba(255, 77, 109, 0.26));
-}
-.home__total-sub {
-  color: var(--text-2);
-  font-size: 13px;
-  margin-top: 4px;
-}
-
-/* ---------- income vs expense cards ---------- */
-.home__flows {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.home__flow {
-  padding: 13px 14px;
-  border-radius: var(--radius);
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.home__flow-label {
+.home__hlabel {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  font-weight: 700;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-2);
-  letter-spacing: 0.2px;
+  margin-top: 4px;
 }
-.home__flow-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+.home__hlabel--right {
+  color: var(--text-2);
 }
-.home__flow.is-income .home__flow-dot {
-  background: var(--income);
-  box-shadow: 0 0 0 3px var(--income-dim);
+.home__hchev {
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
 }
-.home__flow.is-expense .home__flow-dot {
-  background: var(--expense);
-  box-shadow: 0 0 0 3px var(--expense-dim);
+.home__hgo {
+  width: 15px;
+  height: 15px;
+  color: var(--accent-hi);
 }
-.home__flow-value {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+
+/* ---------- list scope picker ---------- */
+.home__pick-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
 }
-.home__flow.is-income .home__flow-value { color: var(--income-hi); }
-.home__flow.is-expense .home__flow-value { color: #fff; }
+.home__pick {
+  position: absolute;
+  z-index: 41;
+  left: 18px;
+  margin-top: -8px;
+  min-width: 190px;
+  padding: 6px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+}
+.home__pick-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+  transition: background 0.14s var(--ease);
+}
+.home__pick-item:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+.home__pick-item.is-on {
+  color: #fff;
+  background: linear-gradient(160deg, var(--accent-hi), var(--accent));
+  box-shadow: 0 8px 18px -12px var(--accent-glow);
+}
+.home__pick-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.home__pick-item.is-on .home__pick-count {
+  color: rgba(255, 255, 255, 0.8);
+}
 
 /* ---------- trial alert ---------- */
 .home__alert {

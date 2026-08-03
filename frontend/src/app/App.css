@@ -11,11 +11,16 @@
      shifting the (fixed) nav bar — the "screen changes size when I scroll"
      glitch. 100lvh is the LARGE (URL-bar-hidden) height: the app is always the
      full screen and the bar just overlays it, so nothing resizes while
-     scrolling. Order matters: dvh is the fallback for engines without lvh. */
-  height: 100vh; /* oldest fallback */
-  height: 100dvh; /* modern fallback */
-  height: 100lvh; /* stable full height — wins where supported */
+     scrolling. Fallback for engines without lvh is plain 100vh. The @supports
+     block survives minification (duplicate `height:` on one rule gets collapsed
+     to a single declaration). */
+  height: 100vh;
   overflow: hidden;
+}
+@supports (height: 100lvh) {
+  .app {
+    height: 100lvh;
+  }
 }
 
 .app__main {

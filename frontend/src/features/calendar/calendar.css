@@ -1,14 +1,25 @@
 .cal {
   /* bottom padding clears the floating tab bar so content never hides under it */
   padding: calc(10px + var(--safe-top)) 18px calc(var(--tabbar-space) + 12px);
+  width: 100%;
   max-width: 480px;
   margin: 0 auto;
+  box-sizing: border-box;
+  /* strictly vertical — never let the grid or header bleed sideways */
+  overflow-x: clip;
 }
 .cal__head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 16px;
+}
+/* the title/subtitle column shrinks and its long "… due in August" line
+   truncates, so the month nav on the right is never pushed off-screen */
+.cal__head > div:first-child {
+  min-width: 0;
+  flex: 1;
 }
 .cal__head h2 {
   font-size: 24px;
@@ -19,8 +30,12 @@
   color: var(--text-2);
   font-size: 13.5px;
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cal__nav {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 4px;

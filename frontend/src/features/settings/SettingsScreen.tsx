@@ -18,14 +18,14 @@ export function SettingsScreen({ onInstall, canInstall }: { onInstall: () => voi
       <header className="set__head">
         <Planet size={40} glow />
         <div>
-          <h2>Orbit</h2>
+          <h2>Revolution</h2>
           <div className="set__ver">{subs.length} subscriptions · v1.0</div>
         </div>
       </header>
 
       {canInstall && (
         <button className="set__install" onClick={onInstall}>
-          <span>📲 Add Orbit to your Home Screen</span>
+          <span>📲 Add Revolution to your Home Screen</span>
           <small>Installs as an app — full screen, works offline</small>
         </button>
       )}
@@ -84,7 +84,7 @@ export function SettingsScreen({ onInstall, canInstall }: { onInstall: () => voi
         Clear all data
       </button>
 
-      <p className="set__made">Made with 💜 · An Orbit clone</p>
+      <p className="set__made">Made with 💜 · Revolution</p>
     </div>
   );
 }

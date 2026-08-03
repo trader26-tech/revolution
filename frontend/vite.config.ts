@@ -22,8 +22,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
-        name: "Orbit — Subscription Tracker",
-        short_name: "Orbit",
+        name: "Revolution — Subscription Tracker",
+        short_name: "Revolution",
         description:
           "The subscription tracker that stops surprise charges. See every bill before you're charged.",
         theme_color: "#090217",

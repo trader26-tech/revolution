@@ -1,4 +1,4 @@
-"""Pydantic schemas for the Orbit subscription domain.
+"""Pydantic schemas for the Revolution subscription domain.
 
 These mirror the frontend `Subscription` type (see
 `frontend/src/lib/types.ts`) so the two stay in lockstep.

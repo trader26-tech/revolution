@@ -9,7 +9,7 @@ router = APIRouter(tags=["health"])
 
 @router.get("/")
 def root() -> dict:
-    return {"app": "Orbit API", "status": "running"}
+    return {"app": "Revolution API", "status": "running"}
 
 
 @router.get("/health")

@@ -1,4 +1,4 @@
-"""Orbit API — FastAPI application factory.
+"""Revolution API — FastAPI application factory.
 
 Layered architecture:
 
@@ -21,14 +21,15 @@ def create_app() -> FastAPI:
     settings = get_settings()
 
     app = FastAPI(
-        title="Orbit API",
-        description="Subscription tracker backend for the Orbit PWA.",
+        title="Revolution API",
+        description="Subscription tracker backend for the Revolution PWA.",
         version="1.0.0",
     )
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
+        allow_origin_regex=settings.cors_origin_regex or None,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

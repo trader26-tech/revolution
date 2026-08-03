@@ -35,40 +35,41 @@ interface Store {
 const Ctx = createContext<Store | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [subs, setSubs] = useState<Subscription[]>(localStore.loadSubs);
+  // The backend is the ONLY source of truth. We start empty and never show
+  // stale/local data — the list is populated solely from what the server
+  // returns. If the server can't be reached, the list stays empty and the
+  // ConnectionBanner explains why.
+  const [subs, setSubs] = useState<Subscription[]>([]);
   const [currency, setCurrencyState] = useState<string>(localStore.loadCurrency);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
     SYNC_ENABLED ? "syncing" : "disconnected"
   );
 
-  // always keep the local cache in step with state
-  useEffect(() => localStore.saveSubs(subs), [subs]);
-
-  // ---- initial hydration from the backend (if configured) --------------
-  // Refs let async callbacks read the latest local state without re-subscribing.
+  // Refs let async callbacks read the latest state without re-subscribing.
   const subsRef = useRef(subs);
   subsRef.current = subs;
 
+  // ---- load from the backend (the single source of truth) --------------
   useEffect(() => {
-    if (!SYNC_ENABLED) return;
+    if (!SYNC_ENABLED) {
+      // No backend configured: never show anything stale.
+      setSubs([]);
+      return;
+    }
     let cancelled = false;
 
     (async () => {
       try {
         const remote = await subscriptionsApi.list();
         if (cancelled) return;
-        if (remote.length > 0) {
-          setSubs(remote);
-        } else {
-          // empty backend: push the current local set up so both agree
-          await Promise.all(
-            subsRef.current.map((s) => subscriptionsApi.create(s))
-          );
-        }
+        setSubs(remote);
         setSyncStatus("synced");
       } catch {
-        // offline / not reachable: keep working from the local cache
-        if (!cancelled) setSyncStatus("error");
+        // Unreachable: clear the list so no stale data is ever shown.
+        if (!cancelled) {
+          setSubs([]);
+          setSyncStatus("error");
+        }
       }
     })();
 
@@ -82,12 +83,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     localStore.saveCurrency(c);
   };
 
+  // Pull the authoritative list from the backend after a failed write, so the
+  // UI never keeps an optimistic change that didn't actually persist.
+  const resyncFromServer = async () => {
+    try {
+      setSubs(await subscriptionsApi.list());
+      setSyncStatus("synced");
+    } catch {
+      setSubs([]);
+      setSyncStatus("error");
+    }
+  };
+
   // ---- mutations: optimistic locally, write-through to the API ---------
+  // Writes require a backend. On failure we re-sync from the server so no
+  // unsaved (stale) item lingers in the UI.
   const add: Store["add"] = (input) => {
     const full: Subscription = { ...input, id: newId(), createdAt: Date.now() };
     setSubs((prev) => [full, ...prev]);
     if (SYNC_ENABLED) {
-      subscriptionsApi.create(full).catch(() => setSyncStatus("error"));
+      subscriptionsApi.create(full).catch(resyncFromServer);
     }
     return full;
   };
@@ -95,14 +110,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const update: Store["update"] = (id, patch) => {
     setSubs((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
     if (SYNC_ENABLED) {
-      subscriptionsApi.update(id, patch).catch(() => setSyncStatus("error"));
+      subscriptionsApi.update(id, patch).catch(resyncFromServer);
     }
   };
 
   const remove: Store["remove"] = (id) => {
     setSubs((prev) => prev.filter((x) => x.id !== id));
     if (SYNC_ENABLED) {
-      subscriptionsApi.remove(id).catch(() => setSyncStatus("error"));
+      subscriptionsApi.remove(id).catch(resyncFromServer);
     }
   };
 

@@ -9,7 +9,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Thin typed fetch wrapper around the Orbit backend. */
+/** Thin typed fetch wrapper around the Revolution backend. */
 export async function api<T>(
   path: string,
   init?: RequestInit & { json?: unknown }

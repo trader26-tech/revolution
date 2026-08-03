@@ -70,59 +70,10 @@
   50%      { opacity: 1;               transform: scale(1.15); }
 }
 
-/* ---- shooting stars ----
-   A bright head with a tapering tail streaks across, then the animation
-   idles for most of its long cycle so sightings feel rare and special. */
-.space__shooting {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.9);
-  opacity: 0;
-}
-.space__shooting::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: 1px;
-  width: 120px;
-  height: 1.5px;
-  transform: translateY(-50%);
-  background: linear-gradient(270deg, rgba(255, 255, 255, 0.9), transparent);
-}
-.space__shooting--a {
-  animation: shoot 14s ease-in 3s infinite;
-}
-.space__shooting--b {
-  animation: shoot 19s ease-in 11s infinite;
-}
-
-@keyframes shoot {
-  0% {
-    opacity: 0;
-    transform: translate3d(84vw, -6vh, 0) rotate(28deg) scale(1);
-  }
-  2% { opacity: 1; }
-  9% {
-    opacity: 1;
-    transform: translate3d(24vw, 40vh, 0) rotate(28deg) scale(1);
-  }
-  12%, 100% {
-    opacity: 0;
-    transform: translate3d(20vw, 46vh, 0) rotate(28deg) scale(1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .space__layer,
-  .space__star,
-  .space__shooting {
+  .space__star {
     animation: none !important;
   }
   .space__star { opacity: 0.65; }
-  .space__shooting { opacity: 0; }
 }

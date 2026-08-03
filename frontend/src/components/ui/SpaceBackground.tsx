@@ -34,10 +34,6 @@ export function SpaceBackground() {
           <Star key={i} s={s} />
         ))}
       </div>
-
-      {/* an occasional shooting star sweeps across, then waits a long while */}
-      <span className="space__shooting space__shooting--a" />
-      <span className="space__shooting space__shooting--b" />
     </div>
   );
 }

@@ -1,0 +1,102 @@
+/* ============================================================
+   SunOrbit — glowing sun with three cycle rings (weekly / monthly
+   / yearly). Ash-grey subscription planets ride their ring and are
+   revealed by tapping the sun.
+   ============================================================ */
+
+.sun-orbit {
+  position: relative;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  /* everything is positioned from the exact centre */
+}
+
+/* ---- orbit guide rings --------------------------------------------- */
+.sun-orbit__ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgba(179, 160, 255, 0.14);
+  box-shadow: 0 0 24px rgba(138, 28, 255, 0.06) inset;
+  opacity: 0.5;
+  transition: opacity 0.5s var(--ease), border-color 0.5s var(--ease);
+  pointer-events: none;
+}
+.sun-orbit__ring.is-open {
+  opacity: 1;
+  border-color: rgba(179, 160, 255, 0.28);
+}
+
+/* ---- a spinning square whose top-centre carries a planet ----------- */
+.sun-orbit__spin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  pointer-events: none;
+}
+
+/* the planet button pinned to the top edge of its spinning square */
+.sun-orbit__planet {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  padding: 0;
+  border-radius: 50%;
+  pointer-events: auto;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.55));
+  transition: filter 0.16s var(--ease);
+}
+.sun-orbit__planet:active {
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.6)) brightness(1.12);
+}
+
+/* ---- the sun ------------------------------------------------------- */
+.sun-orbit__sun {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  padding: 0;
+  z-index: 3;
+  transition: transform 0.2s var(--ease);
+}
+.sun-orbit__sun:active {
+  transform: translate(-50%, -50%) scale(0.96);
+}
+.sun-orbit__sun.is-open {
+  cursor: pointer;
+}
+
+/* the little "Tap" affordance under the sun */
+.sun-orbit__hint {
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  animation: sun-hint 2.4s var(--ease) infinite;
+  pointer-events: none;
+}
+.sun-orbit__hint.is-hidden {
+  opacity: 0;
+  animation: none;
+}
+
+@keyframes sun-hint {
+  0%, 100% { opacity: 0.35; transform: translateX(-50%) translateY(0); }
+  50% { opacity: 0.85; transform: translateX(-50%) translateY(2px); }
+}

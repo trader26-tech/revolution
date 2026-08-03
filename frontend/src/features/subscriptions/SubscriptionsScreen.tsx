@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { OrbitHero } from "@/components/ui/OrbitHero";
+import { SunOrbit } from "@/components/ui/SunOrbit";
 import { useStore } from "@/data/store";
 import {
   fmt,
@@ -31,9 +31,6 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
 
   const totals = useMemo(() => flowTotals(filtered), [filtered]);
 
-  // The planet's light follows the net position of what's on screen.
-  const heroFlow = totals.net >= 0 ? "income" : "expense";
-
   const upcoming = useMemo(
     () =>
       [...filtered]
@@ -58,7 +55,9 @@ export function SubscriptionsScreen({ onOpen }: { onOpen: (id: string) => void }
         <div className="home__avatar">R</div>
       </header>
 
-      <OrbitHero subs={filtered} size={288} flow={heroFlow} onSelect={onOpen} />
+      <div className="home__orbit">
+        <SunOrbit subs={filtered} size={272} onSelect={onOpen} />
+      </div>
 
       {/* headline net position */}
       <motion.div

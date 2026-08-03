@@ -25,6 +25,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      /* Renamed from the default manifest.webmanifest: iOS caches the manifest
+         per-URL and can hand "Add to Home Screen" a STALE copy even after the
+         app is deleted — which kept reinstalls stuck in the old opaque
+         standalone mode. A new filename can never hit that cache, so installs
+         are guaranteed to read the current manifest (display: fullscreen). */
+      manifestFilename: "manifest-v2.webmanifest",
       // "prompt" so a new deploy surfaces an in-app "Update available" dialog
       // instead of swapping silently (which left users on the old UI until they
       // happened to fully relaunch). See <UpdatePrompt/>.

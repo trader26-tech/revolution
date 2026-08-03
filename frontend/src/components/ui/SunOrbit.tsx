@@ -191,12 +191,13 @@ interface Heat {
  *  t∈[0,1] just deepens/brightens the glint a touch, so pricier planets catch a
  *  slightly stronger coloured light — but the planet body stays silver. */
 function heatColor(t: number, income: boolean): Heat {
-  const base = income ? "#3ee08a" : "#ff5a72"; // playful green / red
-  const hi = income ? "#b7ffd8" : "#ffd3da"; // bright core
+  // playful but saturated so the lit hemisphere reads clearly as coloured
+  const base = income ? "#2fd982" : "#ff4d68"; // green / red
+  const hi = income ? "#8bffc0" : "#ff9aa8"; // brighter, near the sun-facing edge
   return {
     key: (income ? "i" : "e") + Math.round(t * 10),
-    // pricier → a slightly deeper glint; cheaper → a touch paler
-    spot: lighten(base, 0.22 * (1 - t)),
+    // pricier → a touch deeper coat; cheaper → a touch lighter
+    spot: mix(base, income ? "#0f9e5a" : "#e01e3c", t * 0.5),
     spotHi: hi,
   };
 }
@@ -219,9 +220,6 @@ function mix(c1: string, c2: string, k: number) {
   return `#${toHex(a.r + (b.r - a.r) * k)}${toHex(a.g + (b.g - a.g) * k)}${toHex(
     a.b + (b.b - a.b) * k
   )}`;
-}
-function lighten(hex: string, k: number) {
-  return mix(hex, "#ffffff", k);
 }
 
 /** Evenly spaced keyframe samples across one lap (0 → 1). */
@@ -328,25 +326,46 @@ function Moon({ d, heat }: { d: number; heat: Heat }) {
   return (
     <svg width={d} height={d} viewBox="0 0 100 100" style={{ display: "block" }}>
       <defs>
-        {/* the silver body: lit gently from the top (sun side), ashen below */}
-        <radialGradient id={id} cx="50%" cy="30%" r="80%">
+        {/* the silver/ash body sphere: lit from the top (sun side) */}
+        <radialGradient id={id} cx="50%" cy="32%" r="80%">
           <stop offset="0%" stopColor="#eceef4" />
           <stop offset="46%" stopColor="#c2c5d1" />
           <stop offset="80%" stopColor="#8f93a4" />
           <stop offset="100%" stopColor="#565a6d" />
         </radialGradient>
-        {/* the coloured sun-glint: bright flow colour fading to nothing within
-            ~13 units radius → ~7% of the planet's area */}
-        <radialGradient id={spot} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={heat.spotHi} stopOpacity="0.95" />
-          <stop offset="55%" stopColor={heat.spot} stopOpacity="0.7" />
+        {/* SUN-LIT COAT: the sun-facing HALF is coated solidly in the flow
+            colour, then slopes down to transparent at the terminator (the
+            middle), so the far hemisphere stays ash. Vertical: top = sun side.
+            A soft sphere-shade multiplies over it so the coloured half still
+            reads as a curved surface (brighter at the lit edge, darker in). */}
+        <linearGradient id={spot} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={heat.spotHi} stopOpacity="1" />
+          <stop offset="20%" stopColor={heat.spot} stopOpacity="1" />
+          <stop offset="42%" stopColor={heat.spot} stopOpacity="0.9" />
+          <stop offset="55%" stopColor={heat.spot} stopOpacity="0.4" />
+          <stop offset="70%" stopColor={heat.spot} stopOpacity="0.12" />
           <stop offset="100%" stopColor={heat.spot} stopOpacity="0" />
+        </linearGradient>
+        {/* radial shade to keep the coloured half looking spherical (lit at the
+            sun edge, falling to shadow) */}
+        <radialGradient id={spot + "-sh"} cx="50%" cy="26%" r="80%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.34" />
+          <stop offset="46%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.32" />
         </radialGradient>
+        {/* clip the coat to the sphere so it never spills past the rim */}
+        <clipPath id={id + "-clip"}>
+          <circle cx="50" cy="50" r="47" />
+        </clipPath>
       </defs>
-      {/* silver sphere */}
+      {/* ash sphere */}
       <circle cx="50" cy="50" r="47" fill={`url(#${id})`} />
-      {/* coloured sun-spot near the top edge (the sun-facing side) */}
-      <circle cx="50" cy="26" r="13" fill={`url(#${spot})`} />
+      {/* coloured sun-lit hemisphere, clipped to the sphere */}
+      <g clipPath={`url(#${id}-clip)`}>
+        <rect x="0" y="0" width="100" height="100" fill={`url(#${spot})`} />
+        {/* spherical shading over the coloured coat */}
+        <rect x="0" y="0" width="100" height="100" fill={`url(#${spot}-sh)`} />
+      </g>
       {/* faint rim so the planet reads as a sphere against space */}
       <circle cx="50" cy="50" r="46.4" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.12" />
     </svg>

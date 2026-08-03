@@ -14,10 +14,12 @@ interface Props {
 }
 
 /** The three billing cycles, mapped to rings from the inside out:
- *  weekly (fastest, closest) → monthly → yearly (slowest, farthest). */
+ *  weekly (fastest, closest) → monthly → yearly (slowest, farthest).
+ *  All rings spin the SAME way — clockwise on screen (dir = 1) — only their
+ *  speed differs, so the system reads as one coherent solar system. */
 const RINGS: { cycle: Cycle; rFactor: number; dur: number; dir: 1 | -1 }[] = [
   { cycle: "weekly", rFactor: 0.22, dur: 26, dir: 1 },
-  { cycle: "monthly", rFactor: 0.31, dur: 40, dir: -1 },
+  { cycle: "monthly", rFactor: 0.31, dur: 40, dir: 1 },
   { cycle: "yearly", rFactor: 0.4, dur: 58, dir: 1 },
 ];
 

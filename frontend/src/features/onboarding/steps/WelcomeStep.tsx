@@ -59,18 +59,22 @@ export function WelcomeStep({ onNext }: { onNext: () => void }) {
 
 /** Logos scattered on a soft grid, each drifting on its own gentle loop. */
 function LogoField() {
-  // hand-placed positions (%) so the composition reads like the reference
+  // Hand-placed positions (%) forming a constellation that fills the whole
+  // sky top→bottom (no dead zone) and opens up in the middle so the planet
+  // nests inside the cluster rather than sitting in empty space below it.
   const spots = [
-    { x: 28, y: 30, d: 0 },
-    { x: 52, y: 18, d: 0.4 },
-    { x: 70, y: 26, d: 0.8 },
-    { x: 82, y: 42, d: 1.2 },
-    { x: 16, y: 46, d: 0.6 },
-    { x: 34, y: 54, d: 1.0 },
-    { x: 48, y: 44, d: 0.2 },
-    { x: 64, y: 58, d: 1.4 },
-    { x: 26, y: 70, d: 0.9 },
-    { x: 76, y: 66, d: 0.5 },
+    { x: 30, y: 12, d: 0.0 },
+    { x: 54, y: 8, d: 0.4 },
+    { x: 74, y: 16, d: 0.8 },
+    { x: 16, y: 28, d: 0.6 },
+    { x: 86, y: 34, d: 1.2 },
+    { x: 40, y: 30, d: 0.2 },
+    { x: 66, y: 40, d: 1.0 },
+    { x: 12, y: 56, d: 0.9 },
+    { x: 88, y: 60, d: 0.5 },
+    { x: 24, y: 78, d: 1.3 },
+    { x: 78, y: 82, d: 0.7 },
+    { x: 50, y: 92, d: 1.5 },
   ];
   return (
     <>

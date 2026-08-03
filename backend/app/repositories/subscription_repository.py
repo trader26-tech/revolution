@@ -1,8 +1,7 @@
 """Data access for subscriptions.
 
 ``SupabaseSubscriptionRepository`` persists to a Supabase ``subscriptions``
-table (see ``backend/sql/subscriptions.sql``) — the app's sole source of
-truth; there is no local store.
+table — the app's sole source of truth; there is no local store.
 
 The service layer depends only on the ``SubscriptionRepository`` Protocol, so
 swapping the backing store never touches business logic.

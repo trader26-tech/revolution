@@ -48,8 +48,9 @@ cp .env.example .env.local  # sets VITE_API_BASE_URL=http://localhost:8000
 
 The backend stores all data in Supabase — there is no local store. Set
 `SUPABASE_URL` / `SUPABASE_KEY` in `backend/.env` (from **Project Settings →
-API**) and run [`backend/sql/subscriptions.sql`](backend/sql/subscriptions.sql)
-to create the `subscriptions` table before starting the API.
+API**, service_role key). Credentials live server-side only and are never
+exposed to the frontend. The `subscriptions` table schema is in
+[`backend/README.md`](backend/README.md#supabase).
 
 See [`frontend/README.md`](frontend/README.md) and
 [`backend/README.md`](backend/README.md) for details.

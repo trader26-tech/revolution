@@ -41,9 +41,9 @@ This creates one service; you'll add the second and point each at its folder.
   `CORS_ORIGINS` must include the frontend's public URL (comma-separated for
   several), or the browser blocks API calls.
 
-Railway injects `$PORT` automatically — do **not** set it yourself. Run
-[`backend/sql/subscriptions.sql`](backend/sql/subscriptions.sql) in the Supabase
-SQL editor once to create the table.
+Railway injects `$PORT` automatically — do **not** set it yourself. The
+`subscriptions` table must exist in Supabase (schema in
+[`backend/README.md`](backend/README.md#supabase)).
 
 ## 3. Frontend service
 

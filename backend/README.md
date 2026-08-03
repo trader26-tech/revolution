@@ -14,8 +14,6 @@ app/
 │                            (Supabase implementation)
 ├── services/                business logic (subscription_service.py)
 └── api/routes/              endpoints (health.py, subscriptions.py)
-sql/
-└── subscriptions.sql        table + trigger for Supabase
 ```
 
 Data flows one direction: **routes → services → repositories → store**. Routes
@@ -59,7 +57,29 @@ Supabase — nothing is stored locally. Provision the table before running (see
 
 ## Supabase
 
-Set `SUPABASE_URL` and `SUPABASE_KEY` in `.env` (from **Settings → API**), then
-run [`sql/subscriptions.sql`](sql/subscriptions.sql) in the Supabase SQL editor
-to create the `subscriptions` table. This is required — the API stores all data
-in Supabase and has no local fallback.
+Set `SUPABASE_URL` and `SUPABASE_KEY` in `backend/.env` (from **Settings → API**;
+use the **service_role** key — it stays server-side and is never sent to the
+browser). This is required — the API stores all data in Supabase and has no
+local fallback. `.env` is gitignored, so credentials are never committed.
+
+The `subscriptions` table it expects:
+
+```sql
+create table if not exists public.subscriptions (
+  id             text primary key,
+  name           text        not null,
+  color          text        not null default '#8a1cff',
+  mark           text        not null default '○',
+  amount         numeric     not null default 0 check (amount >= 0),
+  currency       text        not null default 'USD',
+  cycle          text        not null default 'monthly',
+  category       text        not null default 'Other',
+  "list"         text        not null default 'Personal',
+  payment_method text        not null default '',
+  anchor_date    date        not null,
+  is_trial       boolean     not null default false,
+  trial_ends     date,
+  notes          text,
+  created_at     timestamptz not null default now()
+);
+```

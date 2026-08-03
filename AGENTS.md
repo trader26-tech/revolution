@@ -9,7 +9,11 @@ A Claude Code **Stop hook** ([.claude/settings.json](.claude/settings.json))
 runs [scripts/auto-commit.sh](scripts/auto-commit.sh) after each agent turn.
 It:
 
-- commits any working-tree changes on the **current branch**,
+- stages **only known project paths** (an allow-list in the script:
+  `backend/`, `frontend/`, `orbit/`, `scripts/`, `.claude/`, and the root
+  docs) so stray files never get swept in — add a path there to track a new
+  area,
+- commits those changes on the **current branch**,
 - pushes that branch to `origin`,
 - does nothing on a clean tree or a detached HEAD,
 - never force-pushes.

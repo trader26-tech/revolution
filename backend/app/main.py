@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -24,7 +28,7 @@ app.add_middleware(
 
 class Item(BaseModel):
     name: str
-    description: str | None = None
+    description: Optional[str] = None
 
 
 @app.get("/")

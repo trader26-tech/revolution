@@ -3,12 +3,28 @@
 # Auto-commit + push hook.
 #
 # Invoked by the Claude Code "Stop" hook after an agent finishes making
-# changes. Commits any working-tree changes and pushes the current branch
-# to origin. Safe to run when there is nothing to commit (it just exits).
+# changes. Stages ONLY the known project paths (see ALLOWED_PATHS below),
+# commits, and pushes the current branch to origin. Safe to run when there
+# is nothing to commit (it just exits).
+#
+# Staging is restricted so a stray/unexpected top-level directory is never
+# swept into the repo. To track a new area, add it to ALLOWED_PATHS.
 #
 # It NEVER commits on a detached HEAD, and it will not force-push.
 
 set -euo pipefail
+
+# Paths this hook is allowed to stage. Anything outside these is left alone.
+ALLOWED_PATHS=(
+  backend
+  frontend
+  orbit
+  scripts
+  .claude
+  AGENTS.md
+  README.md
+  .gitignore
+)
 
 # Resolve the repo root so the hook works regardless of the agent's CWD.
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
@@ -25,14 +41,18 @@ if [[ -z "${BRANCH}" ]]; then
   exit 0
 fi
 
-# Nothing staged or unstaged? Done.
-if git diff --quiet && git diff --cached --quiet && \
-   [[ -z "$(git ls-files --others --exclude-standard)" ]]; then
-  echo "auto-commit: clean tree, nothing to commit."
+# Stage only the allowed paths that actually exist.
+STAGE_PATHS=()
+for p in "${ALLOWED_PATHS[@]}"; do
+  [[ -e "${p}" ]] && STAGE_PATHS+=("${p}")
+done
+git add -A -- "${STAGE_PATHS[@]}"
+
+# Nothing staged after restricting to allowed paths? Done.
+if git diff --cached --quiet; then
+  echo "auto-commit: no changes in tracked project paths, nothing to commit."
   exit 0
 fi
-
-git add -A
 
 # Build a short summary of what changed for the commit message.
 SUMMARY="$(git diff --cached --stat | tail -1 | sed 's/^ *//')"

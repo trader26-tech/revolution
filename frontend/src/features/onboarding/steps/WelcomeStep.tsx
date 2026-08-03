@@ -10,21 +10,23 @@ export function WelcomeStep({ onNext }: { onNext: () => void }) {
     <div className="ob-welcome">
       <div className="ob-welcome__sky">
         <LogoField />
+
+        <motion.div
+          className="ob-welcome__planet"
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.15, type: "spring", stiffness: 180, damping: 18 }}
+        >
+          <motion.div
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 6, ease: "easeInOut", repeat: Infinity }}
+          >
+            <Planet size={128} glow />
+          </motion.div>
+        </motion.div>
       </div>
 
-      <motion.div
-        className="ob-welcome__planet"
-        initial={{ scale: 0.6, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.15, type: "spring", stiffness: 180, damping: 18 }}
-      >
-        <motion.div
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 6, ease: "easeInOut", repeat: Infinity }}
-        >
-          <Planet size={112} glow />
-        </motion.div>
-      </motion.div>
+      <div className="ob-welcome__spacer" />
 
       <motion.h1
         className="ob-welcome__title"
@@ -63,18 +65,18 @@ function LogoField() {
   // sky top→bottom (no dead zone) and opens up in the middle so the planet
   // nests inside the cluster rather than sitting in empty space below it.
   const spots = [
-    { x: 30, y: 12, d: 0.0 },
-    { x: 54, y: 8, d: 0.4 },
-    { x: 74, y: 16, d: 0.8 },
-    { x: 16, y: 28, d: 0.6 },
-    { x: 86, y: 34, d: 1.2 },
-    { x: 40, y: 30, d: 0.2 },
+    { x: 30, y: 10, d: 0.0 },
+    { x: 55, y: 6, d: 0.4 },
+    { x: 76, y: 14, d: 0.8 },
+    { x: 16, y: 26, d: 0.6 },
+    { x: 87, y: 32, d: 1.2 },
+    { x: 42, y: 26, d: 0.2 },
     { x: 66, y: 40, d: 1.0 },
-    { x: 12, y: 56, d: 0.9 },
-    { x: 88, y: 60, d: 0.5 },
-    { x: 24, y: 78, d: 1.3 },
-    { x: 78, y: 82, d: 0.7 },
-    { x: 50, y: 92, d: 1.5 },
+    { x: 12, y: 50, d: 0.9 },
+    { x: 88, y: 56, d: 0.5 },
+    { x: 20, y: 74, d: 1.3 },
+    { x: 84, y: 78, d: 0.7 },
+    // bottom-centre is intentionally left open for the planet to nest into
   ];
   return (
     <>

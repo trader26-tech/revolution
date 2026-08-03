@@ -7,15 +7,10 @@
      the bar hugs the bottom instead of floating over a dead band */
   /* --safe-bottom already carries an 8px floor (see global.css) */
   padding: 8px 16px var(--safe-bottom);
-  /* a soft scrim so list rows fade as they scroll under the bar, but it fades
-     into the space background (not solid black) so the bottom safe area reads
-     as part of the app, never a dead band */
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgba(11, 3, 32, 0.55) 55%,
-    rgba(11, 3, 32, 0.85)
-  );
+  /* NO scrim: the starfield is the only background, everywhere. The pill
+     itself is glass with real backdrop blur, so rows scrolling beneath it
+     stay legible without a band behind the bar. */
+  background: none;
   pointer-events: none;
 }
 

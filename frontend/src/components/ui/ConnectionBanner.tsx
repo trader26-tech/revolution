@@ -1,4 +1,4 @@
-import { useStore } from "@/data/store";
+import { useSyncStatus } from "@/data/store";
 import "./connection-banner.css";
 
 /** A prominent banner shown when the app is NOT talking to the backend.
@@ -10,7 +10,8 @@ import "./connection-banner.css";
  * is how the user learns their data isn't being saved to the server.
  */
 export function ConnectionBanner() {
-  const { syncStatus } = useStore();
+  // narrow selector: re-renders only when the sync status itself changes
+  const syncStatus = useSyncStatus();
 
   if (syncStatus !== "disconnected" && syncStatus !== "error") return null;
 

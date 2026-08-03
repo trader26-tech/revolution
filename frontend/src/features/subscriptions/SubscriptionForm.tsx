@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useStore } from "@/data/store";
+import { useStoreActions, useCurrency } from "@/data/store";
 import { INCOME_CATALOG, PAYMENT_METHODS } from "@/lib/catalog";
 import { searchBrands, matchBrand } from "@/lib/brands";
 import { BrandLogo } from "@/components/ui/BrandLogo";
@@ -36,7 +36,10 @@ export function SubscriptionForm({
   editing?: Subscription;
   onDone: () => void;
 }) {
-  const { add, update, remove, currency } = useStore();
+  // actions are referentially stable → this component never re-renders because
+  // of them; only the currency (a narrow selector) can trigger an update.
+  const { add, update, remove } = useStoreActions();
+  const currency = useCurrency();
   const [step, setStep] = useState<"pick" | "form">(editing ? "form" : "pick");
   const [query, setQuery] = useState("");
   /** Which side of the ledger the picker is showing. */

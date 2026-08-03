@@ -68,8 +68,6 @@ function Shell() {
 
   return (
     <div className="app">
-      <SpaceBackground />
-
       <ConnectionBanner />
 
       <main className="app__main no-scrollbar">
@@ -159,6 +157,9 @@ function Root() {
 export default function App() {
   return (
     <StoreProvider>
+      {/* THE one and only background — a fixed starfield behind every screen,
+          onboarding included. No other layer paints a page background. */}
+      <SpaceBackground />
       <Root />
       {/* surfaces the "Update available" dialog when a new version deploys */}
       <UpdatePrompt />

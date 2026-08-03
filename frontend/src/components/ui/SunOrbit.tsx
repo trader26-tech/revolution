@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { motion } from "framer-motion";
 import type { Cycle, Subscription } from "@/lib/types";
@@ -30,7 +30,11 @@ const RINGS: { cycle: Cycle; rFactor: number; dur: number; dir: 1 | -1 }[] = [
  *   2. no moon ever leaves the box (ring radius + moon radius ≤ size/2).
  *  Tapping the sun flips every moon to reveal its brand logo (tap again to
  *  hide). Tapping a *revealed* moon opens that subscription. */
-export function SunOrbit({ subs, size = 300, onSelect }: Props) {
+export const SunOrbit = memo(function SunOrbit({
+  subs,
+  size = 300,
+  onSelect,
+}: Props) {
   const [revealed, setRevealed] = useState(false);
 
   // Group subscriptions by billing cycle so each ring carries its own set.
@@ -216,8 +220,12 @@ function Sun({ size }: { size: number }) {
 }
 
 /** A moon that flips between its plain ash face (default) and its brand logo
- *  (revealed). A single rotateY carries both faces for a physical coin-flip. */
-function MoonBody({
+ *  (revealed). A single rotateY carries both faces for a physical coin-flip.
+ *
+ *  PERF: memoised. Its props are primitives plus a stable `sub` reference, so
+ *  an unrelated parent re-render (currency toggle, filter change) can no longer
+ *  re-render ~30 of these mid-orbit — which was a visible stutter. */
+const MoonBody = memo(function MoonBody({
   sub,
   d,
   revealed,
@@ -250,13 +258,13 @@ function MoonBody({
       </motion.div>
     </div>
   );
-}
+});
 
 /** A plain silver/ash sphere. Differentiation is by SHAPE, not colour:
  *  - expense → a bare silver planet
  *  - income  → the same silver planet wearing a soft silver-white halo ring.
  *  The ring is the whole signal, so there's no colour-matching to get wrong. */
-function Moon({ d, income }: { d: number; income: boolean }) {
+const Moon = memo(function Moon({ d, income }: { d: number; income: boolean }) {
   const id = "moon-" + Math.round(d * 10);
   return (
     // extra viewBox room so the halo ring isn't clipped at the edges
@@ -282,11 +290,13 @@ function Moon({ d, income }: { d: number; income: boolean }) {
           fy="50"
           gradientUnits="userSpaceOnUse"
         >
+          {/* faint at the edges, gently peaking mid-band — a delicate, see-
+              through ring where space shows faintly through */}
           <stop offset="0%" stopColor="#c9cede" stopOpacity="0" />
           <stop offset="80%" stopColor="#c9cede" stopOpacity="0" />
-          <stop offset="84%" stopColor="#c9cede" stopOpacity="0.9" />
-          <stop offset="91%" stopColor="#ffffff" stopOpacity="1" />
-          <stop offset="98%" stopColor="#c9cede" stopOpacity="0.9" />
+          <stop offset="85%" stopColor="#d7dbec" stopOpacity="0.35" />
+          <stop offset="91%" stopColor="#ffffff" stopOpacity="0.6" />
+          <stop offset="97%" stopColor="#d7dbec" stopOpacity="0.35" />
           <stop offset="100%" stopColor="#8f93a4" stopOpacity="0" />
         </radialGradient>
       </defs>
@@ -307,7 +317,7 @@ function Moon({ d, income }: { d: number; income: boolean }) {
             fill="none"
             stroke="#eef1fb"
             strokeWidth="17"
-            opacity="0.1"
+            opacity="0.05"
           />
           <circle
             cx="50"
@@ -316,9 +326,10 @@ function Moon({ d, income }: { d: number; income: boolean }) {
             fill="none"
             stroke="#eef1fb"
             strokeWidth="13"
-            opacity="0.16"
+            opacity="0.08"
           />
-          {/* the thick band itself — a wide stroke with edge shading */}
+          {/* the thick band itself — kept translucent so it reads as a delicate,
+              see-through planetary ring rather than a solid metal band */}
           <circle
             cx="50"
             cy="50"
@@ -326,7 +337,7 @@ function Moon({ d, income }: { d: number; income: boolean }) {
             fill="none"
             stroke="#dfe3f2"
             strokeWidth="11"
-            opacity="0.55"
+            opacity="0.16"
           />
           <circle
             cx="50"
@@ -336,15 +347,15 @@ function Moon({ d, income }: { d: number; income: boolean }) {
             stroke={`url(#${id}-band)`}
             strokeWidth="11"
           />
-          {/* a crisp bright centre-line down the middle of the band */}
+          {/* a soft bright centre-line — just enough to define the ring's spine */}
           <circle
             cx="50"
             cy="50"
             r="62"
             fill="none"
             stroke="#ffffff"
-            strokeWidth="2"
-            opacity="0.9"
+            strokeWidth="1.4"
+            opacity="0.4"
           />
         </>
       )}
@@ -355,11 +366,18 @@ function Moon({ d, income }: { d: number; income: boolean }) {
       <circle cx="50" cy="50" r="46.4" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.14" />
     </svg>
   );
-}
+});
 
 /** Revealed face: the subscription's real brand logo (or a tinted initial),
- *  as a round tile so it stays a clean circle matching the moon it flips from. */
-function LogoTile({ sub, d }: { sub: Subscription; d: number }) {
+ *  as a round tile so it stays a clean circle matching the moon it flips from.
+ *  Memoised: the brand SVG never needs re-rendering while the moon orbits. */
+const LogoTile = memo(function LogoTile({
+  sub,
+  d,
+}: {
+  sub: Subscription;
+  d: number;
+}) {
   return (
     <BrandLogo
       name={sub.name}
@@ -370,4 +388,4 @@ function LogoTile({ sub, d }: { sub: Subscription; d: number }) {
       radius={d / 2}
     />
   );
-}
+});

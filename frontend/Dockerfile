@@ -8,8 +8,14 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Build the production bundle (VITE_* vars must be present at build time —
-# set them as Railway build args / variables to bake in the API URL).
+# VITE_* vars are baked in at BUILD time — they must be present when
+# `npm run build` runs, not just at runtime. Declare the build arg and expose
+# it as an env var so Vite inlines it. On Railway, set VITE_API_BASE_URL as a
+# service variable AND pass it here (Railway forwards service variables to
+# matching build ARGs automatically).
+ARG VITE_API_BASE_URL=""
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 COPY . .
 RUN npm run build
 

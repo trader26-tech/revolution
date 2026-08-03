@@ -44,21 +44,28 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
     return map;
   }, [subs]);
 
-  // Cost range for sizing (min → max moon by monthly-normalised amount).
-  const [minCost, maxCost] = useMemo(() => {
-    if (!subs.length) return [0, 1];
-    const c = subs.map((s) => monthly(s.amount, s.cycle));
-    return [Math.min(...c), Math.max(...c)];
+  // Median monthly cost — the midpoint of the sigmoid so a couple of pricey
+  // outliers don't wash the whole scale to one extreme.
+  const median = useMemo(() => {
+    if (!subs.length) return 1;
+    const c = subs.map((s) => monthly(s.amount, s.cycle)).sort((a, b) => a - b);
+    const mid = Math.floor(c.length / 2);
+    return c.length % 2 ? c[mid] : (c[mid - 1] + c[mid]) / 2;
   }, [subs]);
 
-  /** Cost-driven moon diameter within [floor, ceil]. Continuous, so pricier
-   *  subs read as bigger moons. */
+  /** Cost intensity 0→1 via a sigmoid around the median. Cheap → 0, pricey → 1;
+   *  drives BOTH the planet size and its heat colour. */
+  const costT = (s: Subscription) => {
+    const c = monthly(s.amount, s.cycle);
+    const x = Math.log((c + 1) / (median + 1)); // 0 at the median
+    return 1 / (1 + Math.exp(-1.1 * x));
+  };
+
+  /** Cost-driven moon diameter within [floor, ceil]. */
   const costSize = (s: Subscription) => {
     const floor = size * 0.05;
     const ceil = size * 0.1;
-    const c = monthly(s.amount, s.cycle);
-    const t = maxCost === minCost ? 0.5 : (c - minCost) / (maxCost - minCost);
-    return floor + (ceil - floor) * t;
+    return floor + (ceil - floor) * costT(s);
   };
 
   const hasSubs = subs.length > 0;
@@ -102,19 +109,32 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
             size * 0.036,
             Math.min(costSize(sub), maxByGap, maxByEdge)
           );
+          const t = costT(sub);
+          const heat = heatColor(t, sub.flow === "income");
+          // A cost-scaled coloured glow — the "intensity" grows with spend.
+          const glow = d * (0.14 + t * 0.5);
           return (
             <motion.button
               key={sub.id}
               className={"sun-orbit__moon" + (revealed ? " is-revealed" : "")}
-              style={{ width: d, height: d, marginLeft: -d / 2, marginTop: -d / 2 } as CSSProperties}
+              style={
+                {
+                  width: d,
+                  height: d,
+                  marginLeft: -d / 2,
+                  marginTop: -d / 2,
+                  // coloured aura, brighter/larger for pricier planets
+                  filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 ${glow}px ${heat.glow})`,
+                } as CSSProperties
+              }
               initial={{ opacity: 0, scale: 0.2 }}
               animate={{
                 opacity: 1,
                 scale: 1,
                 // sample x/y around the circle so the moon rides its ring and
                 // can never drift off-orbit
-                x: SAMPLES.map((t) => Math.cos(theta(phase + t * ring.dir)) * r),
-                y: SAMPLES.map((t) => Math.sin(theta(phase + t * ring.dir)) * r),
+                x: SAMPLES.map((s) => Math.cos(theta(phase + s * ring.dir)) * r),
+                y: SAMPLES.map((s) => Math.sin(theta(phase + s * ring.dir)) * r),
               }}
               transition={{
                 opacity: { duration: 0.4, delay: i * 0.03 },
@@ -130,7 +150,20 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
               title={revealed ? sub.name : undefined}
               aria-label={revealed ? `Open ${sub.name}` : undefined}
             >
-              <MoonBody sub={sub} d={d} revealed={revealed} index={i} />
+              <MoonBody
+                sub={sub}
+                d={d}
+                revealed={revealed}
+                index={i}
+                heat={heat}
+                // rotation (deg) that points the sphere's top highlight AT the
+                // centre sun. Planet is at angle θ; direction to sun is θ+180°;
+                // the highlight sits at the SVG top (−90°), so rotate θ+270°.
+                sunAngle={SAMPLES.map(
+                  (s) => theta(phase + s * ring.dir) * (180 / Math.PI) + 270
+                )}
+                dur={ring.dur}
+              />
             </motion.button>
           );
         });
@@ -147,6 +180,79 @@ export function SunOrbit({ subs, size = 300, onSelect }: Props) {
       </button>
     </div>
   );
+}
+
+/** The colour set a planet is painted with, by cost intensity + flow. */
+interface Heat {
+  key: string; // stable id fragment for gradient uniqueness
+  lit: string; // brightest — the sun-facing highlight
+  mid: string; // the planet's main body colour
+  base: string; // shadow-side body
+  dark: string; // deepest limb
+  glow: string; // the coloured aura (rgba)
+}
+
+/** Map cost intensity t∈[0,1] to a playful, muted heat colour.
+ *  Expenses run cool teal → amber → warm rose; income runs a green ramp.
+ *  Kept desaturated so nothing shouts and the planets don't clash with the
+ *  sun. Each stop lightens toward the sun-facing side via `lit`. */
+function heatColor(t: number, income: boolean): Heat {
+  const stops = income
+    ? // cheap → costly income: soft sage → vivid (but muted) green
+      [
+        { mid: "#6f9e86", dark: "#2c4a3c" },
+        { mid: "#57b483", dark: "#245a3f" },
+        { mid: "#43c98a", dark: "#1c6b46" },
+      ]
+    : // cheap → costly expense: cool teal → amber → warm rose (all muted)
+      [
+        { mid: "#5aa6bf", dark: "#26505f" }, // cool teal-blue
+        { mid: "#d9a05a", dark: "#6b4a24" }, // amber
+        { mid: "#d16f7e", dark: "#6b2f3a" }, // warm rose
+      ];
+
+  // two-segment lerp across the three anchors
+  const seg = t < 0.5 ? 0 : 1;
+  const k = t < 0.5 ? t / 0.5 : (t - 0.5) / 0.5;
+  const a = stops[seg];
+  const b = stops[seg + 1];
+  const mid = mix(a.mid, b.mid, k);
+  const dark = mix(a.dark, b.dark, k);
+  return {
+    key: (income ? "i" : "e") + Math.round(t * 20),
+    lit: lighten(mid, 0.5), // sun-facing highlight
+    mid,
+    base: mix(mid, dark, 0.45),
+    dark,
+    glow: rgba(mid, 0.35 + t * 0.3), // brighter aura for pricier planets
+  };
+}
+
+/* ---- tiny colour helpers ---- */
+function hexToRgb(hex: string) {
+  const h = hex.replace("#", "");
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+function toHex(n: number) {
+  return Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+}
+function mix(c1: string, c2: string, k: number) {
+  const a = hexToRgb(c1);
+  const b = hexToRgb(c2);
+  return `#${toHex(a.r + (b.r - a.r) * k)}${toHex(a.g + (b.g - a.g) * k)}${toHex(
+    a.b + (b.b - a.b) * k
+  )}`;
+}
+function lighten(hex: string, k: number) {
+  return mix(hex, "#ffffff", k);
+}
+function rgba(hex: string, alpha: number) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 /** Evenly spaced keyframe samples across one lap (0 → 1). */
@@ -199,11 +305,17 @@ function MoonBody({
   d,
   revealed,
   index,
+  heat,
+  sunAngle,
+  dur,
 }: {
   sub: Subscription;
   d: number;
   revealed: boolean;
   index: number;
+  heat: Heat;
+  sunAngle: number[];
+  dur: number;
 }) {
   return (
     <div className="sun-orbit__flip" style={{ width: d, height: d }}>
@@ -218,9 +330,16 @@ function MoonBody({
           delay: index * 0.07,
         }}
       >
-        <div className="sun-orbit__face sun-orbit__face--ash">
-          <Moon d={d} />
-        </div>
+        {/* the ash planet is lit toward the sun: rotate the sphere so its bright
+            (top) side always points at the centre. Only the sphere rotates —
+            the logo face stays upright. */}
+        <motion.div
+          className="sun-orbit__face sun-orbit__face--ash"
+          animate={{ rotate: sunAngle }}
+          transition={{ duration: dur, ease: "linear", repeat: Infinity, times: SAMPLES }}
+        >
+          <Moon d={d} heat={heat} />
+        </motion.div>
         <div className="sun-orbit__face sun-orbit__face--logo">
           <LogoTile sub={sub} d={d} />
         </div>
@@ -229,21 +348,26 @@ function MoonBody({
   );
 }
 
-/** A plain, perfectly circular ash moon — soft top-left lighting, subtle rim. */
-function Moon({ d }: { d: number }) {
-  const id = "moon-" + Math.round(d * 10);
+/** A cost-coloured planet sphere. The bright side sits toward the TOP of the
+ *  SVG; the parent .sun-orbit__sunlit wrapper rotates so that top always points
+ *  at the centre sun — giving a solar-system day/night gradient. */
+function Moon({ d, heat }: { d: number; heat: Heat }) {
+  const id = "planet-" + heat.key + "-" + Math.round(d * 10);
   return (
     <svg width={d} height={d} viewBox="0 0 100 100" style={{ display: "block" }}>
       <defs>
-        <radialGradient id={id} cx="36%" cy="30%" r="78%">
-          <stop offset="0%" stopColor="#e7e8ee" />
-          <stop offset="46%" stopColor="#b9bcca" />
-          <stop offset="80%" stopColor="#8b8fa2" />
-          <stop offset="100%" stopColor="#5c6072" />
+        {/* highlight centred high (cy 22%) so the lit crescent is at the top =
+            sun-facing edge after the wrapper rotates it toward centre */}
+        <radialGradient id={id} cx="50%" cy="24%" r="86%">
+          <stop offset="0%" stopColor={heat.lit} />
+          <stop offset="42%" stopColor={heat.mid} />
+          <stop offset="82%" stopColor={heat.base} />
+          <stop offset="100%" stopColor={heat.dark} />
         </radialGradient>
       </defs>
       <circle cx="50" cy="50" r="47" fill={`url(#${id})`} />
-      <circle cx="50" cy="50" r="46.4" fill="none" stroke="#ffffff" strokeWidth="1.2" opacity="0.16" />
+      {/* faint rim so the planet reads as a sphere against space */}
+      <circle cx="50" cy="50" r="46.4" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.12" />
     </svg>
   );
 }

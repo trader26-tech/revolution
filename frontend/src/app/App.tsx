@@ -25,6 +25,9 @@ const CalendarScreen = lazy(() =>
 const MagicImportScreen = lazy(() =>
   import("@/features/import").then((m) => ({ default: m.MagicImportScreen }))
 );
+const PandaScreen = lazy(() =>
+  import("@/features/panda").then((m) => ({ default: m.PandaScreen }))
+);
 const Onboarding = lazy(() =>
   import("@/features/onboarding").then((m) => ({ default: m.Onboarding }))
 );
@@ -113,6 +116,11 @@ function Shell() {
         <Screen active={tab === "calendar"}>
           <Suspense fallback={null}>
             <CalendarScreen onOpen={openDetail} />
+          </Suspense>
+        </Screen>
+        <Screen active={tab === "panda"}>
+          <Suspense fallback={null}>
+            <PandaScreen />
           </Suspense>
         </Screen>
         <Screen active={tab === "settings"}>

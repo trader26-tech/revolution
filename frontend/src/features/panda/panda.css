@@ -1,0 +1,452 @@
+/* ============================================================
+   Pip the note-taking panda — pure-CSS life.
+   Timings are tuned so the paw scribble and the ink lines share
+   one ~6s loop, which is what sells "it's actually writing".
+   ============================================================ */
+
+.panda {
+  position: relative;
+  display: block;
+}
+.panda__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ---- gentle whole-body bob + breathing ---- */
+.panda__bob {
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+  animation: panda-bob 3.4s ease-in-out infinite;
+}
+@keyframes panda-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-0.6deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(0.6deg);
+  }
+}
+
+/* shadow reacts to the bob (further away → smaller/softer) */
+.panda__shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: panda-shadow 3.4s ease-in-out infinite;
+}
+@keyframes panda-shadow {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(0.86);
+    opacity: 0.65;
+  }
+}
+
+/* ---- ears: mostly still, occasional double-twitch ---- */
+.panda__ear {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.panda__ear--l {
+  animation: panda-ear 5s ease-in-out infinite;
+}
+.panda__ear--r {
+  animation: panda-ear 5s ease-in-out infinite 0.15s;
+}
+@keyframes panda-ear {
+  0%,
+  86%,
+  100% {
+    transform: rotate(0deg);
+  }
+  90% {
+    transform: rotate(-7deg);
+  }
+  94% {
+    transform: rotate(5deg);
+  }
+}
+
+/* ---- eyes: blink on their own cadence ---- */
+.panda__eyes {
+  transform-box: fill-box;
+  transform-origin: center 100px;
+  animation: panda-blink 4.2s ease-in-out infinite;
+}
+@keyframes panda-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+  98% {
+    transform: scaleY(1);
+  }
+}
+
+/* mouth gives a tiny satisfied wiggle; tongue peeks with concentration */
+.panda__smile {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: panda-smile 6s ease-in-out infinite;
+}
+@keyframes panda-smile {
+  0%,
+  100% {
+    transform: translateY(0) scaleX(1);
+  }
+  50% {
+    transform: translateY(1px) scaleX(1.08);
+  }
+}
+.panda__tongue {
+  transform-box: fill-box;
+  transform-origin: top center;
+  animation: panda-tongue 6s ease-in-out infinite;
+}
+@keyframes panda-tongue {
+  0%,
+  40%,
+  100% {
+    transform: scaleY(0.2);
+    opacity: 0;
+  }
+  55%,
+  85% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* ---- the writing paw + pencil: short scribble strokes ---- */
+.panda__write {
+  transform-box: fill-box;
+  transform-origin: 30% 20%; /* pivot near the shoulder */
+  animation: panda-scribble 0.62s ease-in-out infinite;
+}
+@keyframes panda-scribble {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(6px, -1px) rotate(2.5deg);
+  }
+  50% {
+    transform: translate(11px, 1px) rotate(-1.5deg);
+  }
+  75% {
+    transform: translate(5px, 2px) rotate(2deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+
+/* the left arm bracing the pad flexes ever so slightly */
+.panda__arm-l {
+  transform-box: fill-box;
+  transform-origin: top center;
+  animation: panda-brace 3.4s ease-in-out infinite;
+}
+@keyframes panda-brace {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-2deg);
+  }
+}
+
+/* ---- ink lines appear as it "writes", then the page turns over ---- */
+.panda__line {
+  /* hidden → wiped in left-to-right via a growing clip inset */
+  clip-path: inset(0 100% 0 0);
+}
+/* Each line writes in sequence, holds, then all reset together (new page).
+   The 6s master loop matches the 4 strokes × the scribble feel. */
+.panda__line--1 {
+  animation: panda-write 6s ease-in-out infinite;
+}
+.panda__line--2 {
+  animation: panda-write 6s ease-in-out infinite;
+  animation-delay: 1s;
+}
+.panda__line--3 {
+  animation: panda-write 6s ease-in-out infinite;
+  animation-delay: 2s;
+}
+.panda__line--4 {
+  animation: panda-write 6s ease-in-out infinite;
+  animation-delay: 3s;
+}
+@keyframes panda-write {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  12% {
+    /* the stroke draws in */
+    clip-path: inset(0 0 0 0);
+  }
+  66% {
+    /* holds fully written */
+    clip-path: inset(0 0 0 0);
+  }
+  72%,
+  100% {
+    /* page clears for the next one */
+    clip-path: inset(0 0 0 100%);
+  }
+}
+
+/* Respect reduced-motion: keep Pip cute but calm — no scribbling loop. */
+@media (prefers-reduced-motion: reduce) {
+  .panda__bob,
+  .panda__shadow,
+  .panda__ear--l,
+  .panda__ear--r,
+  .panda__eyes,
+  .panda__smile,
+  .panda__tongue,
+  .panda__write,
+  .panda__arm-l,
+  .panda__line {
+    animation: none;
+  }
+  .panda__line {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* ============================================================
+   Pip's showcase page
+   ============================================================ */
+.pd {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: calc(10px + var(--safe-top)) 18px calc(var(--tabbar-space) + 12px);
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  overflow-x: clip;
+}
+
+.pd__head {
+  margin-bottom: 6px;
+}
+.pd__title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(180deg, #fff, #d6c8ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.pd__sub {
+  color: var(--text-2);
+  font-size: 14.5px;
+  margin-top: 3px;
+}
+
+/* ---- mascot stage ---- */
+.pd__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 8px 0 4px;
+}
+.pd__glow {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(138, 28, 255, 0.28),
+    rgba(138, 28, 255, 0) 62%
+  );
+  filter: blur(6px);
+  animation: pd-glow 3.4s ease-in-out infinite;
+}
+@keyframes pd-glow {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+.pd__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-glass);
+}
+.pd__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 4px rgba(55, 224, 166, 0.18);
+  animation: pd-pulse 1.4s ease-in-out infinite;
+}
+@keyframes pd-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.82);
+  }
+}
+
+/* ---- live notepad ---- */
+.pd__notes {
+  /* grow to fill the space under the mascot so the page never looks half-empty
+     on a tall screen; the feed scrolls internally if it ever overflows */
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 22px;
+  padding: 16px 16px 10px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+}
+.pd__notes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.pd__notes-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+.pd__notes-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--good);
+}
+.pd__notes-count::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 8px var(--good);
+  animation: pd-pulse 1.4s ease-in-out infinite;
+}
+
+.pd__feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pd__note {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--hairline);
+  transition: opacity 0.4s var(--ease);
+}
+.pd__note:last-child {
+  border-bottom: none;
+}
+.pd__note--active .pd__note-text {
+  color: #fff;
+  font-weight: 600;
+}
+.pd__note-bullet {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-hi);
+  box-shadow: 0 0 0 3px rgba(138, 28, 255, 0.14);
+}
+.pd__note-bullet--done {
+  border-color: var(--good);
+  background: var(--good);
+  box-shadow: 0 0 0 3px rgba(55, 224, 166, 0.14);
+  position: relative;
+}
+.pd__note-bullet--done::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #062018;
+  border-width: 0 2px 2px 0;
+  transform: rotate(42deg);
+}
+.pd__note-text {
+  font-size: 14.5px;
+  color: var(--text-1);
+  line-height: 1.3;
+}
+.pd__caret {
+  display: inline-block;
+  width: 2px;
+  height: 15px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--accent-hi);
+  animation: pd-caret 0.9s steps(1) infinite;
+}
+@keyframes pd-caret {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pd__glow,
+  .pd__status-dot,
+  .pd__notes-count::before,
+  .pd__caret {
+    animation: none;
+  }
+}

@@ -1,39 +1,26 @@
 import 'package:flutter/foundation.dart';
 
 import '../../reminders/domain/catalog.dart';
-import '../domain/personas.dart';
+import '../domain/quiz.dart';
 
-/// Holds the user's onboarding choices and derives the resolved reminder set.
+/// Accumulates the user's quiz answers and derives the resolved reminder set.
 ///
-/// Deliberately tiny — two selections in, a list of catalog items out. The
-/// reveal and the "finish" step both read from here.
+/// Deliberately tiny: a "yes" to a question adds its item keys, a "no" adds
+/// nothing. The reveal and the finish step read [resolvedItems].
 class OnboardingController extends ChangeNotifier {
-  Persona? _primary;
-  Persona? _addon;
+  final Set<String> _keys = <String>{};
 
-  Persona? get primary => _primary;
-  Persona? get addon => _addon;
-
-  bool get hasPrimary => _primary != null;
-
-  void selectPrimary(Persona p) {
-    _primary = p;
+  /// Record a yes/no for a question. Yes adds its items; no is a no-op.
+  void answer(QuizQuestion q, {required bool yes}) {
+    if (yes) _keys.addAll(q.itemKeys);
     notifyListeners();
   }
 
-  /// Tapping the selected add-on again clears it (it's optional).
-  void toggleAddon(Persona p) {
-    _addon = (_addon?.key == p.key) ? null : p;
-    notifyListeners();
-  }
+  /// Resolved catalog items for everything answered "yes" so far.
+  List<CatalogItem> get resolvedItems => _keys
+      .map((k) => kCatalogByKey[k])
+      .whereType<CatalogItem>()
+      .toList();
 
-  /// Resolved, de-duplicated catalog items for the current selection.
-  List<CatalogItem> get resolvedItems {
-    final primary = _primary;
-    if (primary == null) return const [];
-    return resolveItemKeys(primary: primary, addon: _addon)
-        .map((k) => kCatalogByKey[k])
-        .whereType<CatalogItem>()
-        .toList();
-  }
+  int get count => resolvedItems.length;
 }

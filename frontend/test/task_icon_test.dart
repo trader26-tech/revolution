@@ -16,4 +16,15 @@ void main() {
     expect(Task(id: '2', title: 'x', iconName: 'HDFC').hasIcon, true);
     expect(Task(id: '3', title: 'x').hasIcon, false);
   });
+
+  test('toJson/fromJson round-trips the icon (persistence)', () {
+    final t = Task(id: '9', title: 'Netflix',
+        iconName: 'Netflix', iconDomain: 'netflix.com',
+        dueAt: DateTime(2026, 8, 20, 9, 0), repeat: RepeatCadence.monthly);
+    final back = Task.fromJson(t.toJson());
+    expect(back.iconName, 'Netflix');
+    expect(back.iconDomain, 'netflix.com');
+    expect(back.repeat, RepeatCadence.monthly);
+    expect(back.dueAt, DateTime(2026, 8, 20, 9, 0));
+  });
 }

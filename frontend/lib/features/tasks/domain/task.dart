@@ -70,4 +70,30 @@ class Task {
       iconDomain: iconDomain ?? this.iconDomain,
     );
   }
+
+  // --- persistence (on-device JSON) -----------------------------------------
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'done': done,
+        'reminderOn': reminderOn,
+        'dueAt': dueAt?.toIso8601String(),
+        'repeat': repeat.name,
+        'iconName': iconName,
+        'iconDomain': iconDomain,
+      };
+
+  factory Task.fromJson(Map<String, dynamic> j) => Task(
+        id: j['id'] as String,
+        title: j['title'] as String? ?? '',
+        done: j['done'] as bool? ?? false,
+        reminderOn: j['reminderOn'] as bool? ?? true,
+        dueAt: j['dueAt'] == null ? null : DateTime.parse(j['dueAt'] as String),
+        repeat: RepeatCadence.values.firstWhere(
+          (r) => r.name == j['repeat'],
+          orElse: () => RepeatCadence.none,
+        ),
+        iconName: j['iconName'] as String?,
+        iconDomain: j['iconDomain'] as String?,
+      );
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../details/domain/item_details.dart';
 import '../../details/presentation/item_details_page.dart';
 import '../domain/task.dart';
@@ -222,16 +223,21 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
       ),
     );
     if (result != null && mounted) {
-      setState(() {
-        // Sync the title AND the chosen icon back onto the task, so the list
-        // shows the logo the user picked.
-        if (result.name.isNotEmpty) widget.task.title = result.name;
-        widget.task.iconName = result.iconName;
-        widget.task.iconDomain = result.iconDomain;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Details saved ✓')),
+      // Build the updated task (title + icon + the sheet's own reminder state)
+      // and pop it out immediately, so the caller persists it via store.update
+      // right away — no need for a second Save tap, so the icon actually sticks.
+      final updated = widget.task.copyWith(
+        title: result.name.isNotEmpty ? result.name : null,
+        reminderOn: _reminderOn,
+        dueAt: _reminderOn ? _due : null,
+        clearDueAt: !_reminderOn,
+        repeat: _repeat,
+        iconName: result.iconName,
+        iconDomain: result.iconDomain,
       );
+      final navigator = Navigator.of(context);
+      AppToast.show(context, message: 'Saved');
+      navigator.pop(updated);
     }
   }
 }

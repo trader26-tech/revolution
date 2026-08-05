@@ -21,6 +21,13 @@ class _AppShellState extends State<AppShell> {
   final _store = TaskStore();
 
   @override
+  void initState() {
+    super.initState();
+    // Restore saved tasks (and their icons) from on-device storage.
+    _store.load();
+  }
+
+  @override
   void dispose() {
     _store.dispose();
     super.dispose();

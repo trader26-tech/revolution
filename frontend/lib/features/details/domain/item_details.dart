@@ -48,6 +48,7 @@ class ItemDetails {
     this.type = BillingType.recurring,
     this.cycle = BillingCycle.monthly,
     this.durationForever = true,
+    this.durationUntil,
     this.freeTrial = false,
     this.list = 'Personal',
     this.category = 'Other',
@@ -64,6 +65,8 @@ class ItemDetails {
   BillingType type;
   BillingCycle cycle;
   bool durationForever;
+  /// When [durationForever] is false, the fixed end date. Null means unset.
+  DateTime? durationUntil;
   bool freeTrial;
   String list;
   String category;
@@ -80,6 +83,7 @@ class ItemDetails {
         type: type,
         cycle: cycle,
         durationForever: durationForever,
+        durationUntil: durationUntil,
         freeTrial: freeTrial,
         list: list,
         category: category,

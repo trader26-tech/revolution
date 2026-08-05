@@ -29,9 +29,6 @@ class ItemDetailsPage extends StatefulWidget {
 class _ItemDetailsPageState extends State<ItemDetailsPage> {
   late final ItemDetails _d = widget.initial?.copy() ?? ItemDetails();
 
-  /// Whether the inline calendar under "First payment date" is open.
-  bool _dateExpanded = false;
-
   Currency get _currency => currencyOf(_d.currency);
 
   late final TextEditingController _name =
@@ -129,48 +126,20 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   ),
                   const SizedBox(height: 20),
                   _Group(children: [
-                    // Date row + its inline calendar are ONE group child, so the
-                    // group draws exactly one hairline below the whole unit — no
-                    // doubled "strong" line between the row and the calendar.
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _Row(
-                          label: 'First payment date',
-                          onTap: () =>
-                              setState(() => _dateExpanded = !_dateExpanded),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _Chip(text: _fmtDate(_d.firstPaymentDate)),
-                              const SizedBox(width: 8),
-                              // Down when closed, up when open.
-                              AnimatedRotation(
-                                turns: _dateExpanded ? 0.5 : 0,
-                                duration: const Duration(milliseconds: 200),
-                                child: const Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  size: 24,
-                                  color: AppColors.inkSoft,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // The inline full calendar — slides open under the row.
-                        AnimatedCrossFade(
-                          duration: const Duration(milliseconds: 220),
-                          firstChild: const SizedBox(width: double.infinity),
-                          secondChild: _InlineCalendar(
-                            selected: _d.firstPaymentDate,
-                            onChanged: (d) =>
-                                setState(() => _d.firstPaymentDate = d),
-                          ),
-                          crossFadeState: _dateExpanded
-                              ? CrossFadeState.showSecond
-                              : CrossFadeState.showFirst,
-                        ),
-                      ],
+                    // Order: First payment date → Duration → Type → Cycle.
+                    _Row(
+                      label: 'First payment date',
+                      trailing: _Chip(text: _fmtDate(_d.firstPaymentDate)),
+                      onTap: _pickFirstPaymentDate,
+                    ),
+                    _Row(
+                      label: 'Duration',
+                      trailing: _Chip(
+                        text: _d.durationForever
+                            ? 'Forever'
+                            : _fmtDate(_d.durationUntil ?? _d.firstPaymentDate),
+                      ),
+                      onTap: _pickDuration,
                     ),
                     _Row(
                       label: 'Type',
@@ -181,13 +150,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                       label: 'Cycle',
                       trailing: _ValuePicker(text: _d.cycle.label),
                       onTap: () => _pickCycle(),
-                    ),
-                    _Row(
-                      label: 'Duration',
-                      trailing: _ValuePicker(
-                          text: _d.durationForever ? 'Forever' : 'Fixed'),
-                      onTap: () => setState(
-                          () => _d.durationForever = !_d.durationForever),
                     ),
                   ]),
                   const SizedBox(height: 20),
@@ -253,6 +215,116 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }
 
   // --- pickers --------------------------------------------------------------
+
+  /// First payment date → a bottom sheet with a calendar. Selecting a day or
+  /// tapping Cancel closes it.
+  Future<void> _pickFirstPaymentDate() async {
+    final picked = await _showCalendarSheet(
+      title: 'First payment date',
+      initial: _d.firstPaymentDate,
+    );
+    if (picked != null) setState(() => _d.firstPaymentDate = picked);
+  }
+
+  /// Duration → a bottom sheet offering "Forever" or a specific end date via the
+  /// same calendar. Picking either (or Cancel) closes it.
+  Future<void> _pickDuration() async {
+    final result = await _showDurationSheet();
+    if (result == null) return; // cancelled
+    setState(() {
+      if (result.forever) {
+        _d.durationForever = true;
+      } else {
+        _d.durationForever = false;
+        _d.durationUntil = result.date;
+      }
+    });
+  }
+
+  /// Shows a calendar in a bottom sheet. Returns the chosen date, or null on
+  /// cancel/dismiss. Selecting a day resolves immediately (auto-close).
+  Future<DateTime?> _showCalendarSheet({
+    required String title,
+    required DateTime initial,
+  }) {
+    return showModalBottomSheet<DateTime>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SheetHeader(
+              title: title,
+              onCancel: () => Navigator.pop(sheetCtx),
+            ),
+            _InlineCalendar(
+              selected: initial,
+              // A tap on a day picks it and closes the sheet.
+              onChanged: (d) => Navigator.pop(sheetCtx, d),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The duration sheet: a "Forever" option pinned on top, then the calendar for
+  /// a fixed end date. Returns a [_DurationResult], or null on cancel.
+  Future<_DurationResult?> _showDurationSheet() {
+    return showModalBottomSheet<_DurationResult>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SheetHeader(
+              title: 'Duration',
+              onCancel: () => Navigator.pop(sheetCtx),
+            ),
+            ListTile(
+              leading: const Icon(Icons.all_inclusive_rounded,
+                  color: AppColors.accent),
+              title: const Text('Forever',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              trailing: _d.durationForever
+                  ? const Icon(Icons.check_rounded, color: AppColors.accent)
+                  : null,
+              onTap: () =>
+                  Navigator.pop(sheetCtx, const _DurationResult.forever()),
+            ),
+            const Divider(
+              height: 1, thickness: 1, indent: 16, endIndent: 16,
+              color: AppColors.hairline,
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Or pick an end date',
+                    style: TextStyle(
+                        color: AppColors.inkSoft, fontWeight: FontWeight.w600)),
+              ),
+            ),
+            _InlineCalendar(
+              selected: _d.durationUntil ?? _d.firstPaymentDate,
+              onChanged: (d) => Navigator.pop(sheetCtx, _DurationResult.until(d)),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickType() => _pickEnum<BillingType>(
         'Type',
         BillingType.values,
@@ -605,6 +677,44 @@ class _ValuePicker extends StatelessWidget {
 
 /// A full month calendar shown inline inside the details card (no modal). Wraps
 /// Flutter's [CalendarDatePicker] and themes it to the app's accent.
+/// Result of the duration sheet: either "Forever" or a fixed end [date].
+class _DurationResult {
+  const _DurationResult.forever()
+      : forever = true,
+        date = null;
+  const _DurationResult.until(this.date) : forever = false;
+
+  final bool forever;
+  final DateTime? date;
+}
+
+/// A bottom-sheet header: a title on the left, a Cancel button on the right.
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader({required this.title, required this.onCancel});
+
+  final String title;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 12, 6),
+      child: Row(
+        children: [
+          Text(title,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          const Spacer(),
+          TextButton(
+            onPressed: onCancel,
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.inkSoft)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InlineCalendar extends StatelessWidget {
   const _InlineCalendar({required this.selected, required this.onChanged});
 

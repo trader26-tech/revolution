@@ -5,7 +5,7 @@ FastAPI app: liveness + the tasks API (Supabase-backed, owner-scoped).
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import tasks
+from app.api.routes import brand_logos, tasks
 
 app = FastAPI(title="Revolution API", version="0.1.0")
 
@@ -19,6 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(tasks.router)
+app.include_router(brand_logos.router)
 
 
 @app.get("/", include_in_schema=False)

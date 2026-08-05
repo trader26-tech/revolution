@@ -306,3 +306,39 @@ create trigger tasks_set_updated_at
 
 -- Backend-only writer, RLS on, no public policy — same posture as the rest.
 alter table public.tasks enable row level security;
+
+
+-- ---------------------------------------------------------------------------
+-- Brand logos (manually-curated, for apps the auto-resolver can't find)
+--
+-- You upload a logo image to the `brand-logos` storage bucket and add a row
+-- here. The app matches the user's typed text against `name` + `keywords` and,
+-- on a hit, shows YOUR logo (guaranteed correct) instead of guessing a domain.
+-- `keywords` is a space/comma list you provide for fuzzy matching.
+-- ---------------------------------------------------------------------------
+create table if not exists public.brand_logos (
+    id         uuid primary key default gen_random_uuid(),
+
+    name       text not null,            -- display name, e.g. 'Swiggy'
+    keywords   text not null default '', -- match text, e.g. 'swiggy food delivery'
+    logo_url   text not null,            -- public URL in the brand-logos bucket
+
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index if not exists brand_logos_name_idx on public.brand_logos (lower(name));
+
+drop trigger if exists brand_logos_set_updated_at on public.brand_logos;
+create trigger brand_logos_set_updated_at
+    before update on public.brand_logos
+    for each row execute function public.set_updated_at();
+
+-- Read is fine for anyone (logos aren't secret); writes go through the backend
+-- service role. Enable RLS + a public read policy.
+alter table public.brand_logos enable row level security;
+
+drop policy if exists brand_logos_public_read on public.brand_logos;
+create policy brand_logos_public_read
+    on public.brand_logos for select
+    using (true);

@@ -31,7 +31,12 @@ extension LogoSourceInfo on LogoSource {
 /// A brand/app the user can attach to an item — its display name and the domain
 /// its logo is fetched from.
 class Brand {
-  const Brand({required this.name, required this.domain, this.source});
+  const Brand({
+    required this.name,
+    required this.domain,
+    this.source,
+    this.overrideLogoUrl,
+  });
 
   final String name;
 
@@ -42,6 +47,10 @@ class Brand {
   /// The source this brand's logo was chosen from (set once the user picks a
   /// specific variant). Null → use the default best source.
   final LogoSource? source;
+
+  /// A fixed logo URL (a manually-uploaded custom logo). When set, it's used
+  /// directly and wins over any domain-based guessing.
+  final String? overrideLogoUrl;
 
   /// The logo URL, from [source] if chosen, else the default best source
   /// (icon.horse, which gives the crispest brand logos).
@@ -62,9 +71,12 @@ class Brand {
     return [domain, '$slug.in', '$slug.co', '$slug.app', '$slug.io'];
   }
 
-  /// Every (domain × source) logo URL to try, in priority order: for each
-  /// candidate domain, each source. The widget shows the first that loads.
+  /// Every logo URL to try, in priority order. A custom uploaded URL wins; then
+  /// (domain × source) candidates. The widget shows the first that loads.
   List<String> get logoUrlCandidates {
+    if (overrideLogoUrl != null && overrideLogoUrl!.isNotEmpty) {
+      return [overrideLogoUrl!];
+    }
     if (source != null) {
       return candidateDomains.map((d) => source!.urlFor(d)).toList();
     }

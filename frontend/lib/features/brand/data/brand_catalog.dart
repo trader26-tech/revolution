@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../domain/brand.dart';
+import 'custom_logo_store.dart';
 
 /// A category header + the brands shown under it in the icon picker.
 ///
@@ -250,6 +251,11 @@ class BrandCatalog {
   static Brand resolve(String query) {
     final q = query.trim();
     final lower = q.toLowerCase();
+
+    // Manually-curated logos win over everything — this is the override you
+    // upload for apps the auto-resolver can't find.
+    final custom = CustomLogoStore.instance.match(q);
+    if (custom != null) return custom.toBrand();
 
     for (final b in popular) {
       if (b.name.toLowerCase() == lower) return b;

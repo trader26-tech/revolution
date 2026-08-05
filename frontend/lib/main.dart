@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'core/api/api_client.dart';
 import 'core/theme/app_theme.dart';
+import 'features/brand/data/custom_logo_store.dart';
 import 'features/options/data/options_store.dart';
 import 'features/shell/app_shell.dart';
 
@@ -11,6 +12,8 @@ Future<void> main() async {
   await ApiClient.instance.init();
   // Load the user's saved lists / categories / payment methods before the UI.
   await OptionsStore.instance.load();
+  // Load manually-curated brand logos (override the auto-resolver). Best-effort.
+  await CustomLogoStore.instance.load();
   runApp(const RevolutionApp());
 }
 

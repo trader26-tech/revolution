@@ -30,7 +30,7 @@ class TaskTile extends StatefulWidget {
 }
 
 class _TaskTileState extends State<TaskTile> {
-  bool _open = true; // PREVIEW
+  bool _open = false;
 
   void _toggleOpen() => setState(() => _open = !_open);
 

@@ -789,13 +789,11 @@ class _TextFieldCard extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.maxLines = 1,
-    this.keyboardType,
   });
 
   final TextEditingController controller;
   final String hint;
   final int maxLines;
-  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
@@ -805,7 +803,6 @@ class _TextFieldCard extends StatelessWidget {
       child: TextField(
         controller: controller,
         maxLines: maxLines,
-        keyboardType: keyboardType,
         decoration: InputDecoration(
           hintText: hint,
           border: InputBorder.none,

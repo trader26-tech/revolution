@@ -208,12 +208,7 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
   }
 
   Future<void> _openFullDetails() async {
-    // Capture the SHEET's navigator now, before we push the details page onto
-    // it. After the details page pops, we use this to close the sheet itself —
-    // so saving the full details returns the user straight to Home.
-    final sheetNavigator = Navigator.of(context);
-
-    final result = await sheetNavigator.push<ItemDetails>(
+    final result = await Navigator.of(context).push<ItemDetails>(
       MaterialPageRoute(
         builder: (_) => ItemDetailsPage(
           title: widget.task.title.isEmpty ? 'Details' : widget.task.title,
@@ -229,8 +224,9 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
     );
     if (result == null || !mounted) return;
 
-    // Build the updated task (title + icon + the sheet's own reminder state),
-    // then close the sheet, returning it so Home persists it via store.update.
+    // Build the updated task from the details result — title, ICON, and the
+    // sheet's reminder state — and close the SHEET returning it, so Home
+    // persists it via store.update and the user lands back on Home.
     final updated = widget.task.copyWith(
       title: result.name.isNotEmpty ? result.name : null,
       reminderOn: _reminderOn,
@@ -240,10 +236,10 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
       iconName: result.iconName,
       iconDomain: result.iconDomain,
     );
-    // Show the confirmation on the root overlay (survives the sheet closing),
-    // then pop the sheet → back to Home, no lingering screen.
-    AppToast.show(sheetNavigator.context, message: 'Saved');
-    sheetNavigator.pop(updated);
+    AppToast.show(context, message: 'Saved');
+    // Pop THIS sheet (not the root) with the result, so showTaskDetailsSheet's
+    // future resolves to `updated` and Home receives it.
+    Navigator.of(context).pop(updated);
   }
 }
 

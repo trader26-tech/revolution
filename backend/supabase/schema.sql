@@ -267,3 +267,42 @@ create trigger item_details_set_updated_at
 
 -- Backend-only writer, RLS on, no public policy — same posture as the rest.
 alter table public.item_details enable row level security;
+
+
+-- ---------------------------------------------------------------------------
+-- Tasks (the items a user tracks on the home list)
+--
+-- Server is the ONLY store — the app reads/writes these via the backend, so a
+-- user's list lives entirely in Supabase (nothing persisted on the device).
+-- `owner_id` = the X-Owner-Id header (the logged-in user's id).
+-- ---------------------------------------------------------------------------
+create table if not exists public.tasks (
+    id           uuid primary key default gen_random_uuid(),
+
+    owner_id     text not null,
+
+    title        text not null default '',
+    done         boolean not null default false,
+    reminder_on  boolean not null default true,
+    due_at       timestamptz,
+    -- 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+    repeat       text not null default 'none',
+
+    -- Optional brand/app icon.
+    icon_name    text,
+    icon_domain  text,
+
+    created_at   timestamptz not null default now(),
+    updated_at   timestamptz not null default now()
+);
+
+create index if not exists tasks_owner_idx on public.tasks (owner_id);
+create index if not exists tasks_due_idx   on public.tasks (due_at);
+
+drop trigger if exists tasks_set_updated_at on public.tasks;
+create trigger tasks_set_updated_at
+    before update on public.tasks
+    for each row execute function public.set_updated_at();
+
+-- Backend-only writer, RLS on, no public policy — same posture as the rest.
+alter table public.tasks enable row level security;

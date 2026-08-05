@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../brand/data/brand_catalog.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
 import '../../brand/presentation/brand_picker_sheet.dart';
@@ -34,6 +35,10 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   Currency get _currency => currencyOf(_d.currency);
 
+  /// True once the user has explicitly chosen an icon via the picker. While
+  /// false, the icon auto-follows the typed name; a manual pick locks it.
+  bool _iconManuallyChosen = false;
+
   late final TextEditingController _name =
       TextEditingController(text: _d.name);
   late final TextEditingController _amount = TextEditingController(
@@ -45,7 +50,41 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       TextEditingController(text: _d.notes);
 
   @override
+  void initState() {
+    super.initState();
+    // If we opened with an existing icon, treat it as already chosen so we
+    // don't overwrite it from the name.
+    _iconManuallyChosen =
+        _d.iconName != null && _d.iconName!.isNotEmpty;
+    _name.addListener(_onNameChanged);
+  }
+
+  /// As the user types the name, auto-suggest a matching icon — unless they've
+  /// manually picked one. Resolves the text to a brand and previews its logo.
+  void _onNameChanged() {
+    if (_iconManuallyChosen) return;
+    final text = _name.text.trim();
+    if (text.isEmpty) {
+      if (_d.iconName != null || _d.iconDomain != null) {
+        setState(() {
+          _d.iconName = null;
+          _d.iconDomain = null;
+        });
+      }
+      return;
+    }
+    final suggested = BrandCatalog.resolve(text);
+    if (suggested.domain != _d.iconDomain || text != _d.iconName) {
+      setState(() {
+        _d.iconName = text;
+        _d.iconDomain = suggested.domain;
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    _name.removeListener(_onNameChanged);
     _name.dispose();
     _amount.dispose();
     _notes.dispose();
@@ -62,11 +101,13 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }
 
   /// Tap the big + circle → the brand/app icon picker (Amazon, Netflix, …).
-  /// Sets the icon and, if the name is still empty, fills it in from the brand.
+  /// This is an explicit choice, so it LOCKS the icon (auto-suggest stops
+  /// overriding it). Fills the name too if it was still empty.
   Future<void> _pickIcon() async {
     final brand = await showBrandPicker(context);
     if (brand == null || !mounted) return;
     setState(() {
+      _iconManuallyChosen = true;
       _d.iconName = brand.name;
       _d.iconDomain = brand.domain;
       if (_name.text.trim().isEmpty) {
@@ -511,29 +552,63 @@ class _NameAmountCard extends StatelessWidget {
       decoration: _cardDecoration,
       child: Row(
         children: [
-          // The big + circle → tap to pick a brand/app icon. Once chosen, the
-          // circle shows that logo; tap again to change it.
+          // The big + circle → auto-suggests a logo from the typed name; tap to
+          // pick/change it. A tiny hint underneath tells the user it's tappable.
           GestureDetector(
             onTap: onTapIcon,
-            child: _hasIcon
-                ? BrandLogo(
-                    brand: Brand(
-                      name: iconName!,
-                      domain: iconDomain ?? '',
-                    ),
-                    size: 64,
-                    radius: 32, // circular
-                  )
-                : Container(
-                    width: 64,
-                    height: 64,
-                    decoration: const BoxDecoration(
-                      color: AppColors.bg,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.add,
-                        size: 30, color: AppColors.inkSoft),
-                  ),
+            behavior: HitTestBehavior.opaque,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _hasIcon
+                        ? BrandLogo(
+                            brand: Brand(
+                              name: iconName!,
+                              domain: iconDomain ?? '',
+                            ),
+                            size: 64,
+                            radius: 32, // circular
+                          )
+                        : Container(
+                            width: 64,
+                            height: 64,
+                            decoration: const BoxDecoration(
+                              color: AppColors.bg,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.add,
+                                size: 30, color: AppColors.inkSoft),
+                          ),
+                    // A little edit badge overlapping the logo, so it's obvious
+                    // the icon can be changed.
+                    if (_hasIcon)
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.card, width: 2),
+                          ),
+                          child: const Icon(Icons.edit_rounded,
+                              size: 11, color: Colors.white),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _hasIcon ? 'Tap to change' : 'Tap to add',
+                  style: const TextStyle(
+                      fontSize: 10.5, color: AppColors.inkFaint),
+                ),
+              ],
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(

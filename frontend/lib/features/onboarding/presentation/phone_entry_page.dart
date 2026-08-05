@@ -118,7 +118,7 @@ class _PhoneEntryPageState extends State<PhoneEntryPage> {
                 const Center(child: PandaMascot(size: 160, mood: PandaMood.happy)),
                 const SizedBox(height: 20),
                 Text(
-                  "HOT RELOAD WORKS ✅",
+                  "What's your number?",
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800,

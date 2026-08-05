@@ -60,7 +60,28 @@ cd "${REPO_ROOT}"
 APP_DIR="${REPO_ROOT}/frontend"
 [[ -f "${APP_DIR}/pubspec.yaml" ]] || die "no Flutter app at ${APP_DIR} (pubspec.yaml missing)."
 
-command -v flutter >/dev/null 2>&1 || die "flutter is not on PATH."
+# Find Flutter even when it isn't on PATH — a plain double-click / launchd
+# agent / fresh terminal often won't have it, and "flutter: not found" is the
+# single most common reason this script appears to do nothing.
+if ! command -v flutter >/dev/null 2>&1; then
+  for candidate in \
+    "${FLUTTER_ROOT:-}/bin" \
+    "${HOME}/flutter/bin" \
+    "${HOME}/development/flutter/bin" \
+    "${HOME}/fvm/default/bin" \
+    "/opt/homebrew/bin" \
+    "/usr/local/bin"
+  do
+    if [[ -n "${candidate}" && -x "${candidate}/flutter" ]]; then
+      PATH="${candidate}:${PATH}"
+      export PATH
+      log "found flutter at ${candidate}/flutter"
+      break
+    fi
+  done
+fi
+command -v flutter >/dev/null 2>&1 \
+  || die "flutter not found. Install it, or set FLUTTER_ROOT=/path/to/flutter."
 
 # Session bookkeeping. bash 3.2 has no associative arrays, so sessions are a
 # space-separated list of names and per-session state lives in files.
@@ -322,45 +343,57 @@ fi
 
 # --- the sync loop ------------------------------------------------------
 log "tracking origin/${BRANCH}, polling every ${POLL_SECONDS}s. Ctrl-C to stop."
+LAST_HEAD="$(git rev-parse HEAD 2>/dev/null || echo none)"
+
 while true; do
-  if ! git fetch --quiet origin "${BRANCH}" 2>/dev/null; then
-    sleep "${POLL_SECONDS}"; continue
+  # Pull anything new from GitHub. A failed fetch (offline, laptop asleep) is
+  # not fatal — local commits below should still trigger a reload.
+  if git fetch --quiet origin "${BRANCH}" 2>/dev/null; then
+    LOCAL="$(git rev-parse HEAD 2>/dev/null || echo none)"
+    REMOTE="$(git rev-parse "origin/${BRANCH}" 2>/dev/null || echo none)"
+
+    if [[ "${LOCAL}" != "${REMOTE}" && "${REMOTE}" != "none" ]]; then
+      if git merge-base --is-ancestor "${LOCAL}" "${REMOTE}" 2>/dev/null; then
+        log "new commit on origin/${BRANCH} (${REMOTE:0:8}). Pulling..."
+        git merge --ff-only "origin/${BRANCH}" >/dev/null 2>&1 \
+          || log "fast-forward failed — fix with: git reset --hard origin/${BRANCH}"
+      elif git merge-base --is-ancestor "${REMOTE}" "${LOCAL}" 2>/dev/null; then
+        : # We're ahead of origin — normal on the code machine, nothing to pull.
+      else
+        log "local and origin/${BRANCH} have diverged."
+        log "  fix with: git reset --hard origin/${BRANCH}"
+      fi
+    fi
   fi
 
-  LOCAL="$(git rev-parse HEAD 2>/dev/null || echo none)"
-  REMOTE="$(git rev-parse "origin/${BRANCH}" 2>/dev/null || echo none)"
-
-  if [[ "${LOCAL}" != "${REMOTE}" && "${REMOTE}" != "none" ]]; then
-    # Only react when origin is genuinely ahead of us.
-    if git merge-base --is-ancestor "${LOCAL}" "${REMOTE}" 2>/dev/null; then
-      log "new commit on origin/${BRANCH} (${REMOTE:0:8}). Pulling..."
-      CHANGED="$(git diff --name-only "${LOCAL}" "${REMOTE}" 2>/dev/null || true)"
-
-      if git merge --ff-only "origin/${BRANCH}" >/dev/null 2>&1; then
-        FULL=0
-        # Dart deps changed → refresh packages, and a hot reload won't cut it.
-        if printf '%s' "${CHANGED}" | grep -q '^frontend/pubspec'; then
-          log "pubspec changed — running flutter pub get"
-          (cd "${APP_DIR}" && flutter pub get >/dev/null 2>&1 || true)
-          FULL=1
-        fi
-        # Native code changed → hot reload can't apply it either.
-        if printf '%s' "${CHANGED}" | grep -qE '^frontend/(android|ios)/'; then
-          log "native code changed — full restart (a rebuild may still be needed)"
-          FULL=1
-        fi
-        for name in ${SESSIONS}; do
-          reload_session "${name}" "${FULL}"
-        done
-        log "synced to ${REMOTE:0:8}."
-      else
-        log "fast-forward failed — local checkout has changes."
-        log "  the mini is a consumer; fix with: git reset --hard origin/${BRANCH}"
-      fi
-    else
-      log "local HEAD is not an ancestor of origin/${BRANCH} (diverged)."
-      log "  fix with: git reset --hard origin/${BRANCH}"
+  # Reload whenever HEAD moved, whatever moved it — a pull from GitHub OR a
+  # local commit made right here. That way this works unchanged on the code
+  # machine (agents commit locally) and on the mini (commits arrive by pull).
+  HEAD_NOW="$(git rev-parse HEAD 2>/dev/null || echo none)"
+  if [[ "${HEAD_NOW}" != "${LAST_HEAD}" && "${HEAD_NOW}" != "none" ]]; then
+    CHANGED="$(git diff --name-only "${LAST_HEAD}" "${HEAD_NOW}" 2>/dev/null || true)"
+    FULL=0
+    # Dart deps changed → refresh packages; a hot reload won't cut it.
+    if printf '%s' "${CHANGED}" | grep -q '^frontend/pubspec'; then
+      log "pubspec changed — running flutter pub get"
+      (cd "${APP_DIR}" && flutter pub get >/dev/null 2>&1 || true)
+      FULL=1
     fi
+    # Native code changed → hot reload can't apply it either.
+    if printf '%s' "${CHANGED}" | grep -qE '^frontend/(android|ios)/'; then
+      log "native code changed — full restart (a rebuild may still be needed)"
+      FULL=1
+    fi
+    # Skip pure backend/docs commits — no point reloading the UI for those.
+    if printf '%s' "${CHANGED}" | grep -q '^frontend/'; then
+      for name in ${SESSIONS}; do
+        reload_session "${name}" "${FULL}"
+      done
+      log "synced to ${HEAD_NOW:0:8}."
+    else
+      log "${HEAD_NOW:0:8} touched no frontend files — skipping reload."
+    fi
+    LAST_HEAD="${HEAD_NOW}"
   fi
   sleep "${POLL_SECONDS}"
 done

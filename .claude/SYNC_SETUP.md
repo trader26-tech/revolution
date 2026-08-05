@@ -1,4 +1,20 @@
-# Multi-machine dev sync
+# Live emulators + multi-machine dev sync
+
+## TL;DR — one command, either machine
+
+```bash
+./dev.sh
+```
+
+Boots the Android emulator and iOS simulator if they aren't running, launches
+the app on both, then hot-reloads **both** on every new commit — whether you
+made it here or it arrived from GitHub. Ctrl-C stops everything.
+
+You do **not** need Flutter on your PATH; the script finds it (checks
+`FLUTTER_ROOT`, `~/flutter`, `~/development/flutter`, `~/fvm/default`,
+Homebrew). Set `FLUTTER_ROOT` if yours lives somewhere unusual.
+
+---
 
 Two Macs, GitHub in the middle. Nothing talks peer-to-peer.
 

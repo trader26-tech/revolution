@@ -21,6 +21,7 @@ ALLOWED_PATHS=(
   .claude
   README.md
   .gitignore
+  dev.sh
 )
 
 # Resolve the repo root so the hook works regardless of the agent's CWD.

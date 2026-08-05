@@ -54,41 +54,55 @@ class _CategoryPickerSheet extends StatelessWidget {
           ),
           Flexible(
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.zero,
               shrinkWrap: true,
               itemCount: _categories.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => const Divider(
+                height: 1,
+                thickness: 1,
+                indent: 24,
+                endIndent: 24,
+                color: AppColors.hairline,
+              ),
               itemBuilder: (context, i) {
                 final cat = _categories[i];
-                return _CategoryButton(
+                return _CategoryRow(
                   category: cat,
                   onTap: () => Navigator.of(context).pop(cat),
                 );
               },
             ),
           ),
-          const Divider(height: 1),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              12,
-              16,
-              12 + MediaQuery.of(context).viewPadding.bottom,
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _createCategory(context),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Add category'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  foregroundColor: AppColors.accent,
-                  side: BorderSide(color: AppColors.accent.withValues(alpha: 0.5)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+          const Divider(
+            height: 1,
+            thickness: 1,
+            indent: 24,
+            endIndent: 24,
+            color: AppColors.hairline,
+          ),
+          // "Add category" as a matching flat row, in the accent colour.
+          InkWell(
+            onTap: () => _createCategory(context),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                18,
+                24,
+                18 + MediaQuery.of(context).viewPadding.bottom,
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.add_rounded, color: AppColors.accent, size: 22),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Add category',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.accent,
+                      fontSize: 16,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -111,48 +125,37 @@ class _CategoryPickerSheet extends StatelessWidget {
   }
 }
 
-/// A single plain category button — one unified-colour icon + the name. No
-/// items, no counts, no expansion.
-class _CategoryButton extends StatelessWidget {
-  const _CategoryButton({required this.category, required this.onTap});
+/// A single flat category row — a unified-colour icon + the name, tappable,
+/// with only a thin divider between rows. No cards, no boxes, no pills.
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({required this.category, required this.onTap});
 
   final Category category;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.card,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.cardBorder),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                Icon(category.icon, color: AppColors.accent, size: 22),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    category.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.ink,
-                      fontSize: 15,
-                    ),
-                  ),
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+        child: Row(
+          children: [
+            Icon(category.icon, color: AppColors.accent, size: 22),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                category.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                  fontSize: 16,
                 ),
-                const Icon(Icons.chevron_right_rounded,
-                    color: AppColors.inkFaint),
-              ],
+              ),
             ),
-          ),
+            const Icon(Icons.chevron_right_rounded,
+                size: 20, color: AppColors.inkFaint),
+          ],
         ),
       ),
     );

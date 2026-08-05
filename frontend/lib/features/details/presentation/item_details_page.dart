@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../brand/domain/brand.dart';
+import '../../brand/presentation/brand_logo.dart';
+import '../../brand/presentation/brand_picker_sheet.dart';
 import '../../options/data/options_store.dart';
 import '../../options/presentation/option_picker_sheet.dart';
 import '../domain/currency.dart';
@@ -56,6 +59,21 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       ..amount = double.tryParse(unformatAmount(_amount.text))
       ..notes = _notes.text.trim();
     Navigator.of(context).pop(_d);
+  }
+
+  /// Tap the big + circle → the brand/app icon picker (Amazon, Netflix, …).
+  /// Sets the icon and, if the name is still empty, fills it in from the brand.
+  Future<void> _pickIcon() async {
+    final brand = await showBrandPicker(context);
+    if (brand == null || !mounted) return;
+    setState(() {
+      _d.iconName = brand.name;
+      _d.iconDomain = brand.domain;
+      if (_name.text.trim().isEmpty) {
+        _name.text = brand.name;
+        _d.name = brand.name;
+      }
+    });
   }
 
   /// Pick the currency (₹ / $ / KD). Re-groups the amount for the new system.
@@ -120,6 +138,9 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                     amount: _amount,
                     currency: _currency,
                     onTapCurrency: _pickCurrency,
+                    iconName: _d.iconName,
+                    iconDomain: _d.iconDomain,
+                    onTapIcon: _pickIcon,
                   ),
                   const SizedBox(height: 20),
                   _Group(children: [
@@ -484,12 +505,20 @@ class _NameAmountCard extends StatelessWidget {
     required this.amount,
     required this.currency,
     required this.onTapCurrency,
+    required this.onTapIcon,
+    this.iconName,
+    this.iconDomain,
   });
 
   final TextEditingController name;
   final TextEditingController amount;
   final Currency currency;
   final VoidCallback onTapCurrency;
+  final VoidCallback onTapIcon;
+  final String? iconName;
+  final String? iconDomain;
+
+  bool get _hasIcon => iconName != null && iconName!.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -498,14 +527,29 @@ class _NameAmountCard extends StatelessWidget {
       decoration: _cardDecoration,
       child: Row(
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: const BoxDecoration(
-              color: AppColors.bg,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.add, size: 30, color: AppColors.inkSoft),
+          // The big + circle → tap to pick a brand/app icon. Once chosen, the
+          // circle shows that logo; tap again to change it.
+          GestureDetector(
+            onTap: onTapIcon,
+            child: _hasIcon
+                ? BrandLogo(
+                    brand: Brand(
+                      name: iconName!,
+                      domain: iconDomain ?? '',
+                    ),
+                    size: 64,
+                    radius: 32, // circular
+                  )
+                : Container(
+                    width: 64,
+                    height: 64,
+                    decoration: const BoxDecoration(
+                      color: AppColors.bg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add,
+                        size: 30, color: AppColors.inkSoft),
+                  ),
           ),
           const SizedBox(width: 14),
           Expanded(

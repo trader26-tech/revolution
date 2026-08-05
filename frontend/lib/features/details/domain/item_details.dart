@@ -56,9 +56,15 @@ class ItemDetails {
     this.notify = NotifyBefore.oneWeek,
     this.url = '',
     this.notes = '',
+    this.iconName,
+    this.iconDomain,
   }) : firstPaymentDate = firstPaymentDate ?? DateTime.now();
 
   String name;
+  /// The chosen brand/app icon (optional). [iconName] seeds the letter avatar;
+  /// [iconDomain] is the logo domain (empty/null → no remote logo).
+  String? iconName;
+  String? iconDomain;
   double? amount;
   String currency;
   DateTime firstPaymentDate;
@@ -91,5 +97,7 @@ class ItemDetails {
         notify: notify,
         url: url,
         notes: notes,
+        iconName: iconName,
+        iconDomain: iconDomain,
       );
 }

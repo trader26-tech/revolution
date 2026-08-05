@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
-import '../brand/presentation/brand_picker_sheet.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
@@ -51,17 +50,10 @@ class _HomePageState extends State<HomePage> {
     if (picked != null) setState(() => _filter = picked);
   }
 
-  /// Press + → the brand/app icon picker. Pick any app (Netflix, HDFC, Zerodha,
-  /// …) and it becomes a new task carrying that logo. This is the core "add a
-  /// place your money goes" flow.
-  Future<void> _startAdd() async {
-    final brand = await showBrandPicker(context);
-    if (brand == null || !mounted) return;
-    widget.store.add(
-      brand.name,
-      iconName: brand.name,
-      iconDomain: brand.domain,
-    );
+  void _startAdd() {
+    setState(() => _adding = true);
+    // Focus after the row mounts so the keyboard opens.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _addFocus.requestFocus());
   }
 
   /// Add the current text and keep the field open for the next task (the ✓).

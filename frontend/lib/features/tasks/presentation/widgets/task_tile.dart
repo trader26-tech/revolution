@@ -7,10 +7,13 @@ import 'animated_check_circle.dart';
 /// A single task in the home list.
 ///
 /// A check circle, the title, a due-date subtitle, and a chevron (▸) on the
-/// right. Tapping the **row body** opens the details page. Tapping the
-/// **chevron** morphs it into a red **Delete** button (the row content shifts
-/// left to make room), so deleting clearly lives on the right; tapping Delete
-/// removes the task.
+/// right. Interaction:
+///  * Tap the **row body** → open the details page.
+///  * Tap the **chevron** → the row content shifts left (the check circle
+///    collapses) and a red **Delete** slides in on the right. The chevron
+///    rotates to point back (◂) and stays as the close control — tap it, or
+///    anywhere on the row, to slide it all back. So the reveal is fully
+///    reversible; there is never a dead end.
 class TaskTile extends StatefulWidget {
   const TaskTile({
     super.key,
@@ -32,6 +35,9 @@ class TaskTile extends StatefulWidget {
 class _TaskTileState extends State<TaskTile> {
   bool _open = false;
 
+  static const _dur = Duration(milliseconds: 240);
+  static const _curve = Curves.easeOutCubic;
+
   void _toggleOpen() => setState(() => _open = !_open);
 
   @override
@@ -39,9 +45,9 @@ class _TaskTileState extends State<TaskTile> {
     final task = widget.task;
 
     return InkWell(
-      // Tapping the row body always goes to the details page. (The chevron on
-      // the right is a separate tap that reveals Delete.)
-      onTap: widget.onOpenDetails,
+      // Open → a body tap closes the actions (so there's always an escape).
+      // Closed → a body tap opens the details page.
+      onTap: _open ? _toggleOpen : widget.onOpenDetails,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: AnimatedOpacity(
@@ -49,12 +55,22 @@ class _TaskTileState extends State<TaskTile> {
           opacity: task.done ? 0.6 : 1.0,
           child: Row(
             children: [
-              AnimatedCheckCircle(
-                checked: task.done,
-                onTap: widget.onToggle,
-                size: 20,
+              // Check circle — collapses away when actions are open so the
+              // content shifts left, exposing Delete on the right.
+              AnimatedSize(
+                duration: _dur,
+                curve: _curve,
+                child: _open
+                    ? const SizedBox(width: 0, height: 20)
+                    : Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: AnimatedCheckCircle(
+                          checked: task.done,
+                          onTap: widget.onToggle,
+                          size: 20,
+                        ),
+                      ),
               ),
-              const SizedBox(width: 12),
               // Title + subtitle. Expanded → shrinks to leave room for Delete.
               Expanded(
                 child: Column(
@@ -90,13 +106,32 @@ class _TaskTileState extends State<TaskTile> {
                 ),
               ),
               const SizedBox(width: 8),
-              // The right control: a chevron that morphs into a Delete button.
-              // Tap the chevron → it becomes Delete; tap Delete → removes it.
-              // (Tapping elsewhere collapses it back to the chevron.)
-              _TrailingControl(
-                open: _open,
-                onReveal: _toggleOpen,
-                onDelete: widget.onDelete,
+              // The Delete button slides in from the right when open.
+              AnimatedSize(
+                duration: _dur,
+                curve: _curve,
+                child: _open
+                    ? Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: _DeletePill(onTap: widget.onDelete),
+                      )
+                    : const SizedBox(height: 40),
+              ),
+              // The chevron is always present and is the open/close toggle. It
+              // rotates to point back (◂) when open, so it clearly reverses.
+              IconButton(
+                onPressed: _toggleOpen,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                tooltip: _open ? 'Close' : 'More',
+                icon: AnimatedRotation(
+                  turns: _open ? 0.5 : 0,
+                  duration: _dur,
+                  curve: _curve,
+                  child: const Icon(Icons.chevron_right_rounded,
+                      size: 24, color: AppColors.inkFaint),
+                ),
               ),
             ],
           ),
@@ -127,73 +162,40 @@ class _TaskTileState extends State<TaskTile> {
   ];
 }
 
-/// The right-hand control that morphs between a chevron and a Delete button.
-///
-///  * Closed → a grey chevron (▸). Tap it to reveal Delete.
-///  * Open   → a red "Delete" pill. Tap it to remove the task.
-///
-/// The swap is animated so the chevron visibly turns into the delete control,
-/// signalling "the delete lives here, on the right".
-class _TrailingControl extends StatelessWidget {
-  const _TrailingControl({
-    required this.open,
-    required this.onReveal,
-    required this.onDelete,
-  });
+/// The red "Delete" pill revealed on the right when the tile is open.
+class _DeletePill extends StatelessWidget {
+  const _DeletePill({required this.onTap});
 
-  final bool open;
-  final VoidCallback onReveal;
-  final VoidCallback onDelete;
+  final VoidCallback onTap;
 
   static const _red = Color(0xFFE5484D);
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        transitionBuilder: (child, anim) =>
-            FadeTransition(opacity: anim, child: child),
-        child: open
-            ? Material(
-                key: const ValueKey('delete'),
-                color: _red,
-                borderRadius: BorderRadius.circular(999),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: onDelete,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.delete_outline_rounded,
-                            size: 18, color: Colors.white),
-                        SizedBox(width: 6),
-                        Text(
-                          'Delete',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+    return Material(
+      color: _red,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.delete_outline_rounded, size: 18, color: Colors.white),
+              SizedBox(width: 6),
+              Text(
+                'Delete',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
                 ),
-              )
-            : IconButton(
-                key: const ValueKey('chevron'),
-                onPressed: onReveal,
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.chevron_right_rounded,
-                    size: 24, color: AppColors.inkFaint),
               ),
+            ],
+          ),
+        ),
       ),
     );
   }

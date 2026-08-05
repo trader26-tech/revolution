@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../details/domain/item_details.dart';
 import '../../details/presentation/item_details_page.dart';
 import '../domain/task.dart';
+import 'widgets/wheel_pickers.dart';
 
 /// The details sheet — set/update a task's reminder, date, time, and repeat.
 /// Modeled on the reference: a Reminder toggle, an "on `date` at `time`" block,
@@ -52,27 +53,17 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _due,
-      firstDate: DateTime(DateTime.now().year - 1),
-      lastDate: DateTime(DateTime.now().year + 30),
-    );
+    final picked = await showDateWheel(context, initial: _due);
     if (picked != null) {
-      setState(() => _due =
-          DateTime(picked.year, picked.month, picked.day, _due.hour, _due.minute));
+      // Keep the existing time, take the new date.
+      setState(() => _due = DateTime(
+          picked.year, picked.month, picked.day, _due.hour, _due.minute));
     }
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_due),
-    );
-    if (picked != null) {
-      setState(() => _due = DateTime(
-          _due.year, _due.month, _due.day, picked.hour, picked.minute));
-    }
+    final picked = await showTimeWheel(context, initial: _due);
+    if (picked != null) setState(() => _due = picked);
   }
 
   Future<void> _pickRepeat() async {
@@ -83,17 +74,25 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => SafeArea(
+        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Text('Repeat',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            ),
             for (final r in RepeatCadence.values)
               ListTile(
                 title: Text(r.label),
                 trailing: r == _repeat
-                    ? const Icon(Icons.check, color: AppColors.accent)
+                    ? const Icon(Icons.check_rounded, color: AppColors.accent)
                     : null,
                 onTap: () => Navigator.of(context).pop(r),
               ),
+            const SizedBox(height: 8),
           ],
         ),
       ),

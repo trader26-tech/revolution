@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../panda/presentation/panda_mascot.dart';
+import '../../mascot/presentation/bobo_mascot.dart';
 import '../data/verification_repository.dart';
 import 'whatsapp_verify_page.dart';
 
@@ -137,7 +137,7 @@ class _PhoneEntryPageState extends State<PhoneEntryPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 12),
-                const Center(child: PandaMascot(size: 160, mood: PandaMood.happy)),
+                const Center(child: BoboMascot(size: 160, mood: BoboMood.happy)),
                 const SizedBox(height: 20),
                 Text(
                   "What's your number?",
@@ -149,7 +149,7 @@ class _PhoneEntryPageState extends State<PhoneEntryPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Pip uses this to keep your reminders yours. You can change it any time.",
+                  "Bobo uses this to keep your reminders yours. You can change it any time.",
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,

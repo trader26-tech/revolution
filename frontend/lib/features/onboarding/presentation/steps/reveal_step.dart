@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/bamboo_palette.dart';
-import '../../../panda/presentation/panda_mascot.dart';
+import '../../../mascot/presentation/bobo_mascot.dart';
 import '../onboarding_controller.dart';
 import '../widgets/onboarding_scaffold.dart';
 
-/// The payoff — one number, two lines, Pip. The relief moment.
+/// The payoff — one number, two lines, Bobo. The relief moment.
 class RevealStep extends StatefulWidget {
   const RevealStep({
     super.key,
@@ -54,7 +54,7 @@ class _RevealStepState extends State<RevealStep>
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const PandaMascot(size: 168, mood: PandaMood.excited),
+          const BoboMascot(size: 168, mood: BoboMood.excited),
           const SizedBox(height: 24),
           AnimatedBuilder(
             animation: _anim,

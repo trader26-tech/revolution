@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../onboarding/data/onboarding_store.dart';
 import '../../onboarding/presentation/onboarding_gate.dart';
-import '../../panda/presentation/panda_mascot.dart';
+import '../../mascot/presentation/bobo_mascot.dart';
 import '../../reminders/data/reminders_repository.dart';
 import '../../reminders/domain/reminder.dart';
 import '../../reminders/presentation/widgets/add_reminder_sheet.dart';
@@ -56,7 +56,7 @@ class _HomePageState extends State<HomePage> {
       setState(() => _reminders = [..._reminders, created]..sort(
           (a, b) => a.remindOn.compareTo(b.remindOn)));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Reminder set for “${created.title}” 🐼')),
+        SnackBar(content: Text('Reminder set for “${created.title}” 🐶')),
       );
     }
   }
@@ -87,13 +87,13 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Pip's mood is derived from the real list: something needing attention makes
-  // Pip alert; an empty or all-clear list keeps Pip happy.
-  PandaMood get _mood {
-    if (_reminders.isEmpty) return PandaMood.happy;
+  // Bobo's mood is derived from the real list: something needing attention makes
+  // Bobo alert; an empty or all-clear list keeps Bobo happy.
+  BoboMood get _mood {
+    if (_reminders.isEmpty) return BoboMood.happy;
     final needsAttention =
         _reminders.any((r) => r.isExpired || r.isDueSoon);
-    return needsAttention ? PandaMood.excited : PandaMood.happy;
+    return needsAttention ? BoboMood.excited : BoboMood.happy;
   }
 
   int get _attentionCount =>
@@ -111,10 +111,10 @@ class _HomePageState extends State<HomePage> {
 
   String get _sub {
     if (_reminders.isEmpty) {
-      return 'Tap ﹢ and Pip will remember your renewal dates for you 🎋';
+      return 'Tap ﹢ and Bobo will remember your renewal dates for you 🦴';
     }
     if (_attentionCount > 0) return "Let's get them sorted before they lapse.";
-    return 'Pip is keeping an eye on ${_reminders.length} '
+    return 'Bobo is keeping an eye on ${_reminders.length} '
         '${_reminders.length == 1 ? "renewal" : "renewals"} for you.';
   }
 
@@ -171,7 +171,7 @@ class _HomePageState extends State<HomePage> {
         greeting: _greeting,
         sub: _sub,
         pokes: _pokes,
-        onPokePanda: () => setState(() => _pokes++),
+        onPokeBobo: () => setState(() => _pokes++),
       );
     }
     return _ReminderListView(
@@ -179,33 +179,33 @@ class _HomePageState extends State<HomePage> {
       mood: _mood,
       greeting: _greeting,
       sub: _sub,
-      onPokePanda: () => setState(() => _pokes++),
+      onPokeBobo: () => setState(() => _pokes++),
       onDelete: _delete,
     );
   }
 }
 
-/// Full-screen hero shown when the list is empty — Pip front and centre.
+/// Full-screen hero shown when the list is empty — Bobo front and centre.
 class _EmptyState extends StatelessWidget {
   const _EmptyState({
     required this.mood,
     required this.greeting,
     required this.sub,
     required this.pokes,
-    required this.onPokePanda,
+    required this.onPokeBobo,
   });
 
-  final PandaMood mood;
+  final BoboMood mood;
   final String greeting;
   final String sub;
   final int pokes;
-  final VoidCallback onPokePanda;
+  final VoidCallback onPokeBobo;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     // Centre the whole hero in the available space and scroll only if a very
-    // short screen can't fit it — so Pip and the text never overlap.
+    // short screen can't fit it — so Bobo and the text never overlap.
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -217,7 +217,7 @@ class _EmptyState extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  PandaMascot(size: 160, mood: mood, onTap: onPokePanda),
+                  BoboMascot(size: 160, mood: mood, onTap: onPokeBobo),
                   const SizedBox(height: 24),
                   Text(
                     greeting,
@@ -239,7 +239,7 @@ class _EmptyState extends StatelessWidget {
                   if (pokes > 0) ...[
                     const SizedBox(height: 10),
                     Text(
-                      pokes == 1 ? 'Boop! 🐾' : 'Pip giggled ${pokes}x 🐾',
+                      pokes == 1 ? 'Boop! 🐾' : 'Bobo giggled ${pokes}x 🐾',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.primary,
                             fontWeight: FontWeight.w600,
@@ -256,22 +256,22 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// The populated state — a compact Pip banner above the reminders list.
+/// The populated state — a compact Bobo banner above the reminders list.
 class _ReminderListView extends StatelessWidget {
   const _ReminderListView({
     required this.reminders,
     required this.mood,
     required this.greeting,
     required this.sub,
-    required this.onPokePanda,
+    required this.onPokeBobo,
     required this.onDelete,
   });
 
   final List<Reminder> reminders;
-  final PandaMood mood;
+  final BoboMood mood;
   final String greeting;
   final String sub;
-  final VoidCallback onPokePanda;
+  final VoidCallback onPokeBobo;
   final ValueChanged<Reminder> onDelete;
 
   @override
@@ -282,7 +282,7 @@ class _ReminderListView extends StatelessWidget {
       children: [
         Row(
           children: [
-            PandaMascot(size: 88, mood: mood, onTap: onPokePanda),
+            BoboMascot(size: 88, mood: mood, onTap: onPokeBobo),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

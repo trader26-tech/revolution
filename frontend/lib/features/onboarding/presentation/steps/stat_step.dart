@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/bamboo_palette.dart';
-import '../../../panda/presentation/panda_mascot.dart';
+import '../../../mascot/presentation/bobo_mascot.dart';
 import '../widgets/onboarding_scaffold.dart';
 
 /// The framing beat — makes the mental load feel real before we solve it.
@@ -41,7 +41,7 @@ class StatStep extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 40),
-          const PandaMascot(size: 120, mood: PandaMood.sleepy),
+          const BoboMascot(size: 120, mood: BoboMood.sleepy),
         ],
       ),
     );

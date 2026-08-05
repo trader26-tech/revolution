@@ -12,7 +12,7 @@ class QuizQuestion {
     required this.itemKeys,
   });
 
-  /// The big glyph Pip "holds up".
+  /// The big glyph Bobo "holds up".
   final String emoji;
 
   /// The question — 2 to 4 words, phrased so a tap answers it.

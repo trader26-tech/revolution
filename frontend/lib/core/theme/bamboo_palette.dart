@@ -30,5 +30,5 @@ class Bamboo {
   static const card = Color(0xFFFFFFFF);
   static const cardBorder = Color(0xFFE6E3D8);
 
-  static const blush = Color(0xFFFF9CB6); // Pip's cheeks, for tiny accents
+  static const blush = Color(0xFFFF9CB6); // Bobo's cheeks, for tiny accents
 }

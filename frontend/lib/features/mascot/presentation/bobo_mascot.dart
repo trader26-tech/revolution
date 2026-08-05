@@ -182,7 +182,6 @@ class _BoboPainter extends CustomPainter {
   static const _coat = Color(0xFFFFF3DE); // warm cream fur
   static const _coatShadow = Color(0xFFF3E4C4); // faint roundness tone
   static const _brown = Color(0xFF8A5A2B); // ears / eye-patch
-  static const _brownDark = Color(0xFF6E441E); // inner ear
   static const _ink = Color(0xFF2B2B33); // outline / nose / eyes
   static const _blush = Color(0xFFFF9CB6);
   static const _tongue = Color(0xFFFF7E9D);
@@ -370,41 +369,42 @@ class _BoboPainter extends CustomPainter {
     );
   }
 
-  /// Two big floppy ears hanging down the sides — the signature "dog" cue.
+  /// Two big floppy ears that drape DOWN the sides of the head — the signature
+  /// "dog" cue. Each ear is a teardrop path anchored at the top of the head that
+  /// hangs down past the cheeks, curving slightly outward at the tip.
   void _drawEars(Canvas canvas, Offset head, double r) {
-    // Gentle idle flop, plus a bit of extra bounce when excited.
-    final flop = math.sin(idle * math.pi) * 0.06 +
-        (mood == BoboMood.excited ? math.sin(idle * math.pi * 2) * 0.05 : 0);
+    // Gentle idle flop sway at the tip, extra bounce when excited.
+    final flop = math.sin(idle * math.pi) * (r * 0.04) +
+        (mood == BoboMood.excited
+            ? math.sin(idle * math.pi * 2) * (r * 0.04)
+            : 0);
+
     for (final sign in [-1.0, 1.0]) {
-      canvas.save();
-      // Anchor further out on the head and higher up, so the ears frame the
-      // face and hang at the sides instead of covering the eyes.
-      final anchor = head.translate(sign * r * 0.88, -r * 0.42);
-      canvas.translate(anchor.dx, anchor.dy);
-      canvas.rotate(sign * (0.55 + flop)); // more outward tilt
-      // A slimmer, shorter rounded flap.
-      final ear = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-            center: Offset(0, r * 0.40), width: r * 0.40, height: r * 0.82),
-        Radius.circular(r * 0.20),
-      );
-      canvas.drawRRect(
+      // Top attachment sits just inside the head's upper edge.
+      final top = head.translate(sign * r * 0.66, -r * 0.55);
+      // Tip hangs down beside the cheek, swaying a touch outward.
+      final tipX = head.dx + sign * (r * 0.98) + sign * flop;
+      final tipY = head.dy + r * 0.35;
+
+      // Outer edge bows outward, inner edge hugs the head — a soft flap.
+      final ear = Path()
+        ..moveTo(top.dx - sign * r * 0.16, top.dy)
+        ..quadraticBezierTo(
+            head.dx + sign * r * 1.18, head.dy - r * 0.20, tipX, tipY)
+        ..quadraticBezierTo(tipX - sign * r * 0.06, tipY + r * 0.10,
+            tipX - sign * r * 0.20, tipY - r * 0.02)
+        ..quadraticBezierTo(head.dx + sign * r * 0.52, head.dy - r * 0.10,
+            top.dx + sign * r * 0.14, top.dy + r * 0.02)
+        ..close();
+
+      canvas.drawPath(
           ear,
           Paint()
             ..color = _ink
             ..style = PaintingStyle.stroke
-            ..strokeWidth = _outlineW(r) * 0.8);
-      canvas.drawRRect(ear, Paint()..color = _brown);
-      // Inner ear.
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-              center: Offset(0, r * 0.44), width: r * 0.22, height: r * 0.56),
-          Radius.circular(r * 0.12),
-        ),
-        Paint()..color = _brownDark,
-      );
-      canvas.restore();
+            ..strokeWidth = _outlineW(r) * 0.85
+            ..strokeJoin = StrokeJoin.round);
+      canvas.drawPath(ear, Paint()..color = _brown);
     }
   }
 

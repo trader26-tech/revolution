@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../panda/presentation/panda_mascot.dart';
+import '../../mascot/presentation/bobo_mascot.dart';
 import '../data/verification_repository.dart';
 import '../domain/phone_verification.dart';
 
@@ -145,7 +145,7 @@ class _PendingView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 8),
-        const Center(child: PandaMascot(size: 140, mood: PandaMood.excited)),
+        const Center(child: BoboMascot(size: 140, mood: BoboMood.excited)),
         const SizedBox(height: 20),
         Text(
           'Verify over WhatsApp',
@@ -158,7 +158,7 @@ class _PendingView extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           'Tap the button, then just hit send in WhatsApp. '
-          'Pip confirms your number the moment it arrives — nothing to type back.',
+          'Bobo confirms your number the moment it arrives — nothing to type back.',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
@@ -286,7 +286,7 @@ class _VerifiedView extends StatelessWidget {
     return Column(
       children: [
         const SizedBox(height: 40),
-        const PandaMascot(size: 160, mood: PandaMood.happy),
+        const BoboMascot(size: 160, mood: BoboMood.happy),
         const SizedBox(height: 24),
         Icon(Icons.verified, size: 48, color: scheme.primary),
         const SizedBox(height: 12),

@@ -8,7 +8,6 @@ import '../tasks/domain/task.dart';
 import '../tasks/domain/task_filter.dart';
 import '../tasks/presentation/filter_sheet.dart';
 import '../tasks/presentation/task_details_sheet.dart';
-import '../tasks/presentation/widgets/funnel_icon.dart';
 import '../tasks/presentation/widgets/quick_add_row.dart';
 import '../tasks/presentation/widgets/task_tile.dart';
 
@@ -209,20 +208,10 @@ class _TopBar extends StatelessWidget {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Tooltip(
-                message: 'Filter',
-                child: GlassPanel(
-                  borderRadius: 23,
-                  shadow: false,
-                  onTap: onFilter,
-                  child: const SizedBox(
-                    width: 46,
-                    height: 46,
-                    child: Center(
-                      child: FunnelIcon(size: 21, color: AppColors.ink),
-                    ),
-                  ),
-                ),
+              GlassIconButton(
+                icon: Icons.filter_alt_outlined,
+                tooltip: 'Filter',
+                onTap: onFilter,
               ),
               if (filterActive)
                 Positioned(

@@ -211,13 +211,24 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
       MaterialPageRoute(
         builder: (_) => ItemDetailsPage(
           title: widget.task.title.isEmpty ? 'Details' : widget.task.title,
-          initial: ItemDetails(name: widget.task.title),
+          // Carry the task's current name AND icon into the form, so re-opening
+          // keeps what was already chosen.
+          initial: ItemDetails(
+            name: widget.task.title,
+            iconName: widget.task.iconName,
+            iconDomain: widget.task.iconDomain,
+          ),
         ),
       ),
     );
     if (result != null && mounted) {
-      // Keep the task's title in sync if it was edited in the full form.
-      if (result.name.isNotEmpty) widget.task.title = result.name;
+      setState(() {
+        // Sync the title AND the chosen icon back onto the task, so the list
+        // shows the logo the user picked.
+        if (result.name.isNotEmpty) widget.task.title = result.name;
+        widget.task.iconName = result.iconName;
+        widget.task.iconDomain = result.iconDomain;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Details saved ✓')),
       );

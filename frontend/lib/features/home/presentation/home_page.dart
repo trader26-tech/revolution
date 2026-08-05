@@ -306,27 +306,7 @@ class _GlassAddButton extends StatelessWidget {
   }
 }
 
-/// Fixed-height, fixed-width Bobo hero. The box never resizes across moods; the
-/// PNG is centred inside with `contain`, so every pose reads at the same size.
-class _BoboHero extends StatelessWidget {
-  const _BoboHero({required this.height, required this.mood});
-
-  final double height;
-  final BoboMood mood;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: Center(
-        // Bobo is sized off the box height so he's a consistent share of it.
-        child: BoboMascot(size: height * 0.94, mood: mood),
-      ),
-    );
-  }
-}
-
-/// One clean status line under Bobo — a single calm phrase that says where the
+/// One clean status line under the top bar — a single calm phrase that says where the
 /// user stands. No chips, no stacked headings: just one line, so the screen
 /// reads quiet and uncluttered.
 class _StatusBlock extends StatelessWidget {
@@ -364,29 +344,42 @@ class _StatusBlock extends StatelessWidget {
   }
 }
 
+/// Shown when there are no reminders — a friendly Bobo and a clear add CTA now
+/// that the big hero is gone from the top of the screen.
 class _EmptyHint extends StatelessWidget {
-  const _EmptyHint();
+  const _EmptyHint({required this.onAdd});
+
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Bamboo.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Bamboo.cardBorder),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
       child: Column(
         children: [
-          const Text('🦴', style: TextStyle(fontSize: 28)),
+          const BoboMascot(size: 150, mood: BoboMood.happy),
+          const SizedBox(height: 20),
+          Text(
+            'Nothing to track yet',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: Bamboo.ink,
+                ),
+          ),
           const SizedBox(height: 8),
           Text(
-            'Tap “Add reminder” to get started',
+            'Add your first renewal and Bobo takes it from here.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Bamboo.inkSoft,
                 ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add reminder'),
           ),
         ],
       ),

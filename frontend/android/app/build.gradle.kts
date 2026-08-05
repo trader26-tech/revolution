@@ -1,5 +1,9 @@
 plugins {
     id("com.android.application")
+    // Required for the `kotlin { }` block below to resolve. gradle.properties
+    // sets android.builtInKotlin=false, so AGP does not bring Kotlin in on its
+    // own and the plugin has to be applied here explicitly.
+    id("org.jetbrains.kotlin.android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }

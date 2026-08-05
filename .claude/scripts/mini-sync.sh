@@ -259,7 +259,67 @@ start_session() {
     *) die "unsupported fd ${fd}" ;;
   esac
 
-  SESSIONS="${SESSIONS} ${name}"
+  case " ${SESSIONS} " in
+    *" ${name} "*) : ;;                       # already tracked (this is a restart)
+    *) SESSIONS="${SESSIONS} ${name}" ;;
+  esac
+}
+
+# Which literal fd each session's pipe is held open on. bash 3.2 has no
+# associative arrays and no {fd} auto-allocation, so these are fixed.
+fd_for_name() {
+  case "$1" in
+    android) echo 3 ;;
+    ios)     echo 4 ;;
+    *)       echo "" ;;
+  esac
+}
+
+session_alive() {
+  local pid
+  pid="$(cat "${STATE_DIR}/$1.pid" 2>/dev/null || true)"
+  [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null
+}
+
+# A `flutter run` session dies on its own more often than you'd think — the
+# emulator is closed and reopened, the device sleeps, adb drops out ("Lost
+# connection to device"). Without this the loop keeps cheerfully sending
+# reloads into a dead pipe and that emulator silently serves a stale build
+# forever. Bring it back instead.
+restart_session() {
+  local name="$1" fd dev now last
+  fd="$(fd_for_name "${name}")"
+  [[ -n "${fd}" ]] || return 1
+
+  # Back off so a device that is gone for good doesn't get hammered every tick.
+  now="$(date +%s)"
+  last="$(cat "${STATE_DIR}/${name}.retry" 2>/dev/null || echo 0)"
+  [[ $(( now - last )) -lt ${RESTART_BACKOFF} ]] && return 1
+  echo "${now}" > "${STATE_DIR}/${name}.retry"
+
+  log "${name} session is gone — restarting it."
+  case "${fd}" in
+    3) { exec 3>&-; } 2>/dev/null || true ;;
+    4) { exec 4>&-; } 2>/dev/null || true ;;
+  esac
+  rm -f "${STATE_DIR}/${name}.in" "${STATE_DIR}/${name}.appid" "${STATE_DIR}/${name}.pid"
+
+  # Re-detect: a restarted emulator can come back with a different id.
+  ANDROID_ID="${ANDROID_ID_PINNED}"
+  IOS_ID="${IOS_ID_PINNED}"
+  detect_devices
+  case "${name}" in
+    android) dev="${ANDROID_ID}" ;;
+    ios)     dev="${IOS_ID}" ;;
+  esac
+  if [[ -z "${dev}" ]]; then
+    log "  ${name}: no device visible yet — will retry in ${RESTART_BACKOFF}s."
+    return 1
+  fi
+
+  start_session "${name}" "${dev}" "${fd}"
+  wait_for_app "${name}" || { log "  ${name}: did not come back up."; return 1; }
+  return 0
 }
 
 # wait_for_app <name> — block until the daemon reports the app started,
@@ -344,6 +404,11 @@ reload_session() {
 }
 REQ_ID=0
 RELOAD_TIMEOUT="${RELOAD_TIMEOUT:-30}"
+RESTART_BACKOFF="${RESTART_BACKOFF:-30}"
+# Remember any explicit device pins so re-detection after a restart doesn't
+# quietly wander onto a different device than the one you asked for.
+ANDROID_ID_PINNED="${ANDROID_ID}"
+IOS_ID_PINNED="${IOS_ID}"
 
 # --- boot everything ----------------------------------------------------
 if [[ "${NO_EMULATORS}" != "1" ]]; then
@@ -379,6 +444,12 @@ log "tracking origin/${BRANCH}, polling every ${POLL_SECONDS}s. Ctrl-C to stop."
 LAST_HEAD="$(git rev-parse HEAD 2>/dev/null || echo none)"
 
 while true; do
+  # Revive any session that has died, before deciding what to reload — a dead
+  # session would otherwise sit there stale while the log claims it reloaded.
+  for name in ${SESSIONS}; do
+    session_alive "${name}" || restart_session "${name}" || true
+  done
+
   # Pull anything new from GitHub. A failed fetch (offline, laptop asleep) is
   # not fatal — local commits below should still trigger a reload.
   if git fetch --quiet origin "${BRANCH}" 2>/dev/null; then

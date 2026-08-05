@@ -1,14 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'core/config/app_config.dart';
-import 'core/theme/app_theme.dart';
-import 'features/auth/presentation/auth_gate.dart';
-import 'features/onboarding/presentation/onboarding_gate.dart';
-import 'features/shell/presentation/app_shell.dart';
-
-void main() {
-  runApp(const RevolutionApp());
-}
+void main() => runApp(const RevolutionApp());
 
 class RevolutionApp extends StatelessWidget {
   const RevolutionApp({super.key});
@@ -16,17 +8,11 @@ class RevolutionApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: AppConfig.appName,
+      title: 'Revolution',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      // Phone login gates the whole app. Once signed in, the user's id scopes
-      // onboarding and every reminder to their own account.
-      home: AuthGate(
-        builder: (context, session, onSignOut) => OnboardingGate(
-          ownerId: session.userId,
-          home: AppShell(ownerId: session.userId, onSignOut: onSignOut),
-        ),
+      theme: ThemeData(useMaterial3: true),
+      home: const Scaffold(
+        body: Center(child: Text('Revolution')),
       ),
     );
   }

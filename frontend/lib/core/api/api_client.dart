@@ -34,6 +34,17 @@ class ApiClient {
     _ownerId = id;
   }
 
+  /// The current owner id (the logged-in phone number, once set).
+  String? get ownerId => _ownerId;
+
+  /// Set the owner id to the signed-in identity (the phone number) and persist
+  /// it, so every request is scoped to that account.
+  Future<void> setOwnerId(String id) async {
+    _ownerId = id;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_ownerKey, id);
+  }
+
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         'X-Owner-Id': _ownerId ?? 'demo-user',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
+import '../onboarding/presentation/onboarding_flow.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
@@ -139,6 +140,7 @@ class _HomePageState extends State<HomePage> {
               _TopBar(
                 onSettings: _openSettings,
                 onFilter: _openFilter,
+                onIntro: () => showOnboarding(context),
                 filterActive: _filter.isActive,
               ),
               const SizedBox(height: 8),
@@ -240,11 +242,15 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.onSettings,
     required this.onFilter,
+    required this.onIntro,
     required this.filterActive,
   });
 
   final VoidCallback onSettings;
   final VoidCallback onFilter;
+
+  /// TEMP (dev): replays the onboarding so it can be reviewed anytime.
+  final VoidCallback onIntro;
 
   /// Whether a non-"All" filter is applied — shows an accent dot on the button.
   final bool filterActive;
@@ -259,6 +265,13 @@ class _TopBar extends StatelessWidget {
             icon: Icons.settings_outlined,
             tooltip: 'Settings',
             onTap: onSettings,
+          ),
+          const SizedBox(width: 10),
+          // TEMP (dev): replay onboarding for review.
+          GlassIconButton(
+            icon: Icons.auto_awesome_rounded,
+            tooltip: 'Onboarding (dev)',
+            onTap: onIntro,
           ),
           const Spacer(),
           // Filter button, right corner. A small accent dot marks it active.

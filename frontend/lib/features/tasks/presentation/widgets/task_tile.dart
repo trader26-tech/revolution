@@ -123,16 +123,15 @@ class _TaskTileState extends State<TaskTile> {
             ),
               // The subtle drop-down section — a single quiet Delete action,
               // revealed on long-press.
-              AnimatedSize(
-                duration: _dur,
-                curve: _curve,
-                alignment: Alignment.topCenter,
-                child: _open
-                    ? _DeleteSection(onDelete: widget.onDelete)
-                    : const SizedBox(width: double.infinity),
-              ),
-            ],
-          ),
+            AnimatedSize(
+              duration: _dur,
+              curve: _curve,
+              alignment: Alignment.topCenter,
+              child: _open
+                  ? _DeleteSection(onDelete: widget.onDelete)
+                  : const SizedBox(width: double.infinity),
+            ),
+          ],
         ),
       ),
     );

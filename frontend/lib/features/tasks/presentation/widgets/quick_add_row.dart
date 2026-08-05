@@ -34,48 +34,57 @@ class QuickAddRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Left inset lines the field text up with the task titles below (tile
-    // padding 16 + circle 20 + gap 12 = 48), so the rows read as one column.
-    final field = Padding(
-      padding: const EdgeInsets.fromLTRB(48, 14, 16, 14),
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        textCapitalization: TextCapitalization.sentences,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (_) => onSubmitText(),
-        onTapOutside: (_) {
-          if (controller.text.trim().isEmpty) onTapOutsideEmpty();
-        },
-        decoration: const InputDecoration(
-          isDense: true,
-          hintText: 'Add a task…',
-          border: InputBorder.none,
-          hintStyle: TextStyle(color: AppColors.inkFaint),
-        ),
-        style: const TextStyle(
-          fontSize: 16,
-          color: AppColors.ink,
-          fontWeight: FontWeight.w500,
-        ),
+    // The input is a distinct PILL — a rounded, filled capsule with a leading
+    // "+" — so it clearly reads as "the thing you're typing into", set apart
+    // from the flat task rows below.
+    final pill = Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.add_rounded, size: 22, color: AppColors.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => onSubmitText(),
+              onTapOutside: (_) {
+                if (controller.text.trim().isEmpty) onTapOutsideEmpty();
+              },
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'Add a task…',
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                hintStyle: TextStyle(color: AppColors.inkFaint),
+              ),
+              style: const TextStyle(
+                fontSize: 16,
+                color: AppColors.ink,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
 
-    if (!showHint) return field;
+    if (!showHint) return pill;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        field,
-        const Divider(
-          height: 1,
-          thickness: 1,
-          indent: 48,
-          endIndent: 16,
-          color: AppColors.hairline,
-        ),
+        pill,
         const Padding(
-          padding: EdgeInsets.fromLTRB(48, 8, 16, 10),
+          padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
           child: Text(
             'Add as many as you like — details later.',
             style: TextStyle(

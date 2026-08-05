@@ -121,7 +121,10 @@ class _HomePageState extends State<HomePage> {
         AnimatedBuilder(
           animation: widget.store,
           builder: (context, _) {
-            final showEmpty = widget.store.tasks.isEmpty && !_adding;
+            // Don't show the welcoming empty state over a server error.
+            final showEmpty = widget.store.tasks.isEmpty &&
+                !_adding &&
+                widget.store.error == null;
             if (!showEmpty) return const SizedBox.shrink();
             return Positioned.fill(
               child: _EmptyContent(onAdd: _startAdd),
@@ -173,6 +176,14 @@ class _HomePageState extends State<HomePage> {
     final allTasks = widget.store.tasks;
     final tasks = applyFilter(allTasks, _filter);
 
+    // Surface a server error clearly instead of silently showing an empty list.
+    if (widget.store.error != null && allTasks.isEmpty && !_adding) {
+      return _ServerError(
+        error: widget.store.error!,
+        onRetry: () => widget.store.load(),
+      );
+    }
+
     // Truly empty (no tasks at all) → the welcoming empty state is drawn as a
     // full-screen centred layer behind this (see build), so nothing here.
     if (allTasks.isEmpty && !_adding) {
@@ -207,11 +218,18 @@ class _HomePageState extends State<HomePage> {
         ),
     ];
 
-    // Cards carry their own vertical margins, so the list is a plain ListView
-    // (no dividers) — each task reads as its own rounded card.
-    return ListView(
-      padding: const EdgeInsets.only(top: 6, bottom: 120),
-      children: rows,
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 4, bottom: 120),
+      itemCount: rows.length,
+      // A short, inset divider between rows — not edge-to-edge.
+      separatorBuilder: (_, _) => const Divider(
+        height: 1,
+        thickness: 1,
+        indent: 20,
+        endIndent: 20,
+        color: AppColors.hairline,
+      ),
+      itemBuilder: (_, i) => rows[i],
     );
   }
 }
@@ -276,6 +294,49 @@ class _TopBar extends StatelessWidget {
 
 /// A calm, centred empty state.
 /// Shown when tasks exist but the active filter hides them all.
+/// Shown when the server can't be reached — makes failures visible (with a
+/// retry) instead of a silently-empty list.
+class _ServerError extends StatelessWidget {
+  const _ServerError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+      children: [
+        const Icon(Icons.cloud_off_rounded, size: 52, color: AppColors.inkFaint),
+        const SizedBox(height: 16),
+        const Text(
+          "Couldn't reach the server",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppColors.ink,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '$error',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+        ),
+        const SizedBox(height: 20),
+        Center(
+          child: FilledButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Try again'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _FilteredEmpty extends StatelessWidget {
   const _FilteredEmpty({required this.filter, required this.onClear});
 

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'core/theme/app_theme.dart';
+import 'features/shell/app_shell.dart';
+
 void main() => runApp(const RevolutionApp());
 
 class RevolutionApp extends StatelessWidget {
@@ -10,10 +13,8 @@ class RevolutionApp extends StatelessWidget {
     return MaterialApp(
       title: 'Revolution',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true),
-      home: const Scaffold(
-        body: Center(child: Text('Revolution')),
-      ),
+      theme: AppTheme.light,
+      home: const AppShell(),
     );
   }
 }

@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for the app to make network calls to the backend in release
+         builds. Debug/profile manifests add this implicitly; release does not. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="revolution"
         android:name="${applicationName}"

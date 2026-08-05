@@ -38,7 +38,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
           ? ''
           : formatAmount(
               _d.amount!.toStringAsFixed(_currency.decimals), _currency.grouping));
-  late final TextEditingController _url = TextEditingController(text: _d.url);
   late final TextEditingController _notes =
       TextEditingController(text: _d.notes);
 
@@ -46,7 +45,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   void dispose() {
     _name.dispose();
     _amount.dispose();
-    _url.dispose();
     _notes.dispose();
     super.dispose();
   }
@@ -56,7 +54,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       ..name = _name.text.trim()
       // Strip grouping separators before parsing the number.
       ..amount = double.tryParse(unformatAmount(_amount.text))
-      ..url = _url.text.trim()
       ..notes = _notes.text.trim();
     Navigator.of(context).pop(_d);
   }
@@ -191,13 +188,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                       onTap: () => _pickNotify(),
                     ),
                   ]),
-                  const SizedBox(height: 20),
-                  const _SectionLabel('URL'),
-                  _TextFieldCard(
-                    controller: _url,
-                    hint: 'E.g. example.com',
-                    keyboardType: TextInputType.url,
-                  ),
                   const SizedBox(height: 20),
                   const _SectionLabel('NOTES'),
                   _TextFieldCard(
@@ -624,9 +614,9 @@ class _Row extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
           children: [
-            // Label takes only what it needs but yields to the trailing value
-            // when space is tight, so nothing overflows the row.
-            Flexible(
+            // The label claims the free space, so the value is always pushed
+            // flush to the right edge — consistent across every row.
+            Expanded(
               child: Text(
                 label,
                 maxLines: 1,
@@ -638,7 +628,7 @@ class _Row extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            // The value can shrink/ellipsis too if it's very long.
+            // The value sits at the right; it only shrinks if genuinely huge.
             Flexible(
               child: Align(
                 alignment: Alignment.centerRight,

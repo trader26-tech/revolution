@@ -53,7 +53,7 @@ class ItemDetails {
     this.list = 'Personal',
     this.category = 'Other',
     this.paymentMethod,
-    this.notify = NotifyBefore.oneDay,
+    this.notify = NotifyBefore.oneWeek,
     this.url = '',
     this.notes = '',
   }) : firstPaymentDate = firstPaymentDate ?? DateTime.now();

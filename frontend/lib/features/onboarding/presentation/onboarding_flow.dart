@@ -2,18 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../reminders/data/reminders_repository.dart';
 import '../../reminders/domain/scheduling.dart';
+import '../domain/quiz.dart';
 import 'onboarding_controller.dart';
-import 'phone_entry_page.dart';
-import 'steps/addon_pick_step.dart';
-import 'steps/primary_pick_step.dart';
+import 'steps/quiz_step.dart';
 import 'steps/reveal_step.dart';
 import 'steps/welcome_step.dart';
 
-/// Orchestrates the four onboarding beats — Welcome → Pick → Add-on → Reveal —
-/// and, on finish, writes the resolved reminders through the repository.
+/// Orchestrates onboarding: Welcome → a few quiz taps → Reveal.
 ///
-/// [onDone] is called once everything is created (or if creation fails softly);
-/// the caller marks onboarding complete and shows the app.
+/// On finish it writes the resolved reminders through the repository, then
+/// calls [onDone] so the caller can mark onboarding complete.
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({
     super.key,
@@ -37,7 +35,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   int _page = 0;
   bool _busy = false;
 
-  static const _pageCount = 4;
+  // Welcome + one page per quiz question + reveal.
+  int get _pageCount => kQuiz.length + 2;
 
   @override
   void dispose() {
@@ -50,147 +49,87 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     setState(() => _page = page);
     _pageController.animateToPage(
       page,
-      duration: const Duration(milliseconds: 380),
+      duration: const Duration(milliseconds: 320),
       curve: Curves.easeInOutCubic,
     );
   }
 
-  Future<bool> _onBack() async {
-    if (_page == 0) return true; // allow system pop from the welcome screen
-    _goTo(_page - 1);
-    return false;
-  }
+  void _next() => _goTo(_page + 1);
 
   Future<void> _finish() async {
-    // Collect the user's phone number before we set anything up. For now this
-    // is take-their-word-for-it (see PhoneEntryPage.bypassVerification); real
-    // WhatsApp verification lands later. Backing out returns them to the reveal
-    // and onboarding stays incomplete.
-    final verifiedPhone = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
-        builder: (routeContext) => PhoneEntryPage(
-          onVerified: (phone) => Navigator.of(routeContext).pop(phone),
-        ),
-      ),
-    );
-    if (verifiedPhone == null || !mounted) return;
-
     setState(() => _busy = true);
     final now = DateTime.now();
     final drafts = _controller.resolvedItems
         .map((item) => Scheduling.draftFor(item, from: now))
         .toList();
 
-    // Best-effort create. Even if the network is down, we don't trap the user
-    // in onboarding — the flag is set and they land in the app.
+    // Best-effort — never trap the user in onboarding if the network is down.
     for (final draft in drafts) {
       try {
         await _repo.create(draft);
-      } catch (_) {
-        // Swallow individual failures; a later sync/retry can reconcile.
-      }
+      } catch (_) {}
     }
-
     await widget.onDone();
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
-        await _onBack();
-      },
-      child: Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              _TopBar(
-                page: _page,
-                pageCount: _pageCount,
-                onBack: _page == 0 ? null : () => _goTo(_page - 1),
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            _ProgressBar(page: _page, pageCount: _pageCount),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  WelcomeStep(onStart: _next),
+                  for (final q in kQuiz)
+                    QuizStep(
+                      question: q,
+                      controller: _controller,
+                      onAnswered: _next,
+                    ),
+                  RevealStep(
+                    controller: _controller,
+                    busy: _busy,
+                    onFinish: _finish,
+                  ),
+                ],
               ),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    WelcomeStep(onStart: () => _goTo(1)),
-                    PrimaryPickStep(
-                      controller: _controller,
-                      onNext: () => _goTo(2),
-                    ),
-                    AddonPickStep(
-                      controller: _controller,
-                      onReveal: () => _goTo(3),
-                    ),
-                    RevealStep(
-                      controller: _controller,
-                      busy: _busy,
-                      onFinish: _finish,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// A slim top bar: a back affordance and progress dots.
-class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.page,
-    required this.pageCount,
-    required this.onBack,
-  });
+/// A thin top progress bar that fills as the user advances.
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar({required this.page, required this.pageCount});
 
   final int page;
   final int pageCount;
-  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final progress = (page + 1) / pageCount;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 48,
-            child: onBack == null
-                ? null
-                : IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                    onPressed: onBack,
-                  ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: progress),
+          duration: const Duration(milliseconds: 300),
+          builder: (context, value, _) => LinearProgressIndicator(
+            value: value,
+            minHeight: 6,
+            backgroundColor: scheme.surfaceContainerHighest,
           ),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < pageCount; i++)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 260),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: i == page ? 22 : 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: i <= page
-                          ? scheme.primary
-                          : scheme.outlineVariant.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
+        ),
       ),
     );
   }

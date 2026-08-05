@@ -44,6 +44,6 @@ void main() {
 
     // Onboarding welcome step, not home.
     expect(find.text('HOME'), findsNothing);
-    expect(find.text('Show me how'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
   });
 }

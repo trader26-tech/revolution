@@ -85,25 +85,15 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
                 setState(() => _query = '');
               },
             ),
-            if (_query.trim().isNotEmpty)
-              _LivePreview(brand: BrandCatalog.resolve(_query),
-                  onAdd: () => Navigator.pop(context, BrandCatalog.resolve(_query))),
-            const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _query.trim().isEmpty ? 'Popular' : 'Matches',
-                  style: const TextStyle(
-                    color: AppColors.inkFaint,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    letterSpacing: 0.4,
-                  ),
-                ),
+            if (_query.trim().isNotEmpty) ...[
+              _sectionLabel('Pick a logo'),
+              _LogoChoices(
+                brand: BrandCatalog.resolve(_query),
+                onPick: (b) => Navigator.pop(context, b),
               ),
-            ),
+            ],
+            const SizedBox(height: 4),
+            _sectionLabel(_query.trim().isEmpty ? 'Popular' : 'More apps'),
             Expanded(child: _grid(_results)),
           ],
         ),
@@ -117,6 +107,22 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
         decoration: BoxDecoration(
           color: AppColors.inkFaint.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(999),
+        ),
+      );
+
+  Widget _sectionLabel(String text) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: AppColors.inkFaint,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              letterSpacing: 0.4,
+            ),
+          ),
         ),
       );
 
@@ -191,62 +197,80 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// A prominent live preview of the free-typed name → its resolved logo, with a
-/// clear "Add" affordance. Makes "type anything, get its logo" obvious.
-class _LivePreview extends StatelessWidget {
-  const _LivePreview({required this.brand, required this.onAdd});
+/// The "search results" moment: for the typed name, show the SAME app's logo
+/// from every source (icon.horse / Google / DuckDuckGo) side-by-side, plus a
+/// letter-avatar option, so the user picks the crispest one — like choosing
+/// from search results. Each variant is tappable and adds immediately.
+class _LogoChoices extends StatelessWidget {
+  const _LogoChoices({required this.brand, required this.onPick});
 
   final Brand brand;
-  final VoidCallback onAdd;
+  final ValueChanged<Brand> onPick;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      child: Material(
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('“${brand.name}”',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w800, color: AppColors.ink)),
+          const SizedBox(height: 2),
+          const Text('Tap the icon you like best',
+              style: TextStyle(color: AppColors.inkSoft, fontSize: 12.5)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (final source in LogoSource.values)
+                _Variant(
+                  brand: brand.withSource(source),
+                  onTap: () => onPick(brand.withSource(source)),
+                ),
+              // A plain letter-avatar option (no remote logo) as a clean choice.
+              _Variant(
+                brand: Brand(name: brand.name, domain: ''),
+                onTap: () => onPick(Brand(name: brand.name, domain: '')),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Variant extends StatelessWidget {
+  const _Variant({required this.brand, required this.onTap});
+
+  final Brand brand;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onAdd,
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+              color: AppColors.bg,
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Row(
-              children: [
-                BrandLogo(brand: brand, size: 44),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(brand.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.ink,
-                              fontSize: 15)),
-                      const Text('Tap to add this icon',
-                          style: TextStyle(
-                              color: AppColors.inkSoft, fontSize: 12.5)),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text('Add',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w700)),
-                ),
-              ],
+            child: Center(
+              child: BrandLogo(brand: brand, size: 44, radius: 12),
             ),
           ),
         ),

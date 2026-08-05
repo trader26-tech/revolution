@@ -25,6 +25,15 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _adding = false;
+  final _addController = TextEditingController();
+  final _addFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _addController.dispose();
+    _addFocus.dispose();
+    super.dispose();
+  }
 
   void _openSettings() {
     Navigator.of(context).push(
@@ -32,15 +41,26 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _startAdd() => setState(() => _adding = true);
+  void _startAdd() {
+    setState(() => _adding = true);
+    // Focus after the row mounts so the keyboard opens.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _addFocus.requestFocus());
+  }
 
-  Future<void> _onQuickSubmit(String title, {required bool openDetails}) async {
-    final task = widget.store.add(title);
-    if (openDetails) {
-      setState(() => _adding = false);
-      await _editTask(task);
-    }
-    // If not opening details, keep the add row open for rapid entry.
+  /// Add the current text and keep the field open for the next task (the ✓).
+  void _confirmAdd() {
+    final text = _addController.text.trim();
+    if (text.isEmpty) return;
+    widget.store.add(text);
+    _addController.clear();
+    _addFocus.requestFocus(); // keep going
+  }
+
+  /// Finish adding — clear + dismiss the field and keyboard (the ✕ / tap-out).
+  void _closeAdd() {
+    _addController.clear();
+    _addFocus.unfocus();
+    setState(() => _adding = false);
   }
 
   Future<void> _editTask(Task task) async {
@@ -50,21 +70,38 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-          _TopBar(onSettings: _openSettings, onAdd: _startAdd),
-          const SizedBox(height: 8),
-          Expanded(
-            child: AnimatedBuilder(
-              animation: widget.store,
-              builder: (context, _) => _buildList(),
+    // Keyboard height — the floating bar sits just above it.
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Stack(
+      children: [
+        SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              _TopBar(onSettings: _openSettings, onAdd: _startAdd),
+              const SizedBox(height: 8),
+              Expanded(
+                child: AnimatedBuilder(
+                  animation: widget.store,
+                  builder: (context, _) => _buildList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Floating ✓ / ✕ above the keyboard, right-aligned — only while adding.
+        if (_adding)
+          Positioned(
+            right: 0,
+            bottom: keyboardInset,
+            child: SafeArea(
+              top: false,
+              child: QuickAddBar(onConfirm: _confirmAdd, onClose: _closeAdd),
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -75,12 +112,14 @@ class _HomePageState extends State<HomePage> {
       return _EmptyContent(onAdd: _startAdd);
     }
 
-    // Build the row list: the quick-add row (when active) on top, then tasks.
+    // The quick-add input row (when active) on top, then the tasks.
     final rows = <Widget>[
       if (_adding)
         QuickAddRow(
-          onSubmit: _onQuickSubmit,
-          onDismiss: () => setState(() => _adding = false),
+          controller: _addController,
+          focusNode: _addFocus,
+          onSubmitText: _confirmAdd,
+          onTapOutsideEmpty: _closeAdd,
         ),
       for (final t in tasks)
         TaskTile(

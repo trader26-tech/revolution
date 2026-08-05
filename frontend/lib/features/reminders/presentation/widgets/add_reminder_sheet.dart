@@ -6,9 +6,12 @@ import '../../../family/domain/family_member.dart';
 import '../../../family/presentation/widgets/member_avatar.dart';
 import '../../../mascot/presentation/bobo_mascot.dart';
 import '../../data/reminders_repository.dart';
+import '../../data/user_category_store.dart';
 import '../../domain/catalog.dart';
 import '../../domain/reminder.dart';
 import '../../domain/scheduling.dart';
+import '../../domain/user_category.dart';
+import 'custom_reminder_form.dart';
 import 'reminder_form.dart';
 
 /// Opens the add-reminder flow as a near-full-height sheet and resolves to the
@@ -124,24 +127,42 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
     }
   }
 
-  /// "Create your own" — a tiny dialog: a name and a date, saved as a custom
-  /// reminder. For anything not in the catalog.
+  /// "Create your own" — a folder/file flow. First name a top-level category
+  /// (just text; icon + colour auto-assigned), then open the full structured
+  /// form to add the first reminder inside it.
   Future<void> _createOwn() async {
-    final base = await showCreateOwnReminderDialog(context);
-    if (base == null || !mounted) return;
-    final draft = base.withMember(_selectedMemberId);
-    setState(() => _busy = true);
-    try {
-      final created = await widget.repository.create(draft);
-      if (mounted) Navigator.of(context).pop(created);
-    } catch (e) {
-      if (mounted) {
-        setState(() => _busy = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Couldn't save: $e")),
-        );
-      }
-    }
+    final name = await showCreateCategoryDialog(context);
+    if (name == null || name.trim().isEmpty || !mounted) return;
+    final category = UserCategory.fromName(name);
+    await const UserCategoryStore().add(category);
+    if (!mounted) return;
+    await _addInCategory(category.key, category.label, category.color,
+        category.icon);
+  }
+
+  /// Adds a reminder inside a user category via the full-screen form.
+  Future<void> _addInCategory(
+    String categoryKey,
+    String categoryLabel,
+    Color accent,
+    IconData icon, {
+    String initialName = '',
+  }) async {
+    final created = await Navigator.of(context).push<Reminder>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _CustomFormScreen(
+          repository: widget.repository,
+          categoryKey: categoryKey,
+          categoryLabel: categoryLabel,
+          accent: accent,
+          icon: icon,
+          initialName: initialName,
+          memberId: _selectedMemberId,
+        ),
+      ),
+    );
+    if (created != null && mounted) Navigator.of(context).pop(created);
   }
 
   /// The quiet "customise" path — opens the full form for fine control.
@@ -728,25 +749,25 @@ class _CustomiseScreenState extends State<_CustomiseScreen> {
   }
 }
 
-/// A small, clean dialog to create a custom reminder: a name and a "next due"
-/// date. Returns a ready-to-save [ReminderDraft], or null if cancelled.
-Future<ReminderDraft?> showCreateOwnReminderDialog(BuildContext context) {
-  return showDialog<ReminderDraft>(
+
+/// Name-only dialog to create a top-level category (folder). Returns the typed
+/// name, or null if cancelled. Icon + colour are assigned automatically later.
+Future<String?> showCreateCategoryDialog(BuildContext context) {
+  return showDialog<String>(
     context: context,
-    builder: (_) => const _CreateOwnDialog(),
+    builder: (_) => const _CreateCategoryDialog(),
   );
 }
 
-class _CreateOwnDialog extends StatefulWidget {
-  const _CreateOwnDialog();
+class _CreateCategoryDialog extends StatefulWidget {
+  const _CreateCategoryDialog();
 
   @override
-  State<_CreateOwnDialog> createState() => _CreateOwnDialogState();
+  State<_CreateCategoryDialog> createState() => _CreateCategoryDialogState();
 }
 
-class _CreateOwnDialogState extends State<_CreateOwnDialog> {
+class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
   final _name = TextEditingController();
-  DateTime? _due;
 
   @override
   void dispose() {
@@ -754,87 +775,37 @@ class _CreateOwnDialogState extends State<_CreateOwnDialog> {
     super.dispose();
   }
 
-  bool get _valid => _name.text.trim().isNotEmpty && _due != null;
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now.add(const Duration(days: 30)),
-      firstDate: now,
-      lastDate: DateTime(now.year + 10),
-      helpText: 'When is it due?',
-    );
-    if (picked != null) setState(() => _due = picked);
-  }
-
-  void _submit() {
-    final due = _due;
-    if (!_valid || due == null) return;
-    const remindDays = 7;
-    Navigator.of(context).pop(
-      ReminderDraft(
-        category: 'custom',
-        itemKey: 'custom',
-        title: _name.text.trim(),
-        expiryDate: due,
-        remindOn: due.subtract(const Duration(days: remindDays)),
-        remindDaysBefore: remindDays,
-        metadata: const {'source': 'custom'},
-      ),
-    );
-  }
+  bool get _valid => _name.text.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
-    final dueLabel = _due == null
-        ? 'Pick a date'
-        : '${_due!.day.toString().padLeft(2, '0')}'
-            '/${_due!.month.toString().padLeft(2, '0')}/${_due!.year}';
-
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: const Text('Create your own'),
+      title: const Text('New category'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Give your folder a name — Bobo picks the icon.',
+              style: TextStyle(color: Bamboo.inkSoft, fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _name,
             autofocus: true,
-            textCapitalization: TextCapitalization.sentences,
+            textCapitalization: TextCapitalization.words,
             onChanged: (_) => setState(() {}),
+            onSubmitted: (_) =>
+                _valid ? Navigator.of(context).pop(_name.text.trim()) : null,
             decoration: InputDecoration(
-              hintText: 'e.g. Gym membership',
+              hintText: 'e.g. Vehicle Insurance',
               filled: true,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: _pickDate,
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Bamboo.cardBorder, width: 1.5),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.event, color: Bamboo.greenDeep, size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    dueLabel,
-                    style: TextStyle(
-                      color: _due == null ? Bamboo.inkSoft : Bamboo.ink,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
@@ -846,10 +817,68 @@ class _CreateOwnDialogState extends State<_CreateOwnDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: _valid ? _submit : null,
-          child: const Text('Add'),
+          onPressed:
+              _valid ? () => Navigator.of(context).pop(_name.text.trim()) : null,
+          child: const Text('Create'),
         ),
       ],
+    );
+  }
+}
+
+/// Hosts the full-screen [CustomReminderForm] and saves the resulting draft.
+class _CustomFormScreen extends StatefulWidget {
+  const _CustomFormScreen({
+    required this.repository,
+    required this.categoryKey,
+    required this.categoryLabel,
+    required this.accent,
+    required this.icon,
+    required this.initialName,
+    required this.memberId,
+  });
+
+  final RemindersRepository repository;
+  final String categoryKey;
+  final String categoryLabel;
+  final Color accent;
+  final IconData icon;
+  final String initialName;
+  final String? memberId;
+
+  @override
+  State<_CustomFormScreen> createState() => _CustomFormScreenState();
+}
+
+class _CustomFormScreenState extends State<_CustomFormScreen> {
+  bool _saving = false;
+
+  Future<void> _save(ReminderDraft draft) async {
+    setState(() => _saving = true);
+    try {
+      final created =
+          await widget.repository.create(draft.withMember(widget.memberId));
+      if (mounted) Navigator.of(context).pop(created);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't save: $e")),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomReminderForm(
+      categoryKey: widget.categoryKey,
+      categoryLabel: widget.categoryLabel,
+      accent: widget.accent,
+      icon: widget.icon,
+      initialName: widget.initialName,
+      saving: _saving,
+      onSave: _save,
     );
   }
 }

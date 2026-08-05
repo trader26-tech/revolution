@@ -20,22 +20,46 @@ enum BoboMood { happy, excited, sleepy, scared, sad, writing, celebrating, wavin
 
 extension _BoboMoodAsset on BoboMood {
   /// The PNG asset path for this mood.
-  String get asset => switch (this) {
-        BoboMood.happy => 'assets/images/bobo_happy.png',
-        BoboMood.excited => 'assets/images/bobo_excited.png',
-        BoboMood.sleepy => 'assets/images/bobo_sleepy.png',
-        BoboMood.scared => 'assets/images/bobo_scared.png',
-        BoboMood.sad => 'assets/images/bobo_sad.png',
-        BoboMood.writing => 'assets/images/bobo_writing.png',
-        BoboMood.celebrating => 'assets/images/bobo_celebrating.png',
-        BoboMood.waving => 'assets/images/bobo_waving.png',
+  String get asset => 'assets/images/$_base.png';
+
+  String get _base => switch (this) {
+        BoboMood.happy => 'bobo_happy',
+        BoboMood.excited => 'bobo_excited',
+        BoboMood.sleepy => 'bobo_sleepy',
+        BoboMood.scared => 'bobo_scared',
+        BoboMood.sad => 'bobo_sad',
+        BoboMood.writing => 'bobo_writing',
+        BoboMood.celebrating => 'bobo_celebrating',
+        BoboMood.waving => 'bobo_waving',
       };
+
+  /// If this mood's own PNG isn't bundled yet, fall back to the closest mood
+  /// whose art DOES exist — so Bobo is never invisible. Ordered from best match
+  /// to a guaranteed-present default (`happy`). The first candidate that loads
+  /// wins; `happy` is shipped, so there's always a final answer.
+  List<String> get assetCandidates {
+    final chain = switch (this) {
+      BoboMood.excited => [BoboMood.excited, BoboMood.celebrating, BoboMood.happy],
+      BoboMood.sad => [BoboMood.sad, BoboMood.scared, BoboMood.sleepy, BoboMood.happy],
+      BoboMood.waving => [BoboMood.waving, BoboMood.happy],
+      BoboMood.writing => [BoboMood.writing, BoboMood.happy],
+      final m => [m, BoboMood.happy],
+    };
+    // De-dupe while preserving order.
+    final seen = <String>{};
+    return [
+      for (final m in chain)
+        if (seen.add(m._base)) m.asset,
+    ];
+  }
 }
 
 /// A static Bobo image for the given [mood]. Tappable via [onTap].
 ///
-/// If the PNG for a mood is missing, Bobo renders nothing (an empty box of the
-/// same size) so surrounding layout doesn't shift.
+/// Never invisible: if the mood's own PNG isn't bundled, Bobo falls back through
+/// [BoboMood.assetCandidates] to the closest mood that IS present (ultimately
+/// `bobo_happy`, which always ships). Chains `errorBuilder`s so the first asset
+/// that decodes is shown.
 class BoboMascot extends StatelessWidget {
   const BoboMascot({
     super.key,
@@ -48,18 +72,31 @@ class BoboMascot extends StatelessWidget {
   final BoboMood mood;
   final VoidCallback? onTap;
 
+  Widget _imageChain(List<String> candidates, double width, double height) {
+    // Build from the last candidate backwards, so each earlier one falls back
+    // to the next on error. The final fallback is a tiny paw glyph — reached
+    // only in the impossible case that even bobo_happy is missing.
+    Widget current = Center(
+      child: Text('🐾', style: TextStyle(fontSize: height * 0.4)),
+    );
+    for (final path in candidates.reversed) {
+      final next = current;
+      current = Image.asset(
+        path,
+        width: width,
+        height: height,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, _, _) => next,
+      );
+    }
+    return current;
+  }
+
   @override
   Widget build(BuildContext context) {
     final height = size * 1.06;
-    final image = Image.asset(
-      mood.asset,
-      width: size,
-      height: height,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
-      // Missing PNG → empty space, never a broken-image box.
-      errorBuilder: (_, _, _) => SizedBox(width: size, height: height),
-    );
+    final image = _imageChain(mood.assetCandidates, size, height);
 
     if (onTap == null) {
       return SizedBox(width: size, height: height, child: image);

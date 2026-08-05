@@ -660,7 +660,7 @@ class _CreateOwnCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Create your own',
+                          'Create your own category',
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
@@ -670,7 +670,7 @@ class _CreateOwnCard extends StatelessWidget {
                               ),
                         ),
                         Text(
-                          'Anything else you want Bobo to remember',
+                          'Make a folder, then add anything inside',
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall

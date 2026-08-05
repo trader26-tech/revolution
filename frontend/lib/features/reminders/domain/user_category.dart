@@ -18,9 +18,8 @@ class UserCategory {
   final int colorValue;
 
   // Dynamic (user-chosen) icon — can't be tree-shaken, which is fine here.
-  // ignore: non_const_argument_for_const_parameter
-  IconData get icon =>
-      IconData(iconCodePoint, fontFamily: 'MaterialIcons');
+  IconData get icon => IconData(iconCodePoint, // ignore: non_const_argument_for_const_parameter
+      fontFamily: 'MaterialIcons');
   Color get color => Color(colorValue);
 
   Map<String, dynamic> toJson() => {

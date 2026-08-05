@@ -5,6 +5,7 @@ class Reminder {
     required this.category,
     required this.itemKey,
     required this.title,
+    this.memberId,
     this.documentNumber,
     this.issueDate,
     required this.expiryDate,
@@ -17,6 +18,9 @@ class Reminder {
   final String category;
   final String itemKey;
   final String title;
+
+  /// The family member this reminder belongs to, if any.
+  final String? memberId;
   final String? documentNumber;
   final DateTime? issueDate;
   final DateTime expiryDate;
@@ -50,6 +54,7 @@ class Reminder {
         category: json['category'] as String,
         itemKey: json['item_key'] as String,
         title: json['title'] as String,
+        memberId: json['member_id'] as String?,
         documentNumber: json['document_number'] as String?,
         issueDate: _parseDate(json['issue_date']),
         expiryDate: DateTime.parse(json['expiry_date'] as String),
@@ -65,6 +70,7 @@ class ReminderDraft {
     required this.category,
     required this.itemKey,
     required this.title,
+    this.memberId,
     this.documentNumber,
     this.issueDate,
     required this.expiryDate,
@@ -76,7 +82,24 @@ class ReminderDraft {
   final String category;
   final String itemKey;
   final String title;
+
+  /// The family member this reminder is for.
+  final String? memberId;
   final String? documentNumber;
+
+  /// Returns a copy with [memberId] set — used when assigning in the add flow.
+  ReminderDraft withMember(String? id) => ReminderDraft(
+        category: category,
+        itemKey: itemKey,
+        title: title,
+        memberId: id,
+        documentNumber: documentNumber,
+        issueDate: issueDate,
+        expiryDate: expiryDate,
+        remindOn: remindOn,
+        remindDaysBefore: remindDaysBefore,
+        metadata: metadata,
+      );
   final DateTime? issueDate;
   final DateTime expiryDate;
   final DateTime remindOn;
@@ -92,6 +115,7 @@ class ReminderDraft {
         'category': category,
         'item_key': itemKey,
         'title': title,
+        if (memberId != null) 'member_id': memberId,
         if (documentNumber != null && documentNumber!.isNotEmpty)
           'document_number': documentNumber,
         if (issueDate != null) 'issue_date': _fmt(issueDate!),

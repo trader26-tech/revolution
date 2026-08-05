@@ -3,6 +3,7 @@
 Keeps all table knowledge in one place so routes stay declarative.
 """
 from typing import Any, Optional
+from uuid import UUID
 
 from app.core.supabase import get_supabase
 from app.schemas.reminder import ReminderCreate, ReminderUpdate
@@ -11,11 +12,13 @@ _TABLE = "reminders"
 
 
 def _serialize(payload: dict[str, Any]) -> dict[str, Any]:
-    """Convert date/datetime values to ISO strings for the JSON API."""
+    """Convert date/datetime/UUID values to strings for the JSON API."""
     out: dict[str, Any] = {}
     for key, value in payload.items():
         if hasattr(value, "isoformat"):
             out[key] = value.isoformat()
+        elif isinstance(value, UUID):
+            out[key] = str(value)
         else:
             out[key] = value
     return out

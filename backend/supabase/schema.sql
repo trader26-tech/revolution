@@ -149,3 +149,64 @@ create trigger users_set_updated_at
 
 -- Backend-only writer, RLS on, no public policy — same as the rest.
 alter table public.users enable row level security;
+
+
+-- ---------------------------------------------------------------------------
+-- Family members
+--
+-- The account holder (a `users` row) is the HEAD OF THE FAMILY. Every family
+-- member — including the head themselves — is a `family_members` row owned by
+-- that account. Reminders (insurance, passport, EMIs…) then link to a member,
+-- so the head sees the whole chain: whose policy, whose licence, whose EMI.
+--
+-- `owner_id` matches the X-Owner-Id header (the head's users.id). `is_self`
+-- marks the head's own "You" member, auto-created on first use. `relation`
+-- is free text ('Self', 'Spouse', 'Son', 'Daughter', 'Father', 'Mother'…).
+-- ---------------------------------------------------------------------------
+create table if not exists public.family_members (
+    id          uuid primary key default gen_random_uuid(),
+
+    -- The head-of-family account this member belongs to (X-Owner-Id).
+    owner_id    text not null,
+
+    name        text not null,
+    relation    text not null default 'Self',
+
+    -- True for the head's own record; there is at most one per owner.
+    is_self     boolean not null default false,
+
+    -- Optional profile extras (dob, colour, notes…). Free-form.
+    metadata    jsonb not null default '{}'::jsonb,
+
+    is_active   boolean not null default true,
+    created_at  timestamptz not null default now(),
+    updated_at  timestamptz not null default now()
+);
+
+create index if not exists family_members_owner_idx on public.family_members (owner_id);
+
+-- One "self" member per owner (partial unique index).
+create unique index if not exists family_members_one_self_idx
+    on public.family_members (owner_id)
+    where is_self;
+
+drop trigger if exists family_members_set_updated_at on public.family_members;
+create trigger family_members_set_updated_at
+    before update on public.family_members
+    for each row execute function public.set_updated_at();
+
+alter table public.family_members enable row level security;
+
+
+-- ---------------------------------------------------------------------------
+-- Link every reminder to a family member.
+--
+-- Added as a nullable column so existing rows are untouched; new reminders
+-- carry the member they belong to. ON DELETE SET NULL keeps a reminder alive
+-- if its member is hard-deleted (we soft-delete members anyway).
+-- ---------------------------------------------------------------------------
+alter table public.reminders
+    add column if not exists member_id uuid
+    references public.family_members (id) on delete set null;
+
+create index if not exists reminders_member_idx on public.reminders (member_id);

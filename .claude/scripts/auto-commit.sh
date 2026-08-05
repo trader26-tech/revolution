@@ -62,10 +62,34 @@ git commit -q -m "chore: auto-commit (${STAMP})" \
 echo "auto-commit: committed on ${BRANCH}."
 
 # Push. If the branch has no upstream yet, set it. Never force.
-if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
-  git push --quiet origin "${BRANCH}"
-else
-  git push --quiet -u origin "${BRANCH}"
-fi
+#
+# If the push is rejected because origin moved ahead (another machine or
+# worktree pushed first), pull with --rebase and retry once. This keeps
+# changes from getting stranded when several agents/machines share a branch.
+push_branch() {
+  if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+    git push --quiet origin "${BRANCH}"
+  else
+    git push --quiet -u origin "${BRANCH}"
+  fi
+}
 
-echo "auto-commit: pushed ${BRANCH} to origin."
+if push_branch; then
+  echo "auto-commit: pushed ${BRANCH} to origin."
+else
+  echo "auto-commit: push rejected, rebasing on origin/${BRANCH} and retrying..." >&2
+  git fetch --quiet origin "${BRANCH}" || true
+  if git rebase --quiet "origin/${BRANCH}"; then
+    if push_branch; then
+      echo "auto-commit: pushed ${BRANCH} to origin after rebase."
+    else
+      echo "auto-commit: push still failing after rebase. Resolve manually." >&2
+      exit 1
+    fi
+  else
+    # Conflict during rebase — don't leave the tree half-rebased.
+    git rebase --abort || true
+    echo "auto-commit: rebase conflict on ${BRANCH}. Resolve manually, then push." >&2
+    exit 1
+  fi
+fi

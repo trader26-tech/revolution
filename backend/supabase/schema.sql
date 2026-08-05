@@ -62,3 +62,54 @@ create trigger reminders_set_updated_at
 -- policies, so nothing can reach this table except the backend. Do not expose the
 -- service role key to the Flutter app.
 alter table public.reminders enable row level security;
+
+
+-- ---------------------------------------------------------------------------
+-- Phone verification (onboarding)
+--
+-- We verify a user's phone number for FREE via WhatsApp: the app shows a code,
+-- the USER sends it to our WhatsApp number, and Meta's inbound webhook tells us
+-- which number sent which code. User-initiated messages are free, so there is
+-- no SMS cost, no India DLT, and no billing card.
+--
+-- One row per verification attempt. The code is stored HASHED (never plaintext).
+-- The row is 'pending' until the matching inbound WhatsApp message arrives, then
+-- it flips to 'verified'. Rows expire so a stale code can't be reused.
+-- ---------------------------------------------------------------------------
+create table if not exists public.phone_verifications (
+    id              uuid primary key default gen_random_uuid(),
+
+    -- Ownership. Same device/user string used elsewhere (X-Owner-Id header).
+    owner_id        text not null,
+
+    -- The number being verified, stored in E.164 (e.g. '+919876543210').
+    phone           text not null,
+
+    -- SHA-256 of the short code the user must send us over WhatsApp. Never plaintext.
+    code_hash       text not null,
+
+    -- Lifecycle: 'pending' → 'verified' (or left to expire).
+    status          text not null default 'pending',
+
+    -- Abuse guard: how many wrong inbound codes we've seen for this attempt.
+    attempts        integer not null default 0,
+
+    expires_at      timestamptz not null,
+    verified_at     timestamptz,
+
+    created_at      timestamptz not null default now(),
+    updated_at      timestamptz not null default now()
+);
+
+-- One quick lookup by the code when a webhook arrives, and by owner for status.
+create index if not exists phone_verif_owner_idx  on public.phone_verifications (owner_id);
+create index if not exists phone_verif_phone_idx  on public.phone_verifications (phone);
+create index if not exists phone_verif_status_idx on public.phone_verifications (status);
+
+drop trigger if exists phone_verif_set_updated_at on public.phone_verifications;
+create trigger phone_verif_set_updated_at
+    before update on public.phone_verifications
+    for each row execute function public.set_updated_at();
+
+-- Same security posture as reminders: backend-only writer, RLS on, no public policy.
+alter table public.phone_verifications enable row level security;

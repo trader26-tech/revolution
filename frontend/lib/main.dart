@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
 import 'features/home/presentation/home_page.dart';
+import 'features/onboarding/presentation/onboarding_gate.dart';
 
 void main() {
   runApp(const RevolutionApp());
@@ -18,7 +19,7 @@ class RevolutionApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      home: const HomePage(),
+      home: const OnboardingGate(home: HomePage()),
     );
   }
 }

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 
-/// The inline quick-add input row: a radio circle and an auto-focused text
-/// field. Adding + closing are driven by the floating buttons above the
-/// keyboard (see [QuickAddBar]) and by the keyboard's own submit action.
+/// The inline quick-add input row: a plain auto-focused text field. Adding +
+/// closing are driven by the floating buttons above the keyboard (see
+/// [QuickAddBar]) and by the keyboard's own submit action.
 ///
-/// The controller + focus node are owned by the parent so the floating ✓ button
-/// can read/clear the field.
+/// No leading circle — a bare tick on an empty input reads as a task you can
+/// "check off", which is confusing. When [showHint] is true (the very first
+/// add, nothing captured yet) a divider + short helper anchor the field; once
+/// an item exists the row is just the field, for clean continuation.
 class QuickAddRow extends StatelessWidget {
   const QuickAddRow({
     super.key,
@@ -15,6 +17,7 @@ class QuickAddRow extends StatelessWidget {
     required this.focusNode,
     required this.onSubmitText,
     required this.onTapOutsideEmpty,
+    this.showHint = false,
   });
 
   final TextEditingController controller;
@@ -26,55 +29,53 @@ class QuickAddRow extends StatelessWidget {
   /// Called when the user taps outside while the field is empty.
   final VoidCallback onTapOutsideEmpty;
 
+  /// Show the anchoring line + helper (first add only).
+  final bool showHint;
+
   @override
   Widget build(BuildContext context) {
+    // Left inset lines the field text up with the task titles below (tile
+    // padding 16 + circle 20 + gap 12 = 48), so the rows read as one column.
+    final field = Padding(
+      padding: const EdgeInsets.fromLTRB(48, 14, 16, 14),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        textCapitalization: TextCapitalization.sentences,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => onSubmitText(),
+        onTapOutside: (_) {
+          if (controller.text.trim().isEmpty) onTapOutsideEmpty();
+        },
+        decoration: const InputDecoration(
+          isDense: true,
+          hintText: 'Add a task…',
+          border: InputBorder.none,
+          hintStyle: TextStyle(color: AppColors.inkFaint),
+        ),
+        style: const TextStyle(
+          fontSize: 16,
+          color: AppColors.ink,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+
+    if (!showHint) return field;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-          child: Row(
-            children: [
-              const Icon(Icons.radio_button_unchecked,
-                  size: 22, color: AppColors.inkFaint),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  textCapitalization: TextCapitalization.sentences,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => onSubmitText(),
-                  onTapOutside: (_) {
-                    if (controller.text.trim().isEmpty) onTapOutsideEmpty();
-                  },
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: 'Add a task…',
-                    border: InputBorder.none,
-                    hintStyle: TextStyle(color: AppColors.inkFaint),
-                  ),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        // A line to anchor the field, plus a short hint that it takes many —
-        // add details later.
+        field,
         const Divider(
           height: 1,
           thickness: 1,
-          indent: 16,
+          indent: 48,
           endIndent: 16,
           color: AppColors.hairline,
         ),
         const Padding(
-          padding: EdgeInsets.fromLTRB(50, 8, 16, 8),
+          padding: EdgeInsets.fromLTRB(48, 8, 16, 10),
           child: Text(
             'Add as many as you like — details later.',
             style: TextStyle(

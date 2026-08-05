@@ -34,7 +34,7 @@ class TaskTile extends StatelessWidget {
               AnimatedCheckCircle(
                 checked: task.done,
                 onTap: onToggle,
-                size: 24,
+                size: 20,
               ),
             const SizedBox(width: 12),
             Expanded(

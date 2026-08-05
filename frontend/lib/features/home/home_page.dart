@@ -166,6 +166,9 @@ class _HomePageState extends State<HomePage> {
           focusNode: _addFocus,
           onSubmitText: _confirmAdd,
           onTapOutsideEmpty: _closeAdd,
+          // The helper only shows on the very first add (nothing added yet).
+          // Once an item exists, the row is just the field — clean continuation.
+          showHint: tasks.isEmpty,
         ),
       for (final t in tasks)
         TaskTile(

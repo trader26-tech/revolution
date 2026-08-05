@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../brand/domain/brand.dart';
+import '../../../brand/presentation/brand_logo.dart';
 import '../../domain/task.dart';
 import 'animated_check_circle.dart';
 
@@ -71,6 +73,18 @@ class _TaskTileState extends State<TaskTile> {
                         ),
                       ),
               ),
+              // The brand/app logo, when the task has one.
+              if (task.hasIcon) ...[
+                BrandLogo(
+                  brand: Brand(
+                    name: task.iconName ?? task.title,
+                    domain: task.iconDomain ?? '',
+                  ),
+                  size: 36,
+                  radius: 10,
+                ),
+                const SizedBox(width: 12),
+              ],
               // Title + subtitle. Expanded → shrinks to leave room for Delete.
               Expanded(
                 child: Column(

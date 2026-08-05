@@ -25,9 +25,14 @@ class TaskStore extends ChangeNotifier {
 
   bool get isEmpty => _tasks.isEmpty;
 
-  /// Quick-add: create a task from just a name and return it.
-  Task add(String title) {
-    final task = Task(id: 'local-${_seq++}', title: title.trim());
+  /// Quick-add: create a task from a name (and optionally a brand icon).
+  Task add(String title, {String? iconName, String? iconDomain}) {
+    final task = Task(
+      id: 'local-${_seq++}',
+      title: title.trim(),
+      iconName: iconName,
+      iconDomain: iconDomain,
+    );
     _tasks.insert(0, task);
     notifyListeners();
     return task;

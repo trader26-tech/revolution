@@ -24,6 +24,8 @@ class Task {
     this.reminderOn = true,
     this.dueAt,
     this.repeat = RepeatCadence.none,
+    this.iconName,
+    this.iconDomain,
   });
 
   final String id;
@@ -38,7 +40,14 @@ class Task {
 
   RepeatCadence repeat;
 
+  /// The brand/app icon attached to this task (optional). [iconName] seeds the
+  /// letter-avatar fallback; [iconDomain] is the logo domain (empty/null → no
+  /// remote logo, just the avatar).
+  String? iconName;
+  String? iconDomain;
+
   bool get isScheduled => dueAt != null;
+  bool get hasIcon => (iconName != null && iconName!.isNotEmpty);
 
   Task copyWith({
     String? title,
@@ -47,6 +56,8 @@ class Task {
     DateTime? dueAt,
     bool clearDueAt = false,
     RepeatCadence? repeat,
+    String? iconName,
+    String? iconDomain,
   }) {
     return Task(
       id: id,
@@ -55,6 +66,8 @@ class Task {
       reminderOn: reminderOn ?? this.reminderOn,
       dueAt: clearDueAt ? null : (dueAt ?? this.dueAt),
       repeat: repeat ?? this.repeat,
+      iconName: iconName ?? this.iconName,
+      iconDomain: iconDomain ?? this.iconDomain,
     );
   }
 }

@@ -140,7 +140,25 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _sectionLabel('${cat.emoji}  ${cat.title}'),
+            // Icon + title — a Material icon renders reliably (no "□?" tofu).
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
+              child: Row(
+                children: [
+                  Icon(cat.icon, size: 16, color: AppColors.inkFaint),
+                  const SizedBox(width: 8),
+                  Text(
+                    cat.title,
+                    style: const TextStyle(
+                      color: AppColors.inkFaint,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             GridView.builder(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               shrinkWrap: true,

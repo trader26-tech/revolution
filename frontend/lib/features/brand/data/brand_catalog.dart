@@ -1,10 +1,15 @@
+import 'package:flutter/material.dart';
+
 import '../domain/brand.dart';
 
 /// A category header + the brands shown under it in the icon picker.
+///
+/// Uses a Material [icon] (not an emoji) so the header always renders — some
+/// emojis show as a "□?" tofu box on devices missing that glyph.
 class BrandCategory {
-  const BrandCategory(this.title, this.emoji, this.brands);
+  const BrandCategory(this.title, this.icon, this.brands);
   final String title;
-  final String emoji;
+  final IconData icon;
   final List<Brand> brands;
 }
 
@@ -17,44 +22,13 @@ class BrandCategory {
 class BrandCatalog {
   const BrandCatalog._();
 
-  /// The category-wise suggestions shown before the user types — ~10 of the
-  /// most relevant real brands per category, so tapping is faster than typing.
+  /// Category-wise suggestions shown before the user types — ~10 top real
+  /// brands each. ORDERED BY WHAT MATTERS MOST to a user tracking money & apps:
+  /// banking/investing and insurance first, then the subscriptions they pay
+  /// regularly, then utilities/health, with vehicle/home/family and finally the
+  /// occasional government renewals last.
   static const List<BrandCategory> categories = [
-    BrandCategory('Identity & Government', '🪪', [
-      Brand(name: 'mParivahan', domain: 'parivahan.gov.in'),
-      Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'),
-      Brand(name: 'Passport Seva', domain: 'passportindia.gov.in'),
-      Brand(name: 'UIDAI Aadhaar', domain: 'uidai.gov.in'),
-      Brand(name: 'Election Commission', domain: 'eci.gov.in'),
-      Brand(name: 'Vahan', domain: 'vahan.parivahan.gov.in'),
-      Brand(name: 'India.gov', domain: 'india.gov.in'),
-      Brand(name: 'UMANG', domain: 'web.umang.gov.in'),
-    ]),
-    BrandCategory('Vehicle', '🚗', [
-      Brand(name: 'Maruti Suzuki', domain: 'marutisuzuki.com'),
-      Brand(name: 'Hyundai', domain: 'hyundai.com'),
-      Brand(name: 'Tata Motors', domain: 'tatamotors.com'),
-      Brand(name: 'Mahindra', domain: 'mahindra.com'),
-      Brand(name: 'Honda', domain: 'honda.com'),
-      Brand(name: 'Royal Enfield', domain: 'royalenfield.com'),
-      Brand(name: 'Bajaj Auto', domain: 'bajajauto.com'),
-      Brand(name: 'Bosch', domain: 'bosch.com'),
-      Brand(name: 'Castrol', domain: 'castrol.com'),
-      Brand(name: 'FASTag', domain: 'fastag.org'),
-    ]),
-    BrandCategory('Insurance', '🛡️', [
-      Brand(name: 'LIC', domain: 'licindia.in'),
-      Brand(name: 'HDFC Life', domain: 'hdfclife.com'),
-      Brand(name: 'ICICI Prudential', domain: 'iciciprulife.com'),
-      Brand(name: 'SBI Life', domain: 'sbilife.co.in'),
-      Brand(name: 'Star Health', domain: 'starhealth.in'),
-      Brand(name: 'Max Life', domain: 'maxlifeinsurance.com'),
-      Brand(name: 'Bajaj Allianz', domain: 'bajajallianz.com'),
-      Brand(name: 'Tata AIG', domain: 'tataaig.com'),
-      Brand(name: 'Acko', domain: 'acko.com'),
-      Brand(name: 'Digit', domain: 'godigit.com'),
-    ]),
-    BrandCategory('Banking & Finance', '🏦', [
+    BrandCategory('Banking & Finance', Icons.account_balance_rounded, [
       Brand(name: 'HDFC Bank', domain: 'hdfcbank.com'),
       Brand(name: 'ICICI Bank', domain: 'icicibank.com'),
       Brand(name: 'SBI', domain: 'sbi.co.in'),
@@ -66,7 +40,31 @@ class BrandCatalog {
       Brand(name: 'PhonePe', domain: 'phonepe.com'),
       Brand(name: 'CRED', domain: 'cred.club'),
     ]),
-    BrandCategory('Utilities', '💡', [
+    BrandCategory('Insurance', Icons.shield_rounded, [
+      Brand(name: 'LIC', domain: 'licindia.in'),
+      Brand(name: 'HDFC Life', domain: 'hdfclife.com'),
+      Brand(name: 'ICICI Prudential', domain: 'iciciprulife.com'),
+      Brand(name: 'SBI Life', domain: 'sbilife.co.in'),
+      Brand(name: 'Star Health', domain: 'starhealth.in'),
+      Brand(name: 'Max Life', domain: 'maxlifeinsurance.com'),
+      Brand(name: 'Bajaj Allianz', domain: 'bajajallianz.com'),
+      Brand(name: 'Tata AIG', domain: 'tataaig.com'),
+      Brand(name: 'Acko', domain: 'acko.com'),
+      Brand(name: 'Digit', domain: 'godigit.com'),
+    ]),
+    BrandCategory('Digital & Subscriptions', Icons.play_circle_rounded, [
+      Brand(name: 'Netflix', domain: 'netflix.com'),
+      Brand(name: 'Amazon Prime', domain: 'primevideo.com'),
+      Brand(name: 'Disney+ Hotstar', domain: 'hotstar.com'),
+      Brand(name: 'Spotify', domain: 'spotify.com'),
+      Brand(name: 'YouTube', domain: 'youtube.com'),
+      Brand(name: 'JioCinema', domain: 'jiocinema.com'),
+      Brand(name: 'Google One', domain: 'one.google.com'),
+      Brand(name: 'iCloud', domain: 'icloud.com'),
+      Brand(name: 'ChatGPT', domain: 'openai.com'),
+      Brand(name: 'Canva', domain: 'canva.com'),
+    ]),
+    BrandCategory('Utilities', Icons.bolt_rounded, [
       Brand(name: 'Jio', domain: 'jio.com'),
       Brand(name: 'Airtel', domain: 'airtel.in'),
       Brand(name: 'Vi', domain: 'myvi.in'),
@@ -78,7 +76,7 @@ class BrandCatalog {
       Brand(name: 'BESCOM', domain: 'bescom.org'),
       Brand(name: 'Indane Gas', domain: 'indane.co.in'),
     ]),
-    BrandCategory('Health', '💊', [
+    BrandCategory('Health', Icons.favorite_rounded, [
       Brand(name: 'Apollo Pharmacy', domain: 'apollopharmacy.in'),
       Brand(name: 'Tata 1mg', domain: '1mg.com'),
       Brand(name: 'PharmEasy', domain: 'pharmeasy.in'),
@@ -88,7 +86,19 @@ class BrandCatalog {
       Brand(name: 'Dr Lal PathLabs', domain: 'lalpathlabs.com'),
       Brand(name: 'Pristyn Care', domain: 'pristyncare.com'),
     ]),
-    BrandCategory('Home', '🏠', [
+    BrandCategory('Vehicle', Icons.directions_car_rounded, [
+      Brand(name: 'Maruti Suzuki', domain: 'marutisuzuki.com'),
+      Brand(name: 'Hyundai', domain: 'hyundai.com'),
+      Brand(name: 'Tata Motors', domain: 'tatamotors.com'),
+      Brand(name: 'Mahindra', domain: 'mahindra.com'),
+      Brand(name: 'Honda', domain: 'honda.com'),
+      Brand(name: 'Royal Enfield', domain: 'royalenfield.com'),
+      Brand(name: 'Bajaj Auto', domain: 'bajajauto.com'),
+      Brand(name: 'Bosch', domain: 'bosch.com'),
+      Brand(name: 'Castrol', domain: 'castrol.com'),
+      Brand(name: 'FASTag', domain: 'fastag.org'),
+    ]),
+    BrandCategory('Home', Icons.home_rounded, [
       Brand(name: 'Urban Company', domain: 'urbancompany.com'),
       Brand(name: 'NoBroker', domain: 'nobroker.in'),
       Brand(name: 'Housejoy', domain: 'housejoy.in'),
@@ -98,7 +108,7 @@ class BrandCatalog {
       Brand(name: 'Eureka Forbes', domain: 'eurekaforbes.com'),
       Brand(name: 'HomeTriangle', domain: 'hometriangle.com'),
     ]),
-    BrandCategory('Family & Personal', '🎁', [
+    BrandCategory('Family & Personal', Icons.people_rounded, [
       Brand(name: 'BookMyShow', domain: 'bookmyshow.com'),
       Brand(name: 'Ferns N Petals', domain: 'fnp.com'),
       Brand(name: 'Archies', domain: 'archiesonline.com'),
@@ -108,17 +118,15 @@ class BrandCatalog {
       Brand(name: 'Vedantu', domain: 'vedantu.com'),
       Brand(name: 'Zomato', domain: 'zomato.com'),
     ]),
-    BrandCategory('Digital', '🎬', [
-      Brand(name: 'Netflix', domain: 'netflix.com'),
-      Brand(name: 'Amazon Prime', domain: 'primevideo.com'),
-      Brand(name: 'Disney+ Hotstar', domain: 'hotstar.com'),
-      Brand(name: 'Spotify', domain: 'spotify.com'),
-      Brand(name: 'YouTube', domain: 'youtube.com'),
-      Brand(name: 'JioCinema', domain: 'jiocinema.com'),
-      Brand(name: 'Google One', domain: 'one.google.com'),
-      Brand(name: 'iCloud', domain: 'icloud.com'),
-      Brand(name: 'ChatGPT', domain: 'openai.com'),
-      Brand(name: 'Canva', domain: 'canva.com'),
+    BrandCategory('Identity & Government', Icons.badge_rounded, [
+      Brand(name: 'mParivahan', domain: 'parivahan.gov.in'),
+      Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'),
+      Brand(name: 'Passport Seva', domain: 'passportindia.gov.in'),
+      Brand(name: 'UIDAI Aadhaar', domain: 'uidai.gov.in'),
+      Brand(name: 'Election Commission', domain: 'eci.gov.in'),
+      Brand(name: 'Vahan', domain: 'vahan.parivahan.gov.in'),
+      Brand(name: 'India.gov', domain: 'india.gov.in'),
+      Brand(name: 'UMANG', domain: 'web.umang.gov.in'),
     ]),
   ];
 

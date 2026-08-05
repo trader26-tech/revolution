@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../options/data/options_store.dart';
 import '../../options/presentation/option_picker_sheet.dart';
+import '../domain/currency.dart';
 import '../domain/item_details.dart';
+import 'amount_formatter.dart';
 
 /// The full-screen details editor — the rich form (amount, cycle, list,
 /// category, notification, URL, notes…) modelled on a subscription entry.
@@ -30,10 +32,15 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   /// Whether the inline calendar under "First payment date" is open.
   bool _dateExpanded = false;
 
+  Currency get _currency => currencyOf(_d.currency);
+
   late final TextEditingController _name =
       TextEditingController(text: _d.name);
   late final TextEditingController _amount = TextEditingController(
-      text: _d.amount == null ? '' : _d.amount!.toStringAsFixed(2));
+      text: _d.amount == null
+          ? ''
+          : formatAmount(
+              _d.amount!.toStringAsFixed(_currency.decimals), _currency.grouping));
   late final TextEditingController _url = TextEditingController(text: _d.url);
   late final TextEditingController _notes =
       TextEditingController(text: _d.notes);
@@ -50,10 +57,56 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   void _save() {
     _d
       ..name = _name.text.trim()
-      ..amount = double.tryParse(_amount.text.trim())
+      // Strip grouping separators before parsing the number.
+      ..amount = double.tryParse(unformatAmount(_amount.text))
       ..url = _url.text.trim()
       ..notes = _notes.text.trim();
     Navigator.of(context).pop(_d);
+  }
+
+  /// Pick the currency (₹ / $ / KD). Re-groups the amount for the new system.
+  Future<void> _pickCurrency() async {
+    final picked = await showModalBottomSheet<Currency>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Currency',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+              ),
+            ),
+            for (final c in kCurrencies)
+              ListTile(
+                leading: Text(c.symbol,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800)),
+                title: Text(c.label),
+                trailing: c.code == _d.currency
+                    ? const Icon(Icons.check_rounded, color: AppColors.accent)
+                    : null,
+                onTap: () => Navigator.pop(context, c),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      _d.currency = picked.code;
+      // Re-group the existing digits under the new system.
+      final digits = unformatAmount(_amount.text);
+      _amount.text = formatAmount(digits, picked.grouping);
+    });
   }
 
   @override
@@ -71,45 +124,53 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   _NameAmountCard(
                     name: _name,
                     amount: _amount,
-                    currency: _d.currency,
+                    currency: _currency,
+                    onTapCurrency: _pickCurrency,
                   ),
                   const SizedBox(height: 20),
                   _Group(children: [
-                    _Row(
-                      label: 'First payment date',
-                      onTap: () =>
-                          setState(() => _dateExpanded = !_dateExpanded),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _Chip(text: _fmtDate(_d.firstPaymentDate)),
-                          const SizedBox(width: 8),
-                          // Down when closed, up when open. Tapping the row (or
-                          // this arrow) toggles the inline calendar below.
-                          AnimatedRotation(
-                            turns: _dateExpanded ? 0.5 : 0,
-                            duration: const Duration(milliseconds: 200),
-                            child: const Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 24,
-                              color: AppColors.inkSoft,
-                            ),
+                    // Date row + its inline calendar are ONE group child, so the
+                    // group draws exactly one hairline below the whole unit — no
+                    // doubled "strong" line between the row and the calendar.
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _Row(
+                          label: 'First payment date',
+                          onTap: () =>
+                              setState(() => _dateExpanded = !_dateExpanded),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _Chip(text: _fmtDate(_d.firstPaymentDate)),
+                              const SizedBox(width: 8),
+                              // Down when closed, up when open.
+                              AnimatedRotation(
+                                turns: _dateExpanded ? 0.5 : 0,
+                                duration: const Duration(milliseconds: 200),
+                                child: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 24,
+                                  color: AppColors.inkSoft,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                    // The inline full calendar — slides open under the row.
-                    AnimatedCrossFade(
-                      duration: const Duration(milliseconds: 220),
-                      firstChild: const SizedBox(width: double.infinity),
-                      secondChild: _InlineCalendar(
-                        selected: _d.firstPaymentDate,
-                        onChanged: (d) =>
-                            setState(() => _d.firstPaymentDate = d),
-                      ),
-                      crossFadeState: _dateExpanded
-                          ? CrossFadeState.showSecond
-                          : CrossFadeState.showFirst,
+                        ),
+                        // The inline full calendar — slides open under the row.
+                        AnimatedCrossFade(
+                          duration: const Duration(milliseconds: 220),
+                          firstChild: const SizedBox(width: double.infinity),
+                          secondChild: _InlineCalendar(
+                            selected: _d.firstPaymentDate,
+                            onChanged: (d) =>
+                                setState(() => _d.firstPaymentDate = d),
+                          ),
+                          crossFadeState: _dateExpanded
+                              ? CrossFadeState.showSecond
+                              : CrossFadeState.showFirst,
+                        ),
+                      ],
                     ),
                     _Row(
                       label: 'Type',
@@ -352,11 +413,13 @@ class _NameAmountCard extends StatelessWidget {
     required this.name,
     required this.amount,
     required this.currency,
+    required this.onTapCurrency,
   });
 
   final TextEditingController name;
   final TextEditingController amount;
-  final String currency;
+  final Currency currency;
+  final VoidCallback onTapCurrency;
 
   @override
   Widget build(BuildContext context) {
@@ -392,17 +455,30 @@ class _NameAmountCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+                    // Tappable currency badge — pick ₹ / $ / KD.
+                    InkWell(
+                      onTap: onTapCurrency,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(currency.symbol,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.accentDeep)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.arrow_drop_down,
+                                size: 18, color: AppColors.accentDeep),
+                          ],
+                        ),
                       ),
-                      child: Text(currency,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.accentDeep)),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -410,10 +486,14 @@ class _NameAmountCard extends StatelessWidget {
                         controller: amount,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
+                        // Live grouping for the active currency's number system.
+                        inputFormatters: [
+                          AmountInputFormatter(currency.grouping),
+                        ],
                         style: const TextStyle(
                             fontSize: 18, color: AppColors.inkSoft),
                         decoration: const InputDecoration(
-                          hintText: '0.00',
+                          hintText: '0',
                           border: InputBorder.none,
                           isDense: true,
                         ),
@@ -533,32 +613,23 @@ class _InlineCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // No divider of its own — the group already draws a single hairline above
+    // this, so the calendar just pops up cleanly below the date row.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        children: [
-          const Divider(
-            height: 1,
-            thickness: 1,
-            indent: 16,
-            endIndent: 16,
-            color: AppColors.hairline,
-          ),
-          Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: Theme.of(context).colorScheme.copyWith(
-                    primary: AppColors.accent,
-                    onPrimary: Colors.white,
-                  ),
-            ),
-            child: CalendarDatePicker(
-              initialDate: selected,
-              firstDate: DateTime(DateTime.now().year - 2),
-              lastDate: DateTime(DateTime.now().year + 30),
-              onDateChanged: onChanged,
-            ),
-          ),
-        ],
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+                primary: AppColors.accent,
+                onPrimary: Colors.white,
+              ),
+        ),
+        child: CalendarDatePicker(
+          initialDate: selected,
+          firstDate: DateTime(DateTime.now().year - 2),
+          lastDate: DateTime(DateTime.now().year + 30),
+          onDateChanged: onChanged,
+        ),
       ),
     );
   }

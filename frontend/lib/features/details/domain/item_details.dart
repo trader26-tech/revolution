@@ -43,7 +43,7 @@ class ItemDetails {
   ItemDetails({
     this.name = '',
     this.amount,
-    this.currency = '₹',
+    this.currency = 'INR',
     DateTime? firstPaymentDate,
     this.type = BillingType.recurring,
     this.cycle = BillingCycle.monthly,

@@ -55,11 +55,9 @@ class _QuickAddRowState extends State<QuickAddRow> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // No full-width border here — the list draws inset dividers between rows.
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.hairline)),
-      ),
       child: Row(
         children: [
           const Icon(Icons.radio_button_unchecked,

@@ -59,16 +59,24 @@ class CalendarPage extends StatelessWidget {
                     ),
                   );
                 }
-                return ListView(
-                  padding: const EdgeInsets.only(bottom: 120),
-                  children: [
-                    for (final t in scheduled)
-                      TaskTile(
-                        task: t,
-                        onToggle: () => store.toggleDone(t),
-                        onTap: () => _edit(context, t),
-                      ),
-                  ],
+                return ListView.separated(
+                  padding: const EdgeInsets.only(top: 4, bottom: 120),
+                  itemCount: scheduled.length,
+                  separatorBuilder: (_, _) => const Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 20,
+                    endIndent: 20,
+                    color: AppColors.hairline,
+                  ),
+                  itemBuilder: (_, i) {
+                    final t = scheduled[i];
+                    return TaskTile(
+                      task: t,
+                      onToggle: () => store.toggleDone(t),
+                      onTap: () => _edit(context, t),
+                    );
+                  },
                 );
               },
             ),

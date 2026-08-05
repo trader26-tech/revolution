@@ -75,21 +75,33 @@ class _HomePageState extends State<HomePage> {
       return _EmptyContent(onAdd: _startAdd);
     }
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 120),
-      children: [
-        if (_adding)
-          QuickAddRow(
-            onSubmit: _onQuickSubmit,
-            onDismiss: () => setState(() => _adding = false),
-          ),
-        for (final t in tasks)
-          TaskTile(
-            task: t,
-            onToggle: () => widget.store.toggleDone(t),
-            onTap: () => _editTask(t),
-          ),
-      ],
+    // Build the row list: the quick-add row (when active) on top, then tasks.
+    final rows = <Widget>[
+      if (_adding)
+        QuickAddRow(
+          onSubmit: _onQuickSubmit,
+          onDismiss: () => setState(() => _adding = false),
+        ),
+      for (final t in tasks)
+        TaskTile(
+          task: t,
+          onToggle: () => widget.store.toggleDone(t),
+          onTap: () => _editTask(t),
+        ),
+    ];
+
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 4, bottom: 120),
+      itemCount: rows.length,
+      // A short, inset divider between rows — not edge-to-edge.
+      separatorBuilder: (_, _) => const Divider(
+        height: 1,
+        thickness: 1,
+        indent: 20,
+        endIndent: 20,
+        color: AppColors.hairline,
+      ),
+      itemBuilder: (_, i) => rows[i],
     );
   }
 }

@@ -11,17 +11,46 @@ import 'package:flutter/material.dart';
 /// isn't present yet, it gracefully falls back to the built-in code-drawn
 /// [_BoboFallback] so the app never breaks.
 ///
-/// Moods map to reminder state:
-///  * [BoboMood.happy]   — nothing due, content.
-///  * [BoboMood.excited] — a reminder is coming up soon (waving, bouncy).
-///  * [BoboMood.sleepy]  — all caught up / quiet hours.
-enum BoboMood { happy, excited, sleepy }
+/// Bobo's emotional states, each mapped to a real app situation so that a
+/// glance at Bobo tells the user how things stand:
+///  * [BoboMood.happy]      — content, nothing pressing.
+///  * [BoboMood.excited]    — a reminder is coming up soon (waving, bouncy).
+///  * [BoboMood.sleepy]     — all calm, nothing upcoming (relaxed).
+///  * [BoboMood.scared]     — a deadline is very close (sweating, anxious).
+///  * [BoboMood.sad]        — something was forgotten / is overdue.
+///  * [BoboMood.writing]    — the user is entering details (noting it down).
+///  * [BoboMood.celebrating]— a task was completed successfully.
+enum BoboMood { happy, excited, sleepy, scared, sad, writing, celebrating }
 
 extension _BoboMoodAsset on BoboMood {
-  String get asset => switch (this) {
-        BoboMood.happy => 'assets/images/bobo_happy.png',
-        BoboMood.excited => 'assets/images/bobo_excited.png',
-        BoboMood.sleepy => 'assets/images/bobo_sleepy.png',
+  /// The base filename (no extension) for this mood's illustrated art.
+  String get _base => switch (this) {
+        BoboMood.happy => 'bobo_happy',
+        BoboMood.excited => 'bobo_excited',
+        BoboMood.sleepy => 'bobo_sleepy',
+        BoboMood.scared => 'bobo_scared',
+        BoboMood.sad => 'bobo_sad',
+        BoboMood.writing => 'bobo_writing',
+        BoboMood.celebrating => 'bobo_celebrating',
+      };
+
+  /// Candidate asset paths in priority order: animated WebP first (best), then
+  /// animated GIF, then a static PNG. The first that exists wins, so dropping in
+  /// any one of them "just works". Flutter plays animated WebP/GIF natively.
+  List<String> get assetCandidates => [
+        'assets/images/$_base.webp',
+        'assets/images/$_base.gif',
+        'assets/images/$_base.png',
+      ];
+
+  /// Which of the three code-drawn base expressions to use when no art exists.
+  /// The two "action" moods borrow the closest resting expression.
+  BoboMood get fallbackBase => switch (this) {
+        BoboMood.scared => BoboMood.excited, // alert/anxious ~ bouncy-alert
+        BoboMood.sad => BoboMood.sleepy, // drooped ~ low-energy
+        BoboMood.writing => BoboMood.happy,
+        BoboMood.celebrating => BoboMood.excited,
+        final m => m, // happy / excited / sleepy draw themselves
       };
 }
 
@@ -46,8 +75,9 @@ class _BoboMascotState extends State<BoboMascot>
   late final AnimationController _idle; // breathing + bob
   late final AnimationController _poke; // tap bounce
 
-  // Per-mood: does the illustrated asset exist? null = not checked yet.
-  final Map<BoboMood, bool> _assetOk = {};
+  // Per-mood: the resolved asset path that exists (webp/gif/png), or null if we
+  // checked and none is bundled (→ code-drawn fallback). Absent = not checked.
+  final Map<BoboMood, String?> _resolvedAsset = {};
 
   @override
   void initState() {
@@ -69,17 +99,22 @@ class _BoboMascotState extends State<BoboMascot>
     if (old.mood != widget.mood) _probe(widget.mood);
   }
 
-  /// Check once whether the illustrated PNG for [mood] is bundled. Uses the
+  /// Find which illustrated asset (if any) is bundled for [mood], trying WebP →
+  /// GIF → PNG in order. Resolves once per mood and caches the result. Uses the
   /// asset bundle so a missing file cleanly flips us to the code-drawn fallback
   /// instead of showing a broken-image box.
   Future<void> _probe(BoboMood mood) async {
-    if (_assetOk.containsKey(mood)) return;
-    try {
-      await DefaultAssetBundle.of(context).load(mood.asset);
-      if (mounted) setState(() => _assetOk[mood] = true);
-    } catch (_) {
-      if (mounted) setState(() => _assetOk[mood] = false);
+    if (_resolvedAsset.containsKey(mood)) return;
+    for (final path in mood.assetCandidates) {
+      try {
+        await DefaultAssetBundle.of(context).load(path);
+        if (mounted) setState(() => _resolvedAsset[mood] = path);
+        return; // first hit wins
+      } catch (_) {
+        // try the next candidate
+      }
     }
+    if (mounted) setState(() => _resolvedAsset[mood] = null);
   }
 
   void _handleTap() {
@@ -99,7 +134,7 @@ class _BoboMascotState extends State<BoboMascot>
   @override
   Widget build(BuildContext context) {
     final height = widget.size * 1.06;
-    final hasImage = _assetOk[widget.mood] == true;
+    final resolved = _resolvedAsset[widget.mood];
 
     return GestureDetector(
       onTap: _handleTap,
@@ -125,15 +160,17 @@ class _BoboMascotState extends State<BoboMascot>
               );
             },
             // The child is built once (not every tick) — just the art.
-            child: hasImage
+            // Illustrated (webp/gif/png) if bundled, else the code-drawn Bobo
+            // using the closest resting expression for this mood.
+            child: resolved != null
                 ? Image.asset(
-                    widget.mood.asset,
+                    resolved,
                     width: widget.size,
                     height: height,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                   )
-                : _BoboFallback(mood: widget.mood),
+                : _BoboFallback(mood: widget.mood.fallbackBase),
           ),
         ),
       ),
@@ -322,9 +359,9 @@ class _BoboPainter extends CustomPainter {
   /// Wagging tail behind the body.
   void _tail(Canvas canvas, double w, double h, double r) {
     final amp = switch (mood) {
-      BoboMood.happy => 0.18,
       BoboMood.excited => 0.12,
       BoboMood.sleepy => 0.03,
+      _ => 0.18, // happy and any action-mood fall through to a lively wag
     };
     final swing = (wag - 0.5) * 2 * amp;
     canvas.save();
@@ -554,6 +591,10 @@ class _BoboPainter extends CustomPainter {
         )..layout();
         tp.paint(canvas, anchor);
         tp.paint(canvas, anchor.translate(r * 0.22, -r * 0.20));
+      default:
+        // Action moods resolve to a base expression before reaching the
+        // fallback painter, so this is unreachable — draw the happy badge.
+        _boneBadge(canvas, anchor, r * 0.30);
     }
   }
 

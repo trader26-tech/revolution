@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../mascot/presentation/bobo_mascot.dart';
 import '../../data/reminders_repository.dart';
 import '../../domain/catalog.dart';
 import '../../domain/reminder.dart';
@@ -119,6 +120,8 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const _Grabber(),
+            // Bobo, pencil out — ready to note down whatever you pick.
+            const _WritingHeader(),
             _SearchBar(controller: _search),
             if (_busy) const LinearProgressIndicator(minHeight: 2),
             Flexible(
@@ -354,6 +357,46 @@ class _Grabber extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).dividerColor,
         borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+}
+
+/// Bobo in "writing" mode at the top of the picker — he notes down whatever you
+/// choose, so adding a reminder feels like handing it to someone.
+class _WritingHeader extends StatelessWidget {
+  const _WritingHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 2),
+      child: Row(
+        children: [
+          const BoboMascot(size: 64, mood: BoboMood.writing),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'What should Bobo track?',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: scheme.onSurface,
+                      ),
+                ),
+                Text(
+                  'Tap one — he notes the dates for you.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

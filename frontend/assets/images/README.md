@@ -1,25 +1,49 @@
-# Bobo mascot — image drop-in slot
+# Bobo mascot art
 
-Drop **three PNGs** here to give Bobo his illustrated look. Exact filenames:
+Drop Bobo's animated art here. Each **mood** maps to one file. The app looks for
+each mood in this priority order and uses the first that exists, so you can mix
+formats:
 
-| File                 | Pose                                            | Shown when                        |
-|----------------------|-------------------------------------------------|-----------------------------------|
-| `bobo_happy.png`     | calm / sitting, content smile                   | nothing due — all caught up       |
-| `bobo_excited.png`   | waving paw / bouncy, big smile                  | a reminder is due soon or overdue |
-| `bobo_sleepy.png`    | eyes closed / resting                           | quiet hours / all clear           |
+1. `bobo_<mood>.webp`  ← **preferred** (animated WebP: full colour, transparency, small)
+2. `bobo_<mood>.gif`   ← fine (animated GIF works too)
+3. `bobo_<mood>.png`   ← static fallback
 
-Guidelines for a great result:
+If none of the three exist for a mood, the app draws Bobo in code automatically,
+so nothing ever breaks while art is missing.
 
-- **Transparent background** (PNG with alpha) — no green/solid backdrop. If the
-  files come with a solid background, they'll still display, but they look best
-  transparent.
-- **Square-ish, high-res** (e.g. 1024×1024), dog centred with a little padding.
-- Keep the **same art style** across all three so Bobo reads as one character.
+## The moods and when each one shows
 
-Behaviour:
+| File base            | Mood            | Shown when…                                         |
+|----------------------|-----------------|-----------------------------------------------------|
+| `bobo_happy`         | happy           | Fresh start / nothing to track yet                  |
+| `bobo_sleepy`        | relaxed         | Everything calm — nothing due soon, nothing overdue |
+| `bobo_scared`        | scared/sweating | A deadline is **very close** (a reminder due soon)  |
+| `bobo_sad`           | sad             | Something was **forgotten** (a reminder is overdue) |
+| `bobo_writing`       | noting it down  | While the user is picking/adding a reminder         |
+| `bobo_celebrating`   | celebration     | Right after a reminder is **successfully added**    |
+| `bobo_excited`       | excited         | (legacy/optional) waving, bouncy                    |
 
-- `BoboMascot` shows the PNG for the current mood and animates it (a gentle
-  breathing bob, plus a little bounce when tapped).
-- If a file is missing, Bobo automatically falls back to the built-in
-  code-drawn version, so the app never breaks — add the files whenever you're
-  ready.
+A full set is, e.g.:
+
+```
+bobo_happy.webp
+bobo_sleepy.webp
+bobo_scared.webp
+bobo_sad.webp
+bobo_writing.webp
+bobo_celebrating.webp
+```
+
+## Format tips
+
+- **Best: animated WebP.** Export your GIF to animated `.webp` — same single
+  file, but full colour + real transparency + ~3× smaller. Flutter plays it
+  natively via `Image.asset`.
+- **GIF is fine** if that's what you have — just name it `bobo_<mood>.gif`.
+- Use a **transparent background** so Bobo sits cleanly on the cream backdrop.
+- Aim for a **square-ish canvas** (e.g. 512×512 or 600×640) — the widget fits it
+  with `BoxFit.contain`, so square art centres nicely.
+- Keep each file reasonably small (ideally < 500 KB) for smooth playback.
+
+No pubspec change needed — `assets/images/` is already bundled. Restart the app
+(not just hot-reload) after adding new asset files so Flutter picks them up.

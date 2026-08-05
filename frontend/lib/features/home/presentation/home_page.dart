@@ -62,10 +62,38 @@ class _HomePageState extends State<HomePage> {
     if (created != null && mounted) {
       setState(() => _reminders = [..._reminders, created]..sort(
           (a, b) => a.remindOn.compareTo(b.remindOn)));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Reminder set for “${created.title}” 🐶')),
-      );
+      // Bobo celebrates a job done.
+      _celebrate('Bobo’s got “${created.title}” 🎉');
     }
+  }
+
+  /// A brief, delightful celebration: Bobo pops up celebrating, then fades.
+  /// Used whenever the user completes something (adds a reminder).
+  void _celebrate(String message) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'done',
+      barrierColor: Colors.black.withValues(alpha: 0.25),
+      transitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (_, _, _) => const SizedBox.shrink(),
+      transitionBuilder: (context, anim, _, _) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
+        return Center(
+          child: ScaleTransition(
+            scale: curved,
+            child: FadeTransition(
+              opacity: anim,
+              child: _CelebrationCard(message: message),
+            ),
+          ),
+        );
+      },
+    );
+    // Auto-dismiss so it never blocks the user.
+    Future<void>.delayed(const Duration(milliseconds: 1600), () {
+      if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+    });
   }
 
   // Dev helper: clears the onboarding flag and drops back into the flow from
@@ -121,33 +149,43 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Bobo's mood is derived from the real list: something needing attention makes
-  // Bobo alert; an empty or all-clear list keeps Bobo happy.
+  int get _overdueCount => _reminders.where((r) => r.isExpired).length;
+  int get _dueSoonCount =>
+      _reminders.where((r) => r.isDueSoon && !r.isExpired).length;
+
+  // Bobo's mood IS the app's status at a glance:
+  //   • something overdue/forgotten → sad
+  //   • a deadline very close        → scared (sweating)
+  //   • calm, nothing pressing       → sleepy (relaxed)
+  //   • empty / fresh start          → happy
   BoboMood get _mood {
     if (_reminders.isEmpty) return BoboMood.happy;
-    final needsAttention =
-        _reminders.any((r) => r.isExpired || r.isDueSoon);
-    return needsAttention ? BoboMood.excited : BoboMood.happy;
+    if (_overdueCount > 0) return BoboMood.sad;
+    if (_dueSoonCount > 0) return BoboMood.scared;
+    return BoboMood.sleepy;
   }
-
-  int get _attentionCount =>
-      _reminders.where((r) => r.isExpired || r.isDueSoon).length;
 
   String get _greeting {
     if (_reminders.isEmpty) return 'Nothing to track yet';
-    if (_attentionCount > 0) {
-      return _attentionCount == 1
-          ? '1 renewal needs your attention'
-          : '$_attentionCount renewals need attention';
+    if (_overdueCount > 0) {
+      return _overdueCount == 1
+          ? 'You forgot 1 renewal'
+          : 'You forgot $_overdueCount renewals';
     }
-    return "You're all caught up!";
+    if (_dueSoonCount > 0) {
+      return _dueSoonCount == 1
+          ? '1 deadline is closing in'
+          : '$_dueSoonCount deadlines are closing in';
+    }
+    return "All calm — you're covered";
   }
 
   String get _sub {
     if (_reminders.isEmpty) {
       return 'Tap ﹢ and Bobo will remember your renewal dates for you 🦴';
     }
-    if (_attentionCount > 0) return "Let's get them sorted before they lapse.";
+    if (_overdueCount > 0) return "Let's sort these before they cost you.";
+    if (_dueSoonCount > 0) return 'Bobo is watching the clock on these.';
     return 'Bobo is keeping an eye on ${_reminders.length} '
         '${_reminders.length == 1 ? "renewal" : "renewals"} for you.';
   }
@@ -312,40 +350,86 @@ class _ReminderListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Bobo is the centre stage: a large mascot occupying a good chunk of
+        // the first view, with the status message right beneath, then the list.
+        final heroSize = (constraints.maxHeight * 0.34).clamp(180.0, 300.0);
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
           children: [
-            BoboMascot(size: 88, mood: mood, onTap: onPokeBobo),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    greeting,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: scheme.onSurface,
-                        ),
+            const SizedBox(height: 8),
+            Center(
+              child: BoboMascot(size: heroSize, mood: mood, onTap: onPokeBobo),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              greeting,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: scheme.onSurface,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    sub,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              sub,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.35,
                   ),
-                ],
-              ),
+            ),
+            const SizedBox(height: 24),
+            for (final r in reminders)
+              ReminderCard(reminder: r, onDelete: () => onDelete(r)),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// A small floating card with a celebrating Bobo, shown briefly on success.
+class _CelebrationCard extends StatelessWidget {
+  const _CelebrationCard({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 48),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
-        const SizedBox(height: 20),
-        for (final r in reminders)
-          ReminderCard(reminder: r, onDelete: () => onDelete(r)),
-      ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const BoboMascot(size: 150, mood: BoboMood.celebrating),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

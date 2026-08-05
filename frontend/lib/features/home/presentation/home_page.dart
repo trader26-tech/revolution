@@ -204,54 +204,54 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ListView(
-      children: [
-        const SizedBox(height: 24),
-        PandaMascot(size: 240, mood: mood, onTap: onPokePanda),
-        const SizedBox(height: 8),
-        Text(
-          'Pip',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: scheme.onSurfaceVariant,
-                letterSpacing: 1.2,
-              ),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            children: [
-              Text(
-                greeting,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: scheme.onSurface,
+    // Centre the whole hero in the available space and scroll only if a very
+    // short screen can't fit it — so Pip and the text never overlap.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  PandaMascot(size: 160, mood: mood, onTap: onPokePanda),
+                  const SizedBox(height: 24),
+                  Text(
+                    greeting,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSurface,
+                        ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    sub,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.4,
+                        ),
+                  ),
+                  if (pokes > 0) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      pokes == 1 ? 'Boop! 🐾' : 'Pip giggled ${pokes}x 🐾',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                sub,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-              ),
-              if (pokes > 0) ...[
-                const SizedBox(height: 6),
-                Text(
-                  pokes == 1 ? 'Boop! 🐾' : 'Pip giggled ${pokes}x 🐾',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

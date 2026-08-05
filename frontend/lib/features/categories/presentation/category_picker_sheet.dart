@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../domain/category_catalog.dart';
 
-/// Opens the category picker as a bottom sheet. Returns the [CategoryItem] the
-/// user tapped, or null if they dismissed it. (Creating a custom category is
-/// handled inside and also resolves via this future once implemented.)
-Future<CategoryItem?> showCategoryPicker(
+/// Opens the category picker as a bottom sheet.
+///
+/// Plain and minimal: a list of category buttons, nothing else. Tapping a
+/// category selects it and closes the sheet. Returns the chosen [Category], or
+/// null if dismissed.
+Future<Category?> showCategoryPicker(
   BuildContext context, {
   List<Category> extraCategories = const [],
 }) {
-  return showModalBottomSheet<CategoryItem>(
+  return showModalBottomSheet<Category>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
@@ -21,24 +24,15 @@ Future<CategoryItem?> showCategoryPicker(
   );
 }
 
-class _CategoryPickerSheet extends StatefulWidget {
+class _CategoryPickerSheet extends StatelessWidget {
   const _CategoryPickerSheet({required this.extraCategories});
 
   final List<Category> extraCategories;
 
-  @override
-  State<_CategoryPickerSheet> createState() => _CategoryPickerSheetState();
-}
-
-class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
-  int? _expanded; // index of the currently open category, null = none
-
-  List<Category> get _categories => [...kCatalog, ...widget.extraCategories];
+  List<Category> get _categories => [...kCatalog, ...extraCategories];
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // Cap the sheet so it never covers the whole screen.
     final maxH = MediaQuery.of(context).size.height * 0.8;
 
     return ConstrainedBox(
@@ -48,15 +42,14 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
-            child: Row(
-              children: [
-                Text(
-                  'Choose a category',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-              ],
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Choose a category',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
             ),
           ),
           Flexible(
@@ -64,16 +57,12 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               shrinkWrap: true,
               itemCount: _categories.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, i) {
                 final cat = _categories[i];
-                return _CategoryTile(
+                return _CategoryButton(
                   category: cat,
-                  expanded: _expanded == i,
-                  onToggle: () => setState(
-                    () => _expanded = _expanded == i ? null : i,
-                  ),
-                  onPickItem: (item) => Navigator.of(context).pop(item),
+                  onTap: () => Navigator.of(context).pop(cat),
                 );
               },
             ),
@@ -89,13 +78,13 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
             child: SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _createCategory,
+                onPressed: () => _createCategory(context),
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('Add category'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  foregroundColor: scheme.primary,
-                  side: BorderSide(color: scheme.primary.withValues(alpha: 0.5)),
+                  foregroundColor: AppColors.accent,
+                  side: BorderSide(color: AppColors.accent.withValues(alpha: 0.5)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -108,15 +97,13 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
     );
   }
 
-  Future<void> _createCategory() async {
+  Future<void> _createCategory(BuildContext context) async {
     final name = await showDialog<String>(
       context: context,
       builder: (_) => const _NewCategoryDialog(),
     );
     if (name == null || name.trim().isEmpty) return;
-    // A brand-new custom category starts empty. Persisting it + adding items is
-    // the next step; for now we confirm it so the flow is complete end-to-end.
-    if (mounted) {
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('“${name.trim()}” category created')),
       );
@@ -124,75 +111,49 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
   }
 }
 
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({
-    required this.category,
-    required this.expanded,
-    required this.onToggle,
-    required this.onPickItem,
-  });
+/// A single plain category button — one unified-colour icon + the name. No
+/// items, no counts, no expansion.
+class _CategoryButton extends StatelessWidget {
+  const _CategoryButton({required this.category, required this.onTap});
 
   final Category category;
-  final bool expanded;
-  final VoidCallback onToggle;
-  final ValueChanged<CategoryItem> onPickItem;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            onTap: onToggle,
-            leading: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: category.color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(category.icon, color: category.color),
-            ),
-            title: Text(
-              category.name,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            subtitle: Text('${category.items.length} items'),
-            trailing: AnimatedRotation(
-              turns: expanded ? 0.5 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: const Icon(Icons.expand_more_rounded),
-            ),
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.cardBorder),
           ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox(width: double.infinity),
-            secondChild: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final item in category.items)
-                    ActionChip(
-                      avatar: Text(item.emoji,
-                          style: const TextStyle(fontSize: 16)),
-                      label: Text(item.label),
-                      onPressed: () => onPickItem(item),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Row(
+              children: [
+                Icon(category.icon, color: AppColors.accent, size: 22),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    category.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                      fontSize: 15,
                     ),
-                ],
-              ),
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppColors.inkFaint),
+              ],
             ),
-            crossFadeState: expanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 200),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -21,12 +21,12 @@ class HomePage extends StatelessWidget {
   }
 
   Future<void> _add(BuildContext context) async {
-    // Tap Add → the category picker: all catalog categories (expandable to
-    // their items), plus an "Add category" button to create a custom one.
-    final CategoryItem? item = await showCategoryPicker(context);
-    if (item != null && context.mounted) {
+    // Tap Add → the category picker: plain category buttons, plus an
+    // "Add category" button to create a custom one.
+    final Category? category = await showCategoryPicker(context);
+    if (category != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Picked ${item.emoji} ${item.label}')),
+        SnackBar(content: Text('Picked ${category.name}')),
       );
     }
   }

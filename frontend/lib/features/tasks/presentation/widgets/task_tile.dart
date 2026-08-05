@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/task.dart';
+import 'animated_check_circle.dart';
 
 /// A single task in the home list: a tappable check circle, the title, and a
 /// due-date subtitle ("Tap to set a date" when unscheduled). Tapping the body
@@ -24,33 +25,35 @@ class TaskTile extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: onToggle,
-              behavior: HitTestBehavior.opaque,
-              child: Icon(
-                task.done
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked,
+        // The completed row gently dims — a calm "done" feel.
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 300),
+          opacity: task.done ? 0.6 : 1.0,
+          child: Row(
+            children: [
+              AnimatedCheckCircle(
+                checked: task.done,
+                onTap: onToggle,
                 size: 24,
-                color: task.done ? AppColors.accent : AppColors.inkFaint,
               ),
-            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    task.title,
+                  // The title softens + strikes through smoothly when completed.
+                  AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: task.done ? AppColors.inkFaint : AppColors.ink,
                       decoration:
                           task.done ? TextDecoration.lineThrough : null,
+                      decorationColor: AppColors.inkFaint,
                     ),
+                    child: Text(task.title),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -68,9 +71,10 @@ class TaskTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                size: 20, color: AppColors.inkFaint),
-          ],
+              const Icon(Icons.chevron_right_rounded,
+                  size: 20, color: AppColors.inkFaint),
+            ],
+          ),
         ),
       ),
     );

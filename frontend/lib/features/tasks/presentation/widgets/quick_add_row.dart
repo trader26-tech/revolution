@@ -28,38 +28,63 @@ class QuickAddRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          const Icon(Icons.radio_button_unchecked,
-              size: 22, color: AppColors.inkFaint),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              textCapitalization: TextCapitalization.sentences,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => onSubmitText(),
-              onTapOutside: (_) {
-                if (controller.text.trim().isEmpty) onTapOutsideEmpty();
-              },
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: 'Add a task…',
-                border: InputBorder.none,
-                hintStyle: TextStyle(color: AppColors.inkFaint),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.radio_button_unchecked,
+                  size: 22, color: AppColors.inkFaint),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => onSubmitText(),
+                  onTapOutside: (_) {
+                    if (controller.text.trim().isEmpty) onTapOutsideEmpty();
+                  },
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'Add a task…',
+                    border: InputBorder.none,
+                    hintStyle: TextStyle(color: AppColors.inkFaint),
+                  ),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.ink,
-                fontWeight: FontWeight.w500,
-              ),
+            ],
+          ),
+        ),
+        // A line to anchor the field, plus a short hint that it takes many —
+        // add details later.
+        const Divider(
+          height: 1,
+          thickness: 1,
+          indent: 16,
+          endIndent: 16,
+          color: AppColors.hairline,
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(50, 8, 16, 8),
+          child: Text(
+            'Add as many as you like — details later.',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: AppColors.inkFaint,
+              fontWeight: FontWeight.w500,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

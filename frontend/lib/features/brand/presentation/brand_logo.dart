@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/logo_resolver.dart';
 import '../domain/brand.dart';
 
 /// Shows a brand's logo, fetched from the network and cached by Flutter's image
@@ -26,32 +27,36 @@ class BrandLogo extends StatelessWidget {
       seed: brand.name,
     );
 
-    // Every (domain-variant × source) URL to try, in priority order. This is
-    // what gives high coverage: a wrong TLD guess or a slow source falls
-    // through to the next candidate before we ever show the letter avatar.
-    final urls = brand.logoUrlCandidates;
-    if (urls.isEmpty) return fallback;
+    if (brand.logoUrlCandidates.isEmpty) return fallback;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: _chain(urls, 0, fallback),
-    );
-  }
-
-  /// Try [urls[i]]; on error fall through to the next, finally the avatar.
-  Widget _chain(List<String> urls, int i, Widget fallback) {
-    if (i >= urls.length) return fallback;
-    return Image.network(
-      urls[i],
-      width: size,
-      height: size,
-      fit: BoxFit.cover,
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child; // done
-        return _LoadingBox(size: size, radius: radius);
+    // Probe the candidate sources and pick the first that returns a REAL,
+    // high-res image (skipping 1×1 placeholders). Cached, so it resolves once.
+    return FutureBuilder<String?>(
+      future: LogoResolver.instance.resolve(brand),
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return _LoadingBox(size: size, radius: radius);
+        }
+        final url = snap.data;
+        if (url == null) return fallback;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: Container(
+            width: size,
+            height: size,
+            color: Colors.white, // clean backdrop for transparent logos
+            // Inset so the FULL logo sits inside — nothing cropped (this fixes
+            // Zerodha, which was cover-cropped and only partly visible).
+            padding: EdgeInsets.all(size * 0.12),
+            child: Image.network(
+              url,
+              fit: BoxFit.contain, // whole logo, never crop
+              filterQuality: FilterQuality.high, // crisp downscaling
+              errorBuilder: (_, _, _) => fallback,
+            ),
+          ),
+        );
       },
-      // This source failed → try the next one, or the avatar if none left.
-      errorBuilder: (_, _, _) => _chain(urls, i + 1, fallback),
     );
   }
 }

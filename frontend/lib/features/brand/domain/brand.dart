@@ -1,23 +1,30 @@
 /// Where a logo image comes from. Each is a free, keyless service that returns
-/// a real PNG for a domain (formats Flutter can decode — we deliberately avoid
-/// .ico / .svg sources like DuckDuckGo, which won't render).
+/// a real PNG for a domain (formats Flutter can decode — we avoid .ico / .svg
+/// sources, which won't render).
 ///
-/// ORDER MATTERS: we try Google's favicon service FIRST because it's the most
-/// reliable (Google's CDN, never rate-limits, resolves almost any domain). The
-/// larger, crisper icon.horse comes second — great when it responds, but it's a
-/// small free service that can be slow/rate-limited from a device, which was
-/// making logos silently fail to appear.
-enum LogoSource { googleLarge, iconHorse, googleSmall }
+/// ORDER MATTERS: we try the HIGH-RESOLUTION sources first (icon.horse and
+/// allesedv both serve 200-256px logos), so the crispest image that loads wins.
+/// Google's favicon service comes last as the always-reliable fallback — it's
+/// low-res (often 16-48px) but resolves essentially any domain, so a logo is
+/// almost always shown even when the sharp sources miss.
+// High-res sources first (allesedv & icon.horse serve 200-256px). A probe (see
+// LogoResolver) skips any that return a tiny placeholder, so the FIRST real
+// high-res image wins. Google is the low-res but always-reliable safety net.
+enum LogoSource { allesedv, iconHorse, googleLarge, googleSmall }
 
 extension LogoSourceInfo on LogoSource {
   /// The image URL for [domain] from this source (empty domain → '').
   String urlFor(String domain) {
     if (domain.isEmpty) return '';
     switch (this) {
+      case LogoSource.allesedv:
+        // 256px PNGs — high-res for many brands Google serves tiny.
+        return 'https://f1.allesedv.com/256/$domain';
+      case LogoSource.iconHorse:
+        // Crisp, up to 256px when the site publishes a large icon.
+        return 'https://icon.horse/icon/$domain';
       case LogoSource.googleLarge:
         return 'https://www.google.com/s2/favicons?domain=$domain&sz=256';
-      case LogoSource.iconHorse:
-        return 'https://icon.horse/icon/$domain';
       case LogoSource.googleSmall:
         return 'https://www.google.com/s2/favicons?domain=$domain&sz=64';
     }

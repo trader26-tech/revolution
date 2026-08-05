@@ -10,6 +10,7 @@ import '../../reminders/domain/streak.dart';
 import '../../reminders/presentation/reminders_controller.dart';
 import '../../reminders/presentation/widgets/add_reminder_sheet.dart';
 import '../../reminders/presentation/widgets/reminder_card.dart';
+import 'widgets/animated_flame.dart';
 
 /// The Home (reminders) tab.
 ///
@@ -175,8 +176,9 @@ class _HomeView extends StatelessWidget {
   }
 }
 
-/// The home top bar, CultFit-style: a circular account avatar on the left, a
-/// Bobo + streak pill in the centre, and a frosted-glass "+" on the right.
+/// The home top bar: a circular account avatar on the left, Bobo + an animated
+/// flame + the streak text across the centre (no pill), and a frosted-glass "+"
+/// on the right. A clean top-line view of where you stand.
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.streak,
@@ -196,7 +198,7 @@ class _TopBar extends StatelessWidget {
         children: [
           _AccountAvatar(onTap: onOpenAccount),
           const SizedBox(width: 12),
-          Expanded(child: Center(child: _StreakPill(streak: streak))),
+          Expanded(child: _StreakStrip(streak: streak)),
           const SizedBox(width: 12),
           _GlassAddButton(onTap: onAdd),
         ],
@@ -229,63 +231,66 @@ class _AccountAvatar extends StatelessWidget {
   }
 }
 
-/// The centre streak chip — CultFit-style: a flame + "N day streak" inside a
-/// pill, with Bobo zoomed in and peeking off the right edge so he reads clearly
-/// instead of being a tiny dot.
-class _StreakPill extends StatelessWidget {
-  const _StreakPill({required this.streak});
+/// The streak strip — no pill. Just a bigger Bobo, an animated flame, and the
+/// streak text laid out cleanly across the top line.
+class _StreakStrip extends StatelessWidget {
+  const _StreakStrip({required this.streak});
   final StreakStatus streak;
 
-  /// Big number + "day streak", like Cult's "0 day streak".
-  int get _days => streak.onStreak ? (streak.streakDays < 0 ? 0 : streak.streakDays) : 0;
+  int get _days =>
+      streak.onStreak ? (streak.streakDays < 0 ? 0 : streak.streakDays) : 0;
+
+  String get _sub {
+    if (!streak.onStreak) return 'Let’s get back on track';
+    if (streak.dueSoonCount > 0) return 'Bobo’s watching closely';
+    return 'Bobo’s keeping it going';
+  }
 
   @override
   Widget build(BuildContext context) {
     final broken = !streak.onStreak;
-    final accent = broken ? const Color(0xFFE07A5F) : Bamboo.greenDeep;
-    final glow = broken ? const Color(0xFFE07A5F) : Bamboo.green;
+    final accent = broken ? const Color(0xFFC5643F) : Bamboo.ink;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.centerLeft,
+    return Row(
       children: [
-        // The pill. Extra right padding leaves room for Bobo's overhang.
-        Container(
-          padding: const EdgeInsets.fromLTRB(14, 8, 52, 8),
-          decoration: BoxDecoration(
-            color: Bamboo.card,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: glow.withValues(alpha: 0.22),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
+        // Bobo leads — bigger and clearly visible.
+        BoboMascot(size: 64, mood: streak.mood),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('🔥', style: TextStyle(fontSize: 18)),
-              const SizedBox(width: 7),
+              Row(
+                children: [
+                  AnimatedFlame(size: 20, lit: !broken),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      '$_days day streak',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: accent,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 19,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
               Text(
-                '$_days day streak',
-                style: TextStyle(
-                  color: accent,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
+                _sub,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Bamboo.inkSoft,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
                 ),
               ),
             ],
           ),
-        ),
-        // Bobo, zoomed in, peeking off the right edge of the pill.
-        Positioned(
-          right: -22,
-          top: -14,
-          bottom: -14,
-          child: BoboMascot(size: 62, mood: streak.mood),
         ),
       ],
     );

@@ -32,3 +32,20 @@ const List<CountryCode> kCountryCodes = [
   CountryCode(iso: 'JP', dial: '+81', flag: '🇯🇵', name: 'Japan'),
   CountryCode(iso: 'CN', dial: '+86', flag: '🇨🇳', name: 'China'),
 ];
+
+/// Split a stored E.164 number (e.g. '+919876543210') into its country and the
+/// national part ('9876543210'). Falls back to India + the raw digits when the
+/// dial code isn't recognised. Longer dial codes are matched first so '+1' vs
+/// '+91' don't collide.
+({CountryCode country, String national}) splitE164(String? e164) {
+  final raw = (e164 ?? '').trim();
+  final candidates = [...kCountryCodes]
+    ..sort((a, b) => b.dial.length.compareTo(a.dial.length));
+  for (final c in candidates) {
+    if (raw.startsWith(c.dial)) {
+      return (country: c, national: raw.substring(c.dial.length));
+    }
+  }
+  final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+  return (country: kCountryCodes.first, national: digits);
+}

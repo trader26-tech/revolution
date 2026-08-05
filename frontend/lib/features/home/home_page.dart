@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
+import '../calendar/domain/occurrences.dart';
 import '../onboarding/presentation/onboarding_flow.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
@@ -11,7 +12,7 @@ import '../tasks/presentation/filter_sheet.dart';
 import '../tasks/presentation/task_details_sheet.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
 import '../tasks/presentation/widgets/quick_add_row.dart';
-import '../tasks/presentation/widgets/task_tile.dart';
+import 'widgets/monthly_agenda.dart';
 
 /// The Home screen.
 ///
@@ -199,39 +200,36 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    // The quick-add input row (when active) on top, then the tasks.
-    final rows = <Widget>[
-      if (_adding)
-        QuickAddRow(
-          controller: _addController,
-          focusNode: _addFocus,
-          onSubmitText: _confirmAdd,
-          onTapOutsideEmpty: _closeAdd,
-          // The helper only shows on the very first add (nothing added yet).
-          // Once an item exists, the row is just the field — clean continuation.
-          showHint: tasks.isEmpty,
-        ),
-      for (final t in tasks)
-        TaskTile(
-          task: t,
-          onToggle: () => widget.store.toggleDone(t),
-          onOpenDetails: () => _editTask(t),
-          onDelete: () => _deleteTask(t),
-        ),
-    ];
+    // Split into scheduled (grouped by month → date) and unscheduled tasks.
+    final scheduled = [for (final t in tasks) if (t.isScheduled) t];
+    final unscheduled = [for (final t in tasks) if (!t.isScheduled) t];
 
-    return ListView.separated(
-      padding: const EdgeInsets.only(top: 4, bottom: 120),
-      itemCount: rows.length,
-      // A short, inset divider between rows — not edge-to-edge.
-      separatorBuilder: (_, _) => const Divider(
-        height: 1,
-        thickness: 1,
-        indent: 20,
-        endIndent: 20,
-        color: AppColors.hairline,
-      ),
-      itemBuilder: (_, i) => rows[i],
+    // Expand into dated occurrences so a recurring task appears in EVERY month
+    // it's due. Window: from the start of the current month, forward ~2 years,
+    // plus any past-due occurrences (so overdue items still show at the top).
+    final now = DateTime.now();
+    final windowStart = DateTime(now.year - 1, now.month, 1);
+    final windowEnd = DateTime(now.year + 2, now.month, 1);
+    final occ = expandOccurrences(scheduled, from: windowStart, to: windowEnd);
+    final months = groupByMonth(occ);
+
+    final quickAdd = _adding
+        ? QuickAddRow(
+            controller: _addController,
+            focusNode: _addFocus,
+            onSubmitText: _confirmAdd,
+            onTapOutsideEmpty: _closeAdd,
+            showHint: tasks.isEmpty,
+          )
+        : null;
+
+    return MonthlyAgenda(
+      months: months,
+      unscheduled: unscheduled,
+      leading: quickAdd,
+      onToggle: (t) => widget.store.toggleDone(t),
+      onOpenDetails: _editTask,
+      onDelete: _deleteTask,
     );
   }
 }

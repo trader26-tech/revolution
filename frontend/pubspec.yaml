@@ -45,6 +45,7 @@ dependencies:
 
   # Fetching brand/app logos by domain (Clearbit-style) for the icon picker.
   http: ^1.2.0
+  flutter_sticky_header: ^0.8.0
 
 dev_dependencies:
   flutter_test:

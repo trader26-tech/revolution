@@ -293,9 +293,16 @@ wait_for_app() {
 }
 
 # reload_session <name> <full:0|1>
+#
+# Sending the request is NOT proof it worked: if the tree has a compile error,
+# the daemon still answers, with code!=0 ("DevFS synchronization failed") and
+# the emulator silently keeps running the last good build. Reporting success on
+# a successful *write* would hide exactly the case you most need to know about,
+# so wait for the reply and surface the compiler's complaint.
 reload_session() {
   name="$1"; full="$2"
   pipe="${STATE_DIR}/${name}.in"
+  logf="${STATE_DIR}/${name}.log"
   app_id="$(cat "${STATE_DIR}/${name}.appid" 2>/dev/null || true)"
   [[ -p "${pipe}" && -n "${app_id}" ]] || return 0
 
@@ -307,10 +314,36 @@ reload_session() {
   fi
   # fd 3/4 keep the pipe open, so this write can't EOF the daemon.
   printf '[{"id":%d,"method":"app.restart","params":{"appId":"%s","fullRestart":%s,"pause":false,"reason":"manual"}}]\n' \
-    "${REQ_ID}" "${app_id}" "${flag}" > "${pipe}" 2>/dev/null \
-    && log "hot ${kind} → ${name}"
+    "${REQ_ID}" "${app_id}" "${flag}" > "${pipe}" 2>/dev/null || return 0
+
+  # Wait for this request's reply (RELOAD_TIMEOUT seconds, then give up).
+  reply=""
+  waited=0
+  while [[ ${waited} -lt ${RELOAD_TIMEOUT} ]]; do
+    reply="$(grep -oE "\{\"id\":${REQ_ID},\"result\":\{[^}]*\}" "${logf}" 2>/dev/null | tail -1)"
+    [[ -n "${reply}" ]] && break
+    sleep 1; waited=$((waited + 1))
+  done
+
+  if [[ -z "${reply}" ]]; then
+    log "hot ${kind} → ${name}: sent, no reply in ${RELOAD_TIMEOUT}s"
+    return 0
+  fi
+
+  code="$(printf '%s' "${reply}" | grep -oE '"code":[0-9]+' | cut -d: -f2)"
+  msg="$(printf '%s' "${reply}" | sed -E 's/.*"message":"([^"]*)".*/\1/')"
+  if [[ "${code}" == "0" ]]; then
+    log "hot ${kind} → ${name}: ${msg}"
+  else
+    log "hot ${kind} → ${name} FAILED: ${msg}"
+    # Show the first real compile error — that is almost always the cause.
+    firstErr="$(grep -E '^lib/.*: Error:' "${logf}" 2>/dev/null | tail -1)"
+    [[ -n "${firstErr}" ]] && log "  ${firstErr}"
+    log "  ${name} is still running the last build that compiled."
+  fi
 }
 REQ_ID=0
+RELOAD_TIMEOUT="${RELOAD_TIMEOUT:-30}"
 
 # --- boot everything ----------------------------------------------------
 if [[ "${NO_EMULATORS}" != "1" ]]; then

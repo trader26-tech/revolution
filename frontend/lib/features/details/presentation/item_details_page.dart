@@ -527,29 +527,21 @@ class _NameAmountCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    // Tappable currency badge — pick ₹ / $ / KD.
+                    // Tappable currency badge — tap to pick ₹ / $ / KD.
                     InkWell(
                       onTap: onTapCurrency,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: AppColors.accent.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(currency.symbol,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.accentDeep)),
-                            const SizedBox(width: 3),
-                            const Icon(Icons.arrow_drop_down,
-                                size: 18, color: AppColors.accentDeep),
-                          ],
-                        ),
+                        child: Text(currency.symbol,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accentDeep)),
                       ),
                     ),
                     const SizedBox(width: 10),

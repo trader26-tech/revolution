@@ -49,4 +49,12 @@ class TaskStore extends ChangeNotifier {
     _tasks.removeWhere((t) => t.id == task.id);
     notifyListeners();
   }
+
+  /// Re-insert a previously removed task at its old position (for Undo).
+  void restore(Task task, {int? at}) {
+    if (_tasks.any((t) => t.id == task.id)) return;
+    final index = (at ?? 0).clamp(0, _tasks.length);
+    _tasks.insert(index, task);
+    notifyListeners();
+  }
 }

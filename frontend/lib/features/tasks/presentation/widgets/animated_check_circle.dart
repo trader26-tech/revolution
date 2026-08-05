@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -41,6 +43,12 @@ class _AnimatedCheckCircleState extends State<AnimatedCheckCircle>
     parent: _c,
     curve: const Interval(0.35, 1.0, curve: Curves.easeOutCubic),
   );
+  // The radial burst: short rays fire outward and fade as the check completes
+  // (0 → nothing, 1 → rays at full reach + faded). Fires only near the end.
+  late final Animation<double> _burst = CurvedAnimation(
+    parent: _c,
+    curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+  );
   // A gentle overshoot bump that peaks mid-animation, giving a satisfying pop
   // without a lingering wobble.
   late final Animation<double> _pop = TweenSequence<double>([
@@ -76,20 +84,31 @@ class _AnimatedCheckCircleState extends State<AnimatedCheckCircle>
       // A little breathing room so the tap target stays comfortable.
       child: Padding(
         padding: const EdgeInsets.all(2),
-        child: AnimatedBuilder(
-          animation: _c,
-          builder: (context, _) {
-            return Transform.scale(
-              scale: _pop.value,
-              child: CustomPaint(
-                size: Size.square(widget.size),
-                painter: _CheckPainter(
-                  fill: _fill.value,
-                  tick: _tick.value,
-                ),
-              ),
-            );
-          },
+        // The layout footprint stays `size`; the painter's canvas is larger so
+        // the burst can spill outside the ring. OverflowBox lets it paint beyond
+        // the box without pushing the row's other content around.
+        child: SizedBox.square(
+          dimension: widget.size,
+          child: OverflowBox(
+            maxWidth: widget.size * 1.9,
+            maxHeight: widget.size * 1.9,
+            child: AnimatedBuilder(
+              animation: _c,
+              builder: (context, _) {
+                return Transform.scale(
+                  scale: _pop.value,
+                  child: CustomPaint(
+                    size: Size.square(widget.size * 1.9),
+                    painter: _CheckPainter(
+                      fill: _fill.value,
+                      tick: _tick.value,
+                      burst: _burst.value,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -97,7 +116,7 @@ class _AnimatedCheckCircleState extends State<AnimatedCheckCircle>
 }
 
 class _CheckPainter extends CustomPainter {
-  _CheckPainter({required this.fill, required this.tick});
+  _CheckPainter({required this.fill, required this.tick, required this.burst});
 
   /// 0 → empty ring, 1 → fully filled accent disc.
   final double fill;
@@ -105,11 +124,39 @@ class _CheckPainter extends CustomPainter {
   /// 0 → no tick, 1 → fully drawn checkmark.
   final double tick;
 
+  /// 0 → no burst, 1 → rays fully extended and faded out.
+  final double burst;
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    final radius = size.width / 2;
-    final stroke = size.width * 0.09;
+    // The ring itself occupies the inner ~52% of the oversized canvas, leaving
+    // room around it for the burst rays.
+    final radius = size.width * 0.263;
+    final stroke = radius * 2 * 0.09;
+
+    // The radial burst — short rays firing outward, fading as they reach full
+    // extent. Drawn first (behind the disc) so the circle stays crisp on top.
+    if (burst > 0 && burst < 1) {
+      const rayCount = 8;
+      final opacity = (1 - burst); // fade out as they travel
+      final rayPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke * 0.7
+        ..strokeCap = StrokeCap.round
+        ..color = AppColors.accent.withValues(alpha: opacity * 0.9);
+      final inner = radius * (1.15 + burst * 0.35);
+      final outer = radius * (1.25 + burst * 0.85);
+      for (var i = 0; i < rayCount; i++) {
+        final a = (i / rayCount) * 2 * 3.1415926;
+        final dx = math.cos(a), dy = math.sin(a);
+        canvas.drawLine(
+          center + Offset(dx * inner, dy * inner),
+          center + Offset(dx * outer, dy * outer),
+          rayPaint,
+        );
+      }
+    }
 
     // 1) The empty ring — greys when unchecked, tints toward accent as it fills.
     final ringPaint = Paint()
@@ -164,5 +211,5 @@ class _CheckPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CheckPainter old) =>
-      old.fill != fill || old.tick != tick;
+      old.fill != fill || old.tick != tick || old.burst != burst;
 }

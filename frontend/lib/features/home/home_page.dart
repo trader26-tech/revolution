@@ -73,7 +73,29 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _editTask(Task task) async {
     final updated = await showTaskDetailsSheet(context, task);
-    if (updated != null) widget.store.update(updated);
+    if (updated == null) return;
+    // A null-titled result from the sheet means "delete me".
+    if (updated.title.isEmpty) {
+      _deleteTask(task);
+    } else {
+      widget.store.update(updated);
+    }
+  }
+
+  /// Remove a task, with a SnackBar that offers an Undo.
+  void _deleteTask(Task task) {
+    widget.store.remove(task);
+    final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Deleted “${task.title}”'),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => widget.store.restore(task),
+        ),
+      ),
+    );
   }
 
   @override
@@ -171,10 +193,16 @@ class _HomePageState extends State<HomePage> {
           showHint: tasks.isEmpty,
         ),
       for (final t in tasks)
-        TaskTile(
-          task: t,
-          onToggle: () => widget.store.toggleDone(t),
-          onTap: () => _editTask(t),
+        Dismissible(
+          key: ValueKey(t.id),
+          direction: DismissDirection.endToStart,
+          background: const _DeleteBackground(),
+          onDismissed: (_) => _deleteTask(t),
+          child: TaskTile(
+            task: t,
+            onToggle: () => widget.store.toggleDone(t),
+            onTap: () => _editTask(t),
+          ),
         ),
     ];
 
@@ -190,6 +218,31 @@ class _HomePageState extends State<HomePage> {
         color: AppColors.hairline,
       ),
       itemBuilder: (_, i) => rows[i],
+    );
+  }
+}
+
+/// The red panel revealed when a task is swiped left — signals delete.
+class _DeleteBackground extends StatelessWidget {
+  const _DeleteBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFE5484D),
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 24),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Delete',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+          SizedBox(width: 8),
+          Icon(Icons.delete_outline_rounded, color: Colors.white),
+        ],
+      ),
     );
   }
 }

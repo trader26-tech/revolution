@@ -64,48 +64,79 @@ class QuickAddRow extends StatelessWidget {
   }
 }
 
-/// The floating action bar that sits just above the keyboard while adding:
-/// a small ✕ to close and a prominent accent ✓ to add the current task and
-/// keep going. Positioned by the caller above [MediaQuery.viewInsets.bottom].
+/// The single floating action button, bottom-right.
+///
+/// It IS the add control: a **+** when idle, which morphs into a **✓** while
+/// adding (same spot, animated icon swap). While adding, a small **✕** appears
+/// just above it to finish. The caller positions this above the nav bar when
+/// idle and above the keyboard while adding.
 class QuickAddBar extends StatelessWidget {
   const QuickAddBar({
     super.key,
+    required this.adding,
+    required this.onStart,
     required this.onConfirm,
     required this.onClose,
   });
 
-  /// Add the current text and keep the field open for the next task.
+  /// Whether we're mid-add (button shows ✓ + the ✕ is visible).
+  final bool adding;
+
+  /// Idle tap on the + — begin adding.
+  final VoidCallback onStart;
+
+  /// Tap on the ✓ — add the current text and keep going.
   final VoidCallback onConfirm;
 
-  /// Finish adding — dismiss the field and keyboard.
+  /// Tap on the ✕ — finish adding.
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: 20, bottom: 12),
+      padding: const EdgeInsets.only(right: 20, bottom: 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Small close (✕) button.
-          _RoundButton(
-            icon: Icons.close_rounded,
-            size: 44,
-            background: AppColors.card,
-            foreground: AppColors.inkSoft,
-            border: AppColors.cardBorder,
-            onTap: onClose,
-            tooltip: 'Close',
+          // The ✕ only exists while adding — it animates in/out above the FAB.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            child: adding
+                ? Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _RoundButton(
+                      icon: Icons.close_rounded,
+                      size: 44,
+                      background: AppColors.card,
+                      foreground: AppColors.inkSoft,
+                      border: AppColors.cardBorder,
+                      onTap: onClose,
+                      tooltip: 'Close',
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
-          const SizedBox(height: 12),
-          // Prominent accent tick (✓) — add & continue.
+          // The morphing main button: + ↔ ✓, always accent, always same spot.
           _RoundButton(
-            icon: Icons.check_rounded,
-            size: 56,
+            size: 58,
             accent: true,
-            onTap: onConfirm,
-            tooltip: 'Add task',
+            onTap: adding ? onConfirm : onStart,
+            tooltip: adding ? 'Add task' : 'Add',
+            iconWidget: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              transitionBuilder: (child, anim) => ScaleTransition(
+                scale: anim,
+                child: FadeTransition(opacity: anim, child: child),
+              ),
+              child: Icon(
+                adding ? Icons.check_rounded : Icons.add_rounded,
+                key: ValueKey(adding),
+                size: 30,
+                color: Colors.white,
+              ),
+            ),
           ),
         ],
       ),
@@ -115,17 +146,21 @@ class QuickAddBar extends StatelessWidget {
 
 class _RoundButton extends StatelessWidget {
   const _RoundButton({
-    required this.icon,
     required this.onTap,
     required this.size,
+    this.icon,
+    this.iconWidget,
     this.accent = false,
     this.background,
     this.foreground,
     this.border,
     this.tooltip,
-  });
+  }) : assert(icon != null || iconWidget != null);
 
-  final IconData icon;
+  final IconData? icon;
+
+  /// An animated icon (e.g. an AnimatedSwitcher) used instead of a static [icon].
+  final Widget? iconWidget;
   final VoidCallback onTap;
   final double size;
   final bool accent;
@@ -142,6 +177,7 @@ class _RoundButton extends StatelessWidget {
       child: Container(
         width: size,
         height: size,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: accent
@@ -162,11 +198,12 @@ class _RoundButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(
-          icon,
-          size: size * 0.5,
-          color: accent ? Colors.white : foreground,
-        ),
+        child: iconWidget ??
+            Icon(
+              icon,
+              size: size * 0.5,
+              color: accent ? Colors.white : foreground,
+            ),
       ),
     );
     return tooltip == null ? button : Tooltip(message: tooltip!, child: button);

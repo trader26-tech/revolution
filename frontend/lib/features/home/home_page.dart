@@ -70,8 +70,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Keyboard height — the floating bar sits just above it.
+    // Keyboard height — the FAB rides just above it while adding, and sits above
+    // the floating nav bar when idle.
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    const navBarClearance = 92.0; // room above the floating nav when idle
 
     return Stack(
       children: [
@@ -80,7 +82,7 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             children: [
               const SizedBox(height: 8),
-              _TopBar(onSettings: _openSettings, onAdd: _startAdd),
+              _TopBar(onSettings: _openSettings),
               const SizedBox(height: 8),
               Expanded(
                 child: AnimatedBuilder(
@@ -91,16 +93,23 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        // Floating ✓ / ✕ above the keyboard, right-aligned — only while adding.
-        if (_adding)
-          Positioned(
-            right: 0,
-            bottom: keyboardInset,
-            child: SafeArea(
-              top: false,
-              child: QuickAddBar(onConfirm: _confirmAdd, onClose: _closeAdd),
+        // The single morphing + / ✓ button, bottom-right. It slides up to sit
+        // above the keyboard while adding, and rests above the nav when idle.
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          right: 0,
+          bottom: _adding ? keyboardInset : navBarClearance,
+          child: SafeArea(
+            top: false,
+            child: QuickAddBar(
+              adding: _adding,
+              onStart: _startAdd,
+              onConfirm: _confirmAdd,
+              onClose: _closeAdd,
             ),
           ),
+        ),
       ],
     );
   }
@@ -145,12 +154,12 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/// The glass top bar: Settings on the left, a title, Add on the right.
+/// The glass top bar: Settings on the left. (Add now lives as the floating
+/// button above the keyboard, so it's not here.)
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onSettings, required this.onAdd});
+  const _TopBar({required this.onSettings});
 
   final VoidCallback onSettings;
-  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -164,12 +173,6 @@ class _TopBar extends StatelessWidget {
             onTap: onSettings,
           ),
           const Spacer(),
-          GlassIconButton(
-            icon: Icons.add,
-            tooltip: 'Add',
-            accent: true,
-            onTap: onAdd,
-          ),
         ],
       ),
     );

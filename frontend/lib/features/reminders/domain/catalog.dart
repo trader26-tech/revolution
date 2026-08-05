@@ -239,18 +239,6 @@ const ReminderCategory identityGovernmentCategory = ReminderCategory(
         ),
       ],
     ),
-    CatalogItem(
-      key: 'police_clearance',
-      title: 'Police Clearance Renewal',
-      icon: Icons.local_police_outlined,
-      validityKind: ValidityKind.fixedYears,
-      defaultValidityYears: 1, // PCC typically 6 months–1 year
-      defaultRemindDaysBefore: 30,
-      documentNumberLabel: 'PCC reference',
-      documentNumberHint: 'Optional',
-      tip: 'A Police Clearance Certificate is usually accepted for 6–12 months. '
-          'We remind you 1 month before it lapses.',
-    ),
   ],
 );
 
@@ -311,24 +299,6 @@ const ReminderCategory vehicleCategory = ReminderCategory(
       reviewIntervalMonths: 6,
       defaultRemindDaysBefore: 7,
     ),
-    CatalogItem(
-      key: 'battery_replacement',
-      title: 'Battery Replacement',
-      icon: Icons.battery_charging_full_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 36,
-      defaultRemindDaysBefore: 14,
-    ),
-    CatalogItem(
-      key: 'pollution_certificate',
-      title: 'Pollution Certificate (PUC)',
-      icon: Icons.eco_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 6,
-      defaultRemindDaysBefore: 14,
-      tip: 'A valid PUC is mandatory to drive. Petrol/diesel PUCs are usually '
-          'valid 6 months — we remind you 2 weeks ahead.',
-    ),
   ],
 );
 
@@ -352,30 +322,6 @@ const ReminderCategory insuranceCategory = ReminderCategory(
       key: 'health_insurance',
       title: 'Health Insurance Premium',
       icon: Icons.local_hospital_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 12,
-      defaultRemindDaysBefore: 30,
-    ),
-    CatalogItem(
-      key: 'home_insurance',
-      title: 'Home Insurance Renewal',
-      icon: Icons.house_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 12,
-      defaultRemindDaysBefore: 30,
-    ),
-    CatalogItem(
-      key: 'travel_insurance',
-      title: 'Travel Insurance Renewal',
-      icon: Icons.luggage_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 12,
-      defaultRemindDaysBefore: 14,
-    ),
-    CatalogItem(
-      key: 'personal_accident_insurance',
-      title: 'Personal Accident Insurance',
-      icon: Icons.personal_injury_outlined,
       validityKind: ValidityKind.evergreen,
       reviewIntervalMonths: 12,
       defaultRemindDaysBefore: 30,
@@ -543,105 +489,6 @@ const ReminderCategory utilitiesCategory = ReminderCategory(
   ],
 );
 
-const ReminderCategory healthCategory = ReminderCategory(
-  key: 'health',
-  label: 'Health',
-  icon: Icons.health_and_safety_outlined,
-  color: Color(0xFFEF4444),
-  items: [
-    CatalogItem(
-      key: 'medicine_refill',
-      title: 'Medicine Refill',
-      icon: Icons.medication_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 1,
-      defaultRemindDaysBefore: 5,
-    ),
-    CatalogItem(
-      key: 'annual_health_checkup',
-      title: 'Annual Health Check-up',
-      icon: Icons.monitor_heart_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 12,
-      defaultRemindDaysBefore: 14,
-    ),
-    CatalogItem(
-      key: 'dental_checkup',
-      title: 'Dental Check-up',
-      icon: Icons.medical_services_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 6,
-      defaultRemindDaysBefore: 14,
-    ),
-    CatalogItem(
-      key: 'eye_checkup',
-      title: 'Eye Check-up',
-      icon: Icons.remove_red_eye_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 12,
-      defaultRemindDaysBefore: 14,
-    ),
-    CatalogItem(
-      key: 'vaccination',
-      title: 'Vaccination Due',
-      icon: Icons.vaccines_outlined,
-      validityKind: ValidityKind.expiryOnly,
-      defaultRemindDaysBefore: 14,
-    ),
-  ],
-);
-
-const ReminderCategory homeCategory = ReminderCategory(
-  key: 'home',
-  label: 'Home',
-  icon: Icons.home_outlined,
-  color: Color(0xFF8B5CF6),
-  items: [
-    CatalogItem(
-      key: 'deep_cleaning',
-      title: 'Deep House Cleaning',
-      icon: Icons.cleaning_services_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 3,
-      defaultRemindDaysBefore: 7,
-    ),
-    CatalogItem(
-      key: 'ac_service',
-      title: 'AC Service',
-      icon: Icons.ac_unit_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 6,
-      defaultRemindDaysBefore: 14,
-      tip: 'Servicing before summer keeps the AC efficient. We remind you twice '
-          'a year, ahead of peak season.',
-    ),
-    CatalogItem(
-      key: 'water_purifier_filter',
-      title: 'Water Purifier Filter Change',
-      icon: Icons.water_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 6,
-      defaultRemindDaysBefore: 14,
-    ),
-    CatalogItem(
-      key: 'fire_extinguisher_service',
-      title: 'Fire Extinguisher Service',
-      icon: Icons.fire_extinguisher,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 12,
-      defaultRemindDaysBefore: 30,
-    ),
-    CatalogItem(
-      key: 'pest_control',
-      title: 'Pest Control',
-      icon: Icons.pest_control_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 6,
-      defaultRemindDaysBefore: 14,
-    ),
-  ],
-);
-
 const ReminderCategory familyPersonalCategory = ReminderCategory(
   key: 'family_personal',
   label: 'Family & Personal',
@@ -692,70 +539,14 @@ const ReminderCategory familyPersonalCategory = ReminderCategory(
   ],
 );
 
-const ReminderCategory digitalCategory = ReminderCategory(
-  key: 'digital',
-  label: 'Digital',
-  icon: Icons.devices_outlined,
-  color: Color(0xFF06B6D4),
-  items: [
-    CatalogItem(
-      key: 'change_passwords',
-      title: 'Change Passwords',
-      icon: Icons.password_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 6,
-      defaultRemindDaysBefore: 3,
-      tip: 'A twice-yearly password refresh on key accounts keeps you ahead of '
-          'breaches. We remind you so it actually happens.',
-    ),
-    CatalogItem(
-      key: 'cloud_backup',
-      title: 'Cloud Backup',
-      icon: Icons.cloud_upload_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 1,
-      defaultRemindDaysBefore: 2,
-    ),
-    CatalogItem(
-      key: 'laptop_backup',
-      title: 'Laptop Backup',
-      icon: Icons.laptop_mac_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 1,
-      defaultRemindDaysBefore: 2,
-    ),
-    CatalogItem(
-      key: 'software_subscription',
-      title: 'Software Subscription Renewal',
-      icon: Icons.apps_outlined,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 12,
-      defaultRemindDaysBefore: 7,
-    ),
-    CatalogItem(
-      key: 'ott_subscription',
-      title: 'OTT Subscription Renewal',
-      icon: Icons.play_circle_outline,
-      validityKind: ValidityKind.evergreen,
-      reviewIntervalMonths: 1,
-      defaultRemindDaysBefore: 3,
-      tip: 'Streaming plans auto-renew quietly. We remind you so you can cancel '
-          'or switch before the card is charged.',
-    ),
-  ],
-);
-
 /// Every category, in display order.
 const List<ReminderCategory> kCategories = [
   identityGovernmentCategory,
-  vehicleCategory,
   insuranceCategory,
-  bankingFinanceCategory,
+  vehicleCategory,
   utilitiesCategory,
-  healthCategory,
-  homeCategory,
+  bankingFinanceCategory,
   familyPersonalCategory,
-  digitalCategory,
 ];
 
 /// Flat lookup of every catalog item by its key, across all categories.

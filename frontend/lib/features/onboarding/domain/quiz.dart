@@ -38,7 +38,7 @@ const List<QuizQuestion> kQuiz = [
     color: Color(0xFF0EA5E9),
     itemKeys: [
       'car_insurance',
-      'pollution_certificate',
+      'vehicle_registration',
       'driving_license',
     ],
   ),
@@ -82,19 +82,7 @@ const List<QuizQuestion> kQuiz = [
     itemKeys: [
       'gas_bill',
       'internet_bill',
-      'ac_service',
-      'pest_control',
-    ],
-  ),
-  QuizQuestion(
-    key: 'health',
-    emoji: '🩺',
-    prompt: 'I mind my health',
-    color: Color(0xFFEF4444),
-    itemKeys: [
-      'annual_health_checkup',
-      'dental_checkup',
-      'medicine_refill',
+      'water_bill',
     ],
   ),
   QuizQuestion(
@@ -106,17 +94,6 @@ const List<QuizQuestion> kQuiz = [
       'sip_investment',
       'fixed_deposit_maturity',
       'income_tax_filing',
-    ],
-  ),
-  QuizQuestion(
-    key: 'digital',
-    emoji: '💻',
-    prompt: 'I live online',
-    color: Color(0xFF06B6D4),
-    itemKeys: [
-      'ott_subscription',
-      'software_subscription',
-      'change_passwords',
     ],
   ),
 ];

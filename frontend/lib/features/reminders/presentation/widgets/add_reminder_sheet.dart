@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/bamboo_palette.dart';
 import '../../../mascot/presentation/bobo_mascot.dart';
 import '../../data/reminders_repository.dart';
 import '../../domain/catalog.dart';
@@ -91,6 +92,25 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
     }
   }
 
+  /// "Create your own" — a tiny dialog: a name and a date, saved as a custom
+  /// reminder. For anything not in the catalog.
+  Future<void> _createOwn() async {
+    final draft = await showCreateOwnReminderDialog(context);
+    if (draft == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final created = await widget.repository.create(draft);
+      if (mounted) Navigator.of(context).pop(created);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't save: $e")),
+        );
+      }
+    }
+  }
+
   /// The quiet "customise" path — opens the full form for fine control.
   Future<void> _customise(ReminderCategory category, CatalogItem item) async {
     final created = await Navigator.of(context).push<Reminder>(
@@ -126,12 +146,16 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
             if (_busy) const LinearProgressIndicator(minHeight: 2),
             Flexible(
               child: groups.isEmpty
-                  ? _NoResults(query: _query)
+                  ? _NoResults(query: _query, onCreateOwn: _createOwn)
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: 24, top: 4),
-                      itemCount: groups.length,
+                      // +1 leading slot for the "Create your own" card.
+                      itemCount: groups.length + 1,
                       itemBuilder: (_, i) {
-                        final g = groups[i];
+                        if (i == 0) {
+                          return _CreateOwnCard(onTap: _createOwn);
+                        }
+                        final g = groups[i - 1];
                         return _CategorySection(
                           group: g,
                           onTapItem: (item) => _quickAdd(g.category, item),
@@ -425,8 +449,9 @@ class _Hint extends StatelessWidget {
 }
 
 class _NoResults extends StatelessWidget {
-  const _NoResults({required this.query});
+  const _NoResults({required this.query, required this.onCreateOwn});
   final String query;
+  final VoidCallback onCreateOwn;
 
   @override
   Widget build(BuildContext context) {
@@ -443,7 +468,86 @@ class _NoResults extends StatelessWidget {
               'Nothing matches "$query"',
               style: TextStyle(color: scheme.onSurfaceVariant),
             ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: onCreateOwn,
+              icon: const Icon(Icons.add),
+              label: Text('Create "$query"'),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The cute "create your own" entry at the top of the picker — a dashed,
+/// caramel card that invites the user to add anything not in the catalog.
+class _CreateOwnCard extends StatelessWidget {
+  const _CreateOwnCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Material(
+        color: Bamboo.green.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Bamboo.green.withValues(alpha: 0.45),
+                width: 1.5,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Bamboo.green,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.add, color: Colors.white, size: 26),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Create your own',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: Bamboo.ink,
+                              ),
+                        ),
+                        Text(
+                          'Anything else you want Bobo to remember',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Bamboo.inkSoft),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: Bamboo.greenDeep),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -501,6 +605,132 @@ class _CustomiseScreenState extends State<_CustomiseScreen> {
           onSubmit: _submit,
         ),
       ),
+    );
+  }
+}
+
+/// A small, clean dialog to create a custom reminder: a name and a "next due"
+/// date. Returns a ready-to-save [ReminderDraft], or null if cancelled.
+Future<ReminderDraft?> showCreateOwnReminderDialog(BuildContext context) {
+  return showDialog<ReminderDraft>(
+    context: context,
+    builder: (_) => const _CreateOwnDialog(),
+  );
+}
+
+class _CreateOwnDialog extends StatefulWidget {
+  const _CreateOwnDialog();
+
+  @override
+  State<_CreateOwnDialog> createState() => _CreateOwnDialogState();
+}
+
+class _CreateOwnDialogState extends State<_CreateOwnDialog> {
+  final _name = TextEditingController();
+  DateTime? _due;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  bool get _valid => _name.text.trim().isNotEmpty && _due != null;
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 30)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 10),
+      helpText: 'When is it due?',
+    );
+    if (picked != null) setState(() => _due = picked);
+  }
+
+  void _submit() {
+    final due = _due;
+    if (!_valid || due == null) return;
+    const remindDays = 7;
+    Navigator.of(context).pop(
+      ReminderDraft(
+        category: 'custom',
+        itemKey: 'custom',
+        title: _name.text.trim(),
+        expiryDate: due,
+        remindOn: due.subtract(const Duration(days: remindDays)),
+        remindDaysBefore: remindDays,
+        metadata: const {'source': 'custom'},
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dueLabel = _due == null
+        ? 'Pick a date'
+        : '${_due!.day.toString().padLeft(2, '0')}'
+            '/${_due!.month.toString().padLeft(2, '0')}/${_due!.year}';
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: const Text('Create your own'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _name,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'e.g. Gym membership',
+              filled: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: _pickDate,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Bamboo.cardBorder, width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.event, color: Bamboo.greenDeep, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    dueLabel,
+                    style: TextStyle(
+                      color: _due == null ? Bamboo.inkSoft : Bamboo.ink,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _valid ? _submit : null,
+          child: const Text('Add'),
+        ),
+      ],
     );
   }
 }

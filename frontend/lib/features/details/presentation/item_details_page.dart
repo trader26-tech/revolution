@@ -173,31 +173,12 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   const SizedBox(height: 20),
                   _Group(children: [
                     _Row(
-                      label: 'List',
-                      trailing: _ValuePicker(text: _d.list),
-                      onTap: () => _pickOption(
-                        OptionKind.list,
-                        _d.list,
-                        (v) => setState(() => _d.list = v),
-                      ),
-                    ),
-                    _Row(
                       label: 'Category',
                       trailing: _ValuePicker(text: _d.category),
                       onTap: () => _pickOption(
                         OptionKind.category,
                         _d.category,
                         (v) => setState(() => _d.category = v),
-                      ),
-                    ),
-                    _Row(
-                      label: 'Payment Method',
-                      trailing: _ValuePicker(text: _d.paymentMethod ?? 'None'),
-                      onTap: () => _pickOption(
-                        OptionKind.paymentMethod,
-                        _d.paymentMethod ?? 'None',
-                        (v) => setState(
-                            () => _d.paymentMethod = v == 'None' ? null : v),
                       ),
                     ),
                   ]),
@@ -253,7 +234,11 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }
 
   /// Shows a calendar in a bottom sheet. Returns the chosen date, or null on
-  /// cancel/dismiss. Selecting a day resolves immediately (auto-close).
+  /// cancel/dismiss.
+  ///
+  /// The sheet does NOT auto-close when the date changes — so you can pick the
+  /// year first, then the month/day — and only closes on the explicit Done
+  /// button. This fixes the "picking a year closed the picker" problem.
   Future<DateTime?> _showCalendarSheet({
     required String title,
     required DateTime initial,
@@ -274,10 +259,9 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                 title: title,
                 onCancel: () => Navigator.pop(sheetCtx),
               ),
-              _InlineCalendar(
-                selected: initial,
-                // A tap on a day picks it and closes the sheet.
-                onChanged: (d) => Navigator.pop(sheetCtx, d),
+              _CalendarPickerBody(
+                initial: initial,
+                onDone: (d) => Navigator.pop(sheetCtx, d),
               ),
               const SizedBox(height: 8),
             ],
@@ -331,9 +315,9 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                           fontWeight: FontWeight.w600)),
                 ),
               ),
-              _InlineCalendar(
-                selected: _d.durationUntil ?? _d.firstPaymentDate,
-                onChanged: (d) =>
+              _CalendarPickerBody(
+                initial: _d.durationUntil ?? _d.firstPaymentDate,
+                onDone: (d) =>
                     Navigator.pop(sheetCtx, _DurationResult.until(d)),
               ),
               const SizedBox(height: 8),
@@ -803,6 +787,48 @@ class _InlineCalendar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A calendar + a Done button. Holds the pending date locally so changing the
+/// YEAR (or month) keeps the picker open — nothing is committed until Done.
+class _CalendarPickerBody extends StatefulWidget {
+  const _CalendarPickerBody({required this.initial, required this.onDone});
+
+  final DateTime initial;
+  final ValueChanged<DateTime> onDone;
+
+  @override
+  State<_CalendarPickerBody> createState() => _CalendarPickerBodyState();
+}
+
+class _CalendarPickerBodyState extends State<_CalendarPickerBody> {
+  // Held in a plain field (not setState) so the CalendarDatePicker keeps its own
+  // month/year navigation state — we just remember the latest picked date and
+  // commit it on Done. Changing the year never closes the sheet.
+  late DateTime _pending = widget.initial;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _InlineCalendar(
+          selected: widget.initial,
+          onChanged: (d) => _pending = d,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => widget.onDone(_pending),
+              child: const Text('Done'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

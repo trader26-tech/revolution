@@ -17,17 +17,44 @@ class ApiClient {
 
   Uri _uri(String path) => Uri.parse('$_baseUrl$path');
 
-  Future<dynamic> get(String path) async {
-    final res = await _client.get(_uri(path), headers: _headers);
+  Map<String, String> _mergedHeaders(Map<String, String>? extra) => {
+        ..._headers,
+        ...?extra,
+      };
+
+  Future<dynamic> get(String path, {Map<String, String>? headers}) async {
+    final res = await _client.get(_uri(path), headers: _mergedHeaders(headers));
     return _decode(res);
   }
 
-  Future<dynamic> post(String path, {Object? body}) async {
+  Future<dynamic> post(
+    String path, {
+    Object? body,
+    Map<String, String>? headers,
+  }) async {
     final res = await _client.post(
       _uri(path),
-      headers: _headers,
+      headers: _mergedHeaders(headers),
       body: body == null ? null : jsonEncode(body),
     );
+    return _decode(res);
+  }
+
+  Future<dynamic> patch(
+    String path, {
+    Object? body,
+    Map<String, String>? headers,
+  }) async {
+    final res = await _client.patch(
+      _uri(path),
+      headers: _mergedHeaders(headers),
+      body: body == null ? null : jsonEncode(body),
+    );
+    return _decode(res);
+  }
+
+  Future<dynamic> delete(String path, {Map<String, String>? headers}) async {
+    final res = await _client.delete(_uri(path), headers: _mergedHeaders(headers));
     return _decode(res);
   }
 

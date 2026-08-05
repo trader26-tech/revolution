@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Comma-separated list in the env, e.g. CORS_ORIGINS="http://localhost:5173"
     cors_origins: list[str] = ["*"]
 
+    # Supabase — the backend is the only writer. Use the service role key.
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

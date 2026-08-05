@@ -65,13 +65,16 @@ class _HeroTag extends StatelessWidget {
         children: [
           const Text('🐾', style: TextStyle(fontSize: 15)),
           const SizedBox(width: 8),
-          Text(
-            'Your personal deadline keeper',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Bamboo.greenDeep,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.1,
-                ),
+          Flexible(
+            child: Text(
+              'Your personal deadline keeper',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Bamboo.greenDeep,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.1,
+                  ),
+            ),
           ),
         ],
       ),

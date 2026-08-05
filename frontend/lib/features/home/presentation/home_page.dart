@@ -10,14 +10,20 @@ import '../../reminders/presentation/widgets/add_reminder_sheet.dart';
 import '../../reminders/presentation/widgets/reminder_card.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, required this.ownerId, this.onSignOut});
+
+  /// The signed-in user's id — scopes all reminders to this account.
+  final String ownerId;
+
+  /// Signs the user out and returns to the phone-login screen.
+  final VoidCallback? onSignOut;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final _repo = RemindersRepository();
+  late final _repo = RemindersRepository(ownerId: widget.ownerId);
 
   List<Reminder> _reminders = [];
   bool _loading = true;
@@ -68,9 +74,36 @@ class _HomePageState extends State<HomePage> {
     await const OnboardingStore().reset();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const OnboardingGate(home: HomePage())),
+      MaterialPageRoute(
+        builder: (_) => OnboardingGate(
+          home: HomePage(ownerId: widget.ownerId, onSignOut: widget.onSignOut),
+        ),
+      ),
       (route) => false,
     );
+  }
+
+  Future<void> _confirmSignOut() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+          'You can sign back in any time with your phone number.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) widget.onSignOut?.call();
   }
 
   Future<void> _delete(Reminder r) async {
@@ -137,7 +170,11 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             children: [
               const SizedBox(height: 12),
-              _Header(onAdd: _openAddSheet, onRestartOnboarding: _restartOnboarding),
+              _Header(
+                onAdd: _openAddSheet,
+                onRestartOnboarding: _restartOnboarding,
+                onSignOut: widget.onSignOut == null ? null : _confirmSignOut,
+              ),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _load,
@@ -352,9 +389,14 @@ class _ErrorState extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onAdd, required this.onRestartOnboarding});
+  const _Header({
+    required this.onAdd,
+    required this.onRestartOnboarding,
+    this.onSignOut,
+  });
   final VoidCallback onAdd;
   final VoidCallback onRestartOnboarding;
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -373,6 +415,12 @@ class _Header extends StatelessWidget {
           ),
           Row(
             children: [
+              if (onSignOut != null)
+                IconButton(
+                  onPressed: onSignOut,
+                  icon: const Icon(Icons.logout),
+                  tooltip: 'Sign out',
+                ),
               // Dev-only: replay onboarding for testing.
               IconButton(
                 onPressed: onRestartOnboarding,

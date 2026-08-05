@@ -18,10 +18,16 @@ class OnboardingScaffold extends StatelessWidget {
     this.onSkip,
     this.footnote,
     this.busy = false,
+    this.centerContent = true,
   });
 
-  /// The centred hero content (mascot, headline, list…).
+  /// The hero content (mascot, headline, list…).
   final Widget content;
+
+  /// Whether to vertically centre [content]. True for short hero screens;
+  /// pass false for long, scrolling content (e.g. a checklist) so it
+  /// top-aligns and scrolls instead of being pushed off both ends.
+  final bool centerContent;
 
   /// Full-width primary button label. Null hides the button.
   final String? cta;
@@ -63,13 +69,16 @@ class OnboardingScaffold extends StatelessWidget {
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  final body = centerContent
+                      ? ConstrainedBox(
+                          constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight),
+                          child: Center(child: content),
+                        )
+                      : content;
                   return SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
-                    child: ConstrainedBox(
-                      constraints:
-                          BoxConstraints(minHeight: constraints.maxHeight),
-                      child: Center(child: content),
-                    ),
+                    child: body,
                   );
                 },
               ),

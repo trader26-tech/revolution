@@ -3,18 +3,19 @@ import '../domain/reminder.dart';
 
 /// Talks to the FastAPI backend, which is the only writer to Supabase.
 ///
-/// Ownership is carried by the `X-Owner-Id` header. For now this is a fixed
-/// placeholder so the whole flow works end-to-end; replace it with the real
-/// user id once auth lands (nothing about the id needs to live on the device).
+/// Ownership is carried by the `X-Owner-Id` header, set to the signed-in user's
+/// id (from phone login). Every request is therefore scoped to that account.
+/// The `demo-user` fallback only applies when no id is supplied (e.g. tests).
 class RemindersRepository {
   RemindersRepository({ApiClient? api, String? ownerId})
       : _api = api ?? ApiClient(),
-        _ownerId = ownerId ?? _placeholderOwnerId;
+        _ownerId = (ownerId != null && ownerId.isNotEmpty)
+            ? ownerId
+            : _placeholderOwnerId;
 
   final ApiClient _api;
   final String _ownerId;
 
-  // TODO(auth): replace with the authenticated user's id.
   static const String _placeholderOwnerId = 'demo-user';
 
   Map<String, String> get _ownerHeader => {'X-Owner-Id': _ownerId};

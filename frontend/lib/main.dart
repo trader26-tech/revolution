@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/presentation/auth_gate.dart';
 import 'features/home/presentation/home_page.dart';
 import 'features/onboarding/presentation/onboarding_gate.dart';
 
@@ -19,7 +20,14 @@ class RevolutionApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      home: const OnboardingGate(home: HomePage()),
+      // Phone login gates the whole app. Once signed in, the user's id scopes
+      // onboarding and every reminder to their own account.
+      home: AuthGate(
+        builder: (context, session, onSignOut) => OnboardingGate(
+          ownerId: session.userId,
+          home: HomePage(ownerId: session.userId, onSignOut: onSignOut),
+        ),
+      ),
     );
   }
 }

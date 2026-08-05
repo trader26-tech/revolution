@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../reminders/data/reminders_repository.dart';
 import '../../reminders/domain/scheduling.dart';
-import '../domain/quiz.dart';
 import 'onboarding_controller.dart';
-import 'steps/quiz_step.dart';
+import 'steps/checklist_step.dart';
 import 'steps/reveal_step.dart';
 import 'steps/stat_step.dart';
 import 'steps/welcome_step.dart';
 
-/// Orchestrates onboarding: Welcome → a few quiz taps → Reveal.
+/// Orchestrates onboarding: Welcome → Stat → Checklist → Reveal.
 ///
 /// On finish it writes the resolved reminders through the repository, then
 /// calls [onDone] so the caller can mark onboarding complete.
@@ -17,10 +16,15 @@ class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({
     super.key,
     required this.onDone,
+    this.ownerId,
     this.repository,
   });
 
   final Future<void> Function() onDone;
+
+  /// The signed-in user's id — reminders created during onboarding are scoped
+  /// to this account.
+  final String? ownerId;
   final RemindersRepository? repository;
 
   @override
@@ -31,7 +35,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final _pageController = PageController();
   final _controller = OnboardingController();
   late final RemindersRepository _repo =
-      widget.repository ?? RemindersRepository();
+      widget.repository ?? RemindersRepository(ownerId: widget.ownerId);
 
   int _page = 0;
   bool _busy = false;
@@ -81,12 +85,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         children: [
           WelcomeStep(onStart: _next),
           StatStep(onNext: _next),
-          for (final q in kQuiz)
-            QuizStep(
-              question: q,
-              controller: _controller,
-              onAnswered: _next,
-            ),
+          ChecklistStep(
+            controller: _controller,
+            onContinue: _next,
+          ),
           RevealStep(
             controller: _controller,
             busy: _busy,

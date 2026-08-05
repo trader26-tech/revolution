@@ -11,24 +11,31 @@ void main() {
       final c = OnboardingController();
       expect(c.count, 0);
       expect(c.resolvedItems, isEmpty);
+      expect(c.hasAny, isFalse);
     });
 
-    test('a "yes" adds items, a "no" adds nothing, no duplicates', () {
+    test('toggling a row selects then clears it', () {
       final c = OnboardingController();
-      c.answer(kQuiz[0], yes: true);
-      final afterFirst = c.count;
-      expect(afterFirst, greaterThan(0));
+      c.toggle(kQuiz[0]);
+      expect(c.isSelected(kQuiz[0]), isTrue);
+      expect(c.count, greaterThan(0));
 
-      c.answer(kQuiz[1], yes: false); // no-op
-      expect(c.count, afterFirst);
+      c.toggle(kQuiz[0]);
+      expect(c.isSelected(kQuiz[0]), isFalse);
+      expect(c.count, 0);
+    });
 
-      // Answering the same question yes again must not double-count.
-      c.answer(kQuiz[0], yes: true);
-      expect(c.count, afterFirst);
+    test('multiple rows union their items without duplicates', () {
+      final c = OnboardingController()
+        ..toggle(kQuiz[0])
+        ..toggle(kQuiz[1]);
+      final keys = c.resolvedItems.map((i) => i.key).toList();
+      expect(keys.toSet().length, keys.length, reason: 'no duplicates');
+      expect(c.count, keys.length);
     });
   });
 
-  testWidgets('walks Welcome → quiz taps → Reveal', (tester) async {
+  testWidgets('walks Welcome → Stat → Checklist → Reveal', (tester) async {
     var doneCalled = false;
 
     await tester.pumpWidget(
@@ -43,23 +50,24 @@ void main() {
     }
 
     // Welcome → stat.
-    expect(find.text('Meet Pip'), findsOneWidget);
-    await tester.tap(find.text('Meet Pip'));
+    expect(find.text('Meet Bobo'), findsOneWidget);
+    await tester.tap(find.text('Meet Bobo'));
     await advance();
 
-    // Stat framing screen → quiz.
+    // Stat framing screen → checklist.
     expect(find.text('That’s me'), findsOneWidget);
     await tester.tap(find.text('That’s me'));
     await advance();
 
-    // Answer each quiz question with a single tap; the flow auto-advances.
-    for (final q in kQuiz) {
-      expect(find.text(q.prompt), findsOneWidget);
-      await tester.tap(find.text('Yes, that’s me'));
-      await advance();
-    }
+    // Checklist: one screen, tick a couple of rows, then continue.
+    expect(find.text('Which of these\nare you?'), findsOneWidget);
+    await tester.tap(find.text(kQuiz[0].prompt));
+    await tester.tap(find.text(kQuiz[2].prompt));
+    await tester.pump();
+    await tester.tap(find.text('Continue'));
+    await advance();
 
-    // Reveal: the finish CTA, two-line message, no item list.
+    // Reveal: finish CTA present, not yet finished.
     expect(find.text('Let’s go'), findsOneWidget);
     expect(doneCalled, isFalse);
 

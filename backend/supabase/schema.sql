@@ -113,3 +113,39 @@ create trigger phone_verif_set_updated_at
 
 -- Same security posture as reminders: backend-only writer, RLS on, no public policy.
 alter table public.phone_verifications enable row level security;
+
+
+-- ---------------------------------------------------------------------------
+-- Users (multi-user accounts, phone-number login)
+--
+-- The phone number IS the identity. Logging in = find-or-create a row by phone;
+-- the returned `id` becomes the X-Owner-Id the client sends on every request,
+-- so each user only ever sees their own reminders.
+--
+-- No password / OTP yet — verification is a later step. `phone` is unique, so
+-- the same number always resolves to the same account (the "link to existing
+-- account" behaviour) instead of creating duplicates.
+-- ---------------------------------------------------------------------------
+create table if not exists public.users (
+    id          uuid primary key default gen_random_uuid(),
+
+    -- E.164, e.g. '+919876543210'. Unique — one account per number.
+    phone       text not null unique,
+
+    -- Optional profile fields, filled in later.
+    display_name text,
+
+    last_login_at timestamptz,
+    created_at   timestamptz not null default now(),
+    updated_at   timestamptz not null default now()
+);
+
+create unique index if not exists users_phone_idx on public.users (phone);
+
+drop trigger if exists users_set_updated_at on public.users;
+create trigger users_set_updated_at
+    before update on public.users
+    for each row execute function public.set_updated_at();
+
+-- Backend-only writer, RLS on, no public policy — same as the rest.
+alter table public.users enable row level security;

@@ -3,17 +3,22 @@ import 'package:flutter/material.dart';
 import '../data/onboarding_store.dart';
 import 'onboarding_flow.dart';
 
-/// Decides what the app opens to: onboarding on first run, otherwise [home].
+/// Decides what a signed-in user opens to: the reminder-onboarding flow on
+/// first run for this account, otherwise [home].
 ///
-/// Keeps the decision in one place so `main` stays declarative.
+/// Auth happens above this (see AuthGate); by the time we're here we already
+/// have a user id, threaded into onboarding so reminders it creates belong to
+/// the right account.
 class OnboardingGate extends StatefulWidget {
   const OnboardingGate({
     super.key,
     required this.home,
+    this.ownerId,
     this.store = const OnboardingStore(),
   });
 
   final Widget home;
+  final String? ownerId;
   final OnboardingStore store;
 
   @override
@@ -48,7 +53,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
       );
     }
     if (!complete) {
-      return OnboardingFlow(onDone: _finish);
+      return OnboardingFlow(onDone: _finish, ownerId: widget.ownerId);
     }
     return widget.home;
   }

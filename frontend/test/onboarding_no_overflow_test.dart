@@ -25,17 +25,24 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
     }
 
-    await tester.tap(find.text('Meet Pip'));
+    await tester.tap(find.text('Meet Bobo'));
     await advance();
 
     await tester.tap(find.text('That’s me'));
     await advance();
 
+    // Checklist screen — select every row (worst case for height). Scroll each
+    // into view first, like a real user; ensureVisible throws if a row can't be
+    // reached, catching any layout that traps content off-screen.
     for (final q in kQuiz) {
-      expect(find.text(q.prompt), findsOneWidget);
-      await tester.tap(find.text('Yes, that’s me'));
-      await advance();
+      await tester.ensureVisible(find.text(q.prompt));
+      await tester.pump();
+      await tester.tap(find.text(q.prompt));
     }
+    await tester.pump();
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.tap(find.text('Continue'));
+    await advance();
 
     expect(find.text('Let’s go'), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));

@@ -249,25 +249,28 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }) {
     return showModalBottomSheet<DateTime>(
       context: context,
+      isScrollControlled: true, // let the sheet size to its (tall) content
       backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetCtx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _SheetHeader(
-              title: title,
-              onCancel: () => Navigator.pop(sheetCtx),
-            ),
-            _InlineCalendar(
-              selected: initial,
-              // A tap on a day picks it and closes the sheet.
-              onChanged: (d) => Navigator.pop(sheetCtx, d),
-            ),
-            const SizedBox(height: 8),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SheetHeader(
+                title: title,
+                onCancel: () => Navigator.pop(sheetCtx),
+              ),
+              _InlineCalendar(
+                selected: initial,
+                // A tap on a day picks it and closes the sheet.
+                onChanged: (d) => Navigator.pop(sheetCtx, d),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
@@ -278,48 +281,53 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   Future<_DurationResult?> _showDurationSheet() {
     return showModalBottomSheet<_DurationResult>(
       context: context,
+      isScrollControlled: true, // Forever tile + full calendar is tall
       backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetCtx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _SheetHeader(
-              title: 'Duration',
-              onCancel: () => Navigator.pop(sheetCtx),
-            ),
-            ListTile(
-              leading: const Icon(Icons.all_inclusive_rounded,
-                  color: AppColors.accent),
-              title: const Text('Forever',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              trailing: _d.durationForever
-                  ? const Icon(Icons.check_rounded, color: AppColors.accent)
-                  : null,
-              onTap: () =>
-                  Navigator.pop(sheetCtx, const _DurationResult.forever()),
-            ),
-            const Divider(
-              height: 1, thickness: 1, indent: 16, endIndent: 16,
-              color: AppColors.hairline,
-            ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Or pick an end date',
-                    style: TextStyle(
-                        color: AppColors.inkSoft, fontWeight: FontWeight.w600)),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SheetHeader(
+                title: 'Duration',
+                onCancel: () => Navigator.pop(sheetCtx),
               ),
-            ),
-            _InlineCalendar(
-              selected: _d.durationUntil ?? _d.firstPaymentDate,
-              onChanged: (d) => Navigator.pop(sheetCtx, _DurationResult.until(d)),
-            ),
-            const SizedBox(height: 8),
-          ],
+              ListTile(
+                leading: const Icon(Icons.all_inclusive_rounded,
+                    color: AppColors.accent),
+                title: const Text('Forever',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                trailing: _d.durationForever
+                    ? const Icon(Icons.check_rounded, color: AppColors.accent)
+                    : null,
+                onTap: () =>
+                    Navigator.pop(sheetCtx, const _DurationResult.forever()),
+              ),
+              const Divider(
+                height: 1, thickness: 1, indent: 16, endIndent: 16,
+                color: AppColors.hairline,
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Or pick an end date',
+                      style: TextStyle(
+                          color: AppColors.inkSoft,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
+              _InlineCalendar(
+                selected: _d.durationUntil ?? _d.firstPaymentDate,
+                onChanged: (d) =>
+                    Navigator.pop(sheetCtx, _DurationResult.until(d)),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
@@ -616,11 +624,27 @@ class _Row extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
           children: [
-            Text(label,
+            // Label takes only what it needs but yields to the trailing value
+            // when space is tight, so nothing overflows the row.
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    fontSize: 16, color: AppColors.ink, fontWeight: FontWeight.w500)),
-            const Spacer(),
-            trailing,
+                    fontSize: 16,
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w500),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // The value can shrink/ellipsis too if it's very long.
+            Flexible(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: trailing,
+              ),
+            ),
           ],
         ),
       ),
@@ -658,8 +682,15 @@ class _ValuePicker extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(text,
-            style: const TextStyle(fontSize: 16, color: AppColors.inkSoft)),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 16, color: AppColors.inkSoft),
+          ),
+        ),
         const SizedBox(width: 4),
         const Icon(Icons.unfold_more_rounded, size: 18, color: AppColors.inkFaint),
       ],
@@ -726,11 +757,16 @@ class _InlineCalendar extends StatelessWidget {
                 onPrimary: Colors.white,
               ),
         ),
-        child: CalendarDatePicker(
-          initialDate: selected,
-          firstDate: DateTime(DateTime.now().year - 2),
-          lastDate: DateTime(DateTime.now().year + 30),
-          onDateChanged: onChanged,
+        // Bound the height so the month grid has a definite size inside a
+        // scroll view / min-sized column — prevents overflow.
+        child: SizedBox(
+          height: 340,
+          child: CalendarDatePicker(
+            initialDate: selected,
+            firstDate: DateTime(DateTime.now().year - 2),
+            lastDate: DateTime(DateTime.now().year + 30),
+            onDateChanged: onChanged,
+          ),
         ),
       ),
     );

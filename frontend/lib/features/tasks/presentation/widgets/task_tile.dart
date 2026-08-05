@@ -66,7 +66,7 @@ class _TaskTileState extends State<TaskTile> {
                         ),
                       ),
               ),
-              // Title + subtitle. Shrinks to make room; ellipsizes if needed.
+              // Title + subtitle. Expanded → shrinks to leave room for actions.
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

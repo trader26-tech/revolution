@@ -17,6 +17,9 @@ class _Preview extends StatelessWidget {
       home: Scaffold(
         backgroundColor: AppColors.bg,
         body: SafeArea(
+          child: Center(
+          child: SizedBox(
+          width: 393,
           child: ListView(
             children: [
               const Padding(

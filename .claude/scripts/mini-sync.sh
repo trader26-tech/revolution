@@ -157,25 +157,58 @@ boot_ios() {
 }
 
 # --- detect device ids --------------------------------------------------
-# `flutter devices --machine` emits a single-line JSON array. Split it into
-# one object per line first ('\{[^{}]*\}' — device objects have no nesting),
-# otherwise every grep matches the whole blob and returns the first id
-# regardless of platform. Require "emulator":true so a physically connected
-# phone is never picked up; override with ANDROID_ID / IOS_ID if you want one.
-detect_devices() {
-  local devices
-  devices="$(cd "${APP_DIR}" && flutter devices --machine 2>/dev/null || echo '[]')"
-  devices="$(printf '%s' "${devices}" | grep -oE '\{[^{}]*\}' || true)"
+# Emit one "id<TAB>platform<TAB>emulator" row per device.
+#
+# Do NOT try to regex the raw --machine output: it is pretty-printed across
+# many lines AND each device carries a nested "capabilities" object, so
+# brace-matching grabs the wrong braces and finds no "id" at all. Parse the
+# JSON properly, and fall back to the human-readable table if python3 is
+# missing (there, an iOS *simulator* is the row whose sdk is a CoreSimulator
+# runtime — a physically attached iPhone reports a real iOS version instead).
+parse_devices() {
+  local raw parsed
+  raw="$(cd "${APP_DIR}" && flutter devices --machine 2>/dev/null || echo '[]')"
+  parsed=""
 
+  if command -v python3 >/dev/null 2>&1; then
+    parsed="$(printf '%s' "${raw}" | python3 -c '
+import sys, json
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+for d in data:
+    print("%s\t%s\t%s" % (d.get("id",""), d.get("targetPlatform",""),
+                          "true" if d.get("emulator") else "false"))
+' 2>/dev/null)"
+  fi
+
+  if [[ -z "${parsed}" ]]; then
+    local text
+    text="$(cd "${APP_DIR}" && flutter devices 2>/dev/null | grep '•' || true)"
+    local a i
+    a="$(printf '%s\n' "${text}" | grep -oE 'emulator-[0-9]+' | head -1)"
+    i="$(printf '%s\n' "${text}" | grep 'CoreSimulator' \
+         | sed -E 's/.*• ([0-9A-Fa-f-]{36}) •.*/\1/' | head -1)"
+    [[ -n "${a}" ]] && parsed="${a}	android	true"
+    [[ -n "${i}" ]] && parsed="${parsed}
+${i}	ios	true"
+  fi
+  printf '%s' "${parsed}"
+}
+
+# Require emulator=true so a physically connected phone is never hijacked —
+# override with ANDROID_ID / IOS_ID if you actually want a real device.
+detect_devices() {
+  local rows
+  rows="$(parse_devices)"
   if [[ -z "${ANDROID_ID}" ]]; then
-    ANDROID_ID="$(printf '%s\n' "${devices}" \
-      | grep '"targetPlatform":"android' | grep '"emulator":true' \
-      | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4)"
+    ANDROID_ID="$(printf '%s\n' "${rows}" \
+      | awk -F'\t' '$2 ~ /^android/ && $3=="true" {print $1; exit}')"
   fi
   if [[ -z "${IOS_ID}" ]]; then
-    IOS_ID="$(printf '%s\n' "${devices}" \
-      | grep '"targetPlatform":"ios"' | grep '"emulator":true' \
-      | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4)"
+    IOS_ID="$(printf '%s\n' "${rows}" \
+      | awk -F'\t' '$2=="ios" && $3=="true" {print $1; exit}')"
   fi
 }
 

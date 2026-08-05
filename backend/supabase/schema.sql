@@ -210,3 +210,60 @@ alter table public.reminders
     references public.family_members (id) on delete set null;
 
 create index if not exists reminders_member_idx on public.reminders (member_id);
+
+
+-- ---------------------------------------------------------------------------
+-- Item details (rich subscription/renewal fields)
+--
+-- The extra fields a tracked item can carry beyond a plain name + date:
+-- amount, billing cycle, list, category, payment method, notification, etc.
+-- Mirrors the Flutter `ItemDetails` model. `owner_id` = X-Owner-Id (the user);
+-- `task_id` optionally links back to the task/reminder this detail belongs to.
+-- ---------------------------------------------------------------------------
+create table if not exists public.item_details (
+    id              uuid primary key default gen_random_uuid(),
+
+    owner_id        text not null,
+    task_id         text,
+
+    -- Name + amount.
+    name            text not null default '',
+    amount          numeric(14,2),
+    currency        text not null default '₹',
+
+    -- Billing.
+    first_payment_date date not null default (now()::date),
+    -- 'recurring' | 'one_time'
+    type            text not null default 'recurring',
+    -- 'weekly' | 'monthly' | 'quarterly' | 'half_yearly' | 'yearly'
+    cycle           text not null default 'monthly',
+    duration_forever boolean not null default true,
+    free_trial      boolean not null default false,
+
+    -- Organization.
+    list            text not null default 'Personal',
+    category        text not null default 'Other',
+    payment_method  text,
+
+    -- Reminder lead time:
+    -- 'none' | 'same_day' | 'one_day' | 'three_days' | 'one_week'
+    notify          text not null default 'one_day',
+
+    -- Extras.
+    url             text not null default '',
+    notes           text not null default '',
+
+    created_at      timestamptz not null default now(),
+    updated_at      timestamptz not null default now()
+);
+
+create index if not exists item_details_owner_idx on public.item_details (owner_id);
+create index if not exists item_details_task_idx  on public.item_details (task_id);
+
+drop trigger if exists item_details_set_updated_at on public.item_details;
+create trigger item_details_set_updated_at
+    before update on public.item_details
+    for each row execute function public.set_updated_at();
+
+-- Backend-only writer, RLS on, no public policy — same posture as the rest.
+alter table public.item_details enable row level security;

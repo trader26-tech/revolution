@@ -126,18 +126,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                         (v) => setState(() => _d.category = v),
                       ),
                     ),
-                    _Row(
-                      label: 'Payment Method',
-                      trailing: _ChevronValue(text: _d.paymentMethod ?? 'None'),
-                      onTap: () => _pickFromList(
-                        'Payment Method',
-                        ['None', 'Credit Card', 'Debit Card', 'UPI',
-                         'Net Banking', 'Cash'],
-                        _d.paymentMethod ?? 'None',
-                        (v) => setState(
-                            () => _d.paymentMethod = v == 'None' ? null : v),
-                      ),
-                    ),
                   ]),
                   const SizedBox(height: 20),
                   _Group(children: [
@@ -491,25 +479,6 @@ class _ValuePicker extends StatelessWidget {
             style: const TextStyle(fontSize: 16, color: AppColors.inkSoft)),
         const SizedBox(width: 4),
         const Icon(Icons.unfold_more_rounded, size: 18, color: AppColors.inkFaint),
-      ],
-    );
-  }
-}
-
-/// A value with a forward chevron (drills into a sub-screen).
-class _ChevronValue extends StatelessWidget {
-  const _ChevronValue({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(text,
-            style: const TextStyle(fontSize: 16, color: AppColors.inkSoft)),
-        const SizedBox(width: 4),
-        const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.inkFaint),
       ],
     );
   }

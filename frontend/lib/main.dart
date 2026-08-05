@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/auth_gate.dart';
-import 'features/home/presentation/home_page.dart';
 import 'features/onboarding/presentation/onboarding_gate.dart';
+import 'features/shell/presentation/app_shell.dart';
 
 void main() {
   runApp(const RevolutionApp());
@@ -25,7 +25,7 @@ class RevolutionApp extends StatelessWidget {
       home: AuthGate(
         builder: (context, session, onSignOut) => OnboardingGate(
           ownerId: session.userId,
-          home: HomePage(ownerId: session.userId, onSignOut: onSignOut),
+          home: AppShell(ownerId: session.userId, onSignOut: onSignOut),
         ),
       ),
     );

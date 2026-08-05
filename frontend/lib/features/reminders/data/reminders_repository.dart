@@ -18,6 +18,10 @@ class RemindersRepository {
 
   static const String _placeholderOwnerId = 'demo-user';
 
+  /// The account id these requests are scoped to. Exposed so sibling features
+  /// (e.g. the family picker in the add sheet) can share the same owner.
+  String get ownerId => _ownerId;
+
   Map<String, String> get _ownerHeader => {'X-Owner-Id': _ownerId};
 
   Future<List<Reminder>> list() async {

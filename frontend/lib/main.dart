@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
+import 'features/options/data/options_store.dart';
 import 'features/shell/app_shell.dart';
 
-void main() => runApp(const RevolutionApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Load the user's saved lists / categories / payment methods before the UI.
+  await OptionsStore.instance.load();
+  runApp(const RevolutionApp());
+}
 
 class RevolutionApp extends StatelessWidget {
   const RevolutionApp({super.key});

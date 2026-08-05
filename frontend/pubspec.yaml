@@ -39,6 +39,10 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # On-device persistence for user-added options (lists, categories, payment
+  # methods). Swappable for a DB-backed repo later — see OptionsStore.
+  shared_preferences: ^2.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

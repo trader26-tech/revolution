@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../options/data/options_store.dart';
+import '../../options/presentation/option_picker_sheet.dart';
 import '../domain/item_details.dart';
 
 /// The full-screen details editor — the rich form (amount, cycle, list,
@@ -24,6 +26,9 @@ class ItemDetailsPage extends StatefulWidget {
 
 class _ItemDetailsPageState extends State<ItemDetailsPage> {
   late final ItemDetails _d = widget.initial?.copy() ?? ItemDetails();
+
+  /// Whether the inline calendar under "First payment date" is open.
+  bool _dateExpanded = false;
 
   late final TextEditingController _name =
       TextEditingController(text: _d.name);
@@ -51,16 +56,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     Navigator.of(context).pop(_d);
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _d.firstPaymentDate,
-      firstDate: DateTime(DateTime.now().year - 2),
-      lastDate: DateTime(DateTime.now().year + 30),
-    );
-    if (picked != null) setState(() => _d.firstPaymentDate = picked);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -82,8 +77,39 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   _Group(children: [
                     _Row(
                       label: 'First payment date',
-                      trailing: _Chip(text: _fmtDate(_d.firstPaymentDate)),
-                      onTap: _pickDate,
+                      onTap: () =>
+                          setState(() => _dateExpanded = !_dateExpanded),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _Chip(text: _fmtDate(_d.firstPaymentDate)),
+                          const SizedBox(width: 8),
+                          // Down when closed, up when open. Tapping the row (or
+                          // this arrow) toggles the inline calendar below.
+                          AnimatedRotation(
+                            turns: _dateExpanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 24,
+                              color: AppColors.inkSoft,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // The inline full calendar — slides open under the row.
+                    AnimatedCrossFade(
+                      duration: const Duration(milliseconds: 220),
+                      firstChild: const SizedBox(width: double.infinity),
+                      secondChild: _InlineCalendar(
+                        selected: _d.firstPaymentDate,
+                        onChanged: (d) =>
+                            setState(() => _d.firstPaymentDate = d),
+                      ),
+                      crossFadeState: _dateExpanded
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
                     ),
                     _Row(
                       label: 'Type',
@@ -108,9 +134,8 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                     _Row(
                       label: 'List',
                       trailing: _ValuePicker(text: _d.list),
-                      onTap: () => _pickFromList(
-                        'List',
-                        ['Personal', 'Work', 'Family', 'Shared'],
+                      onTap: () => _pickOption(
+                        OptionKind.list,
                         _d.list,
                         (v) => setState(() => _d.list = v),
                       ),
@@ -118,12 +143,20 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                     _Row(
                       label: 'Category',
                       trailing: _ValuePicker(text: _d.category),
-                      onTap: () => _pickFromList(
-                        'Category',
-                        ['Other', 'Entertainment', 'Utilities', 'Insurance',
-                         'Finance', 'Health', 'Vehicle'],
+                      onTap: () => _pickOption(
+                        OptionKind.category,
                         _d.category,
                         (v) => setState(() => _d.category = v),
+                      ),
+                    ),
+                    _Row(
+                      label: 'Payment Method',
+                      trailing: _ValuePicker(text: _d.paymentMethod ?? 'None'),
+                      onTap: () => _pickOption(
+                        OptionKind.paymentMethod,
+                        _d.paymentMethod ?? 'None',
+                        (v) => setState(
+                            () => _d.paymentMethod = v == 'None' ? null : v),
                       ),
                     ),
                   ]),
@@ -195,14 +228,20 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     if (picked != null) onPick(picked);
   }
 
-  Future<void> _pickFromList(
-    String title,
-    List<String> options,
+  /// Store-backed picker for the customisable fields (List, Category, Payment
+  /// Method). Shows defaults + the user's saved options and an "Add new…" row;
+  /// new values are persisted via [OptionsStore].
+  Future<void> _pickOption(
+    OptionKind kind,
     String current,
     ValueChanged<String> onPick,
   ) async {
-    final picked =
-        await _showOptionSheet<String>(title, options, current, (s) => s);
+    final picked = await showOptionPicker(
+      context,
+      store: OptionsStore.instance,
+      kind: kind,
+      current: current,
+    );
     if (picked != null) onPick(picked);
   }
 
@@ -480,6 +519,47 @@ class _ValuePicker extends StatelessWidget {
         const SizedBox(width: 4),
         const Icon(Icons.unfold_more_rounded, size: 18, color: AppColors.inkFaint),
       ],
+    );
+  }
+}
+
+/// A full month calendar shown inline inside the details card (no modal). Wraps
+/// Flutter's [CalendarDatePicker] and themes it to the app's accent.
+class _InlineCalendar extends StatelessWidget {
+  const _InlineCalendar({required this.selected, required this.onChanged});
+
+  final DateTime selected;
+  final ValueChanged<DateTime> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        children: [
+          const Divider(
+            height: 1,
+            thickness: 1,
+            indent: 16,
+            endIndent: 16,
+            color: AppColors.hairline,
+          ),
+          Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: Theme.of(context).colorScheme.copyWith(
+                    primary: AppColors.accent,
+                    onPrimary: Colors.white,
+                  ),
+            ),
+            child: CalendarDatePicker(
+              initialDate: selected,
+              firstDate: DateTime(DateTime.now().year - 2),
+              lastDate: DateTime(DateTime.now().year + 30),
+              onDateChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

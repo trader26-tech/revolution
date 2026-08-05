@@ -61,14 +61,17 @@ class OnboardingScaffold extends StatelessWidget {
                     ),
             ),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.sizeOf(context).height * 0.55,
-                  ),
-                  child: Center(child: content),
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
+                      child: Center(child: content),
+                    ),
+                  );
+                },
               ),
             ),
             if (footnote != null)
@@ -87,6 +90,7 @@ class OnboardingScaffold extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
                 child: SizedBox(
                   width: double.infinity,
+                  height: 58,
                   child: FilledButton(
                     onPressed: busy ? null : onCta,
                     child: busy

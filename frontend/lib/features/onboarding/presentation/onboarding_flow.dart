@@ -36,9 +36,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   int _page = 0;
   bool _busy = false;
 
-  // Welcome + stat + one page per quiz question + reveal.
-  int get _pageCount => kQuiz.length + 3;
-
   @override
   void dispose() {
     _pageController.dispose();
@@ -96,35 +93,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             onFinish: _finish,
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// A thin top progress bar that fills as the user advances.
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.page, required this.pageCount});
-
-  final int page;
-  final int pageCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final progress = (page + 1) / pageCount;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: progress),
-          duration: const Duration(milliseconds: 300),
-          builder: (context, value, _) => LinearProgressIndicator(
-            value: value,
-            minHeight: 6,
-            backgroundColor: scheme.surfaceContainerHighest,
-          ),
-        ),
       ),
     );
   }

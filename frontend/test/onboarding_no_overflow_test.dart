@@ -25,12 +25,15 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
     }
 
-    await tester.tap(find.text('Start'));
+    await tester.tap(find.text('Meet Pip'));
+    await advance();
+
+    await tester.tap(find.text('That’s me'));
     await advance();
 
     for (final q in kQuiz) {
       expect(find.text(q.prompt), findsOneWidget);
-      await tester.tap(find.text('Yes'));
+      await tester.tap(find.text('Yes, that’s me'));
       await advance();
     }
 

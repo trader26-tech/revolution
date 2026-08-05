@@ -42,15 +42,20 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
     }
 
-    // Welcome: just Pip + a title + Start.
-    expect(find.text('Start'), findsOneWidget);
-    await tester.tap(find.text('Start'));
+    // Welcome → stat.
+    expect(find.text('Meet Pip'), findsOneWidget);
+    await tester.tap(find.text('Meet Pip'));
+    await advance();
+
+    // Stat framing screen → quiz.
+    expect(find.text('That’s me'), findsOneWidget);
+    await tester.tap(find.text('That’s me'));
     await advance();
 
     // Answer each quiz question with a single tap; the flow auto-advances.
     for (final q in kQuiz) {
       expect(find.text(q.prompt), findsOneWidget);
-      await tester.tap(find.text('Yes'));
+      await tester.tap(find.text('Yes, that’s me'));
       await advance();
     }
 

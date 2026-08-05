@@ -67,8 +67,8 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// A brief, delightful celebration: Bobo pops up celebrating, then fades.
-  /// Used whenever the user completes something (adds a reminder).
+  /// A brief celebration: Bobo appears celebrating, then fades. Used whenever
+  /// the user completes something (adds a reminder). No zoom/pop — a plain fade.
   void _celebrate(String message) {
     showGeneralDialog(
       context: context,
@@ -78,14 +78,10 @@ class _HomePageState extends State<HomePage> {
       transitionDuration: const Duration(milliseconds: 260),
       pageBuilder: (_, _, _) => const SizedBox.shrink(),
       transitionBuilder: (context, anim, _, _) {
-        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
         return Center(
-          child: ScaleTransition(
-            scale: curved,
-            child: FadeTransition(
-              opacity: anim,
-              child: _CelebrationCard(message: message),
-            ),
+          child: FadeTransition(
+            opacity: anim,
+            child: _CelebrationCard(message: message),
           ),
         );
       },

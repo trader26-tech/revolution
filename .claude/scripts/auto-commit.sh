@@ -18,9 +18,7 @@ set -euo pipefail
 ALLOWED_PATHS=(
   backend
   frontend
-  orbit
   .claude
-  AGENTS.md
   README.md
   .gitignore
 )

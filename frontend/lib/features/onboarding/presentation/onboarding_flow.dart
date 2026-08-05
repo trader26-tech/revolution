@@ -62,9 +62,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Future<void> _finish() async {
-    // Gate the finish on phone verification: the user confirms their number
-    // over WhatsApp before we set anything up. Backing out here just returns
-    // them to the reveal — onboarding is not marked complete.
+    // Collect the user's phone number before we set anything up. For now this
+    // is take-their-word-for-it (see PhoneEntryPage.bypassVerification); real
+    // WhatsApp verification lands later. Backing out returns them to the reveal
+    // and onboarding stays incomplete.
     final verifiedPhone = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (routeContext) => PhoneEntryPage(

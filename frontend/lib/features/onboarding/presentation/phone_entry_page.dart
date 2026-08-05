@@ -24,14 +24,28 @@ const _regions = <_Region>[
   _Region('GB', '+44', '🇬🇧', 'United Kingdom'),
 ];
 
-/// First onboarding screen: collect and verify the user's phone number.
+/// First onboarding screen: collect the user's phone number.
 ///
-/// On success it invokes [onVerified] with the confirmed E.164 number.
+/// On success it invokes [onVerified] with the E.164 number.
+///
+/// TODO(verify): WhatsApp verification is bypassed for now — we take the user's
+/// word for the number and let them continue, and they can edit it later. Flip
+/// [bypassVerification] to false (and remove the flag) once the Cloud API webhook
+/// is live to restore the one-tap WhatsApp confirmation step.
 class PhoneEntryPage extends StatefulWidget {
-  const PhoneEntryPage({super.key, this.repository, this.onVerified});
+  const PhoneEntryPage({
+    super.key,
+    this.repository,
+    this.onVerified,
+    this.bypassVerification = true,
+  });
 
   final VerificationRepository? repository;
   final ValueChanged<String>? onVerified;
+
+  /// When true, "Continue" accepts a well-formed number without the WhatsApp
+  /// round-trip. Temporary until the API integration lands.
+  final bool bypassVerification;
 
   @override
   State<PhoneEntryPage> createState() => _PhoneEntryPageState();
@@ -61,10 +75,18 @@ class _PhoneEntryPageState extends State<PhoneEntryPage> {
       _error = null;
     });
 
-    // Send the number with its dial code prefixed so the backend gets an
-    // unambiguous E.164 value; region is a fallback for how it's interpreted.
+    // Build the E.164 number: prefix the region's dial code unless the user
+    // already typed one.
     final raw = _controller.text.trim();
     final phone = raw.startsWith('+') ? raw : '${_region.dial}$raw';
+
+    // Bypass mode: take the user's word for it. No API call, no WhatsApp step —
+    // just accept the number and continue. Real verification lands later.
+    if (widget.bypassVerification) {
+      widget.onVerified?.call(phone);
+      if (mounted) setState(() => _submitting = false);
+      return;
+    }
 
     try {
       final start = await _repo.start(phone, region: _region.code);
@@ -127,7 +149,7 @@ class _PhoneEntryPageState extends State<PhoneEntryPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Pip will verify it in one tap over WhatsApp — no SMS, no code to type back.",
+                  "Pip uses this to keep your reminders yours. You can change it any time.",
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,

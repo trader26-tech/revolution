@@ -320,8 +320,13 @@ create table if not exists public.brand_logos (
     id         uuid primary key default gen_random_uuid(),
 
     name       text not null,            -- display name, e.g. 'Swiggy'
+    category   text not null default 'Other', -- e.g. 'Banking & Finance'
     keywords   text not null default '', -- match text, e.g. 'swiggy food delivery'
     logo_url   text not null,            -- public URL in the brand-logos bucket
+
+    -- Source of the row: 'seed' (pre-uploaded), 'admin' (you added), or
+    -- 'user' (auto-saved when a user picked an icon we didn't already have).
+    source     text not null default 'admin',
 
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()

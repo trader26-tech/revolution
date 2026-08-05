@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../brand/data/brand_catalog.dart';
+import '../../brand/data/custom_logo_store.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
 import '../../brand/presentation/brand_picker_sheet.dart';
@@ -115,6 +116,9 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
         _d.name = brand.name;
       }
     });
+    // Save the pick to the server so the curated logo set grows from real
+    // usage. Category = the item's category. Best-effort, fire-and-forget.
+    CustomLogoStore.instance.saveUserPick(brand, category: _d.category);
   }
 
   /// Pick the currency (₹ / $ / KD). Re-groups the amount for the new system.

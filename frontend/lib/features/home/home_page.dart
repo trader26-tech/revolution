@@ -57,12 +57,20 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// Add the current text and keep the field open for the next task (the ✓).
-  void _confirmAdd() {
+  Future<void> _confirmAdd() async {
     final text = _addController.text.trim();
     if (text.isEmpty) return;
-    widget.store.add(text);
     _addController.clear();
     _addFocus.requestFocus(); // keep going
+    try {
+      await widget.store.add(text);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't add task: $e")),
+        );
+      }
+    }
   }
 
   /// Finish adding — clear + dismiss the field and keyboard (the ✕ / tap-out).

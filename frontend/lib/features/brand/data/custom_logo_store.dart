@@ -6,16 +6,19 @@ import '../domain/brand.dart';
 class CustomLogo {
   const CustomLogo({
     required this.name,
+    required this.category,
     required this.keywords,
     required this.logoUrl,
   });
 
   final String name;
+  final String category;
   final String keywords;
   final String logoUrl;
 
   factory CustomLogo.fromJson(Map<String, dynamic> j) => CustomLogo(
         name: j['name'] as String? ?? '',
+        category: j['category'] as String? ?? 'Other',
         keywords: j['keywords'] as String? ?? '',
         logoUrl: j['logo_url'] as String? ?? '',
       );
@@ -49,6 +52,26 @@ class CustomLogoStore {
   }
 
   bool get isLoaded => _loaded;
+
+  /// Auto-save a brand the user picked, so the curated set grows from real
+  /// usage. Best-effort + idempotent (server ignores duplicate names). Skips
+  /// brands that have no usable logo URL.
+  Future<void> saveUserPick(Brand brand, {String category = 'Other'}) async {
+    final urls = brand.logoUrlCandidates;
+    if (urls.isEmpty) return;
+    // Don't re-save something we already have a curated match for.
+    if (match(brand.name) != null) return;
+    try {
+      await _api.post('/brand-logos', {
+        'name': brand.name,
+        'logo_url': urls.first,
+        'category': category,
+        'keywords': brand.name.toLowerCase(),
+      });
+    } catch (_) {
+      // Non-fatal.
+    }
+  }
 
   /// The best curated match for [query], or null if none is close enough.
   CustomLogo? match(String query) {

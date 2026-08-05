@@ -190,18 +190,11 @@ class _HomePageState extends State<HomePage> {
         ),
     ];
 
-    return ListView.separated(
-      padding: const EdgeInsets.only(top: 4, bottom: 120),
-      itemCount: rows.length,
-      // A short, inset divider between rows — not edge-to-edge.
-      separatorBuilder: (_, _) => const Divider(
-        height: 1,
-        thickness: 1,
-        indent: 20,
-        endIndent: 20,
-        color: AppColors.hairline,
-      ),
-      itemBuilder: (_, i) => rows[i],
+    // Cards carry their own vertical margins, so the list is a plain ListView
+    // (no dividers) — each task reads as its own rounded card.
+    return ListView(
+      padding: const EdgeInsets.only(top: 6, bottom: 120),
+      children: rows,
     );
   }
 }

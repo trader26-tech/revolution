@@ -44,21 +44,43 @@ class _TaskTileState extends State<TaskTile> {
   Widget build(BuildContext context) {
     final task = widget.task;
 
-    return InkWell(
-      // Tap the row → open details. Long-press → reveal the Delete section.
-      // (When it's open, a tap closes it.)
-      onTap: _open ? _toggleOpen : widget.onOpenDetails,
-      onLongPress: _toggleOpen,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 300),
-        opacity: task.done ? 0.6 : 1.0,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
+    // Each task is its own rounded card, so it's clearly a distinct item —
+    // not a flat row split by a hairline.
+    return AnimatedContainer(
+      duration: _dur,
+      curve: _curve,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: _open ? AppColors.accent.withValues(alpha: 0.35)
+                        : AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        // Tap the row → open details. Long-press → reveal the Delete section.
+        // (When it's open, a tap closes it.)
+        onTap: _open ? _toggleOpen : widget.onOpenDetails,
+        onLongPress: _toggleOpen,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 300),
+          opacity: task.done ? 0.6 : 1.0,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
                   // Logo on the left. BrandLogo falls back to a coloured
                   // letter-avatar when the task has no real logo, so the left
                   // slot is always a tidy tile.
@@ -121,17 +143,18 @@ class _TaskTileState extends State<TaskTile> {
                 ],
               ),
             ),
-            // The subtle drop-down section — a single quiet Delete action,
-            // revealed on long-press.
-            AnimatedSize(
-              duration: _dur,
-              curve: _curve,
-              alignment: Alignment.topCenter,
-              child: _open
-                  ? _DeleteSection(onDelete: widget.onDelete)
-                  : const SizedBox(width: double.infinity),
-            ),
-          ],
+              // The subtle drop-down section — a single quiet Delete action,
+              // revealed on long-press.
+              AnimatedSize(
+                duration: _dur,
+                curve: _curve,
+                alignment: Alignment.topCenter,
+                child: _open
+                    ? _DeleteSection(onDelete: widget.onDelete)
+                    : const SizedBox(width: double.infinity),
+              ),
+            ],
+          ),
         ),
       ),
     );

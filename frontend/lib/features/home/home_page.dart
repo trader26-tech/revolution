@@ -73,7 +73,9 @@ class _HomePageState extends State<HomePage> {
     // Keyboard height — the FAB rides just above it while adding, and sits above
     // the floating nav bar when idle.
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    const navBarClearance = 92.0; // room above the floating nav when idle
+    // Just enough to clear the floating nav bar (~64h + 16 margin) — the FAB
+    // rests low, right above the nav, not high up the screen.
+    const navBarClearance = 44.0;
 
     return Stack(
       children: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/utils/date_format.dart';
+import '../../../family/domain/family_member.dart';
 import '../../domain/catalog.dart';
 import '../../domain/reminder.dart';
 
@@ -10,10 +11,15 @@ class ReminderCard extends StatelessWidget {
     super.key,
     required this.reminder,
     required this.onDelete,
+    this.member,
   });
 
   final Reminder reminder;
   final VoidCallback onDelete;
+
+  /// The family member this reminder is for. When set, a small "· Name" chip is
+  /// shown so the head can tell whose renewal this is at a glance.
+  final FamilyMember? member;
 
   CatalogItem? get _catalogItem {
     for (final c in kCategories) {
@@ -115,9 +121,21 @@ class ReminderCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '${status.expiryLabel} ${DateFmt.medium(reminder.expiryDate)}',
-                      style: theme.textTheme.bodySmall,
+                    Row(
+                      children: [
+                        if (member != null) ...[
+                          _MemberChip(member: member!),
+                          const SizedBox(width: 8),
+                        ],
+                        Flexible(
+                          child: Text(
+                            '${status.expiryLabel} ${DateFmt.medium(reminder.expiryDate)}',
+                            style: theme.textTheme.bodySmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -157,6 +175,39 @@ class _StatusStyle {
   const _StatusStyle(this.color, this.expiryLabel);
   final Color color;
   final String expiryLabel;
+}
+
+/// A tiny colour-coded pill naming the family member a reminder belongs to.
+class _MemberChip extends StatelessWidget {
+  const _MemberChip({required this.member});
+  final FamilyMember member;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = member.color;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.person, size: 11, color: color),
+          const SizedBox(width: 3),
+          Text(
+            member.isSelf ? 'You' : member.name,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _StatusPill extends StatelessWidget {

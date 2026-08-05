@@ -135,6 +135,7 @@ class _HomeView extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: ReminderCard(
                 reminder: r,
+                member: controller.memberFor(r),
                 onDelete: () => _delete(context, r),
               ),
             ),

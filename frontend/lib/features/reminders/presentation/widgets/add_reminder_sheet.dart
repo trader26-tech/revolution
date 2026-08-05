@@ -127,8 +127,9 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
   /// "Create your own" — a tiny dialog: a name and a date, saved as a custom
   /// reminder. For anything not in the catalog.
   Future<void> _createOwn() async {
-    final draft = await showCreateOwnReminderDialog(context);
-    if (draft == null || !mounted) return;
+    final base = await showCreateOwnReminderDialog(context);
+    if (base == null || !mounted) return;
+    final draft = base.withMember(_selectedMemberId);
     setState(() => _busy = true);
     try {
       final created = await widget.repository.create(draft);
@@ -152,6 +153,7 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
           repository: widget.repository,
           category: category,
           item: item,
+          memberId: _selectedMemberId,
         ),
       ),
     );
@@ -174,6 +176,13 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
             const _Grabber(),
             // Bobo, pencil out — ready to note down whatever you pick.
             const _WritingHeader(),
+            // "For:" — whom this reminder belongs to. Defaults to You.
+            if (_members.isNotEmpty)
+              _MemberPicker(
+                members: _members,
+                selectedId: _selectedMemberId,
+                onSelect: (id) => setState(() => _selectedMemberId = id),
+              ),
             _SearchBar(controller: _search),
             if (_busy) const LinearProgressIndicator(minHeight: 2),
             Flexible(
@@ -420,6 +429,80 @@ class _Grabber extends StatelessWidget {
 
 /// Bobo in "writing" mode at the top of the picker — he notes down whatever you
 /// choose, so adding a reminder feels like handing it to someone.
+/// The "For:" row — a horizontal strip of member avatars. Tapping one assigns
+/// every reminder added in this session to that person. Minimal input: it's
+/// pre-selected to "You", so the user only taps if it's for someone else.
+class _MemberPicker extends StatelessWidget {
+  const _MemberPicker({
+    required this.members,
+    required this.selectedId,
+    required this.onSelect,
+  });
+
+  final List<FamilyMember> members;
+  final String? selectedId;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            child: Text(
+              'For',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Bamboo.inkSoft,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+          SizedBox(
+            height: 68,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: members.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, i) {
+                final m = members[i];
+                final selected = m.id == selectedId;
+                return GestureDetector(
+                  onTap: () => onSelect(m.id),
+                  behavior: HitTestBehavior.opaque,
+                  child: SizedBox(
+                    width: 56,
+                    child: Column(
+                      children: [
+                        MemberAvatar(member: m, size: 44, selected: selected),
+                        const SizedBox(height: 4),
+                        Text(
+                          m.isSelf ? 'You' : m.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                            color: selected ? m.color : Bamboo.inkSoft,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _WritingHeader extends StatelessWidget {
   const _WritingHeader();
 
@@ -593,11 +676,13 @@ class _CustomiseScreen extends StatefulWidget {
     required this.repository,
     required this.category,
     required this.item,
+    this.memberId,
   });
 
   final RemindersRepository repository;
   final ReminderCategory category;
   final CatalogItem item;
+  final String? memberId;
 
   @override
   State<_CustomiseScreen> createState() => _CustomiseScreenState();
@@ -609,7 +694,9 @@ class _CustomiseScreenState extends State<_CustomiseScreen> {
   Future<void> _submit(ReminderDraft draft) async {
     setState(() => _submitting = true);
     try {
-      final created = await widget.repository.create(draft);
+      // Carry the member chosen back in the picker.
+      final created =
+          await widget.repository.create(draft.withMember(widget.memberId));
       if (mounted) Navigator.of(context).pop(created);
     } catch (e) {
       if (mounted) {

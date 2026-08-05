@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../family/domain/family_member.dart';
 import '../../reminders/domain/catalog.dart';
 import '../domain/quiz.dart';
 
@@ -7,8 +8,29 @@ import '../domain/quiz.dart';
 ///
 /// The user ticks any number of rows on one screen; each ticked row contributes
 /// its item keys. The reveal and the finish step read [resolvedItems]/[count].
+///
+/// It also collects the family members the head adds during onboarding, saved
+/// on finish so the whole family → members → reminders chain is set up day one.
 class OnboardingController extends ChangeNotifier {
   final Set<String> _selected = <String>{};
+
+  // Extra family members added during onboarding (the head's own "You" record
+  // is created by the backend, so it's not in this list).
+  final List<FamilyMemberDraft> _familyDrafts = [];
+
+  List<FamilyMemberDraft> get familyDrafts => List.unmodifiable(_familyDrafts);
+
+  void addFamilyMember(FamilyMemberDraft draft) {
+    _familyDrafts.add(draft);
+    notifyListeners();
+  }
+
+  void removeFamilyMemberAt(int index) {
+    if (index >= 0 && index < _familyDrafts.length) {
+      _familyDrafts.removeAt(index);
+      notifyListeners();
+    }
+  }
 
   bool isSelected(QuizQuestion q) => _selected.contains(q.key);
 

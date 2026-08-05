@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../family/data/family_repository.dart';
 import '../../reminders/data/reminders_repository.dart';
 import '../../reminders/domain/scheduling.dart';
 import 'onboarding_controller.dart';
 import 'steps/checklist_step.dart';
+import 'steps/family_step.dart';
 import 'steps/reveal_step.dart';
 import 'steps/stat_step.dart';
 import 'steps/welcome_step.dart';
 
-/// Orchestrates onboarding: Welcome → Stat → Checklist → Reveal.
+/// Orchestrates onboarding: Welcome → Stat → Checklist → Family → Reveal.
 ///
 /// On finish it writes the resolved reminders through the repository, then
 /// calls [onDone] so the caller can mark onboarding complete.
@@ -36,6 +38,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final _controller = OnboardingController();
   late final RemindersRepository _repo =
       widget.repository ?? RemindersRepository(ownerId: widget.ownerId);
+  late final FamilyRepository _familyRepo =
+      FamilyRepository(ownerId: widget.ownerId ?? _repo.ownerId);
 
   int _page = 0;
   bool _busy = false;
@@ -60,12 +64,29 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Future<void> _finish() async {
     setState(() => _busy = true);
+
+    // 1) Ensure the head's own "You" member exists, then create any extra
+    //    members the head added. All best-effort so the network never traps us.
+    String? selfMemberId;
+    try {
+      final members = await _familyRepo.list(); // auto-creates "You" on the API
+      for (final m in members) {
+        if (m.isSelf) selfMemberId = m.id;
+      }
+      for (final draft in _controller.familyDrafts) {
+        try {
+          await _familyRepo.create(draft);
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    // 2) Create the chosen reminders, linked to the head by default.
     final now = DateTime.now();
     final drafts = _controller.resolvedItems
-        .map((item) => Scheduling.draftFor(item, from: now))
+        .map((item) =>
+            Scheduling.draftFor(item, from: now).withMember(selfMemberId))
         .toList();
 
-    // Best-effort — never trap the user in onboarding if the network is down.
     for (final draft in drafts) {
       try {
         await _repo.create(draft);
@@ -86,6 +107,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           WelcomeStep(onStart: _next),
           StatStep(onNext: _next),
           ChecklistStep(
+            controller: _controller,
+            onContinue: _next,
+          ),
+          FamilyStep(
             controller: _controller,
             onContinue: _next,
           ),

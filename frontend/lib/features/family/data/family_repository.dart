@@ -39,12 +39,12 @@ class FamilyRepository {
     String? name,
     String? relation,
   }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (relation != null) body['relation'] = relation;
     final json = await _api.patch(
       '/family/members/$id',
-      body: {
-        if (name != null) 'name': name,
-        if (relation != null) 'relation': relation,
-      },
+      body: body,
       headers: _ownerHeader,
     );
     return FamilyMember.fromJson(json as Map<String, dynamic>);

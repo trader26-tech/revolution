@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
 import '../tasks/presentation/task_details_sheet.dart';
+import '../tasks/presentation/widgets/delete_snackbar.dart';
 import '../tasks/presentation/widgets/task_tile.dart';
 
 /// The Calendar screen — the scheduled tasks, soonest first. (A full month grid
@@ -20,18 +21,11 @@ class CalendarPage extends StatelessWidget {
 
   void _delete(BuildContext context, Task task) {
     store.remove(task);
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('Deleted “${task.title}”'),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () => store.restore(task),
-          ),
-        ),
-      );
+    showDeleteSnackBar(
+      context,
+      title: task.title,
+      onUndo: () => store.restore(task),
+    );
   }
 
   @override

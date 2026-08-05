@@ -8,6 +8,7 @@ import '../tasks/domain/task.dart';
 import '../tasks/domain/task_filter.dart';
 import '../tasks/presentation/filter_sheet.dart';
 import '../tasks/presentation/task_details_sheet.dart';
+import '../tasks/presentation/widgets/delete_snackbar.dart';
 import '../tasks/presentation/widgets/quick_add_row.dart';
 import '../tasks/presentation/widgets/task_tile.dart';
 
@@ -76,19 +77,13 @@ class _HomePageState extends State<HomePage> {
     if (updated != null) widget.store.update(updated);
   }
 
-  /// Remove a task, with a SnackBar that offers an Undo.
+  /// Remove a task, with a white, auto-dismissing Undo snackbar.
   void _deleteTask(Task task) {
     widget.store.remove(task);
-    final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('Deleted “${task.title}”'),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => widget.store.restore(task),
-        ),
-      ),
+    showDeleteSnackBar(
+      context,
+      title: task.title,
+      onUndo: () => widget.store.restore(task),
     );
   }
 

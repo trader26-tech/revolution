@@ -29,7 +29,7 @@ class TaskTile extends StatefulWidget {
 }
 
 class _TaskTileState extends State<TaskTile> {
-  bool _open = false;
+  bool _open = true; // PREVIEW
 
   static const _dur = Duration(milliseconds: 240);
   static const _curve = Curves.easeOutCubic;
@@ -49,86 +49,75 @@ class _TaskTileState extends State<TaskTile> {
         child: AnimatedOpacity(
           duration: const Duration(milliseconds: 300),
           opacity: task.done ? 0.6 : 1.0,
-          child: Stack(
-            alignment: Alignment.centerRight,
+          child: Row(
             children: [
-              // The revealed actions, pinned right. They sit behind the sliding
-              // content and become tappable as it moves off them.
-              _RevealedActions(
-                visible: _open,
-                onDetails: widget.onOpenDetails,
-                onDelete: widget.onDelete,
-              ),
-              // The main content — slides left when open to expose the actions.
-              AnimatedSlide(
+              // The check circle fades + collapses away while actions are shown.
+              AnimatedSize(
                 duration: _dur,
                 curve: _curve,
-                offset: _open ? const Offset(-0.42, 0) : Offset.zero,
-                child: Row(
-                  children: [
-                    // The check circle fades out while actions are shown.
-                    AnimatedSize(
-                      duration: _dur,
-                      curve: _curve,
-                      child: _open
-                          ? const SizedBox(width: 0, height: 20)
-                          : Padding(
-                              padding: const EdgeInsets.only(right: 12),
-                              child: AnimatedCheckCircle(
-                                checked: task.done,
-                                onTap: widget.onToggle,
-                                size: 20,
-                              ),
-                            ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOut,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color:
-                                  task.done ? AppColors.inkFaint : AppColors.ink,
-                              decoration: task.done
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                              decorationColor: AppColors.inkFaint,
-                            ),
-                            child: Text(task.title),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _subtitle(task),
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: task.isScheduled && task.reminderOn
-                                  ? AppColors.accentDeep
-                                  : AppColors.inkFaint,
-                              fontWeight: task.isScheduled
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                            ),
-                          ),
-                        ],
+                child: _open
+                    ? const SizedBox(width: 0, height: 20)
+                    : Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: AnimatedCheckCircle(
+                          checked: task.done,
+                          onTap: widget.onToggle,
+                          size: 20,
+                        ),
                       ),
+              ),
+              // Title + subtitle. Shrinks to make room; ellipsizes if needed.
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: task.done ? AppColors.inkFaint : AppColors.ink,
+                        decoration:
+                            task.done ? TextDecoration.lineThrough : null,
+                        decorationColor: AppColors.inkFaint,
+                      ),
+                      child: Text(task.title, overflow: TextOverflow.ellipsis),
                     ),
-                    // The chevron toggles the reveal; it rotates to point back.
-                    IconButton(
-                      onPressed: _toggleOpen,
-                      visualDensity: VisualDensity.compact,
-                      icon: AnimatedRotation(
-                        turns: _open ? 0.5 : 0,
-                        duration: _dur,
-                        curve: _curve,
-                        child: const Icon(Icons.chevron_right_rounded,
-                            size: 22, color: AppColors.inkFaint),
+                    const SizedBox(height: 2),
+                    Text(
+                      _subtitle(task),
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: task.isScheduled && task.reminderOn
+                            ? AppColors.accentDeep
+                            : AppColors.inkFaint,
+                        fontWeight:
+                            task.isScheduled ? FontWeight.w600 : FontWeight.w400,
                       ),
                     ),
                   ],
+                ),
+              ),
+              // The Details + Delete actions appear on the right when open.
+              if (_open)
+                _RevealedActions(
+                  onDetails: widget.onOpenDetails,
+                  onDelete: widget.onDelete,
+                ),
+              // The chevron toggles the reveal; it rotates to point back.
+              IconButton(
+                onPressed: _toggleOpen,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.only(left: 4),
+                constraints: const BoxConstraints(),
+                icon: AnimatedRotation(
+                  turns: _open ? 0.5 : 0,
+                  duration: _dur,
+                  curve: _curve,
+                  child: const Icon(Icons.chevron_right_rounded,
+                      size: 22, color: AppColors.inkFaint),
                 ),
               ),
             ],
@@ -162,41 +151,32 @@ class _TaskTileState extends State<TaskTile> {
 
 /// The Details + Delete actions revealed on the right when the tile is open.
 class _RevealedActions extends StatelessWidget {
-  const _RevealedActions({
-    required this.visible,
-    required this.onDetails,
-    required this.onDelete,
-  });
+  const _RevealedActions({required this.onDetails, required this.onDelete});
 
-  final bool visible;
   final VoidCallback onDetails;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 200),
-      opacity: visible ? 1 : 0,
-      child: IgnorePointer(
-        ignoring: !visible,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ActionButton(
-              icon: Icons.tune_rounded,
-              label: 'Details',
-              color: AppColors.accentDeep,
-              onTap: onDetails,
-            ),
-            const SizedBox(width: 8),
-            _ActionButton(
-              icon: Icons.delete_outline_rounded,
-              label: 'Delete',
-              color: const Color(0xFFE5484D),
-              onTap: onDelete,
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ActionButton(
+            icon: Icons.tune_rounded,
+            label: 'Details',
+            color: AppColors.accentDeep,
+            onTap: onDetails,
+          ),
+          const SizedBox(width: 6),
+          _ActionButton(
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete',
+            color: const Color(0xFFE5484D),
+            onTap: onDelete,
+          ),
+        ],
       ),
     );
   }
@@ -217,28 +197,19 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: color.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: color),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
-              ),
-            ],
+    // Icon-only, circular — compact enough that Details + Delete + the chevron
+    // all fit even next to a long title. The colour makes each unmistakable.
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: color.withValues(alpha: 0.12),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(9),
+            child: Icon(icon, size: 20, color: color),
           ),
         ),
       ),

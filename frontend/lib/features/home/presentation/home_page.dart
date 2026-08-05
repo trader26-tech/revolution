@@ -86,14 +86,6 @@ class _HomeView extends StatelessWidget {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openAddSheet(context),
-        backgroundColor: Bamboo.green,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Add reminder'),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -123,6 +115,7 @@ class _HomeView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
       children: [
+        _TopBar(onAdd: () => _openAddSheet(context)),
         _BoboHero(height: heroH, mood: streak.mood),
         const SizedBox(height: 8),
         _StatusBlock(streak: streak, reminderCount: reminders.length),
@@ -140,6 +133,59 @@ class _HomeView extends StatelessWidget {
               ),
             ),
       ],
+    );
+  }
+}
+
+/// A tidy top bar: the app name + a clean "add" button. Replaces the floating
+/// action button, which collided with the bottom nav.
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 0, 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Revolution',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: Bamboo.ink,
+                ),
+          ),
+          Material(
+            color: Bamboo.green,
+            borderRadius: BorderRadius.circular(999),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: onAdd,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 6),
+                    Text(
+                      'Add',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/bamboo_palette.dart';
 import '../../account/presentation/account_page.dart';
@@ -38,6 +41,16 @@ class _AppShellState extends State<AppShell> {
     _controller.load();
   }
 
+  void _onTabChanged(int i) {
+    if (i == _tab) return;
+    // Premium feel: a heavy haptic thud + the platform click sound on every
+    // tab switch. Both are no-ops on platforms/devices that lack them, so this
+    // is safe everywhere.
+    HapticFeedback.heavyImpact();
+    SystemSound.play(SystemSoundType.click);
+    setState(() => _tab = i);
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -60,7 +73,7 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(index: _tab, children: pages),
       bottomNavigationBar: _FloatingNav(
         index: _tab,
-        onChanged: (i) => setState(() => _tab = i),
+        onChanged: _onTabChanged,
       ),
     );
   }
@@ -93,31 +106,48 @@ class _FloatingNav extends StatelessWidget {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(28, 0, 28, 16),
-        child: Container(
-          height: 68,
+        child: DecoratedBox(
+          // Soft lift under the glass so it reads as a floating pane.
           decoration: BoxDecoration(
-            color: Bamboo.card,
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Bamboo.cardBorder),
             boxShadow: [
               BoxShadow(
-                color: Bamboo.brown.withValues(alpha: 0.16),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
+                color: Bamboo.brown.withValues(alpha: 0.18),
+                blurRadius: 28,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
-          child: Row(
-            children: [
-              for (var i = 0; i < _items.length; i++)
-                Expanded(
-                  child: _NavButton(
-                    item: _items[i],
-                    selected: i == index,
-                    onTap: () => onChanged(i),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            // Real backdrop blur — the frosted-glass look. Works on Android too.
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                height: 68,
+                decoration: BoxDecoration(
+                  // Semi-transparent so the content behind shows through.
+                  color: Bamboo.card.withValues(alpha: 0.62),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    width: 1,
                   ),
                 ),
-            ],
+                child: Row(
+                  children: [
+                    for (var i = 0; i < _items.length; i++)
+                      Expanded(
+                        child: _NavButton(
+                          item: _items[i],
+                          selected: i == index,
+                          onTap: () => onChanged(i),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

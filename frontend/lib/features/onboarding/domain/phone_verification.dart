@@ -1,4 +1,5 @@
 /// Domain models mirroring the backend phone-verification payloads.
+library;
 
 /// Response from POST /phone/verify/start — everything the app needs to launch
 /// the WhatsApp verify step.

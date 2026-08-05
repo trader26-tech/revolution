@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../reminders/data/reminders_repository.dart';
 import '../../reminders/domain/scheduling.dart';
 import 'onboarding_controller.dart';
+import 'phone_entry_page.dart';
 import 'steps/addon_pick_step.dart';
 import 'steps/primary_pick_step.dart';
 import 'steps/reveal_step.dart';
@@ -61,6 +62,18 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Future<void> _finish() async {
+    // Gate the finish on phone verification: the user confirms their number
+    // over WhatsApp before we set anything up. Backing out here just returns
+    // them to the reveal — onboarding is not marked complete.
+    final verifiedPhone = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (routeContext) => PhoneEntryPage(
+          onVerified: (phone) => Navigator.of(routeContext).pop(phone),
+        ),
+      ),
+    );
+    if (verifiedPhone == null || !mounted) return;
+
     setState(() => _busy = true);
     final now = DateTime.now();
     final drafts = _controller.resolvedItems

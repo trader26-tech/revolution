@@ -164,104 +164,40 @@ class _BoboHero extends StatelessWidget {
   }
 }
 
-/// Greeting + flame streak chip, all driven by the shared status.
+/// One clean status line under Bobo — a single calm phrase that says where the
+/// user stands. No chips, no stacked headings: just one line, so the screen
+/// reads quiet and uncluttered.
 class _StatusBlock extends StatelessWidget {
   const _StatusBlock({required this.streak, required this.reminderCount});
 
   final StreakStatus streak;
   final int reminderCount;
 
-  String get _greeting {
-    if (reminderCount == 0) return 'Nothing to track yet';
+  String get _line {
+    if (reminderCount == 0) return 'Never miss a renewal again';
     if (streak.overdueCount > 0) {
       return streak.overdueCount == 1
-          ? 'You forgot 1 renewal'
-          : 'You forgot ${streak.overdueCount} renewals';
+          ? '1 renewal needs you'
+          : '${streak.overdueCount} renewals need you';
     }
     if (streak.dueSoonCount > 0) {
       return streak.dueSoonCount == 1
-          ? '1 deadline is closing in'
-          : '${streak.dueSoonCount} deadlines are closing in';
+          ? '1 renewal coming up'
+          : '${streak.dueSoonCount} renewals coming up';
     }
-    return "All clear — you're covered";
-  }
-
-  String get _sub {
-    if (reminderCount == 0) {
-      return 'Add your first renewal and Bobo will remember it for you 🦴';
-    }
-    if (streak.overdueCount > 0) return "Let's sort these before they cost you.";
-    if (streak.dueSoonCount > 0) return 'Bobo is watching the clock on these.';
-    return 'Bobo is keeping an eye on $reminderCount '
-        '${reminderCount == 1 ? "renewal" : "renewals"} for you.';
+    return "You're all caught up";
   }
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Column(
-      children: [
-        if (reminderCount > 0 && streak.onStreak) ...[
-          _FlameChip(streak: streak),
-          const SizedBox(height: 12),
-        ],
-        Text(
-          _greeting,
-          textAlign: TextAlign.center,
-          style: text.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: Bamboo.ink,
+    return Text(
+      _line,
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: Bamboo.inkSoft,
+            letterSpacing: 0.1,
           ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          _sub,
-          textAlign: TextAlign.center,
-          style: text.bodyMedium?.copyWith(color: Bamboo.inkSoft, height: 1.35),
-        ),
-      ],
-    );
-  }
-}
-
-/// The fiery streak badge — shown when the user is maintaining (nothing overdue).
-class _FlameChip extends StatelessWidget {
-  const _FlameChip({required this.streak});
-
-  final StreakStatus streak;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF8A3D), Color(0xFFFF5E3A)],
-        ),
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFF5E3A).withValues(alpha: 0.35),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('🔥', style: TextStyle(fontSize: 16)),
-          const SizedBox(width: 6),
-          Text(
-            streak.flameLabel,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

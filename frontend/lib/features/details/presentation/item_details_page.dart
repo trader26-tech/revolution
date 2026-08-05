@@ -102,12 +102,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                       onTap: () => setState(
                           () => _d.durationForever = !_d.durationForever),
                     ),
-                    _SwitchRow(
-                      label: 'Free Trial',
-                      value: _d.freeTrial,
-                      onChanged: (v) => setState(() => _d.freeTrial = v),
-                      last: true,
-                    ),
                   ]),
                   const SizedBox(height: 20),
                   _Group(children: [
@@ -458,37 +452,6 @@ class _Row extends StatelessWidget {
             trailing,
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-    this.last = false,
-  });
-
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final bool last;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 16, color: AppColors.ink, fontWeight: FontWeight.w500)),
-          const Spacer(),
-          Switch(value: value, onChanged: onChanged, activeThumbColor: Colors.white,
-              activeTrackColor: AppColors.accent),
-        ],
       ),
     );
   }

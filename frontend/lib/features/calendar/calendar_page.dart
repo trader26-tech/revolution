@@ -1,34 +1,76 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../tasks/data/task_store.dart';
+import '../tasks/domain/task.dart';
+import '../tasks/presentation/task_details_sheet.dart';
+import '../tasks/presentation/widgets/task_tile.dart';
 
-/// The Calendar screen — minimal placeholder for the fresh template.
+/// The Calendar screen — the scheduled tasks, soonest first. (A full month grid
+/// can layer on later; for now it's the agenda of everything with a date.)
 class CalendarPage extends StatelessWidget {
-  const CalendarPage({super.key});
+  const CalendarPage({super.key, required this.store});
+
+  final TaskStore store;
+
+  Future<void> _edit(BuildContext context, Task task) async {
+    final updated = await showTaskDetailsSheet(context, task);
+    if (updated != null) store.update(updated);
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       bottom: false,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 16),
-          Text(
-            'Calendar',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Calendar',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
+            ),
           ),
-          const Expanded(
-            child: Padding(
-              // Offset the floating nav's footprint so the icon is centred in
-              // the visible area, matching Home.
-              padding: EdgeInsets.only(bottom: 80),
-              child: Center(
-                child: Icon(Icons.calendar_month_rounded,
-                    size: 56, color: AppColors.inkFaint),
-              ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: store,
+              builder: (context, _) {
+                final scheduled = store.scheduled;
+                if (scheduled.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 80),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_month_rounded,
+                              size: 56, color: AppColors.inkFaint),
+                          SizedBox(height: 12),
+                          Text('No scheduled tasks yet',
+                              style: TextStyle(color: AppColors.inkSoft)),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return ListView(
+                  padding: const EdgeInsets.only(bottom: 120),
+                  children: [
+                    for (final t in scheduled)
+                      TaskTile(
+                        task: t,
+                        onToggle: () => store.toggleDone(t),
+                        onTap: () => _edit(context, t),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         ],

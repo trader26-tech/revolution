@@ -2,54 +2,50 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
-import '../categories/domain/category_catalog.dart';
-import '../categories/domain/item_catalog.dart';
-import '../categories/presentation/category_picker_sheet.dart';
-import '../categories/presentation/item_list_page.dart';
-import '../reminders/domain/reminder_draft.dart';
 import '../settings/settings_page.dart';
+import '../tasks/data/task_store.dart';
+import '../tasks/domain/task.dart';
+import '../tasks/presentation/task_details_sheet.dart';
+import '../tasks/presentation/widgets/quick_add_row.dart';
+import '../tasks/presentation/widgets/task_tile.dart';
 
 /// The Home screen.
 ///
-/// A glass top bar holds the two actions — Settings (left) and Add (right) —
-/// with the content below. Kept intentionally minimal: this is the clean
-/// template the app grows from.
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+/// Fast capture: tap ﹢, the keyboard opens on an inline field, type a name and
+/// it's added instantly. Set the date/details later via the row's calendar
+/// button or by tapping the task. A glass top bar holds Settings + Add.
+class HomePage extends StatefulWidget {
+  const HomePage({super.key, required this.store});
 
-  void _openSettings(BuildContext context) {
+  final TaskStore store;
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  bool _adding = false;
+
+  void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SettingsPage()),
     );
   }
 
-  Future<void> _add(BuildContext context) async {
-    // Tap Add → pick a category → its item list → the minimal entry sheet.
-    final Category? category = await showCategoryPicker(context);
-    if (category == null || !context.mounted) return;
+  void _startAdd() => setState(() => _adding = true);
 
-    final items = kItemsByCategory[category.name];
-    if (items == null || items.isEmpty) {
-      // Categories without a detailed item list yet — placeholder for now.
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${category.name} — items coming soon')),
-      );
-      return;
+  Future<void> _onQuickSubmit(String title, {required bool openDetails}) async {
+    final task = widget.store.add(title);
+    if (openDetails) {
+      setState(() => _adding = false);
+      await _editTask(task);
     }
+    // If not opening details, keep the add row open for rapid entry.
+  }
 
-    final draft = await Navigator.of(context).push<ReminderDraft>(
-      MaterialPageRoute(
-        builder: (_) => ItemListPage(
-          categoryName: category.name,
-          items: items,
-        ),
-      ),
-    );
-    if (draft != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Added “${draft.title}” ✓')),
-      );
-    }
+  Future<void> _editTask(Task task) async {
+    final updated = await showTaskDetailsSheet(context, task);
+    if (updated != null) widget.store.update(updated);
   }
 
   @override
@@ -59,13 +55,41 @@ class HomePage extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 8),
-          _TopBar(
-            onSettings: () => _openSettings(context),
-            onAdd: () => _add(context),
+          _TopBar(onSettings: _openSettings, onAdd: _startAdd),
+          const SizedBox(height: 8),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: widget.store,
+              builder: (context, _) => _buildList(),
+            ),
           ),
-          const Expanded(child: _EmptyContent()),
         ],
       ),
+    );
+  }
+
+  Widget _buildList() {
+    final tasks = widget.store.tasks;
+
+    if (tasks.isEmpty && !_adding) {
+      return _EmptyContent(onAdd: _startAdd);
+    }
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 120),
+      children: [
+        if (_adding)
+          QuickAddRow(
+            onSubmit: _onQuickSubmit,
+            onDismiss: () => setState(() => _adding = false),
+          ),
+        for (final t in tasks)
+          TaskTile(
+            task: t,
+            onToggle: () => widget.store.toggleDone(t),
+            onTap: () => _editTask(t),
+          ),
+      ],
     );
   }
 }
@@ -109,18 +133,17 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// A calm, centred empty state for the fresh template.
+/// A calm, centred empty state.
 class _EmptyContent extends StatelessWidget {
-  const _EmptyContent();
+  const _EmptyContent({required this.onAdd});
+
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      // Offset the floating nav's footprint (height + bottom gap) so the
-      // content is centred in the VISIBLE area, not the area that runs under
-      // the nav — otherwise it reads as pushed up / off-centre.
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 0, 40, 80),
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -143,12 +166,10 @@ class _EmptyContent extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 6),
-            Text(
-              'Tap ﹢ to add your first item.',
+            const Text(
+              'Tap ﹢ to add your first task.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.inkSoft,
-                  ),
+              style: TextStyle(color: AppColors.inkSoft),
             ),
           ],
         ),

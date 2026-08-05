@@ -4,7 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../domain/task.dart';
 
 /// The details sheet — set/update a task's reminder, date, time, and repeat.
-/// Modeled on the reference: a Reminder toggle, an "on <date> at <time>" block,
+/// Modeled on the reference: a Reminder toggle, an "on `date` at `time`" block,
 /// and a Repeat control. Returns the edited [Task], or null if dismissed.
 Future<Task?> showTaskDetailsSheet(BuildContext context, Task task) {
   return showModalBottomSheet<Task>(

@@ -28,58 +28,38 @@ class QuickAddRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Row(
-            children: [
-              const Icon(Icons.radio_button_unchecked,
-                  size: 22, color: AppColors.inkFaint),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  textCapitalization: TextCapitalization.sentences,
-                  // "next" (↵) adds the item and keeps the field open for the
-                  // next one — the signal that this adds many, not one.
-                  textInputAction: TextInputAction.next,
-                  onSubmitted: (_) => onSubmitText(),
-                  onTapOutside: (_) {
-                    if (controller.text.trim().isEmpty) onTapOutsideEmpty();
-                  },
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: 'Type something to remember…',
-                    border: InputBorder.none,
-                    hintStyle: TextStyle(color: AppColors.inkFaint),
-                  ),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          const Icon(Icons.radio_button_unchecked,
+              size: 22, color: AppColors.inkFaint),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => onSubmitText(),
+              onTapOutside: (_) {
+                if (controller.text.trim().isEmpty) onTapOutsideEmpty();
+              },
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'Add a task…',
+                border: InputBorder.none,
+                hintStyle: TextStyle(color: AppColors.inkFaint),
               ),
-            ],
-          ),
-        ),
-        // A quiet helper that makes the multi-add obvious: keep typing and
-        // pressing return to stack up as many as you like.
-        const Padding(
-          padding: EdgeInsets.only(left: 50, bottom: 8),
-          child: Text(
-            'Press ↵ to add another',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: AppColors.inkFaint,
-              fontWeight: FontWeight.w500,
+              style: const TextStyle(
+                fontSize: 16,
+                color: AppColors.ink,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

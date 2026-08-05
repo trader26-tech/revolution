@@ -290,12 +290,12 @@ class _EmptyContent extends StatelessWidget {
                 color: AppColors.accent.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.checklist_rounded,
+              child: const Icon(Icons.check_rounded,
                   size: 44, color: AppColors.accent),
             ),
             const SizedBox(height: 20),
             Text(
-              'A clean slate',
+              'All clear',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: AppColors.ink,
@@ -303,16 +303,9 @@ class _EmptyContent extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             const Text(
-              'Tap ﹢ and jot down everything you want to\n'
-              'remember — one after another.',
+              'Tap ﹢ to add your first task.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.inkSoft, height: 1.4),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add items'),
+              style: TextStyle(color: AppColors.inkSoft),
             ),
           ],
         ),

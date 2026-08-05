@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../details/domain/item_details.dart';
+import '../../details/presentation/item_details_page.dart';
 import '../domain/task.dart';
 
 /// The details sheet — set/update a task's reminder, date, time, and repeat.
@@ -181,12 +183,46 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            // Open the full-screen rich editor (amount, cycle, list, category,
+            // payment method, notification, URL, notes…).
+            OutlinedButton.icon(
+              onPressed: _openFullDetails,
+              icon: const Icon(Icons.tune_rounded),
+              label: const Text('Fill details'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                foregroundColor: AppColors.accentDeep,
+                side: const BorderSide(color: AppColors.cardBorder),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             FilledButton(onPressed: _save, child: const Text('Save')),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _openFullDetails() async {
+    final result = await Navigator.of(context).push<ItemDetails>(
+      MaterialPageRoute(
+        builder: (_) => ItemDetailsPage(
+          title: widget.task.title.isEmpty ? 'Details' : widget.task.title,
+          initial: ItemDetails(name: widget.task.title),
+        ),
+      ),
+    );
+    if (result != null && mounted) {
+      // Keep the task's title in sync if it was edited in the full form.
+      if (result.name.isNotEmpty) widget.task.title = result.name;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Details saved ✓')),
+      );
+    }
   }
 }
 

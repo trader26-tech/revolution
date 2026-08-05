@@ -209,7 +209,7 @@ class _TopBar extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               GlassIconButton(
-                icon: Icons.filter_alt_outlined,
+                icon: Icons.filter_list_rounded,
                 tooltip: 'Filter',
                 onTap: onFilter,
               ),

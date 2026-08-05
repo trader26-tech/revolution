@@ -1,19 +1,23 @@
 /// Where a logo image comes from. Each is a free, keyless service that returns
 /// a real PNG for a domain (formats Flutter can decode — we deliberately avoid
-/// .ico / .svg sources like DuckDuckGo, which won't render). We show the SAME
-/// brand from several sources so the user can pick the crispest — like choosing
-/// from search results.
-enum LogoSource { iconHorse, googleLarge, googleSmall }
+/// .ico / .svg sources like DuckDuckGo, which won't render).
+///
+/// ORDER MATTERS: we try Google's favicon service FIRST because it's the most
+/// reliable (Google's CDN, never rate-limits, resolves almost any domain). The
+/// larger, crisper icon.horse comes second — great when it responds, but it's a
+/// small free service that can be slow/rate-limited from a device, which was
+/// making logos silently fail to appear.
+enum LogoSource { googleLarge, iconHorse, googleSmall }
 
 extension LogoSourceInfo on LogoSource {
   /// The image URL for [domain] from this source (empty domain → '').
   String urlFor(String domain) {
     if (domain.isEmpty) return '';
     switch (this) {
-      case LogoSource.iconHorse:
-        return 'https://icon.horse/icon/$domain';
       case LogoSource.googleLarge:
         return 'https://www.google.com/s2/favicons?domain=$domain&sz=256';
+      case LogoSource.iconHorse:
+        return 'https://icon.horse/icon/$domain';
       case LogoSource.googleSmall:
         return 'https://www.google.com/s2/favicons?domain=$domain&sz=64';
     }

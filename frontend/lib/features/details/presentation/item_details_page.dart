@@ -601,12 +601,6 @@ class _NameAmountCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _hasIcon ? 'Tap to change' : 'Tap to add',
-                  style: const TextStyle(
-                      fontSize: 10.5, color: AppColors.inkFaint),
-                ),
               ],
             ),
           ),

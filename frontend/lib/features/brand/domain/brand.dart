@@ -7,24 +7,21 @@
 /// Google's favicon service comes last as the always-reliable fallback — it's
 /// low-res (often 16-48px) but resolves essentially any domain, so a logo is
 /// almost always shown even when the sharp sources miss.
-// High-res sources first (allesedv & icon.horse serve 200-256px). A probe (see
-// LogoResolver) skips any that return a tiny placeholder, so the FIRST real
-// high-res image wins. Google is the low-res but always-reliable safety net.
-enum LogoSource { allesedv, iconHorse, googleLarge, googleSmall }
+// Google's favicon service FIRST — it's the most reliable (Google CDN, resolves
+// nearly any domain), so a logo almost always shows. icon.horse & allesedv add
+// crisper options when they respond, but they're small free services that can
+// be slow, so they're not first. The first URL that loads is shown.
+enum LogoSource { googleLarge, iconHorse, googleSmall }
 
 extension LogoSourceInfo on LogoSource {
   /// The image URL for [domain] from this source (empty domain → '').
   String urlFor(String domain) {
     if (domain.isEmpty) return '';
     switch (this) {
-      case LogoSource.allesedv:
-        // 256px PNGs — high-res for many brands Google serves tiny.
-        return 'https://f1.allesedv.com/256/$domain';
-      case LogoSource.iconHorse:
-        // Crisp, up to 256px when the site publishes a large icon.
-        return 'https://icon.horse/icon/$domain';
       case LogoSource.googleLarge:
         return 'https://www.google.com/s2/favicons?domain=$domain&sz=256';
+      case LogoSource.iconHorse:
+        return 'https://icon.horse/icon/$domain';
       case LogoSource.googleSmall:
         return 'https://www.google.com/s2/favicons?domain=$domain&sz=64';
     }

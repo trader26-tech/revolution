@@ -1,12 +1,126 @@
 import '../domain/brand.dart';
 
-/// Maps typed names → logo domains, and provides popular suggestions.
+/// A category header + the brands shown under it in the icon picker.
+class BrandCategory {
+  const BrandCategory(this.title, this.emoji, this.brands);
+  final String title;
+  final String emoji;
+  final List<Brand> brands;
+}
+
+/// Maps typed names → logo domains, and provides popular suggestions grouped by
+/// category.
 ///
 /// The user can type *any* name; if we know a domain for it (or can guess one),
 /// we fetch that brand's real logo. Otherwise the name still works — it just
 /// shows a coloured letter-avatar. So coverage is effectively unlimited.
 class BrandCatalog {
   const BrandCatalog._();
+
+  /// The category-wise suggestions shown before the user types — ~10 of the
+  /// most relevant real brands per category, so tapping is faster than typing.
+  static const List<BrandCategory> categories = [
+    BrandCategory('Identity & Government', '🪪', [
+      Brand(name: 'mParivahan', domain: 'parivahan.gov.in'),
+      Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'),
+      Brand(name: 'Passport Seva', domain: 'passportindia.gov.in'),
+      Brand(name: 'UIDAI Aadhaar', domain: 'uidai.gov.in'),
+      Brand(name: 'Election Commission', domain: 'eci.gov.in'),
+      Brand(name: 'Vahan', domain: 'vahan.parivahan.gov.in'),
+      Brand(name: 'India.gov', domain: 'india.gov.in'),
+      Brand(name: 'UMANG', domain: 'web.umang.gov.in'),
+    ]),
+    BrandCategory('Vehicle', '🚗', [
+      Brand(name: 'Maruti Suzuki', domain: 'marutisuzuki.com'),
+      Brand(name: 'Hyundai', domain: 'hyundai.com'),
+      Brand(name: 'Tata Motors', domain: 'tatamotors.com'),
+      Brand(name: 'Mahindra', domain: 'mahindra.com'),
+      Brand(name: 'Honda', domain: 'honda.com'),
+      Brand(name: 'Royal Enfield', domain: 'royalenfield.com'),
+      Brand(name: 'Bajaj Auto', domain: 'bajajauto.com'),
+      Brand(name: 'Bosch', domain: 'bosch.com'),
+      Brand(name: 'Castrol', domain: 'castrol.com'),
+      Brand(name: 'FASTag', domain: 'fastag.org'),
+    ]),
+    BrandCategory('Insurance', '🛡️', [
+      Brand(name: 'LIC', domain: 'licindia.in'),
+      Brand(name: 'HDFC Life', domain: 'hdfclife.com'),
+      Brand(name: 'ICICI Prudential', domain: 'iciciprulife.com'),
+      Brand(name: 'SBI Life', domain: 'sbilife.co.in'),
+      Brand(name: 'Star Health', domain: 'starhealth.in'),
+      Brand(name: 'Max Life', domain: 'maxlifeinsurance.com'),
+      Brand(name: 'Bajaj Allianz', domain: 'bajajallianz.com'),
+      Brand(name: 'Tata AIG', domain: 'tataaig.com'),
+      Brand(name: 'Acko', domain: 'acko.com'),
+      Brand(name: 'Digit', domain: 'godigit.com'),
+    ]),
+    BrandCategory('Banking & Finance', '🏦', [
+      Brand(name: 'HDFC Bank', domain: 'hdfcbank.com'),
+      Brand(name: 'ICICI Bank', domain: 'icicibank.com'),
+      Brand(name: 'SBI', domain: 'sbi.co.in'),
+      Brand(name: 'Axis Bank', domain: 'axisbank.com'),
+      Brand(name: 'Kotak', domain: 'kotak.com'),
+      Brand(name: 'Zerodha', domain: 'zerodha.com'),
+      Brand(name: 'Groww', domain: 'groww.in'),
+      Brand(name: 'Paytm', domain: 'paytm.com'),
+      Brand(name: 'PhonePe', domain: 'phonepe.com'),
+      Brand(name: 'CRED', domain: 'cred.club'),
+    ]),
+    BrandCategory('Utilities', '💡', [
+      Brand(name: 'Jio', domain: 'jio.com'),
+      Brand(name: 'Airtel', domain: 'airtel.in'),
+      Brand(name: 'Vi', domain: 'myvi.in'),
+      Brand(name: 'BSNL', domain: 'bsnl.co.in'),
+      Brand(name: 'Tata Power', domain: 'tatapower.com'),
+      Brand(name: 'Adani Electricity', domain: 'adanielectricity.com'),
+      Brand(name: 'ACT Fibernet', domain: 'actcorp.in'),
+      Brand(name: 'Tata Play', domain: 'tataplay.com'),
+      Brand(name: 'BESCOM', domain: 'bescom.org'),
+      Brand(name: 'Indane Gas', domain: 'indane.co.in'),
+    ]),
+    BrandCategory('Health', '💊', [
+      Brand(name: 'Apollo Pharmacy', domain: 'apollopharmacy.in'),
+      Brand(name: 'Tata 1mg', domain: '1mg.com'),
+      Brand(name: 'PharmEasy', domain: 'pharmeasy.in'),
+      Brand(name: 'Netmeds', domain: 'netmeds.com'),
+      Brand(name: 'Practo', domain: 'practo.com'),
+      Brand(name: 'Cult.fit', domain: 'cult.fit'),
+      Brand(name: 'Dr Lal PathLabs', domain: 'lalpathlabs.com'),
+      Brand(name: 'Pristyn Care', domain: 'pristyncare.com'),
+    ]),
+    BrandCategory('Home', '🏠', [
+      Brand(name: 'Urban Company', domain: 'urbancompany.com'),
+      Brand(name: 'NoBroker', domain: 'nobroker.in'),
+      Brand(name: 'Housejoy', domain: 'housejoy.in'),
+      Brand(name: 'Pepperfry', domain: 'pepperfry.com'),
+      Brand(name: 'Godrej', domain: 'godrej.com'),
+      Brand(name: 'Kent', domain: 'kent.co.in'),
+      Brand(name: 'Eureka Forbes', domain: 'eurekaforbes.com'),
+      Brand(name: 'HomeTriangle', domain: 'hometriangle.com'),
+    ]),
+    BrandCategory('Family & Personal', '🎁', [
+      Brand(name: 'BookMyShow', domain: 'bookmyshow.com'),
+      Brand(name: 'Ferns N Petals', domain: 'fnp.com'),
+      Brand(name: 'Archies', domain: 'archiesonline.com'),
+      Brand(name: 'FirstCry', domain: 'firstcry.com'),
+      Brand(name: 'Byjus', domain: 'byjus.com'),
+      Brand(name: 'Unacademy', domain: 'unacademy.com'),
+      Brand(name: 'Vedantu', domain: 'vedantu.com'),
+      Brand(name: 'Zomato', domain: 'zomato.com'),
+    ]),
+    BrandCategory('Digital', '🎬', [
+      Brand(name: 'Netflix', domain: 'netflix.com'),
+      Brand(name: 'Amazon Prime', domain: 'primevideo.com'),
+      Brand(name: 'Disney+ Hotstar', domain: 'hotstar.com'),
+      Brand(name: 'Spotify', domain: 'spotify.com'),
+      Brand(name: 'YouTube', domain: 'youtube.com'),
+      Brand(name: 'JioCinema', domain: 'jiocinema.com'),
+      Brand(name: 'Google One', domain: 'one.google.com'),
+      Brand(name: 'iCloud', domain: 'icloud.com'),
+      Brand(name: 'ChatGPT', domain: 'openai.com'),
+      Brand(name: 'Canva', domain: 'canva.com'),
+    ]),
+  ];
 
   /// Curated popular brands across the things this app tracks — streaming,
   /// Indian banks, brokers/investing, insurers, utilities. Shown as instant

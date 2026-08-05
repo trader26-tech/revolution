@@ -86,13 +86,17 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
               },
             ),
             const SizedBox(height: 4),
-            _sectionLabel(_query.trim().isEmpty ? 'Popular' : 'Results'),
-            // Searching → a clean vertical list (one row per app, single logo,
-            // no duplicates). Browsing → the popular grid.
+            // Searching → a clean vertical list of matches (one logo each, no
+            // duplicates). Browsing → category-wise sections of top brand logos.
             Expanded(
               child: _query.trim().isEmpty
-                  ? _grid(_results)
-                  : _resultsList(_results),
+                  ? _categoryBrowser()
+                  : Column(
+                      children: [
+                        _sectionLabel('Results'),
+                        Expanded(child: _resultsList(_results)),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -125,25 +129,37 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
         ),
       );
 
-  Widget _grid(List<Brand> brands) {
-    if (brands.isEmpty) {
-      return const Center(
-        child: Text('Type any app or company name',
-            style: TextStyle(color: AppColors.inkFaint)),
-      );
-    }
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 0.82,
-      ),
-      itemCount: brands.length,
+  /// The category-wise browser shown before the user types: each of the app's
+  /// categories with ~10 top brand logos, so tapping is faster than typing.
+  Widget _categoryBrowser() {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+      itemCount: BrandCatalog.categories.length,
       itemBuilder: (_, i) {
-        final b = brands[i];
-        return _BrandCell(brand: b, onTap: () => Navigator.pop(context, b));
+        final cat = BrandCatalog.categories[i];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionLabel('${cat.emoji}  ${cat.title}'),
+            GridView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 0.82,
+              ),
+              itemCount: cat.brands.length,
+              itemBuilder: (_, j) {
+                final b = cat.brands[j];
+                return _BrandCell(
+                    brand: b, onTap: () => Navigator.pop(context, b));
+              },
+            ),
+          ],
+        );
       },
     );
   }

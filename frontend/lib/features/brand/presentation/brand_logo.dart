@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/logo_resolver.dart';
 import '../domain/brand.dart';
 
 /// Shows a brand's logo, fetched from the network and cached by Flutter's image
@@ -27,36 +26,35 @@ class BrandLogo extends StatelessWidget {
       seed: brand.name,
     );
 
-    if (brand.logoUrlCandidates.isEmpty) return fallback;
+    final urls = brand.logoUrlCandidates;
+    if (urls.isEmpty) return fallback;
 
-    // Probe the candidate sources and pick the first that returns a REAL,
-    // high-res image (skipping 1×1 placeholders). Cached, so it resolves once.
-    return FutureBuilder<String?>(
-      future: LogoResolver.instance.resolve(brand),
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return _LoadingBox(size: size, radius: radius);
-        }
-        final url = snap.data;
-        if (url == null) return fallback;
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: Container(
-            width: size,
-            height: size,
-            color: Colors.white, // clean backdrop for transparent logos
-            // Inset so the FULL logo sits inside — nothing cropped (this fixes
-            // Zerodha, which was cover-cropped and only partly visible).
-            padding: EdgeInsets.all(size * 0.12),
-            child: Image.network(
-              url,
-              fit: BoxFit.contain, // whole logo, never crop
-              filterQuality: FilterQuality.high, // crisp downscaling
-              errorBuilder: (_, _, _) => fallback,
-            ),
-          ),
-        );
+    // Try each candidate in order; the first that loads is shown. `contain` +
+    // white backdrop keeps the WHOLE logo visible (no crop). Simple + reliable.
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Container(
+        width: size,
+        height: size,
+        color: Colors.white,
+        padding: EdgeInsets.all(size * 0.12),
+        child: _chain(urls, 0, fallback),
+      ),
+    );
+  }
+
+  /// Try [urls[i]]; on error fall through to the next, finally the avatar.
+  Widget _chain(List<String> urls, int i, Widget fallback) {
+    if (i >= urls.length) return fallback;
+    return Image.network(
+      urls[i],
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return _LoadingBox(size: size, radius: radius);
       },
+      errorBuilder: (_, _, _) => _chain(urls, i + 1, fallback),
     );
   }
 }

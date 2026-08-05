@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../onboarding/data/onboarding_store.dart';
+import '../../onboarding/presentation/onboarding_gate.dart';
 import '../../panda/presentation/panda_mascot.dart';
 import '../../reminders/data/reminders_repository.dart';
 import '../../reminders/domain/reminder.dart';
@@ -57,6 +59,17 @@ class _HomePageState extends State<HomePage> {
         SnackBar(content: Text('Reminder set for “${created.title}” 🐼')),
       );
     }
+  }
+
+  // Dev helper: clears the onboarding flag and drops back into the flow from
+  // the top, so onboarding can be re-tested without reinstalling the app.
+  Future<void> _restartOnboarding() async {
+    await const OnboardingStore().reset();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const OnboardingGate(home: HomePage())),
+      (route) => false,
+    );
   }
 
   Future<void> _delete(Reminder r) async {
@@ -126,7 +139,7 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             children: [
               const SizedBox(height: 12),
-              _Header(onAdd: _openAddSheet),
+              _Header(onAdd: _openAddSheet, onRestartOnboarding: _restartOnboarding),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _load,
@@ -341,8 +354,9 @@ class _ErrorState extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.onAdd});
+  const _Header({required this.onAdd, required this.onRestartOnboarding});
   final VoidCallback onAdd;
+  final VoidCallback onRestartOnboarding;
 
   @override
   Widget build(BuildContext context) {
@@ -359,10 +373,21 @@ class _Header extends StatelessWidget {
                   color: scheme.onSurface,
                 ),
           ),
-          IconButton.filledTonal(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add),
-            tooltip: 'Add a reminder',
+          Row(
+            children: [
+              // Dev-only: replay onboarding for testing.
+              IconButton(
+                onPressed: onRestartOnboarding,
+                icon: const Icon(Icons.restart_alt),
+                tooltip: 'Restart onboarding',
+              ),
+              const SizedBox(width: 4),
+              IconButton.filledTonal(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+                tooltip: 'Add a reminder',
+              ),
+            ],
           ),
         ],
       ),

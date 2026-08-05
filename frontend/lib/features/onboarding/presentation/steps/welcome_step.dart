@@ -20,7 +20,7 @@ class WelcomeStep extends StatelessWidget {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const BoboMascot(size: 200, mood: BoboMood.happy),
+          const BoboMascot(size: 200, mood: BoboMood.waving),
           const SizedBox(height: 32),
           Text(
             'Put it out\nof your head.',

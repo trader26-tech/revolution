@@ -21,6 +21,7 @@ so nothing ever breaks while art is missing.
 | `bobo_sad`           | sad             | Something was **forgotten** (a reminder is overdue) |
 | `bobo_writing`       | noting it down  | While the user is picking/adding a reminder         |
 | `bobo_celebrating`   | celebration     | Right after a reminder is **successfully added**    |
+| `bobo_waving`        | waving          | Onboarding welcome screen (greeting the user)       |
 | `bobo_excited`       | excited         | (legacy/optional) waving, bouncy                    |
 
 A full set is, e.g.:

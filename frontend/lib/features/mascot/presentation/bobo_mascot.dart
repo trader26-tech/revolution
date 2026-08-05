@@ -20,7 +20,8 @@ import 'package:flutter/material.dart';
 ///  * [BoboMood.sad]        — something was forgotten / is overdue.
 ///  * [BoboMood.writing]    — the user is entering details (noting it down).
 ///  * [BoboMood.celebrating]— a task was completed successfully.
-enum BoboMood { happy, excited, sleepy, scared, sad, writing, celebrating }
+///  * [BoboMood.waving]     — greeting the user (onboarding welcome).
+enum BoboMood { happy, excited, sleepy, scared, sad, writing, celebrating, waving }
 
 extension _BoboMoodAsset on BoboMood {
   /// The base filename (no extension) for this mood's illustrated art.
@@ -32,6 +33,7 @@ extension _BoboMoodAsset on BoboMood {
         BoboMood.sad => 'bobo_sad',
         BoboMood.writing => 'bobo_writing',
         BoboMood.celebrating => 'bobo_celebrating',
+        BoboMood.waving => 'bobo_waving',
       };
 
   /// Candidate asset paths in priority order: animated WebP first (best), then
@@ -50,6 +52,7 @@ extension _BoboMoodAsset on BoboMood {
         BoboMood.sad => BoboMood.sleepy, // drooped ~ low-energy
         BoboMood.writing => BoboMood.happy,
         BoboMood.celebrating => BoboMood.excited,
+        BoboMood.waving => BoboMood.excited, // waving ~ bouncy greeting
         final m => m, // happy / excited / sleepy draw themselves
       };
 }

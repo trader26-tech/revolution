@@ -160,8 +160,10 @@ class _PandaPainter extends CustomPainter {
   final PandaMood mood;
 
   // ---- Palette --------------------------------------------------------------
-  static const _furWhite = Color(0xFFFDFDFF);
-  static const _furShadow = Color(0xFFE7E9F2);
+  // Fur is pure white; the "shadow" tone is only a whisper cooler than white,
+  // just enough to read as roundness — no ashy grey.
+  static const _furWhite = Color(0xFFFFFFFF);
+  static const _furShadow = Color(0xFFF4F6FC);
   static const _black = Color(0xFF2B2B33);
   static const _blackSoft = Color(0xFF3A3A45);
   static const _blush = Color(0xFFFFB4C6);
@@ -194,8 +196,8 @@ class _PandaPainter extends CustomPainter {
     _drawGroundShadow(canvas, w, h, bob + excitedBounce);
 
     // Geometry anchors (all relative to size so it scales cleanly).
-    final headCenter = Offset(w * 0.5, h * 0.42);
-    final headRadius = w * 0.40;
+    final headCenter = Offset(w * 0.5, h * 0.40);
+    final headRadius = w * 0.44;
 
     _drawEars(canvas, headCenter, headRadius);
     _drawArms(canvas, w, h);
@@ -247,31 +249,22 @@ class _PandaPainter extends CustomPainter {
 
   void _drawBody(Canvas canvas, double w, double h) {
     // A rounded, egg-shaped chubby belly.
+    // Wider + rounder = chubbier, more cuddly.
     final bodyRect = Rect.fromCenter(
-      center: Offset(w * 0.5, h * 0.70),
-      width: w * 0.72,
-      height: h * 0.50,
+      center: Offset(w * 0.5, h * 0.71),
+      width: w * 0.82,
+      height: h * 0.54,
     );
     final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(bodyRect, Radius.circular(w * 0.34)));
+      ..addRRect(RRect.fromRectAndRadius(bodyRect, Radius.circular(w * 0.40)));
 
-    // Soft vertical gradient gives roundness without heavy shading.
+    // Barely-there gradient gives roundness while staying essentially white.
     final shader = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [_furWhite, _furShadow],
     ).createShader(bodyRect);
     canvas.drawPath(path, Paint()..shader = shader);
-
-    // Belly patch — a warm cream oval for extra cuteness.
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.5, h * 0.72),
-        width: w * 0.40,
-        height: h * 0.30,
-      ),
-      Paint()..color = const Color(0xFFFFF6E9),
-    );
   }
 
   void _drawArms(Canvas canvas, double w, double h) {
@@ -280,9 +273,9 @@ class _PandaPainter extends CustomPainter {
         ? (math.sin(idle * math.pi * 2) * 0.5 + 0.5) * h * 0.06
         : 0.0;
     for (final sign in [-1.0, 1.0]) {
-      final c = Offset(w * 0.5 + sign * w * 0.34, h * 0.66 - raise);
+      final c = Offset(w * 0.5 + sign * w * 0.38, h * 0.66 - raise);
       canvas.drawOval(
-        Rect.fromCenter(center: c, width: w * 0.22, height: h * 0.20),
+        Rect.fromCenter(center: c, width: w * 0.24, height: h * 0.22),
         Paint()..color = _black,
       );
     }
@@ -417,34 +410,75 @@ class _PandaPainter extends CustomPainter {
   }
 
   void _drawMouth(Canvas canvas, Offset c, double r) {
-    final paint = Paint()
-      ..color = _black
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = r * 0.045
-      ..strokeCap = StrokeCap.round;
-    final mouthTop = c.translate(0, r * 0.42);
+    // Mouth sits just under the nose, connected by a soft little muzzle line.
+    final mouthTop = c.translate(0, r * 0.40);
 
-    final path = Path()..moveTo(mouthTop.dx, mouthTop.dy);
     switch (mood) {
-      case PandaMood.excited:
-      case PandaMood.happy:
-        // Wide happy "w"-ish smile.
-        path
-          ..quadraticBezierTo(c.dx - r * 0.14, mouthTop.dy + r * 0.14,
-              c.dx - r * 0.02, mouthTop.dy + r * 0.02)
-          ..moveTo(mouthTop.dx, mouthTop.dy)
-          ..quadraticBezierTo(c.dx + r * 0.14, mouthTop.dy + r * 0.14,
-              c.dx + r * 0.02, mouthTop.dy + r * 0.02);
       case PandaMood.sleepy:
-        // Tiny content 'o'.
+        // Tiny content 'o' — sleepy and cozy.
         canvas.drawCircle(
-          mouthTop.translate(0, r * 0.04),
+          mouthTop.translate(0, r * 0.02),
           r * 0.05,
           Paint()..color = _black,
         );
         return;
+
+      case PandaMood.happy:
+      case PandaMood.excited:
+        // A soft, filled open grin — the big charm upgrade. A rounded "D"
+        // shape (flat-ish top, deeply curved bottom) reads as a warm, wide
+        // smile instead of a stiff line.
+        final halfW = r * 0.24; // wider = friendlier
+        final depth = r * (mood == PandaMood.excited ? 0.30 : 0.24);
+        final left = mouthTop.translate(-halfW, 0);
+        final right = mouthTop.translate(halfW, 0);
+
+        final smile = Path()
+          ..moveTo(left.dx, left.dy)
+          // gentle top lip, dipping just slightly in the middle
+          ..quadraticBezierTo(
+              c.dx, mouthTop.dy + r * 0.04, right.dx, right.dy)
+          // full rounded lower lip — the happy curve
+          ..quadraticBezierTo(
+              c.dx, mouthTop.dy + depth, left.dx, left.dy)
+          ..close();
+
+        canvas.drawPath(smile, Paint()..color = _black);
+
+        // A little tongue tucked at the bottom — instantly cute.
+        final tongue = Path()
+          ..moveTo(c.dx - halfW * 0.5, mouthTop.dy + depth * 0.45)
+          ..quadraticBezierTo(c.dx, mouthTop.dy + depth * 1.05,
+              c.dx + halfW * 0.5, mouthTop.dy + depth * 0.45)
+          ..close();
+        canvas.drawPath(tongue, Paint()..color = _blush);
+
+        // A soft muzzle line up to the nose ties the face together, and two
+        // short strokes curving gently DOWN into the smile corners give a warm,
+        // dimpled grin (no flaring "whiskers").
+        final line = Paint()
+          ..color = _black
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = r * 0.04
+          ..strokeCap = StrokeCap.round;
+        // muzzle: nose bottom -> top of smile
+        canvas.drawLine(
+          c.translate(0, r * 0.30 + r * 0.08),
+          mouthTop.translate(0, r * 0.02),
+          line,
+        );
+        for (final s in [-1.0, 1.0]) {
+          final tip = mouthTop.translate(s * halfW, 0);
+          canvas.drawPath(
+            Path()
+              ..moveTo(tip.dx - s * r * 0.06, tip.dy - r * 0.05)
+              ..quadraticBezierTo(
+                  tip.dx, tip.dy - r * 0.01, tip.dx, tip.dy + r * 0.01),
+            line,
+          );
+        }
+        return;
     }
-    canvas.drawPath(path, paint);
   }
 
   /// A small floating badge near Pip's head that echoes the mood — a leaf when

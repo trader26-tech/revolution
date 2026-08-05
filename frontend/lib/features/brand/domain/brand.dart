@@ -10,10 +10,15 @@ class Brand {
   /// user-typed name with no known domain → always uses the letter avatar.
   final String domain;
 
-  /// The Clearbit logo URL for this brand's domain (512px, good for retina).
-  /// Empty when there's no domain.
-  String get logoUrl =>
-      domain.isEmpty ? '' : 'https://logo.clearbit.com/$domain?size=256';
+  /// The logo URL for this brand's domain — Google's favicon service, which is
+  /// rock-solid reliable and returns a real image for effectively any domain
+  /// (128px). Empty when there's no domain (→ letter-avatar fallback).
+  ///
+  /// (We moved off Clearbit's logo API — it was discontinued and now fails, so
+  /// no logos loaded.)
+  String get logoUrl => domain.isEmpty
+      ? ''
+      : 'https://www.google.com/s2/favicons?domain=$domain&sz=128';
 
   /// First letter for the fallback avatar.
   String get initial =>

@@ -352,45 +352,50 @@ class _ReminderListView extends StatelessWidget {
   final VoidCallback onPokeBobo;
   final ValueChanged<Reminder> onDelete;
 
+  // Bobo's hero size is CONSTANT across devices so the layout never balloons on
+  // a tall screen. The PNG already carries its own transparent padding, so we
+  // crop that empty margin here to kill the wasted space above/below.
+  static const double _heroSize = 200;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Bobo is the centre stage: a large mascot occupying a good chunk of
-        // the first view, with the status message right beneath, then the list.
-        final heroSize = (constraints.maxHeight * 0.34).clamp(180.0, 300.0);
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-          children: [
-            const SizedBox(height: 8),
-            Center(
-              child: BoboMascot(size: heroSize, mood: mood, onTap: onPokeBobo),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
+      children: [
+        // Crop the PNG's built-in transparent margin so Bobo reads bigger in a
+        // smaller footprint — no dead space around him.
+        Center(
+          child: ClipRect(
+            child: Align(
+              alignment: Alignment.center,
+              heightFactor: 0.80, // trim ~10% top + ~10% bottom padding
+              child: BoboMascot(size: _heroSize, mood: mood, onTap: onPokeBobo),
             ),
-            const SizedBox(height: 8),
-            Text(
-              greeting,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: scheme.onSurface,
-                  ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              sub,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.35,
-                  ),
-            ),
-            const SizedBox(height: 24),
-            for (final r in reminders)
-              ReminderCard(reminder: r, onDelete: () => onDelete(r)),
-          ],
-        );
-      },
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          greeting,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: scheme.onSurface,
+              ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          sub,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+        ),
+        const SizedBox(height: 20),
+        for (final r in reminders)
+          ReminderCard(reminder: r, onDelete: () => onDelete(r)),
+      ],
     );
   }
 }

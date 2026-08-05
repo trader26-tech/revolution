@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/bamboo_palette.dart';
 
-/// The calm bamboo backdrop shared by every onboarding screen — our answer to
-/// Orbit's starfield, but a warm, natural light world.
+/// The warm, cozy backdrop shared by every onboarding screen — a cream world
+/// with a scatter of soft paw prints drifting in the corners. (Class name kept
+/// as [BambooBackground] for stability; the art is now the dog/cream theme.)
 ///
-/// A soft green mist at the top fades into cream paper, a few faint bamboo
-/// canes rise along the edges, and scattered leaves drift in the corners.
 /// Everything is low-contrast so it never competes with the content.
 class BambooBackground extends StatelessWidget {
   const BambooBackground({super.key, required this.child});
@@ -25,82 +24,63 @@ class BambooBackground extends StatelessWidget {
         ),
       ),
       child: CustomPaint(
-        painter: _BambooPainter(),
+        painter: _PawPainter(),
         child: child,
       ),
     );
   }
 }
 
-class _BambooPainter extends CustomPainter {
+class _PawPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
 
-    // Two faint bamboo canes, one on each side, rising off-screen.
-    _cane(canvas, Offset(w * 0.06, h), h * 0.9, w * 0.045);
-    _cane(canvas, Offset(w * 0.95, h * 1.02), h * 0.8, w * 0.05);
-
-    // A scatter of soft leaves in the corners (fixed positions — no RNG so it
-    // renders identically every frame and in tests).
-    const leaves = [
-      [0.14, 0.10, 0.5],
-      [0.86, 0.16, -0.7],
-      [0.10, 0.82, 1.1],
-      [0.90, 0.88, -0.3],
-      [0.78, 0.06, 0.9],
+    // A scatter of soft paw prints (fixed positions — no RNG so it renders
+    // identically every frame and in tests). [x, y, scale, rotation].
+    const paws = [
+      [0.14, 0.10, 1.0, 0.4],
+      [0.86, 0.16, 0.8, -0.6],
+      [0.10, 0.82, 1.1, 1.0],
+      [0.90, 0.88, 0.9, -0.3],
+      [0.78, 0.06, 0.7, 0.8],
+      [0.22, 0.50, 0.6, -0.2],
     ];
-    for (final l in leaves) {
-      _leaf(canvas, Offset(w * l[0], h * l[1]), w * 0.055, l[2]);
+    for (final p in paws) {
+      _paw(canvas, Offset(w * p[0], h * p[1]), w * 0.05 * p[2], p[3]);
     }
   }
 
-  void _cane(Canvas canvas, Offset base, double length, double width) {
-    final paint = Paint()
-      ..color = Bamboo.sprout.withValues(alpha: 0.16)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width
-      ..strokeCap = StrokeCap.round;
-    final top = base.translate(0, -length);
-    canvas.drawLine(base, top, paint);
-
-    // Node rings up the cane.
-    final ring = Paint()
-      ..color = Bamboo.leaf.withValues(alpha: 0.18)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width * 0.5;
-    for (var i = 1; i <= 4; i++) {
-      final y = base.dy - length * (i / 5);
-      canvas.drawLine(
-        Offset(base.dx - width * 0.7, y),
-        Offset(base.dx + width * 0.7, y),
-        ring,
-      );
-    }
-  }
-
-  void _leaf(Canvas canvas, Offset center, double r, double rot) {
+  /// One paw print: a main pad + four toe beans.
+  void _paw(Canvas canvas, Offset center, double r, double rot) {
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.rotate(rot);
-    final path = Path()
-      ..moveTo(0, -r)
-      ..quadraticBezierTo(r * 0.7, -r * 0.2, 0, r)
-      ..quadraticBezierTo(-r * 0.7, -r * 0.2, 0, -r)
-      ..close();
-    canvas.drawPath(
-      path,
-      Paint()..color = Bamboo.leaf.withValues(alpha: 0.14),
+    final paint = Paint()..color = Bamboo.greenDeep.withValues(alpha: 0.08);
+
+    // Main pad — a rounded heart-ish oval.
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(0, r * 0.55), width: r * 1.4, height: r * 1.2),
+      paint,
     );
-    // Center vein.
-    canvas.drawLine(
-      Offset(0, -r * 0.9),
-      Offset(0, r * 0.9),
-      Paint()
-        ..color = Bamboo.greenDeep.withValues(alpha: 0.10)
-        ..strokeWidth = r * 0.05,
-    );
+    // Four toe beans arcing over the pad.
+    const toes = [
+      [-0.85, -0.55, 0.42],
+      [-0.30, -0.95, 0.40],
+      [0.30, -0.95, 0.40],
+      [0.85, -0.55, 0.42],
+    ];
+    for (final t in toes) {
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(r * t[0], r * t[1]),
+          width: r * t[2] * 2,
+          height: r * t[2] * 2.3,
+        ),
+        paint,
+      );
+    }
     canvas.restore();
   }
 

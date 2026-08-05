@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/bamboo_palette.dart';
 import '../../onboarding/data/onboarding_store.dart';
 import '../../onboarding/presentation/onboarding_gate.dart';
 import '../../mascot/presentation/bobo_mascot.dart';
@@ -120,19 +121,16 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final isEmpty = _reminders.isEmpty && !_loading && _error == null;
 
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              scheme.primaryContainer.withValues(alpha: 0.55),
-              scheme.surface,
-            ],
+            colors: [Bamboo.mist, Bamboo.cream, Bamboo.creamHi],
+            stops: [0.0, 0.45, 1.0],
           ),
         ),
         child: SafeArea(

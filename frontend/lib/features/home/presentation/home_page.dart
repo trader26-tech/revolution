@@ -111,6 +111,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // Dev helper: opens a gallery of every Bobo mood so each PNG can be checked
+  // at a glance, without having to trigger its real app condition.
+  void _openMascotGallery() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const _MascotGalleryScreen()),
+    );
+  }
+
   Future<void> _confirmSignOut() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -211,6 +219,7 @@ class _HomePageState extends State<HomePage> {
               _Header(
                 onAdd: _openAddSheet,
                 onRestartOnboarding: _restartOnboarding,
+                onOpenMascotGallery: _openMascotGallery,
                 onSignOut: widget.onSignOut == null ? null : _confirmSignOut,
               ),
               Expanded(
@@ -391,6 +400,90 @@ class _ReminderListView extends StatelessWidget {
 }
 
 /// A small floating card with a celebrating Bobo, shown briefly on success.
+/// Dev-only gallery: a big Bobo you can flip through every mood with, plus a
+/// grid to jump straight to any one. Lets each PNG be verified without having
+/// to reproduce its real trigger (overdue reminder, etc.).
+class _MascotGalleryScreen extends StatefulWidget {
+  const _MascotGalleryScreen();
+
+  @override
+  State<_MascotGalleryScreen> createState() => _MascotGalleryScreenState();
+}
+
+class _MascotGalleryScreenState extends State<_MascotGalleryScreen> {
+  int _index = 0;
+
+  static const _labels = {
+    BoboMood.happy: 'happy',
+    BoboMood.sleepy: 'sleepy (relaxed)',
+    BoboMood.scared: 'scared (deadline close)',
+    BoboMood.sad: 'sad (forgotten)',
+    BoboMood.writing: 'writing (adding)',
+    BoboMood.celebrating: 'celebrating (done)',
+    BoboMood.waving: 'waving (welcome)',
+    BoboMood.excited: 'excited',
+  };
+
+  List<BoboMood> get _moods => _labels.keys.toList();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final mood = _moods[_index];
+    return Scaffold(
+      appBar: AppBar(title: const Text('Bobo moods')),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            Expanded(
+              child: Center(
+                child: BoboMascot(
+                  key: ValueKey(mood), // rebuild so the PNG re-resolves
+                  size: 260,
+                  mood: mood,
+                ),
+              ),
+            ),
+            Text(
+              _labels[mood]!,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: scheme.onSurface,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Tap a chip to preview · missing art shows the drawn Bobo',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  for (var i = 0; i < _moods.length; i++)
+                    ChoiceChip(
+                      label: Text(_moods[i].name),
+                      selected: i == _index,
+                      onSelected: (_) => setState(() => _index = i),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CelebrationCard extends StatelessWidget {
   const _CelebrationCard({required this.message});
   final String message;
@@ -476,10 +569,12 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.onAdd,
     required this.onRestartOnboarding,
+    required this.onOpenMascotGallery,
     this.onSignOut,
   });
   final VoidCallback onAdd;
   final VoidCallback onRestartOnboarding;
+  final VoidCallback onOpenMascotGallery;
   final VoidCallback? onSignOut;
 
   @override
@@ -505,6 +600,12 @@ class _Header extends StatelessWidget {
                   icon: const Icon(Icons.logout),
                   tooltip: 'Sign out',
                 ),
+              // Dev-only: preview every Bobo mood/PNG at a glance.
+              IconButton(
+                onPressed: onOpenMascotGallery,
+                icon: const Icon(Icons.pets),
+                tooltip: 'Preview Bobo moods',
+              ),
               // Dev-only: replay onboarding for testing.
               IconButton(
                 onPressed: onRestartOnboarding,

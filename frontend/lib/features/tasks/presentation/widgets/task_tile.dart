@@ -21,12 +21,18 @@ class TaskTile extends StatefulWidget {
     required this.onToggle,
     required this.onOpenDetails,
     required this.onDelete,
+    this.occurrenceDate,
   });
 
   final Task task;
   final VoidCallback onToggle;
   final VoidCallback onOpenDetails;
   final VoidCallback onDelete;
+
+  /// For a recurring task shown in the monthly agenda, the specific date of THIS
+  /// occurrence — so the subtitle reads e.g. "Sep 1" in September, not the
+  /// task's original due date. Null → use the task's own [Task.dueAt].
+  final DateTime? occurrenceDate;
 
   @override
   State<TaskTile> createState() => _TaskTileState();
@@ -139,7 +145,12 @@ class _TaskTileState extends State<TaskTile> {
 
   String _subtitle(Task task) {
     if (!task.isScheduled) return 'Tap to set a date';
-    final d = task.dueAt!;
+    final due = task.dueAt!;
+    // Show THIS occurrence's date (agenda) but keep the task's time-of-day.
+    final od = widget.occurrenceDate;
+    final d = od == null
+        ? due
+        : DateTime(od.year, od.month, od.day, due.hour, due.minute);
     final base = '${_months[d.month - 1]} ${d.day}, ${d.year} · ${_time(d)}';
     if (task.repeat != RepeatCadence.none) {
       return '$base · ${task.repeat.label}';

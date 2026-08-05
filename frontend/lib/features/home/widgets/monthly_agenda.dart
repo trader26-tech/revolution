@@ -172,6 +172,7 @@ class _MonthlyAgendaState extends State<MonthlyAgenda> {
                         // so each occurrence animates independently.
                         key: ValueKey('${occ.task.id}@${occ.date.toIso8601String()}'),
                         task: occ.task,
+                        occurrenceDate: occ.date,
                         onToggle: () => widget.onToggle(occ.task),
                         onOpenDetails: () => widget.onOpenDetails(occ.task),
                         onDelete: () => widget.onDelete(occ.task),

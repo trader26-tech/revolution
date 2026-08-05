@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../brand/domain/brand.dart';
+import '../../../brand/presentation/brand_logo.dart';
 
-/// Screen 1 — what the app does, in one glance. A stylised fan of "reminder
-/// cards" gently animates in, then one bold line. Minimal text.
+/// Screen 1 — what the app does, in one glance. A soft cluster of cards, each
+/// with a *real* brand logo, gently animates in — showing the actual things the
+/// app tracks. Then one bold line. Minimal text.
 class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});
 
@@ -15,12 +18,21 @@ class _IntroScreenState extends State<IntroScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
+  // A recognisable spread across the areas the app covers.
+  static const _brands = <_Item>[
+    _Item(Brand(name: 'Netflix', domain: 'netflix.com'), 'Subscription'),
+    _Item(Brand(name: 'LIC', domain: 'licindia.in'), 'Insurance'),
+    _Item(Brand(name: 'Airtel', domain: 'airtel.in'), 'Mobile bill'),
+    _Item(Brand(name: 'HDFC Bank', domain: 'hdfcbank.com'), 'Card bill'),
+    _Item(Brand(name: 'Spotify', domain: 'spotify.com'), 'Renewal'),
+  ];
+
   @override
   void initState() {
     super.initState();
     _c = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1100),
     )..forward();
   }
 
@@ -38,7 +50,7 @@ class _IntroScreenState extends State<IntroScreen>
       child: Column(
         children: [
           const Spacer(flex: 2),
-          SizedBox(height: 240, child: _CardFan(anim: _c)),
+          SizedBox(height: 250, child: _Cluster(anim: _c, items: _brands)),
           const Spacer(),
           Text(
             'Everything you’d\nforget, remembered.',
@@ -47,8 +59,8 @@ class _IntroScreenState extends State<IntroScreen>
           ),
           const SizedBox(height: 14),
           Text(
-            'Bills, renewals, subscriptions — one calm list, '
-            'never a missed date.',
+            'Bills, renewals, subscriptions, insurance — '
+            'one calm list, never a missed date.',
             textAlign: TextAlign.center,
             style: text.bodyLarge?.copyWith(color: AppColors.inkSoft),
           ),
@@ -59,53 +71,61 @@ class _IntroScreenState extends State<IntroScreen>
   }
 }
 
-/// A fan of three small reminder chips that scale + rotate into place.
-class _CardFan extends StatelessWidget {
-  const _CardFan({required this.anim});
+class _Item {
+  const _Item(this.brand, this.label);
+  final Brand brand;
+  final String label;
+}
+
+/// The scattered cluster: five logo cards fan out from the centre, each with a
+/// slight offset + rotation, staggered in.
+class _Cluster extends StatelessWidget {
+  const _Cluster({required this.anim, required this.items});
   final Animation<double> anim;
+  final List<_Item> items;
+
+  // Fixed positions/rotations for a pleasant, deliberate scatter (dx, dy, rot).
+  static const _slots = <List<double>>[
+    [-84, -34, -0.14],
+    [86, -20, 0.12],
+    [-58, 66, 0.10],
+    [70, 74, -0.10],
+    [4, 6, 0.0], // centre, on top
+  ];
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: anim,
-      builder: (context, _) {
-        return Center(
-          child: SizedBox(
-            width: 260,
-            height: 200,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                _card(0, '💡', 'Electricity bill', const Color(0xFFF59E0B),
-                    -0.18, const Offset(-70, 8)),
-                _card(1, '🛡️', 'Car insurance', const Color(0xFF10B981), 0.18,
-                    const Offset(70, 8)),
-                _card(2, '📺', 'Netflix', const Color(0xFF8B5CF6), 0.0,
-                    const Offset(0, -18)),
-              ],
-            ),
+      builder: (context, _) => Center(
+        child: SizedBox(
+          width: 280,
+          height: 240,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              for (var i = 0; i < items.length; i++)
+                _card(i, items[i], _slots[i]),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Widget _card(int i, String emoji, String label, Color color, double angle,
-      Offset offset) {
-    // Staggered entrance per card.
-    final start = i * 0.15;
+  Widget _card(int i, _Item item, List<double> slot) {
+    final start = i * 0.12;
     final t = ((anim.value - start) / (1 - start)).clamp(0.0, 1.0);
     final eased = Curves.easeOutBack.transform(t);
-
     return Transform.translate(
-      offset: Offset(offset.dx * eased, offset.dy * eased),
+      offset: Offset(slot[0] * eased, slot[1] * eased),
       child: Transform.rotate(
-        angle: angle * eased,
+        angle: slot[2] * eased,
         child: Opacity(
           opacity: t,
           child: Transform.scale(
             scale: 0.6 + 0.4 * eased,
-            child: _ChipCard(emoji: emoji, label: label, color: color),
+            child: _LogoCard(item: item),
           ),
         ),
       ),
@@ -113,56 +133,54 @@ class _CardFan extends StatelessWidget {
   }
 }
 
-class _ChipCard extends StatelessWidget {
-  const _ChipCard({
-    required this.emoji,
-    required this.label,
-    required this.color,
-  });
-
-  final String emoji;
-  final String label;
-  final Color color;
+class _LogoCard extends StatelessWidget {
+  const _LogoCard({required this.item});
+  final _Item item;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 168,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      width: 150,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.18),
-            blurRadius: 24,
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 22,
             offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(emoji, style: const TextStyle(fontSize: 20)),
-          ),
+          BrandLogo(brand: item.brand, size: 34, radius: 10),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.brand.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+                Text(
+                  item.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.inkFaint,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

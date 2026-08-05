@@ -20,7 +20,7 @@ class WelcomeStep extends StatelessWidget {
           const PandaMascot(size: 200, mood: PandaMood.happy),
           const SizedBox(height: 28),
           Text(
-            'PULLED FROM GITHUB ✅',
+            'Never miss\nwhat matters.',
             textAlign: TextAlign.center,
             style: text.displaySmall?.copyWith(
               fontWeight: FontWeight.w800,

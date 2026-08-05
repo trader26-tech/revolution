@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../categories/domain/category_catalog.dart';
+import '../categories/domain/item_catalog.dart';
 import '../categories/presentation/category_picker_sheet.dart';
+import '../categories/presentation/item_list_page.dart';
+import '../reminders/domain/reminder_draft.dart';
 import '../settings/settings_page.dart';
 
 /// The Home screen.
@@ -21,12 +24,30 @@ class HomePage extends StatelessWidget {
   }
 
   Future<void> _add(BuildContext context) async {
-    // Tap Add → the category picker: plain category buttons, plus an
-    // "Add category" button to create a custom one.
+    // Tap Add → pick a category → its item list → the minimal entry sheet.
     final Category? category = await showCategoryPicker(context);
-    if (category != null && context.mounted) {
+    if (category == null || !context.mounted) return;
+
+    final items = kItemsByCategory[category.name];
+    if (items == null || items.isEmpty) {
+      // Categories without a detailed item list yet — placeholder for now.
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Picked ${category.name}')),
+        SnackBar(content: Text('${category.name} — items coming soon')),
+      );
+      return;
+    }
+
+    final draft = await Navigator.of(context).push<ReminderDraft>(
+      MaterialPageRoute(
+        builder: (_) => ItemListPage(
+          categoryName: category.name,
+          items: items,
+        ),
+      ),
+    );
+    if (draft != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Added “${draft.title}” ✓')),
       );
     }
   }

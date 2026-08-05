@@ -116,8 +116,11 @@ class _EmptyContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
+      // Offset the floating nav's footprint (height + bottom gap) so the
+      // content is centred in the VISIBLE area, not the area that runs under
+      // the nav — otherwise it reads as pushed up / off-centre.
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
+        padding: const EdgeInsets.fromLTRB(40, 0, 40, 80),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

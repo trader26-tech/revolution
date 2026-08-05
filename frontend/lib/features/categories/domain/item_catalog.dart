@@ -12,6 +12,15 @@ enum AnchorType {
   /// (PCC 6 months, Aadhaar-update 10 years). Reminder is [leadDays] before that.
   issuePlusValidity,
 
+  /// The user enters the NEXT due date, and it repeats every [repeatDays]
+  /// (bills, EMIs, services, birthdays…). We remind [leadDays] before each
+  /// occurrence and roll forward automatically.
+  recurring,
+
+  /// A single upcoming date with no repeat (Vaccination, Parent-Teacher
+  /// Meeting…). We remind [leadDays] before it and that's it.
+  oneOff,
+
   /// No expiry — a store-only record (PAN, Voter ID). We keep the number for
   /// reference and set no reminder.
   none,
@@ -27,9 +36,11 @@ class Item {
     required this.color,
     required this.anchor,
     this.validityDays,
+    this.repeatDays,
     this.leadDays = 30,
     this.askDocNumber = false,
     this.docNumberLabel,
+    this.askAmount = false,
     this.note,
     this.keywords = const [],
   });
@@ -49,12 +60,19 @@ class Item {
   /// For [AnchorType.issuePlusValidity] — days from issue to expiry.
   final int? validityDays;
 
-  /// How many days before expiry to remind.
+  /// For [AnchorType.recurring] — days between occurrences (30 monthly,
+  /// 365 yearly, 182 half-yearly…).
+  final int? repeatDays;
+
+  /// How many days before the due date to remind.
   final int leadDays;
 
   /// Whether to offer an optional document-number field.
   final bool askDocNumber;
   final String? docNumberLabel;
+
+  /// Whether to offer an optional amount field (SIP, FD, school fee…).
+  final bool askAmount;
 
   /// A short reassuring line shown on the entry screen (why these defaults).
   final String? note;
@@ -63,6 +81,36 @@ class Item {
   final List<String> keywords;
 
   bool get hasReminder => anchor != AnchorType.none;
+
+  /// A short, human phrase for the cadence, shown as the row subtitle.
+  String get cadenceLabel {
+    switch (anchor) {
+      case AnchorType.none:
+        return 'No expiry · stored for reference';
+      case AnchorType.oneOff:
+        return 'One-time · remind $leadDays days before';
+      case AnchorType.expiry:
+        return 'Remind $leadDays days before it expires';
+      case AnchorType.issuePlusValidity:
+        final yrs = (validityDays ?? 365) ~/ 365;
+        return yrs >= 1
+            ? 'Review every $yrs ${yrs == 1 ? "year" : "years"}'
+            : 'Valid a few months · we\'ll nudge you';
+      case AnchorType.recurring:
+        return _repeatPhrase(repeatDays ?? 30);
+    }
+  }
+
+  static String _repeatPhrase(int days) {
+    if (days <= 2) return 'Repeats daily';
+    if (days <= 8) return 'Repeats weekly';
+    if (days <= 31) return 'Repeats monthly';
+    if (days <= 95) return 'Repeats quarterly';
+    if (days <= 190) return 'Repeats every 6 months';
+    if (days <= 400) return 'Repeats yearly';
+    final yrs = (days / 365).round();
+    return 'Repeats every $yrs years';
+  }
 
   /// Case-insensitive match against name + keywords, for the search box.
   bool matches(String query) {

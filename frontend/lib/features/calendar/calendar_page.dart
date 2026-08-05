@@ -21,9 +21,14 @@ class CalendarPage extends StatelessWidget {
                 ),
           ),
           const Expanded(
-            child: Center(
-              child: Icon(Icons.calendar_month_rounded,
-                  size: 56, color: AppColors.inkFaint),
+            child: Padding(
+              // Offset the floating nav's footprint so the icon is centred in
+              // the visible area, matching Home.
+              padding: EdgeInsets.only(bottom: 80),
+              child: Center(
+                child: Icon(Icons.calendar_month_rounded,
+                    size: 56, color: AppColors.inkFaint),
+              ),
             ),
           ),
         ],

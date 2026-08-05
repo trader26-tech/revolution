@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../calendar/calendar_page.dart';
 import '../home/home_page.dart';
+import '../tasks/data/task_store.dart';
 
 /// The app shell: two tabs (Home, Calendar) behind a floating glass nav.
 class AppShell extends StatefulWidget {
@@ -16,9 +17,21 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _tab = 0;
 
+  // One shared task store so Home and Calendar stay in sync.
+  final _store = TaskStore();
+
+  @override
+  void dispose() {
+    _store.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    const pages = [HomePage(), CalendarPage()];
+    final pages = [
+      HomePage(store: _store),
+      CalendarPage(store: _store),
+    ];
 
     return Scaffold(
       extendBody: true, // let the background flow under the floating nav

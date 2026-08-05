@@ -26,6 +26,24 @@ void main() {
     final domains = r.map((b) => b.domain).toList();
     expect(domains.toSet().length, domains.length);
   });
+
+  test('popular Indian apps resolve to correct logo domains', () {
+    expect(BrandCatalog.resolve('Swiggy').domain, 'swiggy.com');
+    expect(BrandCatalog.resolve('Zepto').domain, 'zeptonow.com');
+    expect(BrandCatalog.resolve('Blinkit').domain, 'blinkit.com');
+    expect(BrandCatalog.resolve('Zomato').domain, 'zomato.com');
+    expect(BrandCatalog.resolve('PhonePe').domain, 'phonepe.com');
+    expect(BrandCatalog.resolve('Cred').domain, 'cred.club');
+    expect(BrandCatalog.resolve('Myntra').domain, 'myntra.com');
+    expect(BrandCatalog.resolve('Groww').domain, 'groww.in');
+  });
+
+  test('guessed domain offers multiple TLD + source candidates', () {
+    final b = BrandCatalog.resolve('SomeNewApp');
+    // .com guess → should also try .in/.co/.app/.io, across sources.
+    expect(b.logoUrlCandidates.length, greaterThan(4));
+    expect(b.logoUrlCandidates.first.contains('somenewapp.com'), true);
+  });
 }
 
 // (added) dedup: search must never return two entries with the same domain.

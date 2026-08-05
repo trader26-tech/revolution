@@ -26,15 +26,10 @@ class BrandLogo extends StatelessWidget {
       seed: brand.name,
     );
 
-    // The list of source URLs to try, in order. If the brand is pinned to one
-    // source we honour it; otherwise we try every source so the ONE logo shown
-    // is as reliable as possible — icon.horse first, then Google variants.
-    final urls = brand.domain.isEmpty
-        ? const <String>[]
-        : (brand.source != null
-            ? [brand.source!.urlFor(brand.domain)]
-            : LogoSource.values.map((s) => s.urlFor(brand.domain)).toList());
-
+    // Every (domain-variant × source) URL to try, in priority order. This is
+    // what gives high coverage: a wrong TLD guess or a slow source falls
+    // through to the next candidate before we ever show the letter avatar.
+    final urls = brand.logoUrlCandidates;
     if (urls.isEmpty) return fallback;
 
     return ClipRRect(

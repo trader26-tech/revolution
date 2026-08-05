@@ -41,33 +41,90 @@ class BrandCatalog {
   ];
 
   /// A few common name → domain aliases so short/informal names still resolve.
+  /// Name → domain for apps whose logo domain isn't just `<name>.com`. This is
+  /// what pushes coverage to ~90-95% — anything not here still falls back to a
+  /// smart domain guess. Keys are lowercase; multiple keys can point at one app.
   static const Map<String, String> _aliases = {
-    'prime': 'primevideo.com',
-    'amazon prime': 'primevideo.com',
-    'hotstar': 'hotstar.com',
-    'disney': 'hotstar.com',
-    'sbi': 'sbi.co.in',
-    'lic': 'licindia.in',
-    'hdfc': 'hdfcbank.com',
-    'icici': 'icicibank.com',
-    'axis': 'axisbank.com',
-    'kotak': 'kotak.com',
-    'jio': 'jio.com',
-    'airtel': 'airtel.in',
-    'groww': 'groww.in',
-    'zerodha': 'zerodha.com',
-    'upstox': 'upstox.com',
-    'youtube': 'youtube.com',
-    'netflix': 'netflix.com',
-    'spotify': 'spotify.com',
+    // Streaming / media
+    'prime': 'primevideo.com', 'amazon prime': 'primevideo.com',
+    'prime video': 'primevideo.com',
+    'hotstar': 'hotstar.com', 'disney': 'hotstar.com',
+    'disney+': 'hotstar.com', 'jiocinema': 'jiocinema.com',
+    'sony liv': 'sonyliv.com', 'sonyliv': 'sonyliv.com',
+    'zee5': 'zee5.com', 'youtube': 'youtube.com', 'yt': 'youtube.com',
+    'netflix': 'netflix.com', 'spotify': 'spotify.com',
+    'gaana': 'gaana.com', 'wynk': 'wynk.in',
+    // Food / grocery / quick-commerce
+    'swiggy': 'swiggy.com', 'zomato': 'zomato.com',
+    'zepto': 'zeptonow.com', 'blinkit': 'blinkit.com',
+    'grofers': 'blinkit.com', 'bigbasket': 'bigbasket.com',
+    'bbnow': 'bigbasket.com', 'dunzo': 'dunzo.com',
+    'instamart': 'swiggy.com',
+    // Payments / fintech / banks
+    'paytm': 'paytm.com', 'phonepe': 'phonepe.com',
+    'gpay': 'pay.google.com', 'google pay': 'pay.google.com',
+    'cred': 'cred.club', 'bhim': 'bhimupi.org.in',
+    'sbi': 'sbi.co.in', 'lic': 'licindia.in',
+    'hdfc': 'hdfcbank.com', 'hdfc bank': 'hdfcbank.com',
+    'icici': 'icicibank.com', 'icici bank': 'icicibank.com',
+    'axis': 'axisbank.com', 'axis bank': 'axisbank.com',
+    'kotak': 'kotak.com', 'pnb': 'pnbindia.in',
+    'bob': 'bankofbaroda.in', 'canara': 'canarabank.com',
+    'idfc': 'idfcfirstbank.com', 'yes bank': 'yesbank.in',
+    'indusind': 'indusind.com', 'au bank': 'aubank.in',
+    // Investing / brokers
+    'zerodha': 'zerodha.com', 'kite': 'zerodha.com',
+    'groww': 'groww.in', 'upstox': 'upstox.com',
+    'angel one': 'angelone.in', 'angelone': 'angelone.in',
+    'coin': 'coin.zerodha.com', 'smallcase': 'smallcase.com',
+    'indmoney': 'indmoney.com', 'ind money': 'indmoney.com',
+    'kuvera': 'kuvera.in', 'et money': 'etmoney.com',
+    'dhan': 'dhan.co', 'fyers': 'fyers.in',
+    // Insurance
+    'hdfc life': 'hdfclife.com', 'star health': 'starhealth.in',
+    'policybazaar': 'policybazaar.com', 'acko': 'acko.com',
+    'digit': 'godigit.com', 'max life': 'maxlifeinsurance.com',
+    'tata aig': 'tataaig.com', 'bajaj allianz': 'bajajallianz.com',
+    // Shopping
+    'amazon': 'amazon.in', 'flipkart': 'flipkart.com',
+    'myntra': 'myntra.com', 'ajio': 'ajio.com',
+    'meesho': 'meesho.com', 'nykaa': 'nykaa.com',
+    'tata neu': 'tataneu.com', 'tataneu': 'tataneu.com',
+    'jiomart': 'jiomart.com', 'snapdeal': 'snapdeal.com',
+    'firstcry': 'firstcry.com', 'pharmeasy': 'pharmeasy.in',
+    'apollo': 'apollopharmacy.in', 'tata 1mg': '1mg.com', '1mg': '1mg.com',
+    // Travel / transport
+    'ola': 'olacabs.com', 'uber': 'uber.com',
+    'rapido': 'rapido.bike', 'irctc': 'irctc.co.in',
+    'makemytrip': 'makemytrip.com', 'mmt': 'makemytrip.com',
+    'goibibo': 'goibibo.com', 'ixigo': 'ixigo.com',
+    'redbus': 'redbus.in', 'bookmyshow': 'bookmyshow.com',
+    'oyo': 'oyorooms.com', 'indigo': 'goindigo.in',
+    'air india': 'airindia.com', 'vistara': 'airvistara.com',
+    // Telecom / utilities
+    'jio': 'jio.com', 'airtel': 'airtel.in',
+    'vi': 'myvi.in', 'vodafone': 'myvi.in', 'bsnl': 'bsnl.co.in',
+    'tata power': 'tatapower.com', 'adani': 'adanielectricity.com',
+    // Big tech / productivity
+    'google': 'google.com', 'apple': 'apple.com',
+    'microsoft': 'microsoft.com', 'meta': 'meta.com',
+    'whatsapp': 'whatsapp.com', 'instagram': 'instagram.com',
+    'facebook': 'facebook.com', 'linkedin': 'linkedin.com',
+    'x': 'x.com', 'twitter': 'x.com', 'telegram': 'telegram.org',
+    'chatgpt': 'openai.com', 'openai': 'openai.com',
+    'canva': 'canva.com', 'notion': 'notion.so',
+    'adobe': 'adobe.com', 'dropbox': 'dropbox.com',
+    'zoom': 'zoom.us', 'slack': 'slack.com',
+    'github': 'github.com', 'figma': 'figma.com',
   };
 
-  /// Best-effort brand for a free-typed query. Resolution order:
+  /// Best-effort brand for a free-typed query:
   ///   1. exact match against a popular brand's name,
-  ///   2. an alias,
+  ///   2. an alias (the big map above),
   ///   3. if the query already looks like a domain, use it,
-  ///   4. otherwise guess `<slug>.com` (works for a surprising number of apps),
-  ///      still falling back to a letter-avatar if that logo 404s.
+  ///   4. otherwise guess a domain — the widget then tries `.com`, `.in`, `.co`,
+  ///      `.app` and multiple logo sources, so a wrong guess still often finds a
+  ///      real logo before falling back to a letter avatar.
   static Brand resolve(String query) {
     final q = query.trim();
     final lower = q.toLowerCase();

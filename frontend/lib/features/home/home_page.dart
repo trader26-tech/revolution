@@ -87,6 +87,19 @@ class _HomePageState extends State<HomePage> {
 
     return Stack(
       children: [
+        // The empty state is centred against the WHOLE screen (behind the top
+        // bar + nav), so the icon + text block sits optically dead-centre — not
+        // pushed up by the top bar's height.
+        AnimatedBuilder(
+          animation: widget.store,
+          builder: (context, _) {
+            final showEmpty = widget.store.tasks.isEmpty && !_adding;
+            if (!showEmpty) return const SizedBox.shrink();
+            return Positioned.fill(
+              child: _EmptyContent(onAdd: _startAdd),
+            );
+          },
+        ),
         SafeArea(
           bottom: false,
           child: Column(
@@ -132,9 +145,10 @@ class _HomePageState extends State<HomePage> {
     final allTasks = widget.store.tasks;
     final tasks = applyFilter(allTasks, _filter);
 
-    // Truly empty (no tasks at all) → the welcoming empty state.
+    // Truly empty (no tasks at all) → the welcoming empty state is drawn as a
+    // full-screen centred layer behind this (see build), so nothing here.
     if (allTasks.isEmpty && !_adding) {
-      return _EmptyContent(onAdd: _startAdd);
+      return const SizedBox.shrink();
     }
     // Have tasks, but the current filter hides them all.
     if (tasks.isEmpty && !_adding) {

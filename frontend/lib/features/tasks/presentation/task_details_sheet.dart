@@ -51,12 +51,6 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
     );
   }
 
-  /// Signal a delete to the caller. A real task always has a non-empty title,
-  /// so an empty-title result is an unambiguous "delete me".
-  void _delete() {
-    Navigator.of(context).pop(widget.task.copyWith(title: ''));
-  }
-
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -207,16 +201,6 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
             ),
             const SizedBox(height: 12),
             FilledButton(onPressed: _save, child: const Text('Save')),
-            const SizedBox(height: 4),
-            TextButton.icon(
-              onPressed: _delete,
-              icon: const Icon(Icons.delete_outline_rounded, size: 20),
-              label: const Text('Delete task'),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFE5484D),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
           ],
         ),
       ),

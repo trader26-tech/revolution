@@ -4,12 +4,17 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 
-/// A delightfully animated check circle for marking a task done.
+/// An animated check circle for marking a task done, matching the reference:
 ///
-/// Tapping animates: the ring fills with accent colour, a checkmark draws
-/// itself stroke-by-stroke inside, and the whole thing gives a soft bounce.
-/// Un-checking reverses it. All drawn in a single [CustomPainter] so it stays
-/// crisp at any size.
+///   1. the accent fill RISES from the bottom to the top of the ring (like the
+///      circle filling with liquid),
+///   2. once full, a subtle, slightly-slanted burst flashes around it,
+///   3. then a short, clean white tick draws itself — sized to sit comfortably
+///      inside the circle, never overflowing.
+///
+/// Un-checking reverses it. Everything is drawn in one [CustomPainter] centred
+/// in an oversized canvas so the burst can flash outside the ring without
+/// affecting layout.
 class AnimatedCheckCircle extends StatefulWidget {
   const AnimatedCheckCircle({
     super.key,
@@ -28,39 +33,44 @@ class AnimatedCheckCircle extends StatefulWidget {
 
 class _AnimatedCheckCircleState extends State<AnimatedCheckCircle>
     with SingleTickerProviderStateMixin {
+  // How much bigger the paint canvas is than the ring, to give the burst room.
+  static const double _canvasScale = 1.7;
+
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 460),
+    duration: const Duration(milliseconds: 520),
     value: widget.checked ? 1 : 0,
   );
 
-  // Fill grows first, then the tick draws, with a springy scale pop on top.
+  // Phase 1 — fill rises bottom→up.
   late final Animation<double> _fill = CurvedAnimation(
     parent: _c,
-    curve: const Interval(0.0, 0.55, curve: Curves.easeOutCubic),
+    curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
   );
-  late final Animation<double> _tick = CurvedAnimation(
-    parent: _c,
-    curve: const Interval(0.35, 1.0, curve: Curves.easeOutCubic),
-  );
-  // The radial burst: short rays fire outward and fade as the check completes
-  // (0 → nothing, 1 → rays at full reach + faded). Fires only near the end.
+  // Phase 2 — the burst flashes right after the fill completes, then fades.
   late final Animation<double> _burst = CurvedAnimation(
     parent: _c,
-    curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+    curve: const Interval(0.48, 0.82, curve: Curves.easeOut),
   );
-  // A gentle overshoot bump that peaks mid-animation, giving a satisfying pop
-  // without a lingering wobble.
+  // Phase 3 — the tick draws itself last.
+  late final Animation<double> _tick = CurvedAnimation(
+    parent: _c,
+    curve: const Interval(0.62, 1.0, curve: Curves.easeOutCubic),
+  );
+  // A restrained pop — small, so it reads as premium, not bouncy.
   late final Animation<double> _pop = TweenSequence<double>([
     TweenSequenceItem(
-        tween: Tween(begin: 1.0, end: 1.14)
+        tween: Tween(begin: 1.0, end: 1.08)
             .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 45),
+        weight: 50),
     TweenSequenceItem(
-        tween: Tween(begin: 1.14, end: 1.0)
+        tween: Tween(begin: 1.08, end: 1.0)
             .chain(CurveTween(curve: Curves.easeIn)),
-        weight: 55),
-  ]).animate(_c);
+        weight: 50),
+  ]).animate(CurvedAnimation(
+    parent: _c,
+    curve: const Interval(0.4, 0.9, curve: Curves.linear),
+  ));
 
   @override
   void didUpdateWidget(AnimatedCheckCircle old) {
@@ -78,31 +88,31 @@ class _AnimatedCheckCircleState extends State<AnimatedCheckCircle>
 
   @override
   Widget build(BuildContext context) {
+    final canvas = widget.size * _canvasScale;
     return GestureDetector(
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
-      // A little breathing room so the tap target stays comfortable.
       child: Padding(
         padding: const EdgeInsets.all(2),
-        // The layout footprint stays `size`; the painter's canvas is larger so
-        // the burst can spill outside the ring. OverflowBox lets it paint beyond
-        // the box without pushing the row's other content around.
+        // Layout footprint stays `size`; the painter's canvas is larger so the
+        // burst can flash outside the ring without moving other content.
         child: SizedBox.square(
           dimension: widget.size,
           child: OverflowBox(
-            maxWidth: widget.size * 1.9,
-            maxHeight: widget.size * 1.9,
+            maxWidth: canvas,
+            maxHeight: canvas,
             child: AnimatedBuilder(
               animation: _c,
               builder: (context, _) {
                 return Transform.scale(
                   scale: _pop.value,
                   child: CustomPaint(
-                    size: Size.square(widget.size * 1.9),
+                    size: Size.square(canvas),
                     painter: _CheckPainter(
+                      ringDiameter: widget.size,
                       fill: _fill.value,
-                      tick: _tick.value,
                       burst: _burst.value,
+                      tick: _tick.value,
                     ),
                   ),
                 );
@@ -116,92 +126,112 @@ class _AnimatedCheckCircleState extends State<AnimatedCheckCircle>
 }
 
 class _CheckPainter extends CustomPainter {
-  _CheckPainter({required this.fill, required this.tick, required this.burst});
+  _CheckPainter({
+    required this.ringDiameter,
+    required this.fill,
+    required this.burst,
+    required this.tick,
+  });
 
-  /// 0 → empty ring, 1 → fully filled accent disc.
+  /// The actual ring diameter (the painter centres it in the larger canvas).
+  final double ringDiameter;
+
+  /// 0 → empty, 1 → filled to the top (rises from the bottom).
   final double fill;
 
-  /// 0 → no tick, 1 → fully drawn checkmark.
-  final double tick;
-
-  /// 0 → no burst, 1 → rays fully extended and faded out.
+  /// 0 → no burst, 1 → rays fully out and faded.
   final double burst;
+
+  /// 0 → no tick, 1 → fully drawn.
+  final double tick;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    // The ring itself occupies the inner ~52% of the oversized canvas, leaving
-    // room around it for the burst rays.
-    final radius = size.width * 0.263;
-    final stroke = radius * 2 * 0.09;
+    final radius = ringDiameter / 2;
+    final stroke = ringDiameter * 0.085;
+    final rInner = radius - stroke / 2;
 
-    // The radial burst — short rays firing outward, fading as they reach full
-    // extent. Drawn first (behind the disc) so the circle stays crisp on top.
+    // --- 2) burst — behind the disc, subtle + slightly slanted -------------
     if (burst > 0 && burst < 1) {
-      const rayCount = 8;
-      final opacity = (1 - burst); // fade out as they travel
+      const rayCount = 7;
+      // Offset the whole spray by a small angle so rays sit slanted, not axis-
+      // aligned/straight — matches the reference's off-kilter flash.
+      const tilt = 0.32;
+      final reach = radius * (0.28 + burst * 0.55); // short rays
+      final gap = radius * (0.16 + burst * 0.30);
       final rayPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke * 0.7
+        ..strokeWidth = stroke * 0.55
         ..strokeCap = StrokeCap.round
-        ..color = AppColors.accent.withValues(alpha: opacity * 0.9);
-      final inner = radius * (1.15 + burst * 0.35);
-      final outer = radius * (1.25 + burst * 0.85);
+        ..color = AppColors.accent.withValues(alpha: (1 - burst) * 0.7);
       for (var i = 0; i < rayCount; i++) {
-        final a = (i / rayCount) * 2 * 3.1415926;
+        final a = tilt + (i / rayCount) * 2 * math.pi;
         final dx = math.cos(a), dy = math.sin(a);
         canvas.drawLine(
-          center + Offset(dx * inner, dy * inner),
-          center + Offset(dx * outer, dy * outer),
+          center + Offset(dx * (radius + gap), dy * (radius + gap)),
+          center + Offset(dx * (radius + gap + reach), dy * (radius + gap + reach)),
           rayPaint,
         );
       }
     }
 
-    // 1) The empty ring — greys when unchecked, tints toward accent as it fills.
+    // --- 1) ring + rising fill ---------------------------------------------
+    // The ring: greys when empty, tints to accent as it fills.
     final ringPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
-      ..color = Color.lerp(AppColors.inkFaint, AppColors.accent, fill)!;
-    canvas.drawCircle(center, radius - stroke / 2, ringPaint);
+      ..color = Color.lerp(AppColors.inkFaint, AppColors.accent, fill.clamp(0, 1))!;
+    canvas.drawCircle(center, rInner, ringPaint);
 
-    // 2) The accent disc grows from the centre.
+    // The accent disc, revealed bottom→up by clipping to a rising rectangle.
     if (fill > 0) {
+      canvas.save();
+      // A rectangle whose TOP edge rises from the circle's bottom to its top.
+      final fillTop = center.dy + rInner - (2 * rInner) * fill;
+      canvas.clipRect(Rect.fromLTRB(
+        center.dx - rInner,
+        fillTop,
+        center.dx + rInner,
+        center.dy + rInner,
+      ));
       final discPaint = Paint()
         ..style = PaintingStyle.fill
         ..shader = const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: [AppColors.accent, AppColors.accentDeep],
-        ).createShader(Rect.fromCircle(center: center, radius: radius));
-      canvas.drawCircle(center, (radius - stroke / 2) * fill, discPaint);
+        ).createShader(Rect.fromCircle(center: center, radius: rInner));
+      canvas.drawCircle(center, rInner, discPaint);
+      canvas.restore();
     }
 
-    // 3) The checkmark draws itself along its path.
+    // --- 3) the tick — short, centred, contained ---------------------------
     if (tick > 0) {
-      final p1 = Offset(size.width * 0.28, size.height * 0.52);
-      final p2 = Offset(size.width * 0.44, size.height * 0.66);
-      final p3 = Offset(size.width * 0.73, size.height * 0.36);
+      // A compact check: left-down start, low elbow just below centre, then up
+      // to the right. All offsets are fractions of the RADIUS, so the tick is
+      // always well inside the circle — never overflowing.
+      final a = center + Offset(-radius * 0.34, radius * 0.02); // start (upper-left)
+      final b = center + Offset(-radius * 0.06, radius * 0.28); // elbow (low-centre)
+      final c = center + Offset(radius * 0.38, -radius * 0.24); // end (upper-right)
 
-      final path = Path()..moveTo(p1.dx, p1.dy);
-      // Two segments; draw them proportionally to `tick` for a live stroke.
-      final seg1 = (p2 - p1).distance;
-      final seg2 = (p3 - p2).distance;
-      final total = seg1 + seg2;
-      final drawLen = total * tick;
+      final seg1 = (b - a).distance;
+      final seg2 = (c - b).distance;
+      final drawn = (seg1 + seg2) * tick;
 
-      if (drawLen <= seg1) {
-        final t = drawLen / seg1;
-        path.lineTo(p1.dx + (p2.dx - p1.dx) * t, p1.dy + (p2.dy - p1.dy) * t);
+      final path = Path()..moveTo(a.dx, a.dy);
+      if (drawn <= seg1) {
+        final t = drawn / seg1;
+        path.lineTo(a.dx + (b.dx - a.dx) * t, a.dy + (b.dy - a.dy) * t);
       } else {
-        path.lineTo(p2.dx, p2.dy);
-        final t = ((drawLen - seg1) / seg2).clamp(0.0, 1.0);
-        path.lineTo(p2.dx + (p3.dx - p2.dx) * t, p2.dy + (p3.dy - p2.dy) * t);
+        path.lineTo(b.dx, b.dy);
+        final t = ((drawn - seg1) / seg2).clamp(0.0, 1.0);
+        path.lineTo(b.dx + (c.dx - b.dx) * t, b.dy + (c.dy - b.dy) * t);
       }
 
       final tickPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke * 1.15
+        ..strokeWidth = stroke * 1.05
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..color = Colors.white;

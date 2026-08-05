@@ -18,6 +18,22 @@ class CalendarPage extends StatelessWidget {
     if (updated != null) store.update(updated);
   }
 
+  void _delete(BuildContext context, Task task) {
+    store.remove(task);
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Deleted “${task.title}”'),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () => store.restore(task),
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -74,7 +90,8 @@ class CalendarPage extends StatelessWidget {
                     return TaskTile(
                       task: t,
                       onToggle: () => store.toggleDone(t),
-                      onTap: () => _edit(context, t),
+                      onOpenDetails: () => _edit(context, t),
+                      onDelete: () => _delete(context, t),
                     );
                   },
                 );

@@ -82,7 +82,16 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _editTask(Task task) async {
     final updated = await showTaskDetailsSheet(context, task);
-    if (updated != null) widget.store.update(updated);
+    if (updated == null) return;
+    try {
+      await widget.store.update(updated);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't save: $e")),
+        );
+      }
+    }
   }
 
   /// Remove a task, with a white, auto-dismissing Undo snackbar.

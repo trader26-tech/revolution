@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'dart:ui';
+
 import '../../../core/theme/bamboo_palette.dart';
+import '../../account/presentation/account_page.dart';
 import '../../mascot/presentation/bobo_mascot.dart';
 import '../../reminders/domain/reminder.dart';
 import '../../reminders/domain/streak.dart';
@@ -15,23 +18,40 @@ import '../../reminders/presentation/widgets/reminder_card.dart';
 /// line and the reminders list. Reads the shared [RemindersController], so Bobo
 /// and the streak stay in sync with the Calendar tab.
 class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.controller});
+  const HomePage({
+    super.key,
+    required this.controller,
+    required this.ownerId,
+    this.onSignOut,
+  });
 
   final RemindersController controller;
+  final String ownerId;
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: controller,
-      builder: (context, _) => _HomeView(controller: controller),
+      builder: (context, _) => _HomeView(
+        controller: controller,
+        ownerId: ownerId,
+        onSignOut: onSignOut,
+      ),
     );
   }
 }
 
 class _HomeView extends StatelessWidget {
-  const _HomeView({required this.controller});
+  const _HomeView({
+    required this.controller,
+    required this.ownerId,
+    this.onSignOut,
+  });
 
   final RemindersController controller;
+  final String ownerId;
+  final VoidCallback? onSignOut;
 
   Future<void> _openAddSheet(BuildContext context) async {
     // The sheet creates the reminder via the repository; we then fold it into
@@ -107,21 +127,19 @@ class _HomeView extends StatelessWidget {
       return _ErrorState(error: controller.error!, onRetry: controller.load);
     }
 
-    // The hero box is a fixed fraction of screen height — same footprint for
-    // every mood. Below it: status text, then either the empty hint or the list.
-    final screenH = MediaQuery.of(context).size.height;
-    final heroH = screenH * 0.42; // ~50% of the usable area above the nav
-
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
       children: [
-        _TopBar(onAdd: () => _openAddSheet(context)),
-        _BoboHero(height: heroH, mood: streak.mood),
-        const SizedBox(height: 8),
+        _TopBar(
+          streak: streak,
+          onAdd: () => _openAddSheet(context),
+          onOpenAccount: () => _openAccount(context),
+        ),
+        const SizedBox(height: 16),
         _StatusBlock(streak: streak, reminderCount: reminders.length),
         const SizedBox(height: 20),
         if (isEmpty)
-          const _EmptyHint()
+          _EmptyHint(onAdd: () => _openAddSheet(context))
         else
           for (final r in reminders)
             Padding(
@@ -135,56 +153,154 @@ class _HomeView extends StatelessWidget {
       ],
     );
   }
+
+  Future<void> _openAccount(BuildContext context) {
+    return Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AccountPage(ownerId: ownerId, onSignOut: onSignOut),
+      ),
+    );
+  }
 }
 
-/// A tidy top bar: the app name + a clean "add" button. Replaces the floating
-/// action button, which collided with the bottom nav.
+/// The home top bar, CultFit-style: a circular account avatar on the left, a
+/// Bobo + streak pill in the centre, and a frosted-glass "+" on the right.
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onAdd});
+  const _TopBar({
+    required this.streak,
+    required this.onAdd,
+    required this.onOpenAccount,
+  });
 
+  final StreakStatus streak;
   final VoidCallback onAdd;
+  final VoidCallback onOpenAccount;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 0, 4),
+      padding: const EdgeInsets.fromLTRB(2, 4, 2, 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Revolution',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: Bamboo.ink,
-                ),
+          _AccountAvatar(onTap: onOpenAccount),
+          const SizedBox(width: 12),
+          Expanded(child: Center(child: _StreakPill(streak: streak))),
+          const SizedBox(width: 12),
+          _GlassAddButton(onTap: onAdd),
+        ],
+      ),
+    );
+  }
+}
+
+/// The account entry — a circular avatar with a soft ring, like the reference.
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Bamboo.green.withValues(alpha: 0.14),
+          border: Border.all(color: Bamboo.green.withValues(alpha: 0.55), width: 2),
+        ),
+        child: const Icon(Icons.person_rounded, color: Bamboo.greenDeep, size: 24),
+      ),
+    );
+  }
+}
+
+/// The centre pill: a small Bobo next to the streak text.
+class _StreakPill extends StatelessWidget {
+  const _StreakPill({required this.streak});
+  final StreakStatus streak;
+
+  String get _text {
+    if (!streak.onStreak) return 'Streak broken';
+    final d = streak.streakDays;
+    if (d <= 0) return 'On track today';
+    return '$d day${d == 1 ? '' : 's'} clear';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final broken = !streak.onStreak;
+    final accent = broken ? const Color(0xFFE07A5F) : Bamboo.greenDeep;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 4, 16, 4),
+      decoration: BoxDecoration(
+        color: Bamboo.card,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: accent.withValues(alpha: 0.45), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.14),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
-          Material(
-            color: Bamboo.green,
-            borderRadius: BorderRadius.circular(999),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(999),
-              onTap: onAdd,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                    SizedBox(width: 6),
-                    Text(
-                      'Add',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Small Bobo lives here now — his compact home.
+          BoboMascot(size: 34, mood: streak.mood),
+          const SizedBox(width: 8),
+          Text(
+            _text,
+            style: TextStyle(
+              color: accent,
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The frosted-glass "+" — the Orbit-style add button.
+class _GlassAddButton extends StatelessWidget {
+  const _GlassAddButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Bamboo.card.withValues(alpha: 0.55),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.6),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Bamboo.brown.withValues(alpha: 0.14),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.add_rounded, color: Bamboo.greenDeep, size: 26),
+          ),
+        ),
       ),
     );
   }

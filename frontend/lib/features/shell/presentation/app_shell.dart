@@ -4,17 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/bamboo_palette.dart';
-import '../../account/presentation/account_page.dart';
 import '../../calendar/presentation/calendar_page.dart';
 import '../../home/presentation/home_page.dart';
 import '../../reminders/data/reminders_repository.dart';
 import '../../reminders/presentation/reminders_controller.dart';
 
-/// The signed-in app shell: three tabs behind a floating bottom nav.
+/// The signed-in app shell: two tabs behind a floating bottom nav.
 ///
 ///   0 · Home     — Bobo + the reminders list (the reminders page)
 ///   1 · Calendar — a month view of renewal due-dates + streak
-///   2 · Account  — profile / settings (owned by another agent)
+///
+/// Account lives in the Home top bar (a circular avatar), not the nav, so the
+/// bar stays focused on the two primary surfaces.
 ///
 /// Owns the shared [RemindersController] so Bobo, the streak, and the data
 /// stay in sync across Home and Calendar and load only once.
@@ -60,12 +61,12 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      HomePage(controller: _controller),
-      CalendarPage(controller: _controller),
-      AccountPage(
+      HomePage(
+        controller: _controller,
         ownerId: widget.ownerId,
         onSignOut: widget.onSignOut,
       ),
+      CalendarPage(controller: _controller),
     ];
 
     return Scaffold(
@@ -92,11 +93,6 @@ class _FloatingNav extends StatelessWidget {
       icon: Icons.calendar_today_outlined,
       active: Icons.calendar_month_rounded,
       label: 'Calendar'
-    ),
-    (
-      icon: Icons.person_outline_rounded,
-      active: Icons.person_rounded,
-      label: 'Account'
     ),
   ];
 

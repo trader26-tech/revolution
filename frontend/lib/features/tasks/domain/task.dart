@@ -71,29 +71,31 @@ class Task {
     );
   }
 
-  // --- persistence (on-device JSON) -----------------------------------------
+  // --- JSON (matches the backend /tasks API, snake_case) --------------------
+  /// Body for creating/updating a task on the server. `id` is server-assigned,
+  /// so it's not sent.
   Map<String, dynamic> toJson() => {
-        'id': id,
         'title': title,
         'done': done,
-        'reminderOn': reminderOn,
-        'dueAt': dueAt?.toIso8601String(),
+        'reminder_on': reminderOn,
+        'due_at': dueAt?.toIso8601String(),
         'repeat': repeat.name,
-        'iconName': iconName,
-        'iconDomain': iconDomain,
+        'icon_name': iconName,
+        'icon_domain': iconDomain,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
-        id: j['id'] as String,
+        id: j['id'].toString(),
         title: j['title'] as String? ?? '',
         done: j['done'] as bool? ?? false,
-        reminderOn: j['reminderOn'] as bool? ?? true,
-        dueAt: j['dueAt'] == null ? null : DateTime.parse(j['dueAt'] as String),
+        reminderOn: j['reminder_on'] as bool? ?? true,
+        dueAt:
+            j['due_at'] == null ? null : DateTime.parse(j['due_at'] as String),
         repeat: RepeatCadence.values.firstWhere(
           (r) => r.name == j['repeat'],
           orElse: () => RepeatCadence.none,
         ),
-        iconName: j['iconName'] as String?,
-        iconDomain: j['iconDomain'] as String?,
+        iconName: j['icon_name'] as String?,
+        iconDomain: j['icon_domain'] as String?,
       );
 }

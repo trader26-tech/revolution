@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/bamboo_palette.dart';
+import '../../../family/data/family_repository.dart';
+import '../../../family/domain/family_member.dart';
+import '../../../family/presentation/widgets/member_avatar.dart';
 import '../../../mascot/presentation/bobo_mascot.dart';
 import '../../data/reminders_repository.dart';
 import '../../domain/catalog.dart';
@@ -44,6 +47,11 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
   String _query = '';
   bool _busy = false;
 
+  late final _familyRepo =
+      FamilyRepository(ownerId: widget.repository.ownerId);
+  List<FamilyMember> _members = [];
+  String? _selectedMemberId; // whom the new reminder is for
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +59,29 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
       final q = _search.text.trim().toLowerCase();
       if (q != _query) setState(() => _query = q);
     });
+    _loadMembers();
+  }
+
+  Future<void> _loadMembers() async {
+    try {
+      final members = await _familyRepo.list();
+      if (!mounted) return;
+      setState(() {
+        _members = members;
+        // Default to the head's own "You" record so there's always a target.
+        _selectedMemberId ??= _defaultMemberId(members);
+      });
+    } catch (_) {
+      // Family is optional to load; if it fails the picker just stays empty and
+      // reminders are created unlinked.
+    }
+  }
+
+  String? _defaultMemberId(List<FamilyMember> members) {
+    for (final m in members) {
+      if (m.isSelf) return m.id;
+    }
+    return members.isNotEmpty ? members.first.id : null;
   }
 
   @override
@@ -78,7 +109,8 @@ class _AddReminderSheetState extends State<_AddReminderSheet> {
   Future<void> _quickAdd(ReminderCategory category, CatalogItem item) async {
     if (_busy) return;
     setState(() => _busy = true);
-    final draft = Scheduling.draftFor(item, from: DateTime.now());
+    final draft = Scheduling.draftFor(item, from: DateTime.now())
+        .withMember(_selectedMemberId);
     try {
       final created = await widget.repository.create(draft);
       if (mounted) Navigator.of(context).pop(created);

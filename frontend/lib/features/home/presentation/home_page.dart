@@ -155,9 +155,21 @@ class _HomeView extends StatelessWidget {
   }
 
   Future<void> _openAccount(BuildContext context) {
+    // Account was a nav tab (a bare page with no back button). Now that it's
+    // pushed from the avatar, wrap it in a Scaffold with a back-enabled bar so
+    // the user can always return home.
     return Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => AccountPage(ownerId: ownerId, onSignOut: onSignOut),
+        builder: (_) => Scaffold(
+          backgroundColor: Bamboo.cream,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            leading: const BackButton(color: Bamboo.ink),
+          ),
+          body: AccountPage(ownerId: ownerId, onSignOut: onSignOut),
+        ),
       ),
     );
   }
@@ -217,52 +229,65 @@ class _AccountAvatar extends StatelessWidget {
   }
 }
 
-/// The centre pill: a small Bobo next to the streak text.
+/// The centre streak chip — CultFit-style: a flame + "N day streak" inside a
+/// pill, with Bobo zoomed in and peeking off the right edge so he reads clearly
+/// instead of being a tiny dot.
 class _StreakPill extends StatelessWidget {
   const _StreakPill({required this.streak});
   final StreakStatus streak;
 
-  String get _text {
-    if (!streak.onStreak) return 'Streak broken';
-    final d = streak.streakDays;
-    if (d <= 0) return 'On track today';
-    return '$d day${d == 1 ? '' : 's'} clear';
-  }
+  /// Big number + "day streak", like Cult's "0 day streak".
+  int get _days => streak.onStreak ? (streak.streakDays < 0 ? 0 : streak.streakDays) : 0;
 
   @override
   Widget build(BuildContext context) {
     final broken = !streak.onStreak;
     final accent = broken ? const Color(0xFFE07A5F) : Bamboo.greenDeep;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(8, 4, 16, 4),
-      decoration: BoxDecoration(
-        color: Bamboo.card,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: accent.withValues(alpha: 0.45), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withValues(alpha: 0.14),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+    final glow = broken ? const Color(0xFFE07A5F) : Bamboo.green;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.centerLeft,
+      children: [
+        // The pill. Extra right padding leaves room for Bobo's overhang.
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 8, 52, 8),
+          decoration: BoxDecoration(
+            color: Bamboo.card,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: glow.withValues(alpha: 0.22),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Small Bobo lives here now — his compact home.
-          BoboMascot(size: 34, mood: streak.mood),
-          const SizedBox(width: 8),
-          Text(
-            _text,
-            style: TextStyle(
-              color: accent,
-              fontWeight: FontWeight.w800,
-              fontSize: 14,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🔥', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 7),
+              Text(
+                '$_days day streak',
+                style: TextStyle(
+                  color: accent,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        // Bobo, zoomed in, peeking off the right edge of the pill.
+        Positioned(
+          right: -22,
+          top: -14,
+          bottom: -14,
+          child: BoboMascot(size: 62, mood: streak.mood),
+        ),
+      ],
     );
   }
 }

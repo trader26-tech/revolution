@@ -85,16 +85,15 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
                 setState(() => _query = '');
               },
             ),
-            if (_query.trim().isNotEmpty) ...[
-              _sectionLabel('Pick a logo'),
-              _LogoChoices(
-                brand: BrandCatalog.resolve(_query),
-                onPick: (b) => Navigator.pop(context, b),
-              ),
-            ],
             const SizedBox(height: 4),
-            _sectionLabel(_query.trim().isEmpty ? 'Popular' : 'More apps'),
-            Expanded(child: _grid(_results)),
+            _sectionLabel(_query.trim().isEmpty ? 'Popular' : 'Results'),
+            // Searching → a clean vertical list (one row per app, single logo,
+            // no duplicates). Browsing → the popular grid.
+            Expanded(
+              child: _query.trim().isEmpty
+                  ? _grid(_results)
+                  : _resultsList(_results),
+            ),
           ],
         ),
       ),
@@ -148,6 +147,72 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
       },
     );
   }
+
+  /// The search results as a clean vertical list — one row per app, a single
+  /// logo each (multi-source fallback under the hood), no duplicates.
+  Widget _resultsList(List<Brand> brands) {
+    if (brands.isEmpty) {
+      return const Center(
+        child: Text('Type any app or company name',
+            style: TextStyle(color: AppColors.inkFaint)),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      itemCount: brands.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (_, i) {
+        final b = brands[i];
+        return _BrandRow(brand: b, onTap: () => Navigator.pop(context, b));
+      },
+    );
+  }
+}
+
+/// One app in the search results: logo on the left, name, tap to add.
+class _BrandRow extends StatelessWidget {
+  const _BrandRow({required this.brand, required this.onTap});
+
+  final Brand brand;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: Row(
+            children: [
+              BrandLogo(brand: brand, size: 44, radius: 12),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  brand.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                      fontSize: 15),
+                ),
+              ),
+              const Icon(Icons.add_circle_outline_rounded,
+                  color: AppColors.accent),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SearchField extends StatelessWidget {
@@ -190,88 +255,6 @@ class _SearchField extends StatelessWidget {
                   ),
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The "search results" moment: for the typed name, show the SAME app's logo
-/// from every source (icon.horse / Google / DuckDuckGo) side-by-side, plus a
-/// letter-avatar option, so the user picks the crispest one — like choosing
-/// from search results. Each variant is tappable and adds immediately.
-class _LogoChoices extends StatelessWidget {
-  const _LogoChoices({required this.brand, required this.onPick});
-
-  final Brand brand;
-  final ValueChanged<Brand> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 2, 16, 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('“${brand.name}”',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800, color: AppColors.ink)),
-          const SizedBox(height: 2),
-          const Text('Tap the icon you like best',
-              style: TextStyle(color: AppColors.inkSoft, fontSize: 12.5)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              for (final source in LogoSource.values)
-                _Variant(
-                  brand: brand.withSource(source),
-                  onTap: () => onPick(brand.withSource(source)),
-                ),
-              // A plain letter-avatar option (no remote logo) as a clean choice.
-              _Variant(
-                brand: Brand(name: brand.name, domain: ''),
-                onTap: () => onPick(Brand(name: brand.name, domain: '')),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Variant extends StatelessWidget {
-  const _Variant({required this.brand, required this.onTap});
-
-  final Brand brand;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.bg,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: BrandLogo(brand: brand, size: 44, radius: 12),
-            ),
           ),
         ),
       ),

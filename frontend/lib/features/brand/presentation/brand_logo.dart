@@ -26,23 +26,37 @@ class BrandLogo extends StatelessWidget {
       seed: brand.name,
     );
 
-    if (brand.logoUrl.isEmpty) return fallback;
+    // The list of source URLs to try, in order. If the brand is pinned to one
+    // source we honour it; otherwise we try every source so the ONE logo shown
+    // is as reliable as possible — icon.horse first, then Google variants.
+    final urls = brand.domain.isEmpty
+        ? const <String>[]
+        : (brand.source != null
+            ? [brand.source!.urlFor(brand.domain)]
+            : LogoSource.values.map((s) => s.urlFor(brand.domain)).toList());
+
+    if (urls.isEmpty) return fallback;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
-      child: Image.network(
-        brand.logoUrl,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        // While loading, keep the space stable with the avatar underneath.
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child; // done
-          return _LoadingBox(size: size, radius: radius);
-        },
-        // Any failure (404, offline, timeout) → the letter avatar.
-        errorBuilder: (_, _, _) => fallback,
-      ),
+      child: _chain(urls, 0, fallback),
+    );
+  }
+
+  /// Try [urls[i]]; on error fall through to the next, finally the avatar.
+  Widget _chain(List<String> urls, int i, Widget fallback) {
+    if (i >= urls.length) return fallback;
+    return Image.network(
+      urls[i],
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child; // done
+        return _LoadingBox(size: size, radius: radius);
+      },
+      // This source failed → try the next one, or the avatar if none left.
+      errorBuilder: (_, _, _) => _chain(urls, i + 1, fallback),
     );
   }
 }

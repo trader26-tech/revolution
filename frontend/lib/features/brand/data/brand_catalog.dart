@@ -87,15 +87,28 @@ class BrandCatalog {
   }
 
   /// Popular brands whose name contains [query] (for the live suggestion list).
+  ///
+  /// The free-typed guess goes first (so ANY name works), then matching popular
+  /// brands. The whole list is de-duplicated by domain so the same logo never
+  /// appears twice.
   static List<Brand> search(String query) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return popular;
-    final hits =
-        popular.where((b) => b.name.toLowerCase().contains(q)).toList();
-    // Always offer the free-typed guess as the first result, so ANY name works.
-    final guess = resolve(query);
-    final alreadyThere = hits.any((b) => b.domain == guess.domain);
-    return [if (!alreadyThere) guess, ...hits];
+
+    final ordered = <Brand>[
+      resolve(query), // the typed guess, first
+      ...popular.where((b) => b.name.toLowerCase().contains(q)),
+    ];
+
+    final seen = <String>{};
+    final out = <Brand>[];
+    for (final b in ordered) {
+      // Key on domain (or lowercase name when there's no domain) so duplicates
+      // pointing at the same logo collapse to one entry.
+      final key = b.domain.isNotEmpty ? b.domain : 'name:${b.name.toLowerCase()}';
+      if (seen.add(key)) out.add(b);
+    }
+    return out;
   }
 
   static bool _looksLikeDomain(String s) =>

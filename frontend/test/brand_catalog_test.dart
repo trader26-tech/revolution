@@ -20,4 +20,12 @@ void main() {
   test('empty query returns popular list', () {
     expect(BrandCatalog.search('').isNotEmpty, true);
   });
+
+  test('search returns no duplicate domains', () {
+    final r = BrandCatalog.search('hdfc');
+    final domains = r.map((b) => b.domain).toList();
+    expect(domains.toSet().length, domains.length);
+  });
 }
+
+// (added) dedup: search must never return two entries with the same domain.

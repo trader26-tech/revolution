@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/bamboo_palette.dart';
 import '../../../panda/presentation/panda_mascot.dart';
 import '../onboarding_controller.dart';
+import '../widgets/onboarding_scaffold.dart';
 
-/// The payoff. Pip, one number, two lines. No lists.
+/// The payoff — one number, two lines, Pip. The relief moment.
 class RevealStep extends StatefulWidget {
   const RevealStep({
     super.key,
@@ -43,13 +45,14 @@ class _RevealStepState extends State<RevealStep>
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return OnboardingScaffold(
+      cta: 'Let’s go',
+      onCta: widget.onFinish,
+      busy: widget.busy,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           const PandaMascot(size: 168, mood: PandaMood.excited),
           const SizedBox(height: 24),
@@ -61,48 +64,20 @@ class _RevealStepState extends State<RevealStep>
                 '$shown',
                 style: text.displayLarge?.copyWith(
                   fontWeight: FontWeight.w900,
-                  color: scheme.primary,
+                  color: Bamboo.green,
                   height: 1,
                 ),
               );
             },
           ),
           const SizedBox(height: 8),
-          // Two lines. That's the whole message.
           Text(
-            'things handled for you.\nI’ll call before each one.',
+            'things off your mind.\nPip will nudge you before each one.',
             textAlign: TextAlign.center,
             style: text.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: scheme.onSurface,
+              color: Bamboo.ink,
               height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 40),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton(
-              onPressed: widget.busy ? null : widget.onFinish,
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              child: widget.busy
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.4,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Let’s go'),
             ),
           ),
         ],

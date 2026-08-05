@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/bamboo_palette.dart';
 import '../../domain/quiz.dart';
 import '../onboarding_controller.dart';
+import '../widgets/onboarding_scaffold.dart';
 
-/// A single quiz card: a big emoji, a few-word question, two taps.
-///
-/// The user answers in a second and the flow advances automatically — no
-/// "Continue", no step labels, no blurbs.
+/// One quiz card — a big emoji, a few-word question, two clean rows. The user
+/// answers in a tap and the flow advances; no step labels, no blurbs.
 class QuizStep extends StatelessWidget {
   const QuizStep({
     super.key,
@@ -17,8 +17,6 @@ class QuizStep extends StatelessWidget {
 
   final QuizQuestion question;
   final OnboardingController controller;
-
-  /// Called after an answer is recorded, to advance the flow.
   final VoidCallback onAnswered;
 
   void _answer(bool yes) {
@@ -29,50 +27,42 @@ class QuizStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final c = question.color;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return OnboardingScaffold(
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 132,
-            height: 132,
+            width: 116,
+            height: 116,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: c.withValues(alpha: 0.14),
+              color: Bamboo.mist,
               shape: BoxShape.circle,
+              border: Border.all(color: Bamboo.sprout.withValues(alpha: 0.5)),
             ),
-            child: Text(question.emoji, style: const TextStyle(fontSize: 64)),
+            child: Text(question.emoji, style: const TextStyle(fontSize: 56)),
           ),
           const SizedBox(height: 28),
           Text(
             question.prompt,
             textAlign: TextAlign.center,
-            style: text.displaySmall?.copyWith(fontWeight: FontWeight.w800),
+            style: text.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: Bamboo.ink,
+            ),
           ),
-          const SizedBox(height: 40),
-          Row(
-            children: [
-              Expanded(
-                child: _ChoiceButton(
-                  label: 'Not really',
-                  filled: false,
-                  color: c,
-                  onTap: () => _answer(false),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ChoiceButton(
-                  label: 'Yes',
-                  filled: true,
-                  color: c,
-                  onTap: () => _answer(true),
-                ),
-              ),
-            ],
+          const SizedBox(height: 28),
+          _AnswerRow(
+            label: 'Yes, that’s me',
+            primary: true,
+            onTap: () => _answer(true),
+          ),
+          const SizedBox(height: 12),
+          _AnswerRow(
+            label: 'Not really',
+            primary: false,
+            onTap: () => _answer(false),
           ),
         ],
       ),
@@ -80,47 +70,46 @@ class QuizStep extends StatelessWidget {
   }
 }
 
-class _ChoiceButton extends StatelessWidget {
-  const _ChoiceButton({
+class _AnswerRow extends StatelessWidget {
+  const _AnswerRow({
     required this.label,
-    required this.filled,
-    required this.color,
+    required this.primary,
     required this.onTap,
   });
 
   final String label;
-  final bool filled;
-  final Color color;
+  final bool primary;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final style = ButtonStyle(
-      minimumSize: WidgetStatePropertyAll(const Size.fromHeight(56)),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      textStyle: const WidgetStatePropertyAll(
-        TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-      ),
-    );
-
-    if (filled) {
-      return FilledButton(
-        onPressed: onTap,
-        style: style.copyWith(
-          backgroundColor: WidgetStatePropertyAll(color),
+    return Material(
+      color: primary ? Bamboo.green : Bamboo.card,
+      borderRadius: BorderRadius.circular(18),
+      elevation: primary ? 0 : 0,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          height: 58,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: primary
+                ? null
+                : Border.all(color: Bamboo.cardBorder, width: 1.5),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: primary ? Colors.white : Bamboo.ink,
+            ),
+          ),
         ),
-        child: Text(label),
-      );
-    }
-    return OutlinedButton(
-      onPressed: onTap,
-      style: style.copyWith(
-        foregroundColor: WidgetStatePropertyAll(color),
-        side: WidgetStatePropertyAll(BorderSide(color: color, width: 1.5)),
       ),
-      child: Text(label),
     );
   }
 }

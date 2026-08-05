@@ -6,6 +6,7 @@ import '../domain/quiz.dart';
 import 'onboarding_controller.dart';
 import 'steps/quiz_step.dart';
 import 'steps/reveal_step.dart';
+import 'steps/stat_step.dart';
 import 'steps/welcome_step.dart';
 
 /// Orchestrates onboarding: Welcome → a few quiz taps → Reveal.
@@ -35,8 +36,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   int _page = 0;
   bool _busy = false;
 
-  // Welcome + one page per quiz question + reveal.
-  int get _pageCount => kQuiz.length + 2;
+  // Welcome + stat + one page per quiz question + reveal.
+  int get _pageCount => kQuiz.length + 3;
 
   @override
   void dispose() {
@@ -74,33 +75,27 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   @override
   Widget build(BuildContext context) {
+    // Each step owns its full screen (bamboo background + CTA) via
+    // OnboardingScaffold, so the flow is just the PageView.
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            _ProgressBar(page: _page, pageCount: _pageCount),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  WelcomeStep(onStart: _next),
-                  for (final q in kQuiz)
-                    QuizStep(
-                      question: q,
-                      controller: _controller,
-                      onAnswered: _next,
-                    ),
-                  RevealStep(
-                    controller: _controller,
-                    busy: _busy,
-                    onFinish: _finish,
-                  ),
-                ],
-              ),
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          WelcomeStep(onStart: _next),
+          StatStep(onNext: _next),
+          for (final q in kQuiz)
+            QuizStep(
+              question: q,
+              controller: _controller,
+              onAnswered: _next,
             ),
-          ],
-        ),
+          RevealStep(
+            controller: _controller,
+            busy: _busy,
+            onFinish: _finish,
+          ),
+        ],
       ),
     );
   }

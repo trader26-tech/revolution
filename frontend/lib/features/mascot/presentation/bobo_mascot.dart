@@ -5,22 +5,25 @@ import 'package:flutter/material.dart';
 
 /// Bobo — the app's cuddly puppy mascot.
 ///
-/// A big-headed, Duolingo-style character: the face dominates, the body is a
-/// small rounded tuft below it, and two soft fluffy ears frame the head. Fully
-/// hand-drawn with a [CustomPainter] (no image assets), a bold wrapping outline
-/// so Bobo pops on any background, and crisp vector fills (no blurs) so it stays
-/// sharp on Android. All animation runs on [AnimationController]s inside a
-/// [RepaintBoundary], so only the painter re-runs — the surrounding UI never
-/// re-lays-out.
-///
-/// This is the built-in fallback. When `assets/rive/bobo.riv` is supplied, this
-/// widget can be swapped for a Rive-backed one with the same [BoboMood] API.
+/// Image-first: if an illustrated PNG exists for the current mood
+/// (`assets/images/bobo_<mood>.png`), Bobo shows that professionally-drawn art
+/// with a gentle breathing bob and a springy bounce when tapped. If the asset
+/// isn't present yet, it gracefully falls back to the built-in code-drawn
+/// [_BoboFallback] so the app never breaks.
 ///
 /// Moods map to reminder state:
-///  * [BoboMood.happy]   — nothing due, tail wagging, content smile.
-///  * [BoboMood.excited] — a reminder is coming up soon (bouncy, sparkly).
+///  * [BoboMood.happy]   — nothing due, content.
+///  * [BoboMood.excited] — a reminder is coming up soon (waving, bouncy).
 ///  * [BoboMood.sleepy]  — all caught up / quiet hours.
 enum BoboMood { happy, excited, sleepy }
+
+extension _BoboMoodAsset on BoboMood {
+  String get asset => switch (this) {
+        BoboMood.happy => 'assets/images/bobo_happy.png',
+        BoboMood.excited => 'assets/images/bobo_excited.png',
+        BoboMood.sleepy => 'assets/images/bobo_sleepy.png',
+      };
+}
 
 class BoboMascot extends StatefulWidget {
   const BoboMascot({
@@ -41,9 +44,118 @@ class BoboMascot extends StatefulWidget {
 class _BoboMascotState extends State<BoboMascot>
     with TickerProviderStateMixin {
   late final AnimationController _idle; // breathing + bob
-  late final AnimationController _wag; // tail wag
-  late final AnimationController _blink; // blink
-  late final AnimationController _poke; // tap squish
+  late final AnimationController _poke; // tap bounce
+
+  // Per-mood: does the illustrated asset exist? null = not checked yet.
+  final Map<BoboMood, bool> _assetOk = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _idle = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..repeat(reverse: true);
+    _poke = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 560),
+    );
+    _probe(widget.mood);
+  }
+
+  @override
+  void didUpdateWidget(BoboMascot old) {
+    super.didUpdateWidget(old);
+    if (old.mood != widget.mood) _probe(widget.mood);
+  }
+
+  /// Check once whether the illustrated PNG for [mood] is bundled. Uses the
+  /// asset bundle so a missing file cleanly flips us to the code-drawn fallback
+  /// instead of showing a broken-image box.
+  Future<void> _probe(BoboMood mood) async {
+    if (_assetOk.containsKey(mood)) return;
+    try {
+      await DefaultAssetBundle.of(context).load(mood.asset);
+      if (mounted) setState(() => _assetOk[mood] = true);
+    } catch (_) {
+      if (mounted) setState(() => _assetOk[mood] = false);
+    }
+  }
+
+  void _handleTap() {
+    widget.onTap?.call();
+    _poke
+      ..stop()
+      ..forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _idle.dispose();
+    _poke.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final height = widget.size * 1.06;
+    final hasImage = _assetOk[widget.mood] == true;
+
+    return GestureDetector(
+      onTap: _handleTap,
+      behavior: HitTestBehavior.opaque,
+      child: RepaintBoundary(
+        child: SizedBox(
+          width: widget.size,
+          height: height,
+          child: AnimatedBuilder(
+            animation: Listenable.merge([_idle, _poke]),
+            builder: (context, child) {
+              // Gentle breathing bob + tap bounce, applied to whichever art we
+              // show. Kept on the raster thread via the RepaintBoundary above.
+              final bob = math.sin(_idle.value * math.pi) * (height * 0.02);
+              final pokeT = Curves.elasticOut.transform(_poke.value);
+              final scale = 1 + math.sin(_idle.value * math.pi) * 0.015;
+              return Transform.translate(
+                offset: Offset(0, bob - pokeT * height * 0.04),
+                child: Transform.scale(
+                  scale: scale * (1 + pokeT * 0.05),
+                  child: child,
+                ),
+              );
+            },
+            // The child is built once (not every tick) — just the art.
+            child: hasImage
+                ? Image.asset(
+                    widget.mood.asset,
+                    width: widget.size,
+                    height: height,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                  )
+                : _BoboFallback(mood: widget.mood),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The built-in code-drawn Bobo, shown until illustrated PNGs are added. Runs
+/// its own idle/blink/wag animation.
+class _BoboFallback extends StatefulWidget {
+  const _BoboFallback({required this.mood});
+  final BoboMood mood;
+
+  @override
+  State<_BoboFallback> createState() => _BoboFallbackState();
+}
+
+class _BoboFallbackState extends State<_BoboFallback>
+    with TickerProviderStateMixin {
+  late final AnimationController _idle;
+  late final AnimationController _wag;
+  late final AnimationController _blink;
 
   final math.Random _rng = math.Random();
   Timer? _blinkTimer;
@@ -63,10 +175,6 @@ class _BoboMascotState extends State<BoboMascot>
       vsync: this,
       duration: const Duration(milliseconds: 150),
     );
-    _poke = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 520),
-    );
     _scheduleBlink();
   }
 
@@ -84,49 +192,30 @@ class _BoboMascotState extends State<BoboMascot>
     });
   }
 
-  void _handleTap() {
-    widget.onTap?.call();
-    _poke
-      ..stop()
-      ..forward(from: 0);
-  }
-
   @override
   void dispose() {
     _blinkTimer?.cancel();
     _idle.dispose();
     _wag.dispose();
     _blink.dispose();
-    _poke.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final height = widget.size * 1.06;
-    return GestureDetector(
-      onTap: _handleTap,
-      behavior: HitTestBehavior.opaque,
-      child: RepaintBoundary(
-        child: SizedBox(
-          width: widget.size,
-          height: height,
-          child: AnimatedBuilder(
-            animation: Listenable.merge([_idle, _wag, _blink, _poke]),
-            builder: (context, _) {
-              return CustomPaint(
-                painter: _BoboPainter(
-                  idle: _idle.value,
-                  wag: _wag.value,
-                  blink: _blink.value,
-                  poke: Curves.elasticOut.transform(_poke.value),
-                  mood: widget.mood,
-                ),
-              );
-            },
+    return AnimatedBuilder(
+      animation: Listenable.merge([_idle, _wag, _blink]),
+      builder: (context, _) {
+        return CustomPaint(
+          painter: _BoboPainter(
+            idle: _idle.value,
+            wag: _wag.value,
+            blink: _blink.value,
+            poke: 0, // tap bounce handled by the parent wrapper
+            mood: widget.mood,
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

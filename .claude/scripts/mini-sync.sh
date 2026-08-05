@@ -60,6 +60,24 @@ cd "${REPO_ROOT}"
 APP_DIR="${REPO_ROOT}/frontend"
 [[ -f "${APP_DIR}/pubspec.yaml" ]] || die "no Flutter app at ${APP_DIR} (pubspec.yaml missing)."
 
+# Make sure the toolchain this script shells out to is reachable. A launchd
+# agent, a cron job, or a bare `env -i` shell gets a minimal PATH, and the
+# failures that causes are confusing rather than obvious: without CocoaPods on
+# PATH the iOS build dies with "CocoaPods not installed or not in valid state",
+# and without platform-tools the Android emulator can never be detected.
+for _dir in \
+  "/opt/homebrew/bin" \
+  "/usr/local/bin" \
+  "${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${HOME}/Library/Android/sdk}}/platform-tools" \
+  "${ANDROID_SDK_ROOT:-${ANDROID_HOME:-${HOME}/Library/Android/sdk}}/emulator"
+do
+  case ":${PATH}:" in
+    *":${_dir}:"*) : ;;                       # already present
+    *) [[ -d "${_dir}" ]] && PATH="${PATH}:${_dir}" ;;
+  esac
+done
+export PATH
+
 # Find Flutter even when it isn't on PATH — a plain double-click / launchd
 # agent / fresh terminal often won't have it, and "flutter: not found" is the
 # single most common reason this script appears to do nothing.

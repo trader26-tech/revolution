@@ -7,9 +7,9 @@ import 'animated_check_circle.dart';
 /// A single task in the home list.
 ///
 /// Default: a check circle, the title, a due-date subtitle, and a chevron (▸)
-/// on the right. Tapping the chevron **reveals actions**: the row content slides
-/// left, the check circle fades away, and Details + Delete buttons appear on the
-/// right. Tapping the chevron again collapses it.
+/// on the right. Tapping the chevron **reveals actions**: the check circle
+/// collapses away and Details + Delete buttons appear on the right (the title
+/// shrinks to make room). Tapping the chevron again collapses it.
 class TaskTile extends StatefulWidget {
   const TaskTile({
     super.key,
@@ -29,7 +29,7 @@ class TaskTile extends StatefulWidget {
 }
 
 class _TaskTileState extends State<TaskTile> {
-  bool _open = true; // PREVIEW
+  bool _open = false;
 
   static const _dur = Duration(milliseconds: 240);
   static const _curve = Curves.easeOutCubic;

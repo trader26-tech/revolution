@@ -43,6 +43,9 @@ dependencies:
   # methods). Swappable for a DB-backed repo later — see OptionsStore.
   shared_preferences: ^2.3.0
 
+  # Fetching brand/app logos by domain (Clearbit-style) for the icon picker.
+  http: ^1.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

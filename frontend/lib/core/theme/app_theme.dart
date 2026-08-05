@@ -1,21 +1,46 @@
 import 'package:flutter/material.dart';
 
-/// Centralized light/dark themes for the app.
+import 'bamboo_palette.dart';
+
+/// The app theme — a calm, panda/bamboo light world. Light only, by design.
 class AppTheme {
   const AppTheme._();
 
-  static const Color _seed = Color(0xFF4F46E5);
+  static ThemeData get light {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: Bamboo.green,
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: Bamboo.green,
+      onPrimary: Colors.white,
+      surface: Bamboo.cream,
+      onSurface: Bamboo.ink,
+      onSurfaceVariant: Bamboo.inkSoft,
+      surfaceContainerHighest: Bamboo.mist,
+      outlineVariant: Bamboo.cardBorder,
+    );
 
-  static ThemeData get light => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: _seed),
-      );
-
-  static ThemeData get dark => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: _seed,
-          brightness: Brightness.dark,
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: Bamboo.cream,
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: Bamboo.green,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(58),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-      );
+      ),
+    );
+  }
+
+  /// Kept for the MaterialApp.darkTheme slot; the app ships light.
+  static ThemeData get dark => light;
 }

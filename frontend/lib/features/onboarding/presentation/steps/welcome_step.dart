@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/bamboo_palette.dart';
 import '../../../panda/presentation/panda_mascot.dart';
+import '../widgets/onboarding_scaffold.dart';
 
-/// The hook. Pip, four words, one button. Nothing to read.
+/// The hook — Pip, one calm line, one button.
 class WelcomeStep extends StatelessWidget {
   const WelcomeStep({super.key, required this.onStart});
 
@@ -12,38 +14,28 @@ class WelcomeStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return OnboardingScaffold(
+      cta: 'Meet Pip',
+      onCta: onStart,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           const PandaMascot(size: 200, mood: PandaMood.happy),
-          const SizedBox(height: 28),
+          const SizedBox(height: 32),
           Text(
-            'Never miss\nwhat matters.',
+            'Put it out\nof your head.',
             textAlign: TextAlign.center,
             style: text.displaySmall?.copyWith(
               fontWeight: FontWeight.w800,
               height: 1.1,
+              color: Bamboo.ink,
             ),
           ),
-          const SizedBox(height: 40),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton(
-              onPressed: onStart,
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              child: const Text('Start'),
-            ),
+          const SizedBox(height: 14),
+          Text(
+            'Pip remembers every deadline for you.',
+            textAlign: TextAlign.center,
+            style: text.titleMedium?.copyWith(color: Bamboo.inkSoft),
           ),
         ],
       ),

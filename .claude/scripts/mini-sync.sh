@@ -302,7 +302,13 @@ restart_session() {
     3) { exec 3>&-; } 2>/dev/null || true ;;
     4) { exec 4>&-; } 2>/dev/null || true ;;
   esac
-  rm -f "${STATE_DIR}/${name}.in" "${STATE_DIR}/${name}.appid" "${STATE_DIR}/${name}.pid"
+  # Remove the log too, not just the pipe/appid/pid. The replacement session
+  # opens it with ">", which truncates in place — and a dying process that
+  # still holds the old fd keeps writing at its previous offset, leaving NUL
+  # padding plus stale events. That is what makes grep call the file binary
+  # and what lets an old appId out-live the session it belonged to.
+  rm -f "${STATE_DIR}/${name}.in" "${STATE_DIR}/${name}.appid" \
+        "${STATE_DIR}/${name}.pid" "${STATE_DIR}/${name}.log"
 
   # Re-detect: a restarted emulator can come back with a different id.
   ANDROID_ID="${ANDROID_ID_PINNED}"
@@ -330,8 +336,12 @@ wait_for_app() {
   waited=0
   log "waiting for ${name} to build + launch (up to ${STARTUP_WAIT}s)..."
   while [[ ${waited} -lt ${STARTUP_WAIT} ]]; do
-    if grep -q '"event":"app.started"' "${logf}" 2>/dev/null; then
-      app_id="$(grep -o '"appId":"[^"]*"' "${logf}" | head -1 | cut -d'"' -f4)"
+    # -a on every read of this log: Android's logcat interleaves non-UTF8
+    # bytes, and without it grep prints "Binary file ... matches" instead of
+    # the match. That string then gets stored as the appId and every reload is
+    # addressed to a device that doesn't exist — silently, forever.
+    if grep -a -q '"event":"app.started"' "${logf}" 2>/dev/null; then
+      app_id="$(grep -a -o '"appId":"[^"]*"' "${logf}" | head -1 | cut -d'"' -f4)"
       if [[ -n "${app_id}" ]]; then
         echo "${app_id}" > "${STATE_DIR}/${name}.appid"
         log "${name} running (appId ${app_id})."
@@ -380,7 +390,7 @@ reload_session() {
   reply=""
   waited=0
   while [[ ${waited} -lt ${RELOAD_TIMEOUT} ]]; do
-    reply="$(grep -oE "\{\"id\":${REQ_ID},\"result\":\{[^}]*\}" "${logf}" 2>/dev/null | tail -1)"
+    reply="$(grep -a -oE "\{\"id\":${REQ_ID},\"result\":\{[^}]*\}" "${logf}" 2>/dev/null | tail -1)"
     [[ -n "${reply}" ]] && break
     sleep 1; waited=$((waited + 1))
   done
@@ -397,7 +407,7 @@ reload_session() {
   else
     log "hot ${kind} → ${name} FAILED: ${msg}"
     # Show the first real compile error — that is almost always the cause.
-    firstErr="$(grep -E '^lib/.*: Error:' "${logf}" 2>/dev/null | tail -1)"
+    firstErr="$(grep -a -E '^lib/.*: Error:' "${logf}" 2>/dev/null | tail -1)"
     [[ -n "${firstErr}" ]] && log "  ${firstErr}"
     log "  ${name} is still running the last build that compiled."
   fi

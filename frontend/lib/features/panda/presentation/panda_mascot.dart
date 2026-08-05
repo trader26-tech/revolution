@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -48,6 +49,9 @@ class _PandaMascotState extends State<PandaMascot>
   late final AnimationController _poke;
 
   final math.Random _rng = math.Random();
+  // The pending blink timer, held so it can be cancelled on dispose (otherwise
+  // the self-rescheduling delay leaks a timer past teardown).
+  Timer? _blinkTimer;
 
   @override
   void initState() {
@@ -76,7 +80,7 @@ class _PandaMascotState extends State<PandaMascot>
   /// Blink at pseudo-random intervals so Pip feels alive, not robotic.
   void _scheduleBlink() {
     final ms = 2200 + _rng.nextInt(2600);
-    Future.delayed(Duration(milliseconds: ms), () async {
+    _blinkTimer = Timer(Duration(milliseconds: ms), () async {
       if (!mounted) return;
       await _blink.forward();
       await _blink.reverse();
@@ -98,6 +102,7 @@ class _PandaMascotState extends State<PandaMascot>
 
   @override
   void dispose() {
+    _blinkTimer?.cancel();
     _idle.dispose();
     _blink.dispose();
     _poke.dispose();

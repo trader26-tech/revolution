@@ -75,8 +75,7 @@ void main() {
     expect(find.text('Start tracking these'), findsOneWidget);
     expect(doneCalled, isFalse);
 
-    // Let the reveal's count-up animation (1500ms) finish so no timer is
-    // pending when the test tears down.
+    // Let the reveal's count-up animation (1500ms) finish.
     await tester.pump(const Duration(seconds: 2));
   });
 }

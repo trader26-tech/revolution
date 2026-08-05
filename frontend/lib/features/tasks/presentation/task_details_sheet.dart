@@ -208,7 +208,12 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
   }
 
   Future<void> _openFullDetails() async {
-    final result = await Navigator.of(context).push<ItemDetails>(
+    // Capture the SHEET's navigator now, before we push the details page onto
+    // it. After the details page pops, we use this to close the sheet itself —
+    // so saving the full details returns the user straight to Home.
+    final sheetNavigator = Navigator.of(context);
+
+    final result = await sheetNavigator.push<ItemDetails>(
       MaterialPageRoute(
         builder: (_) => ItemDetailsPage(
           title: widget.task.title.isEmpty ? 'Details' : widget.task.title,
@@ -222,23 +227,23 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
         ),
       ),
     );
-    if (result != null && mounted) {
-      // Build the updated task (title + icon + the sheet's own reminder state)
-      // and pop it out immediately, so the caller persists it via store.update
-      // right away — no need for a second Save tap, so the icon actually sticks.
-      final updated = widget.task.copyWith(
-        title: result.name.isNotEmpty ? result.name : null,
-        reminderOn: _reminderOn,
-        dueAt: _reminderOn ? _due : null,
-        clearDueAt: !_reminderOn,
-        repeat: _repeat,
-        iconName: result.iconName,
-        iconDomain: result.iconDomain,
-      );
-      final navigator = Navigator.of(context);
-      AppToast.show(context, message: 'Saved');
-      navigator.pop(updated);
-    }
+    if (result == null || !mounted) return;
+
+    // Build the updated task (title + icon + the sheet's own reminder state),
+    // then close the sheet, returning it so Home persists it via store.update.
+    final updated = widget.task.copyWith(
+      title: result.name.isNotEmpty ? result.name : null,
+      reminderOn: _reminderOn,
+      dueAt: _reminderOn ? _due : null,
+      clearDueAt: !_reminderOn,
+      repeat: _repeat,
+      iconName: result.iconName,
+      iconDomain: result.iconDomain,
+    );
+    // Show the confirmation on the root overlay (survives the sheet closing),
+    // then pop the sheet → back to Home, no lingering screen.
+    AppToast.show(sheetNavigator.context, message: 'Saved');
+    sheetNavigator.pop(updated);
   }
 }
 

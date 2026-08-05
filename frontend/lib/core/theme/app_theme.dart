@@ -50,7 +50,10 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.bg,
-      fontFamily: null, // system font — crisp and native on each platform
+      // Plus Jakarta Sans — a warm, modern geometric sans. Bundled (see
+      // assets/fonts + pubspec), so it works offline and never pops in late.
+      fontFamily: 'PlusJakartaSans',
+      textTheme: _textTheme,
       splashFactory: InkRipple.splashFactory,
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -60,9 +63,44 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.1,
+          ),
         ),
       ),
     );
   }
+
+  /// A considered scale for Plus Jakarta Sans: big headings are heavy and
+  /// tightly tracked (feels premium), titles are semi-bold, body is comfortable
+  /// with a hair of negative tracking so the geometric sans reads crisp — never
+  /// flat or "default".
+  static const TextTheme _textTheme = TextTheme(
+    displayLarge: TextStyle(
+        fontWeight: FontWeight.w800, letterSpacing: -1.0, height: 1.05),
+    displayMedium: TextStyle(
+        fontWeight: FontWeight.w800, letterSpacing: -0.8, height: 1.08),
+    displaySmall: TextStyle(
+        fontWeight: FontWeight.w800, letterSpacing: -0.6, height: 1.1),
+    headlineLarge: TextStyle(
+        fontWeight: FontWeight.w800, letterSpacing: -0.6, height: 1.12),
+    headlineMedium: TextStyle(
+        fontWeight: FontWeight.w800, letterSpacing: -0.5, height: 1.15),
+    headlineSmall: TextStyle(
+        fontWeight: FontWeight.w700, letterSpacing: -0.4, height: 1.2),
+    titleLarge: TextStyle(
+        fontWeight: FontWeight.w700, letterSpacing: -0.3),
+    titleMedium: TextStyle(
+        fontWeight: FontWeight.w600, letterSpacing: -0.2),
+    titleSmall: TextStyle(
+        fontWeight: FontWeight.w600, letterSpacing: -0.1),
+    bodyLarge: TextStyle(letterSpacing: -0.1, height: 1.45),
+    bodyMedium: TextStyle(letterSpacing: -0.1, height: 1.45),
+    bodySmall: TextStyle(letterSpacing: 0, height: 1.4),
+    labelLarge: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0),
+    labelMedium: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.1),
+  );
 }

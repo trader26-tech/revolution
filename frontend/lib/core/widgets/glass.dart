@@ -19,6 +19,7 @@ class GlassPanel extends StatelessWidget {
     this.padding = EdgeInsets.zero,
     this.opacity = 0.62,
     this.onTap,
+    this.shadow = true,
   });
 
   final Widget child;
@@ -27,6 +28,10 @@ class GlassPanel extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final double opacity;
   final VoidCallback? onTap;
+
+  /// The soft lift shadow. Turn off for flat elements (e.g. the Settings
+  /// button) where the glow reads as clutter.
+  final bool shadow;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +62,8 @@ class GlassPanel extends StatelessWidget {
         child: pane,
       );
     }
+
+    if (!shadow) return pane;
 
     // Soft lift under the glass so it floats above the content.
     return DecoratedBox(
@@ -101,6 +108,7 @@ class GlassIconButton extends StatelessWidget {
         : GlassPanel(
             borderRadius: size / 2,
             onTap: onTap,
+            shadow: false, // flat Settings button — no glow
             child: SizedBox(
               width: size,
               height: size,

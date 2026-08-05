@@ -133,6 +133,7 @@ class _HomeView extends StatelessWidget {
       children: [
         _TopBar(
           streak: streak,
+          reminders: reminders,
           onAdd: () => _openAddSheet(context),
           onOpenAccount: () => _openAccount(context),
         ),
@@ -176,31 +177,262 @@ class _HomeView extends StatelessWidget {
   }
 }
 
-/// The home top bar: a circular account avatar on the left, Bobo + an animated
-/// flame + the streak text across the centre (no pill), and a frosted-glass "+"
-/// on the right. A clean top-line view of where you stand.
-class _TopBar extends StatelessWidget {
+/// The home top bar: account avatar (left), Bobo in the centre (tap to expand),
+/// and a frosted-glass "+" (right). Tapping Bobo opens a pill-shaped panel below
+/// with what's pending and the upcoming list — no always-on streak counter.
+class _TopBar extends StatefulWidget {
   const _TopBar({
     required this.streak,
+    required this.reminders,
     required this.onAdd,
     required this.onOpenAccount,
   });
 
   final StreakStatus streak;
+  final List<Reminder> reminders;
   final VoidCallback onAdd;
   final VoidCallback onOpenAccount;
+
+  @override
+  State<_TopBar> createState() => _TopBarState();
+}
+
+class _TopBarState extends State<_TopBar> {
+  bool _expanded = false;
+
+  void _toggle() => setState(() => _expanded = !_expanded);
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 4, 2, 4),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _AccountAvatar(onTap: widget.onOpenAccount),
+              Expanded(
+                child: Center(
+                  child: _BoboTapTarget(
+                    mood: widget.streak.mood,
+                    expanded: _expanded,
+                    onTap: _toggle,
+                  ),
+                ),
+              ),
+              _GlassAddButton(onTap: widget.onAdd),
+            ],
+          ),
+          // The expandable status panel — the "pill" that opens on tap.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _expanded
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _StatusPanel(
+                      streak: widget.streak,
+                      reminders: widget.reminders,
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Bobo in the centre, tappable. A soft chevron hints it opens.
+class _BoboTapTarget extends StatelessWidget {
+  const _BoboTapTarget({
+    required this.mood,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final BoboMood mood;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BoboMascot(size: 72, mood: mood),
+          AnimatedRotation(
+            turns: expanded ? 0.5 : 0,
+            duration: const Duration(milliseconds: 220),
+            child: const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Bamboo.inkSoft,
+              size: 22,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The pill-shaped detail panel: a headline of what needs attention, then the
+/// upcoming/pending list. Shown when the user taps Bobo.
+class _StatusPanel extends StatelessWidget {
+  const _StatusPanel({required this.streak, required this.reminders});
+
+  final StreakStatus streak;
+  final List<Reminder> reminders;
+
+  @override
+  Widget build(BuildContext context) {
+    // Pending = overdue first, then due-soon, then the rest — nearest first.
+    final overdue = reminders.where((r) => r.isExpired).toList()
+      ..sort((a, b) => a.daysUntilExpiry.compareTo(b.daysUntilExpiry));
+    final dueSoon = reminders
+        .where((r) => r.isDueSoon && !r.isExpired)
+        .toList()
+      ..sort((a, b) => a.daysUntilExpiry.compareTo(b.daysUntilExpiry));
+    final pending = [...overdue, ...dueSoon];
+
+    final broken = !streak.onStreak;
+    final accent = broken ? const Color(0xFFC5643F) : Bamboo.greenDeep;
+
+    final String headline;
+    final String sub;
+    if (reminders.isEmpty) {
+      headline = 'Nothing to track yet';
+      sub = 'Add a renewal and Bobo takes it from here.';
+    } else if (overdue.isNotEmpty) {
+      final n = overdue.length;
+      headline = '$n thing${n == 1 ? '' : 's'} need${n == 1 ? 's' : ''} you';
+      sub = 'Let’s clear ${n == 1 ? 'it' : 'them'} before it costs you.';
+    } else if (dueSoon.isNotEmpty) {
+      final n = dueSoon.length;
+      headline = '$n coming up';
+      sub = 'Nothing overdue — you’re ahead of it.';
+    } else {
+      headline = 'You’re all caught up';
+      sub = 'Bobo’s watching ${reminders.length} '
+          'renewal${reminders.length == 1 ? '' : 's'} for you.';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Bamboo.card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Bamboo.brown.withValues(alpha: 0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              AnimatedFlame(size: 22, lit: !broken),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      headline,
+                      style: const TextStyle(
+                        color: Bamboo.ink,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      sub,
+                      style: const TextStyle(
+                        color: Bamboo.inkSoft,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (pending.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: Bamboo.cardBorder),
+            const SizedBox(height: 10),
+            for (final r in pending.take(6))
+              _PendingRow(reminder: r, accent: accent),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One line in the pending list: a status dot, the title, and the timing.
+class _PendingRow extends StatelessWidget {
+  const _PendingRow({required this.reminder, required this.accent});
+
+  final Reminder reminder;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = reminder.daysUntilExpiry;
+    final overdue = reminder.isExpired;
+    final dotColor = overdue ? const Color(0xFFC5643F) : Bamboo.green;
+    final timing = overdue
+        ? (days == -1 ? 'Overdue by 1 day' : 'Overdue by ${-days} days')
+        : (days == 0
+            ? 'Due today'
+            : days == 1
+                ? 'In 1 day'
+                : 'In $days days');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         children: [
-          _AccountAvatar(onTap: onOpenAccount),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 12),
-          Expanded(child: _StreakStrip(streak: streak)),
-          const SizedBox(width: 12),
-          _GlassAddButton(onTap: onAdd),
+          Expanded(
+            child: Text(
+              reminder.title,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Bamboo.ink,
+                fontWeight: FontWeight.w600,
+                fontSize: 14.5,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            timing,
+            style: TextStyle(
+              color: overdue ? const Color(0xFFC5643F) : Bamboo.inkSoft,
+              fontWeight: FontWeight.w700,
+              fontSize: 12.5,
+            ),
+          ),
         ],
       ),
     );
@@ -227,72 +459,6 @@ class _AccountAvatar extends StatelessWidget {
         ),
         child: const Icon(Icons.person_rounded, color: Bamboo.greenDeep, size: 24),
       ),
-    );
-  }
-}
-
-/// The streak strip — no pill. Just a bigger Bobo, an animated flame, and the
-/// streak text laid out cleanly across the top line.
-class _StreakStrip extends StatelessWidget {
-  const _StreakStrip({required this.streak});
-  final StreakStatus streak;
-
-  int get _days =>
-      streak.onStreak ? (streak.streakDays < 0 ? 0 : streak.streakDays) : 0;
-
-  String get _sub {
-    if (!streak.onStreak) return 'Let’s get back on track';
-    if (streak.dueSoonCount > 0) return 'Bobo’s watching closely';
-    return 'Bobo’s keeping it going';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final broken = !streak.onStreak;
-    final accent = broken ? const Color(0xFFC5643F) : Bamboo.ink;
-
-    return Row(
-      children: [
-        // Bobo leads — bigger and clearly visible.
-        BoboMascot(size: 64, mood: streak.mood),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  AnimatedFlame(size: 20, lit: !broken),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      '$_days day streak',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: accent,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 19,
-                        height: 1.0,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _sub,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Bamboo.inkSoft,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

@@ -5,6 +5,8 @@ import '../../core/widgets/glass.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
+import '../tasks/domain/task_filter.dart';
+import '../tasks/presentation/filter_sheet.dart';
 import '../tasks/presentation/task_details_sheet.dart';
 import '../tasks/presentation/widgets/quick_add_row.dart';
 import '../tasks/presentation/widgets/task_tile.dart';
@@ -25,6 +27,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _adding = false;
+  TaskFilter _filter = TaskFilter.all;
   final _addController = TextEditingController();
   final _addFocus = FocusNode();
 
@@ -39,6 +42,11 @@ class _HomePageState extends State<HomePage> {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SettingsPage()),
     );
+  }
+
+  Future<void> _openFilter() async {
+    final picked = await showFilterSheet(context, current: _filter);
+    if (picked != null) setState(() => _filter = picked);
   }
 
   void _startAdd() {
@@ -84,7 +92,11 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             children: [
               const SizedBox(height: 8),
-              _TopBar(onSettings: _openSettings),
+              _TopBar(
+                onSettings: _openSettings,
+                onFilter: _openFilter,
+                filterActive: _filter.isActive,
+              ),
               const SizedBox(height: 8),
               Expanded(
                 child: AnimatedBuilder(
@@ -117,10 +129,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildList() {
-    final tasks = widget.store.tasks;
+    final allTasks = widget.store.tasks;
+    final tasks = applyFilter(allTasks, _filter);
 
-    if (tasks.isEmpty && !_adding) {
+    // Truly empty (no tasks at all) → the welcoming empty state.
+    if (allTasks.isEmpty && !_adding) {
       return _EmptyContent(onAdd: _startAdd);
+    }
+    // Have tasks, but the current filter hides them all.
+    if (tasks.isEmpty && !_adding) {
+      return _FilteredEmpty(
+        filter: _filter,
+        onClear: () => setState(() => _filter = TaskFilter.all),
+      );
     }
 
     // The quick-add input row (when active) on top, then the tasks.
@@ -156,12 +177,20 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/// The glass top bar: Settings on the left. (Add now lives as the floating
-/// button above the keyboard, so it's not here.)
+/// The glass top bar: Settings on the left, Filter on the right. (Add lives as
+/// the floating button above the keyboard, so it's not here.)
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onSettings});
+  const _TopBar({
+    required this.onSettings,
+    required this.onFilter,
+    required this.filterActive,
+  });
 
   final VoidCallback onSettings;
+  final VoidCallback onFilter;
+
+  /// Whether a non-"All" filter is applied — shows an accent dot on the button.
+  final bool filterActive;
 
   @override
   Widget build(BuildContext context) {
@@ -175,6 +204,31 @@ class _TopBar extends StatelessWidget {
             onTap: onSettings,
           ),
           const Spacer(),
+          // Filter button, right corner. A small accent dot marks it active.
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GlassIconButton(
+                icon: Icons.tune_rounded,
+                tooltip: 'Filter',
+                onTap: onFilter,
+              ),
+              if (filterActive)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.bg, width: 2),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -182,6 +236,40 @@ class _TopBar extends StatelessWidget {
 }
 
 /// A calm, centred empty state.
+/// Shown when tasks exist but the active filter hides them all.
+class _FilteredEmpty extends StatelessWidget {
+  const _FilteredEmpty({required this.filter, required this.onClear});
+
+  final TaskFilter filter;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(filter.icon, size: 44, color: AppColors.inkFaint),
+            const SizedBox(height: 16),
+            Text(
+              'No ${filter.label.toLowerCase()} tasks',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(onPressed: onClear, child: const Text('Show all')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyContent extends StatelessWidget {
   const _EmptyContent({required this.onAdd});
 

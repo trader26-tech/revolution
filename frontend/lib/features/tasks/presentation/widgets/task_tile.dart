@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../brand/domain/brand.dart';
+import '../../../brand/presentation/brand_logo.dart';
 import '../../domain/task.dart';
 import 'animated_check_circle.dart';
 
 /// A single task in the home list.
 ///
-/// A check circle, the title, a due-date subtitle, and a chevron (▸) on the
-/// right. Interaction:
-///  * Tap the **row body** → open the details page.
-///  * Tap the **chevron** → the row **expands downward** to reveal a subtle
-///    Delete action in a section below. The chevron rotates to point down (▾).
-///    Tap it again — or anywhere on the row — to collapse. Fully reversible.
+/// Layout: the **logo on the left** (a coloured letter-avatar when the task has
+/// no real logo), the title + due-date subtitle, and a **checkbox on the right**
+/// that toggles done. Interaction:
+///  * Tap the **row body** → open the details page to update it.
+///  * **Long-press** the row → it expands downward to reveal a subtle Delete
+///    action. Tap the row (or long-press again) to collapse. Fully reversible.
 class TaskTile extends StatefulWidget {
   const TaskTile({
     super.key,
@@ -43,25 +45,35 @@ class _TaskTileState extends State<TaskTile> {
     final task = widget.task;
 
     return InkWell(
-      // Open → a body tap closes the panel. Closed → opens the details page.
+      // Tap the row → open details. Long-press → reveal the Delete section.
+      // (When it's open, a tap closes it.)
       onTap: _open ? _toggleOpen : widget.onOpenDetails,
+      onLongPress: _toggleOpen,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 300),
         opacity: task.done ? 0.6 : 1.0,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // The main row — unchanged whether open or closed.
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  AnimatedCheckCircle(
-                    checked: task.done,
-                    onTap: widget.onToggle,
-                    size: 20,
+                  // Logo on the left. BrandLogo falls back to a coloured
+                  // letter-avatar when the task has no real logo, so the left
+                  // slot is always a tidy tile.
+                  BrandLogo(
+                    brand: Brand(
+                      name: task.iconName?.isNotEmpty == true
+                          ? task.iconName!
+                          : task.title,
+                      domain: task.iconDomain ?? '',
+                    ),
+                    size: 40,
+                    radius: 11,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
+                  // Title + subtitle.
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,28 +111,18 @@ class _TaskTileState extends State<TaskTile> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  // The chevron opens/closes the panel below; it rotates to
-                  // point down (▾) when open.
-                  IconButton(
-                    onPressed: _toggleOpen,
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
-                    tooltip: _open ? 'Close' : 'More',
-                    icon: AnimatedRotation(
-                      turns: _open ? 0.25 : 0,
-                      duration: _dur,
-                      curve: _curve,
-                      child: const Icon(Icons.chevron_right_rounded,
-                          size: 24, color: AppColors.inkFaint),
-                    ),
+                  const SizedBox(width: 12),
+                  // The checkbox on the right — toggles done.
+                  AnimatedCheckCircle(
+                    checked: task.done,
+                    onTap: widget.onToggle,
+                    size: 24,
                   ),
                 ],
               ),
             ),
-            // The subtle drop-down section — a single quiet Delete action.
+            // The subtle drop-down section — a single quiet Delete action,
+            // revealed on long-press.
             AnimatedSize(
               duration: _dur,
               curve: _curve,

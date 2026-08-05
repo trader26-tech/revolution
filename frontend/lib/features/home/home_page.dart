@@ -113,14 +113,6 @@ class _TopBar extends StatelessWidget {
             onTap: onSettings,
           ),
           const Spacer(),
-          Text(
-            'Home',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                ),
-          ),
-          const Spacer(),
           GlassIconButton(
             icon: Icons.add,
             tooltip: 'Add',

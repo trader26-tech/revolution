@@ -160,15 +160,21 @@ class _PandaPainter extends CustomPainter {
   final PandaMood mood;
 
   // ---- Palette --------------------------------------------------------------
-  // Fur is pure white; the "shadow" tone is only a whisper cooler than white,
-  // just enough to read as roundness — no ashy grey.
-  static const _furWhite = Color(0xFFFFFFFF);
-  static const _furShadow = Color(0xFFF4F6FC);
+  // Fur is a warm off-white so Pip never dissolves into a light background,
+  // and a bold outline gives him a clean, mascot-style silhouette. The barely
+  // cooler shadow tone reads as roundness. No soft blurs anywhere — every edge
+  // is a crisp vector fill so it renders sharp on Android (Impeller) too.
+  static const _furWhite = Color(0xFFFFFDF7);
+  static const _furShadow = Color(0xFFF3EFE4);
   static const _black = Color(0xFF2B2B33);
   static const _blackSoft = Color(0xFF3A3A45);
-  static const _blush = Color(0xFFFFB4C6);
-  static const _happyGreen = Color(0xFF7CD9A6);
-  static const _excitedYellow = Color(0xFFFFD466);
+  static const _blush = Color(0xFFFF9CB6);
+  static const _happyGreen = Color(0xFF6FCF97);
+  static const _excitedYellow = Color(0xFFFFC93C);
+
+  /// Bold outline that wraps Pip's whole silhouette. Line width scales with the
+  /// panda so it stays proportional at any [size].
+  double _outlineW(double r) => r * 0.09;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -199,46 +205,99 @@ class _PandaPainter extends CustomPainter {
     final headCenter = Offset(w * 0.5, h * 0.40);
     final headRadius = w * 0.44;
 
+    // The whole white silhouette (body + arms + feet + head + ears) is built as
+    // ONE union path. We stroke it once for a clean wrapping outline, then fill
+    // it — so there are no internal seams and every outer edge is crisp.
+    final silhouette = _buildSilhouette(w, h, headCenter, headRadius);
+    final ow = _outlineW(headRadius);
+    canvas.drawPath(
+      silhouette,
+      Paint()
+        ..color = _black
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = ow
+        ..strokeJoin = StrokeJoin.round,
+    );
+    // Ears + limbs are black — draw them BEFORE the white fill so the white
+    // head/body sit on top and read as fur over the black bits.
     _drawEars(canvas, headCenter, headRadius);
     _drawArms(canvas, w, h);
-    _drawBody(canvas, w, h);
     _drawFeet(canvas, w, h);
-    _drawHead(canvas, headCenter, headRadius);
+    // White fur fill for head + body, with the faint roundness gradient.
+    _fillFur(canvas, w, h, headCenter, headRadius);
+
     _drawFace(canvas, headCenter, headRadius);
     _drawMoodBadge(canvas, headCenter, headRadius, w, h);
 
     canvas.restore();
   }
 
+  // ---- geometry (shared so silhouette + fills line up exactly) --------------
+  Rect _bodyRect(double w, double h) => Rect.fromCenter(
+        center: Offset(w * 0.5, h * 0.71),
+        width: w * 0.82,
+        height: h * 0.54,
+      );
+
+  Offset _earCenter(Offset head, double r, double sign) {
+    final wiggle = math.sin(idle * math.pi) * 0.04;
+    return Offset(head.dx + sign * r * 0.72, head.dy - r * 0.62 + wiggle * r);
+  }
+
+  double _armRaise(double h) => mood == PandaMood.excited
+      ? (math.sin(idle * math.pi * 2) * 0.5 + 0.5) * h * 0.06
+      : 0.0;
+
+  Offset _armCenter(double w, double h, double sign) =>
+      Offset(w * 0.5 + sign * w * 0.38, h * 0.66 - _armRaise(h));
+
+  Offset _footCenter(double w, double h, double sign) =>
+      Offset(w * 0.5 + sign * w * 0.18, h * 0.92);
+
   // ---------------------------------------------------------------------------
   void _drawGroundShadow(Canvas canvas, double w, double h, double lift) {
-    // Shadow shrinks as Pip lifts up — reads as height.
+    // Crisp solid oval (no blur — blur is what looked grainy on Android).
     final t = (lift.abs() / (h * 0.04)).clamp(0.0, 1.0);
-    final rx = w * (0.30 - t * 0.03);
-    final paint = Paint()
-      ..color = _black.withValues(alpha: 0.12 - t * 0.04)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    final rx = w * (0.26 - t * 0.03);
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(w * 0.5, h * 0.965),
         width: rx * 2,
-        height: h * 0.05,
+        height: h * 0.045,
       ),
-      paint,
+      Paint()..color = const Color(0x14000000),
     );
+  }
+
+  /// Union of every white body part — head, body, ears, arms, feet — so the
+  /// outline can wrap the outside in one clean stroke.
+  Path _buildSilhouette(double w, double h, Offset head, double r) {
+    Path p = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+          _bodyRect(w, h), Radius.circular(w * 0.40)));
+    p = Path.combine(PathOperation.union, p,
+        Path()..addOval(Rect.fromCircle(center: head, radius: r)));
+    final earR = r * 0.42;
+    for (final s in [-1.0, 1.0]) {
+      p = Path.combine(PathOperation.union, p,
+          Path()..addOval(Rect.fromCircle(center: _earCenter(head, r, s), radius: earR)));
+    }
+    for (final s in [-1.0, 1.0]) {
+      p = Path.combine(PathOperation.union, p,
+          Path()..addOval(Rect.fromCenter(
+              center: _armCenter(w, h, s), width: w * 0.24, height: h * 0.22)));
+      p = Path.combine(PathOperation.union, p,
+          Path()..addOval(Rect.fromCenter(
+              center: _footCenter(w, h, s), width: w * 0.24, height: h * 0.12)));
+    }
+    return p;
   }
 
   void _drawEars(Canvas canvas, Offset head, double r) {
     final earR = r * 0.42;
-    // A tiny idle wiggle so the ears feel soft.
-    final wiggle = math.sin(idle * math.pi) * 0.04;
     for (final sign in [-1.0, 1.0]) {
-      final c = Offset(
-        head.dx + sign * r * 0.72,
-        head.dy - r * 0.62 + wiggle * r,
-      );
+      final c = _earCenter(head, r, sign);
       canvas.drawCircle(c, earR, Paint()..color = _black);
-      // Inner ear highlight for a plush look.
       canvas.drawCircle(
         c.translate(sign * earR * 0.1, earR * 0.05),
         earR * 0.5,
@@ -247,35 +306,11 @@ class _PandaPainter extends CustomPainter {
     }
   }
 
-  void _drawBody(Canvas canvas, double w, double h) {
-    // A rounded, egg-shaped chubby belly.
-    // Wider + rounder = chubbier, more cuddly.
-    final bodyRect = Rect.fromCenter(
-      center: Offset(w * 0.5, h * 0.71),
-      width: w * 0.82,
-      height: h * 0.54,
-    );
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(bodyRect, Radius.circular(w * 0.40)));
-
-    // Barely-there gradient gives roundness while staying essentially white.
-    final shader = const LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [_furWhite, _furShadow],
-    ).createShader(bodyRect);
-    canvas.drawPath(path, Paint()..shader = shader);
-  }
-
   void _drawArms(Canvas canvas, double w, double h) {
-    // Excited mood raises the arms in a little cheer.
-    final raise = mood == PandaMood.excited
-        ? (math.sin(idle * math.pi * 2) * 0.5 + 0.5) * h * 0.06
-        : 0.0;
     for (final sign in [-1.0, 1.0]) {
-      final c = Offset(w * 0.5 + sign * w * 0.38, h * 0.66 - raise);
       canvas.drawOval(
-        Rect.fromCenter(center: c, width: w * 0.24, height: h * 0.22),
+        Rect.fromCenter(
+            center: _armCenter(w, h, sign), width: w * 0.24, height: h * 0.22),
         Paint()..color = _black,
       );
     }
@@ -283,28 +318,42 @@ class _PandaPainter extends CustomPainter {
 
   void _drawFeet(Canvas canvas, double w, double h) {
     for (final sign in [-1.0, 1.0]) {
-      final c = Offset(w * 0.5 + sign * w * 0.18, h * 0.92);
+      final c = _footCenter(w, h, sign);
       canvas.drawOval(
         Rect.fromCenter(center: c, width: w * 0.24, height: h * 0.12),
         Paint()..color = _black,
       );
-      // Little paw pad.
       canvas.drawOval(
         Rect.fromCenter(center: c.translate(0, -h * 0.005),
             width: w * 0.10, height: h * 0.05),
-        Paint()..color = _blush.withValues(alpha: 0.85),
+        Paint()..color = _blush,
       );
     }
   }
 
-  void _drawHead(Canvas canvas, Offset c, double r) {
-    final rect = Rect.fromCircle(center: c, radius: r);
-    final shader = const RadialGradient(
-      center: Alignment(-0.2, -0.3),
-      radius: 1.1,
-      colors: [_furWhite, _furShadow],
-    ).createShader(rect);
-    canvas.drawCircle(c, r, Paint()..shader = shader);
+  /// Fill the head + body in warm white with a faint roundness gradient.
+  void _fillFur(Canvas canvas, double w, double h, Offset head, double r) {
+    final bodyRect = _bodyRect(w, h);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bodyRect, Radius.circular(w * 0.40)),
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_furWhite, _furShadow],
+        ).createShader(bodyRect),
+    );
+    final headRect = Rect.fromCircle(center: head, radius: r);
+    canvas.drawCircle(
+      head,
+      r,
+      Paint()
+        ..shader = const RadialGradient(
+          center: Alignment(-0.2, -0.3),
+          radius: 1.1,
+          colors: [_furWhite, _furShadow],
+        ).createShader(headRect),
+    );
   }
 
   void _drawFace(Canvas canvas, Offset c, double r) {
@@ -321,33 +370,37 @@ class _PandaPainter extends CustomPainter {
     _drawEye(canvas, leftEye, r);
     _drawEye(canvas, rightEye, r);
 
-    // Blush cheeks.
+    // Blush cheeks — crisp solid ovals (no blur, so they stay sharp).
     for (final sign in [-1.0, 1.0]) {
       canvas.drawOval(
         Rect.fromCenter(
-          center: c.translate(sign * r * 0.62, r * 0.30),
-          width: r * 0.34,
-          height: r * 0.22,
+          center: c.translate(sign * r * 0.60, r * 0.32),
+          width: r * 0.30,
+          height: r * 0.20,
         ),
-        Paint()
-          ..color = _blush.withValues(alpha: 0.55)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+        Paint()..color = _blush.withValues(alpha: 0.85),
       );
     }
 
-    // Nose.
+    // Nose — a rounded soft-triangle heart shape gives more character than a
+    // plain oval, and reads clearly on the white muzzle.
     final nose = c.translate(0, r * 0.30);
-    canvas.drawOval(
-      Rect.fromCenter(center: nose, width: r * 0.22, height: r * 0.16),
-      Paint()..color = _black,
-    );
-    // Nose shine.
+    final nw = r * 0.13, nh = r * 0.11;
+    final nosePath = Path()
+      ..moveTo(nose.dx, nose.dy + nh)
+      ..cubicTo(nose.dx - nw * 1.6, nose.dy + nh * 0.2, nose.dx - nw,
+          nose.dy - nh, nose.dx, nose.dy - nh * 0.4)
+      ..cubicTo(nose.dx + nw, nose.dy - nh, nose.dx + nw * 1.6,
+          nose.dy + nh * 0.2, nose.dx, nose.dy + nh)
+      ..close();
+    canvas.drawPath(nosePath, Paint()..color = _black);
+    // Crisp nose shine.
     canvas.drawOval(
       Rect.fromCenter(
-          center: nose.translate(-r * 0.04, -r * 0.03),
-          width: r * 0.07,
-          height: r * 0.05),
-      Paint()..color = Colors.white.withValues(alpha: 0.7),
+          center: nose.translate(-r * 0.03, -r * 0.03),
+          width: r * 0.05,
+          height: r * 0.035),
+      Paint()..color = Colors.white,
     );
 
     _drawMouth(canvas, c, r);

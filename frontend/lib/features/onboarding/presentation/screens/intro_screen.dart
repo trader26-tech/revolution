@@ -75,15 +75,17 @@ class _IntroScreenState extends State<IntroScreen>
                 style: text.displaySmall?.copyWith(color: AppColors.ink),
               ),
               const SizedBox(height: 14),
-          Text(
-            'Insurance, bills, EMIs, investments — '
-            'one calm list, never a missed date.',
-            textAlign: TextAlign.center,
-            style: text.bodyLarge?.copyWith(color: AppColors.inkSoft),
+              Text(
+                'Insurance, bills, EMIs, investments — '
+                'one calm list, never a missed date.',
+                textAlign: TextAlign.center,
+                style: text.bodyLarge?.copyWith(color: AppColors.inkSoft),
+              ),
+            ],
           ),
-          const Spacer(flex: 3),
-        ],
-      ),
+        ),
+        const Spacer(flex: 3),
+      ],
     );
   }
 }

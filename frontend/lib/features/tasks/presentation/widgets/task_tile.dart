@@ -191,22 +191,25 @@ class _DueLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Scheduled tasks show their date in the accent blue so "Today / Sat / …"
+    // pops; undated tasks stay a quiet grey prompt.
+    final color = scheduled ? AppColors.accent : AppColors.inkFaint;
     return Row(
       children: [
         Icon(
           scheduled ? Icons.schedule_rounded : Icons.event_note_outlined,
           size: 13,
-          color: AppColors.inkFaint,
+          color: color,
         ),
         const SizedBox(width: 5),
         Flexible(
           child: Text(
             text,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12.5,
-              color: AppColors.inkSoft,
-              fontWeight: FontWeight.w500,
+              color: color,
+              fontWeight: scheduled ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ),

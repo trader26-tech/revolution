@@ -218,6 +218,8 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
             name: widget.task.title,
             iconName: widget.task.iconName,
             iconDomain: widget.task.iconDomain,
+            amount: widget.task.amount,
+            currency: widget.task.currency,
           ),
         ),
       ),
@@ -235,6 +237,9 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
       repeat: _repeat,
       iconName: result.iconName,
       iconDomain: result.iconDomain,
+      amount: result.amount,
+      clearAmount: result.amount == null,
+      currency: result.currency,
     );
     AppToast.show(context, message: 'Saved');
     // Pop THIS sheet (not the root) with the result, so showTaskDetailsSheet's

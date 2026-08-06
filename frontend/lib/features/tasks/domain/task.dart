@@ -26,6 +26,8 @@ class Task {
     this.repeat = RepeatCadence.none,
     this.iconName,
     this.iconDomain,
+    this.amount,
+    this.currency = 'INR',
   });
 
   final String id;
@@ -46,8 +48,14 @@ class Task {
   String? iconName;
   String? iconDomain;
 
+  /// The recurring/one-time cost (null = no amount set, e.g. a free plan). Its
+  /// [currency] is an ISO code (INR / USD / KWD).
+  double? amount;
+  String currency;
+
   bool get isScheduled => dueAt != null;
   bool get hasIcon => (iconName != null && iconName!.isNotEmpty);
+  bool get hasAmount => amount != null;
 
   Task copyWith({
     String? title,
@@ -58,6 +66,9 @@ class Task {
     RepeatCadence? repeat,
     String? iconName,
     String? iconDomain,
+    double? amount,
+    bool clearAmount = false,
+    String? currency,
   }) {
     return Task(
       id: id,
@@ -68,6 +79,8 @@ class Task {
       repeat: repeat ?? this.repeat,
       iconName: iconName ?? this.iconName,
       iconDomain: iconDomain ?? this.iconDomain,
+      amount: clearAmount ? null : (amount ?? this.amount),
+      currency: currency ?? this.currency,
     );
   }
 
@@ -82,6 +95,8 @@ class Task {
         'repeat': repeat.name,
         'icon_name': iconName,
         'icon_domain': iconDomain,
+        'amount': amount,
+        'currency': currency,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -97,5 +112,7 @@ class Task {
         ),
         iconName: j['icon_name'] as String?,
         iconDomain: j['icon_domain'] as String?,
+        amount: (j['amount'] as num?)?.toDouble(),
+        currency: j['currency'] as String? ?? 'INR',
       );
 }

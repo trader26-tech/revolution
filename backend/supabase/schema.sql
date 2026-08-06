@@ -292,9 +292,19 @@ create table if not exists public.tasks (
     icon_name    text,
     icon_domain  text,
 
+    -- Optional cost: the recurring/one-time amount and its currency (ISO code).
+    -- null amount = no price (a free plan or a plain reminder).
+    amount       numeric(14,2),
+    currency     text not null default 'INR',
+
     created_at   timestamptz not null default now(),
     updated_at   timestamptz not null default now()
 );
+
+-- Migration for databases created before amount/currency existed. Safe to
+-- re-run: IF NOT EXISTS makes each ALTER a no-op once applied.
+alter table public.tasks add column if not exists amount   numeric(14,2);
+alter table public.tasks add column if not exists currency text not null default 'INR';
 
 create index if not exists tasks_owner_idx on public.tasks (owner_id);
 create index if not exists tasks_due_idx   on public.tasks (due_at);

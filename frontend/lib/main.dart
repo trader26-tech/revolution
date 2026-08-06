@@ -22,6 +22,8 @@ Future<void> main() async {
   await CustomLogoStore.instance.load();
   // Load the user's personal preferences (name, notifications, defaults).
   await ProfileStore.instance.load();
+  // Whether the one-time onboarding intro has been completed.
+  await OnboardingStore.instance.load();
   runApp(const RevolutionApp());
 }
 
@@ -34,9 +36,10 @@ class RevolutionApp extends StatelessWidget {
       title: 'Revolution',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      // AuthGate: phone login when logged out, the app when logged in. When the
-      // parallel onboarding flow lands, wrap this (e.g. OnboardingGate(AuthGate)).
-      home: const AuthGate(),
+      // The flow: Onboarding (first launch only) → Phone number → Home.
+      // OnboardingGate shows the intro once, then hands off to AuthGate, which
+      // requires phone login before revealing the app.
+      home: const OnboardingGate(),
     );
   }
 }

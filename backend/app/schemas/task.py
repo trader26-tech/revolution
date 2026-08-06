@@ -16,6 +16,10 @@ class TaskBase(BaseModel):
     repeat: str = "none"
     icon_name: Optional[str] = None
     icon_domain: Optional[str] = None
+    # The recurring/one-time cost. Null means "no amount set" (e.g. a free plan
+    # or a plain reminder). currency is an ISO code (INR / USD / KWD).
+    amount: Optional[float] = None
+    currency: str = "INR"
 
 
 class TaskCreate(TaskBase):
@@ -33,6 +37,8 @@ class TaskUpdate(BaseModel):
     repeat: Optional[str] = None
     icon_name: Optional[str] = None
     icon_domain: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
 
 
 class Task(TaskBase):

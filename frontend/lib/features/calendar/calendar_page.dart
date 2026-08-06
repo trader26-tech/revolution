@@ -101,7 +101,7 @@ class _CalendarPageState extends State<CalendarPage> {
                 upcoming: upcomingTotal(monthOcc),
                 onPrev: () => _shiftMonth(-1),
                 onNext: () => _shiftMonth(1),
-                onTapYear: _pickYear,
+                onTapYear: _pickMonthYear,
               ),
               const SizedBox(height: 18),
               _WeekdayRow(),
@@ -468,9 +468,9 @@ class _MonthGrid extends StatelessWidget {
       crossAxisCount: 7,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 6,
-      crossAxisSpacing: 6,
-      childAspectRatio: 0.62, // slightly taller cells → room for logo + "+N"
+      mainAxisSpacing: 5,
+      crossAxisSpacing: 5,
+      childAspectRatio: 0.74, // boxed cells — number + one logo fit neatly
       children: cells,
     );
   }

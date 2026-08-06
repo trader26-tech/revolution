@@ -139,23 +139,80 @@ class _TaskTileState extends State<TaskTile> {
     final d = od == null
         ? due
         : DateTime(od.year, od.month, od.day, due.hour, due.minute);
-    final base = '${_months[d.month - 1]} ${d.day}, ${d.year} · ${_time(d)}';
+    // "Today · 1:50 PM", "Tomorrow · 9 AM", "Mon, 12 Aug · 9 AM" — friendly and
+    // readable, not a stiff "Aug 12, 2026 · 01:50 PM".
+    final base = '${_relativeDay(d)} · ${_time(d)}';
     if (task.repeat != RepeatCadence.none) {
       return '$base · ${task.repeat.label}';
     }
     return base;
   }
 
+  /// A human day label relative to today.
+  static String _relativeDay(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(d.year, d.month, d.day);
+    final diff = day.difference(today).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Tomorrow';
+    if (diff == -1) return 'Yesterday';
+    if (diff > 1 && diff < 7) return _weekdays[d.weekday - 1]; // this week
+    if (diff < 0 && diff > -7) return '${-diff} days ago';
+    // Otherwise a compact date; include the year only if it's not this year.
+    final base = '${_weekdays[d.weekday - 1].substring(0, 3)}, ${d.day} ${_months[d.month - 1]}';
+    return d.year == now.year ? base : '$base ${d.year}';
+  }
+
   static String _time(DateTime d) {
     final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    final m = d.minute.toString().padLeft(2, '0');
-    return '$h:$m ${d.hour < 12 ? "AM" : "PM"}';
+    final ampm = d.hour < 12 ? 'AM' : 'PM';
+    // Drop ":00" for on-the-hour times → "9 AM" reads cleaner than "9:00 AM".
+    if (d.minute == 0) return '$h $ampm';
+    return '$h:${d.minute.toString().padLeft(2, '0')} $ampm';
   }
 
   static const _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
+  static const _weekdays = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+  ];
+}
+
+/// The due date/time line under a task — a small clock icon + calm text, so it
+/// reads clearly without the harsh blue.
+class _DueLine extends StatelessWidget {
+  const _DueLine({required this.text, required this.scheduled});
+
+  final String text;
+  final bool scheduled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          scheduled ? Icons.schedule_rounded : Icons.event_note_outlined,
+          size: 13,
+          color: AppColors.inkFaint,
+        ),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppColors.inkSoft,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// The subtle drop-down section under a task when its chevron is open. A quiet

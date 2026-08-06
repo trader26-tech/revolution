@@ -40,6 +40,11 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   /// false, the icon auto-follows the typed name; a manual pick locks it.
   bool _iconManuallyChosen = false;
 
+  /// The first payment date is COMPULSORY. When editing an existing item it's
+  /// already set; for a new item the user must pick it before saving.
+  late bool _dateChosen = widget.initial?.firstPaymentDate != null;
+  bool _showDateError = false;
+
   late final TextEditingController _name =
       TextEditingController(text: _d.name);
   late final TextEditingController _amount = TextEditingController(
@@ -93,8 +98,25 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
   }
 
   void _save() {
+    final name = _name.text.trim();
+    // Name is required.
+    if (name.isEmpty) {
+      _name.text = '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a name.')),
+      );
+      return;
+    }
+    // First payment date is compulsory — must be explicitly chosen.
+    if (!_dateChosen) {
+      setState(() => _showDateError = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please set the first payment date.')),
+      );
+      return;
+    }
     _d
-      ..name = _name.text.trim()
+      ..name = name
       // Strip grouping separators before parsing the number.
       ..amount = double.tryParse(unformatAmount(_amount.text))
       ..notes = _notes.text.trim();
@@ -189,10 +211,16 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                   ),
                   const SizedBox(height: 20),
                   _Group(children: [
-                    // Order: First payment date → Duration → Type → Cycle.
+                    // Order: First payment date (REQUIRED) → Duration → Type → Cycle.
                     _Row(
                       label: 'First payment date',
-                      trailing: _Chip(text: _fmtDate(_d.firstPaymentDate)),
+                      trailing: _Chip(
+                        // Prompt until it's chosen; red when the user tried to
+                        // save without setting it.
+                        text: _dateChosen ? _fmtDate(_d.firstPaymentDate) : 'Set date',
+                        highlight: !_dateChosen,
+                        error: _showDateError,
+                      ),
                       onTap: _pickFirstPaymentDate,
                     ),
                     _Row(
@@ -260,7 +288,13 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       title: 'First payment date',
       initial: _d.firstPaymentDate,
     );
-    if (picked != null) setState(() => _d.firstPaymentDate = picked);
+    if (picked != null) {
+      setState(() {
+        _d.firstPaymentDate = picked;
+        _dateChosen = true; // requirement satisfied
+        _showDateError = false;
+      });
+    }
   }
 
   /// Duration → a bottom sheet offering "Forever" or a specific end date via the
@@ -745,20 +779,38 @@ class _Row extends StatelessWidget {
 
 /// A pill chip (used for the date value).
 class _Chip extends StatelessWidget {
-  const _Chip({required this.text});
+  const _Chip({required this.text, this.highlight = false, this.error = false});
   final String text;
+
+  /// A gentle accent style — used for a not-yet-set required field ("Set date").
+  final bool highlight;
+
+  /// A red style — used when the user tried to save without setting it.
+  final bool error;
 
   @override
   Widget build(BuildContext context) {
+    const red = Color(0xFFDC2626);
+    final Color bg;
+    final Color fg;
+    if (error) {
+      bg = red.withValues(alpha: 0.10);
+      fg = red;
+    } else if (highlight) {
+      bg = AppColors.accent.withValues(alpha: 0.12);
+      fg = AppColors.accentDeep;
+    } else {
+      bg = AppColors.bg;
+      fg = AppColors.ink;
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.bg,
+        color: bg,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(text,
-          style: const TextStyle(
-              fontWeight: FontWeight.w600, color: AppColors.ink)),
+          style: TextStyle(fontWeight: FontWeight.w700, color: fg)),
     );
   }
 }

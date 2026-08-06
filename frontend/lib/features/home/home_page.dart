@@ -8,10 +8,10 @@ import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
 import '../tasks/domain/task_filter.dart';
+import '../tasks/presentation/filter_sheet.dart';
 import '../tasks/presentation/open_task_details.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
 import 'domain/home_groups.dart';
-import 'presentation/widgets/stat_cards.dart';
 import 'presentation/widgets/task_section.dart';
 
 /// The Home screen.
@@ -46,10 +46,10 @@ class _HomePageState extends State<HomePage> {
     await AuthStore.instance.logout();
   }
 
-  /// Tapping a stat card scopes the list to it; tapping the selected one again
-  /// clears back to All.
-  void _tapCard(TaskFilter f) {
-    setState(() => _filter = _filter == f ? TaskFilter.all : f);
+  /// Open the funnel filter sheet.
+  Future<void> _openFilter() async {
+    final picked = await showFilterSheet(context, current: _filter);
+    if (picked != null) setState(() => _filter = picked);
   }
 
   /// Press + → straight to the full details screen (prefilled/blank), no
@@ -132,6 +132,8 @@ class _HomePageState extends State<HomePage> {
                 onSettings: _openSettings,
                 onIntro: _replayFullFlow,
                 onAdd: _startAdd,
+                onFilter: _openFilter,
+                filterActive: _filter.isActive,
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -162,17 +164,12 @@ class _HomePageState extends State<HomePage> {
       return const SizedBox.shrink();
     }
 
-    final stats = statsFor(allTasks);
     final groups = groupForHome(allTasks, filter: _filter);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 140),
       children: [
-        // Stat cards — the filters, as tappable cards.
-        StatCards(stats: stats, active: _filter, onTap: _tapCard),
-        const SizedBox(height: 14),
-
-        // Nothing matches the active card's filter.
+        // Nothing matches the active funnel filter.
         if (groups.isEmpty)
           _FilteredEmpty(
             filter: _filter,
@@ -187,19 +184,20 @@ class _HomePageState extends State<HomePage> {
               onOpenTask: _editTask,
               onDeleteTask: _deleteTask,
             ),
-          if (groups.tomorrow.isNotEmpty)
+          // The upcoming week, with each task's date shown on its tile.
+          if (groups.next7.isNotEmpty)
             TaskSection(
-              title: 'Tomorrow',
-              tasks: groups.tomorrow,
+              title: 'Next 7 days',
+              tasks: groups.next7,
               onToggleTask: (t) => widget.store.toggleDone(t),
               onOpenTask: _editTask,
               onDeleteTask: _deleteTask,
             ),
-          // "Scheduled" = everything later, collapsed by default.
-          if (groups.later.isNotEmpty)
+          // Everything further out — collapsible.
+          if (groups.remaining.isNotEmpty)
             TaskSection(
-              title: 'Scheduled',
-              tasks: groups.later,
+              title: 'Remaining',
+              tasks: groups.remaining,
               collapsible: true,
               expanded: _laterExpanded,
               onToggleExpanded: () =>
@@ -231,29 +229,31 @@ class _TopBar extends StatelessWidget {
     required this.onSettings,
     required this.onIntro,
     required this.onAdd,
+    required this.onFilter,
+    required this.filterActive,
   });
 
   final VoidCallback onSettings;
 
-  /// TEMP (dev): replays the onboarding so it can be reviewed anytime.
+  /// The "particle" button on the left — replays onboarding (dev).
   final VoidCallback onIntro;
 
   /// Press + → straight to the full details screen.
   final VoidCallback onAdd;
 
+  /// Funnel → the filter sheet.
+  final VoidCallback onFilter;
+
+  /// Whether a non-"All" filter is applied — marks the funnel with a dot.
+  final bool filterActive;
+
   @override
   Widget build(BuildContext context) {
-    // Settings (left) · sparkle (right of settings) · Add (far right). No title.
+    // Left: particle button. Right corner: Add · Funnel · Settings.
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Row(
         children: [
-          GlassIconButton(
-            icon: Icons.settings_outlined,
-            tooltip: 'Settings',
-            onTap: onSettings,
-          ),
-          const SizedBox(width: 10),
           GlassIconButton(
             icon: Icons.auto_awesome_rounded,
             tooltip: 'Onboarding (dev)',
@@ -265,6 +265,38 @@ class _TopBar extends StatelessWidget {
             tooltip: 'Add',
             accent: true,
             onTap: onAdd,
+          ),
+          const SizedBox(width: 10),
+          // Funnel filter, with an accent dot when active.
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GlassIconButton(
+                icon: Icons.filter_alt_outlined,
+                tooltip: 'Filter',
+                onTap: onFilter,
+              ),
+              if (filterActive)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.bg, width: 2),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 10),
+          GlassIconButton(
+            icon: Icons.settings_outlined,
+            tooltip: 'Settings',
+            onTap: onSettings,
           ),
         ],
       ),

@@ -309,7 +309,7 @@ class _MonthGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 6,
       crossAxisSpacing: 6,
-      childAspectRatio: 0.66,
+      childAspectRatio: 0.62, // slightly taller cells → room for logo + "+N"
       children: cells,
     );
   }
@@ -357,7 +357,7 @@ class _DayCell extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: border,
         ),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        padding: const EdgeInsets.fromLTRB(3, 6, 3, 5),
         child: Column(
           children: [
             Text(
@@ -368,7 +368,7 @@ class _DayCell extends StatelessWidget {
                 color: numberColor,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Expanded(child: _DayLogos(items: items)),
           ],
         ),
@@ -386,24 +386,51 @@ class _DayLogos extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
 
-    // One prominent logo + a "+N" pill when there are more (matches the design:
-    // the Spotify logo with "+20" beneath on a busy day).
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        BrandLogo(brand: _brandOf(items.first.task), size: 26, radius: 8),
-        if (items.length > 1) ...[
-          const SizedBox(height: 3),
-          Text(
-            '+${items.length - 1}',
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.inkSoft,
-            ),
-          ),
-        ],
-      ],
+    final hasMore = items.length > 1;
+
+    // One prominent logo + a "+N" label when there are more (e.g. the Spotify
+    // logo with "+20" beneath on a busy day). We size everything from the height
+    // the cell actually gives us, so the logo + "+N" always fit — never overflow.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Reserve room for the "+N" line when present, then size the logo to the
+        // remaining height (clamped so it stays tidy on tall/short cells).
+        const labelHeight = 13.0;
+        const gap = 2.0;
+        final avail = constraints.maxHeight;
+        final forLogo = hasMore ? (avail - labelHeight - gap) : avail;
+        final logoSize = forLogo.clamp(0.0, 26.0);
+
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (logoSize > 6)
+              BrandLogo(
+                brand: _brandOf(items.first.task),
+                size: logoSize,
+                radius: logoSize * 0.3,
+              ),
+            if (hasMore) ...[
+              const SizedBox(height: gap),
+              SizedBox(
+                height: labelHeight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '+${items.length - 1}',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkSoft,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

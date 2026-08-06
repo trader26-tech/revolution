@@ -433,7 +433,6 @@ class _DaySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = totalOf(items);
-    final hasItems = items.isNotEmpty;
 
     // Clear the floating glass nav bar so the sheet rests ABOVE it, not under
     // it. The nav is a 64-tall pill with a 16 bottom margin over the safe area.
@@ -496,7 +495,7 @@ class _DaySheet extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (hasItems && !total.isZero) ...[
+                    if (!total.isZero) ...[
                       Text(
                         total.formatted,
                         style: const TextStyle(
@@ -520,56 +519,22 @@ class _DaySheet extends StatelessWidget {
               ),
               const Divider(height: 1, color: AppColors.hairline),
               Expanded(
-                child: hasItems
-                    ? ListView.separated(
-                        controller: controller,
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                        itemCount: items.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _DayItemRow(
-                          occ: items[i],
-                          onTap: () => onTapItem(items[i].task),
-                        ),
-                      )
-                    : _EmptyDay(controller: controller),
+                child: ListView.separated(
+                  controller: controller,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => _DayItemRow(
+                    occ: items[i],
+                    onTap: () => onTapItem(items[i].task),
+                  ),
+                ),
               ),
             ],
           ),
         );
-      },
-    );
-  }
-}
-
-class _EmptyDay extends StatelessWidget {
-  const _EmptyDay({required this.controller});
-  final ScrollController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      controller: controller,
-      padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
-      children: const [
-        Icon(Icons.event_available_rounded,
-            size: 44, color: AppColors.inkFaint),
-        SizedBox(height: 14),
-        Text(
-          'Nothing due this day',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: AppColors.ink,
-          ),
-        ),
-        SizedBox(height: 6),
-        Text(
-          'Days with subscriptions or reminders will show up here.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 13, color: AppColors.inkSoft),
-        ),
-      ],
+        },
+      ),
     );
   }
 }

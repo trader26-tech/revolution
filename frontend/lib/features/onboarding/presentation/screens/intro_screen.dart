@@ -18,16 +18,24 @@ class _IntroScreenState extends State<IntroScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
-  // Each card: a CATEGORY header on top, then logo + payee + amount due below.
-  // The LAST item is the centre hero (on top, fully visible); the rest fan out,
-  // half-covered.
+  // A rich, varied deck so the fan fills the width and layers behind the
+  // headline. Categories repeat across brands (Loan EMI from several banks) so
+  // it feels real. The LAST item is the centre hero (on top, fully visible).
   static const _brands = <_Item>[
+    // Loan EMI — multiple banks.
+    _Item('Loan EMI', Brand(name: 'ICICI Bank', domain: 'icicibank.com'), 15200),
+    _Item('Loan EMI', Brand(name: 'Axis Bank', domain: 'axisbank.com'), 9800),
+    // Insurance.
     _Item('Life insurance', Brand(name: 'LIC', domain: 'licindia.in'), 2400),
     _Item('Health cover',
         Brand(name: 'Star Health', domain: 'starhealth.in'), 18000),
+    // Bills.
     _Item('Electricity',
         Brand(name: 'Tata Power', domain: 'tatapower.com'), 1860),
+    _Item('Mobile bill', Brand(name: 'Airtel', domain: 'airtel.in'), 799),
+    // Investing.
     _Item('SIP', Brand(name: 'Zerodha', domain: 'zerodha.com'), 5000),
+    _Item('SIP', Brand(name: 'Groww', domain: 'groww.in'), 3000),
     // Centre, on top — the actionable hero.
     _Item('Loan EMI', Brand(name: 'HDFC Bank', domain: 'hdfcbank.com'), 24500),
   ];
@@ -50,20 +58,23 @@ class _IntroScreenState extends State<IntroScreen>
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Column(
-        children: [
-          const Spacer(flex: 3),
-          SizedBox(height: 268, child: _Cluster(anim: _c, items: _brands)),
-          // Small gap so the fanned cards sit right on top of the headline.
-          const SizedBox(height: 12),
-          Text(
-            'Everything you’d\nforget, remembered.',
-            textAlign: TextAlign.center,
-            style: text.displaySmall?.copyWith(color: AppColors.ink),
-          ),
-          const SizedBox(height: 14),
+    return Column(
+      children: [
+        const Spacer(flex: 3),
+        // Full-width so the wide fan can spread across and layer behind the text.
+        SizedBox(height: 250, child: _Cluster(anim: _c, items: _brands)),
+        // Small gap so the fanned cards sit right on top of the headline.
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            children: [
+              Text(
+                'Everything you’d\nforget, remembered.',
+                textAlign: TextAlign.center,
+                style: text.displaySmall?.copyWith(color: AppColors.ink),
+              ),
+              const SizedBox(height: 14),
           Text(
             'Insurance, bills, EMIs, investments — '
             'one calm list, never a missed date.',
@@ -109,14 +120,20 @@ class _Cluster extends StatelessWidget {
   final Animation<double> anim;
   final List<_Item> items;
 
-  // Fixed positions/rotations for a pleasant, deliberate scatter (dx, dy, rot).
-  // The 5th entry is the centred hero card.
+  // Positions/rotations (dx, dy, rot) for a full, wide fan that fills the width
+  // and layers behind the headline. Order = paint order (earliest at the back);
+  // the LAST entry is the centred hero on top. Outer cards sit wider + lower so
+  // the stack reaches down onto the text.
   static const _slots = <List<double>>[
-    [-78, -40, -0.13],
-    [80, -26, 0.12],
-    [-54, 60, 0.10],
-    [66, 70, -0.10],
-    [0, 8, 0.0], // centre, on top
+    [-118, -18, -0.20], // far left, back
+    [118, -12, 0.20], // far right, back
+    [-92, 44, -0.13], // left
+    [92, 48, 0.13], // right
+    [-46, -46, -0.08], // upper-left
+    [50, -44, 0.08], // upper-right
+    [-40, 78, 0.06], // lower-left, reaches down
+    [44, 80, -0.06], // lower-right, reaches down
+    [0, 12, 0.0], // centre, on top
   ];
 
   @override
@@ -125,10 +142,11 @@ class _Cluster extends StatelessWidget {
       animation: anim,
       builder: (context, _) => Center(
         child: SizedBox(
-          width: 280,
-          height: 240,
+          width: 360,
+          height: 250,
           child: Stack(
             alignment: Alignment.center,
+            clipBehavior: Clip.none,
             children: [
               for (var i = 0; i < items.length; i++)
                 _card(i, items[i], _slots[i], center: i == items.length - 1),
@@ -140,7 +158,8 @@ class _Cluster extends StatelessWidget {
   }
 
   Widget _card(int i, _Item item, List<double> slot, {required bool center}) {
-    final start = i * 0.12;
+    // Stagger across the whole deck so every card animates in (max start 0.5).
+    final start = (i / items.length) * 0.5;
     final t = ((anim.value - start) / (1 - start)).clamp(0.0, 1.0);
     final eased = Curves.easeOutBack.transform(t);
     return Transform.translate(

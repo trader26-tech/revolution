@@ -75,11 +75,6 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
     }
   }
 
-  Future<void> _pickTime() async {
-    final picked = await showTimeWheel(context, initial: _due);
-    if (picked != null) setState(() => _due = picked);
-  }
-
   Future<void> _pickRepeat() async {
     final picked = await showModalBottomSheet<RepeatCadence>(
       context: context,
@@ -197,14 +192,6 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
                     trailing: _Chip(
                       text: _fmtDate(_due),
                       onTap: _pickDate,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _Row(
-                    label: 'At',
-                    trailing: _Chip(
-                      text: _fmtTime(_due),
-                      onTap: _pickTime,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -374,10 +361,3 @@ const _months = [
 ];
 
 String _fmtDate(DateTime d) => '${_months[d.month - 1]} ${d.day}, ${d.year}';
-
-String _fmtTime(DateTime d) {
-  final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
-  final m = d.minute.toString().padLeft(2, '0');
-  final ampm = d.hour < 12 ? 'AM' : 'PM';
-  return '$h:$m $ampm';
-}

@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../brand/domain/brand.dart';
-import '../../../brand/presentation/brand_logo.dart';
 import '../../domain/task.dart';
 import 'animated_check_circle.dart';
 
 /// A single task in the home list.
 ///
-/// Layout: the **logo on the left** (a coloured letter-avatar when the task has
-/// no real logo), the title + due-date subtitle, and a **checkbox on the right**
-/// that toggles done. Interaction:
+/// Layout: the title + due-date subtitle on the left, and a **checkbox on the
+/// right** that toggles done. No leading icon. Interaction:
 ///  * Tap the **row body** → open the details page to update it.
 ///  * **Long-press** the row → it expands downward to reveal a subtle Delete
 ///    action. Tap the row (or long-press again) to collapse. Fully reversible.
@@ -64,12 +61,9 @@ class _TaskTileState extends State<TaskTile> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
-                  children: [
-                  // Left icon: the real brand logo when the task has one,
-                  // otherwise a clean on-brand blue tile (not a random letter).
-                  _LeadingIcon(task: task),
-                  const SizedBox(width: 14),
-                  // Title + subtitle.
+                children: [
+                  // Title + subtitle. No leading icon — the row is just the
+                  // task text and the checkbox.
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,14 +118,12 @@ class _TaskTileState extends State<TaskTile> {
   String _subtitle(Task task) {
     if (!task.isScheduled) return 'Tap to set a date';
     final due = task.dueAt!;
-    // Show THIS occurrence's date (agenda) but keep the task's time-of-day.
+    // Show THIS occurrence's date (agenda) or the task's own date. Date only —
+    // no time, since the user only picks a date.
     final od = widget.occurrenceDate;
-    final d = od == null
-        ? due
-        : DateTime(od.year, od.month, od.day, due.hour, due.minute);
-    // "Today · 1:50 PM", "Tomorrow · 9 AM", "Mon, 12 Aug · 9 AM" — friendly and
-    // readable, not a stiff "Aug 12, 2026 · 01:50 PM".
-    final base = '${_relativeDay(d)} · ${_time(d)}';
+    final d = od == null ? due : DateTime(od.year, od.month, od.day);
+    // "Today", "Tomorrow", "Mon, 12 Aug" — the date, no time.
+    final base = _relativeDay(d);
     if (task.repeat != RepeatCadence.none) {
       return '$base · ${task.repeat.label}';
     }
@@ -154,14 +146,6 @@ class _TaskTileState extends State<TaskTile> {
     return d.year == now.year ? base : '$base ${d.year}';
   }
 
-  static String _time(DateTime d) {
-    final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    final ampm = d.hour < 12 ? 'AM' : 'PM';
-    // Drop ":00" for on-the-hour times → "9 AM" reads cleaner than "9:00 AM".
-    if (d.minute == 0) return '$h $ampm';
-    return '$h:${d.minute.toString().padLeft(2, '0')} $ampm';
-  }
-
   static const _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
@@ -171,45 +155,7 @@ class _TaskTileState extends State<TaskTile> {
   ];
 }
 
-/// The due date/time line under a task — a small clock icon + calm text, so it
-/// reads clearly without the harsh blue.
-/// The tile's leading icon. A real brand logo when the task has a domain;
-/// otherwise a clean blue tile with a bell (on-brand, matches the app icon) —
-/// never a random letter avatar.
-class _LeadingIcon extends StatelessWidget {
-  const _LeadingIcon({required this.task});
-
-  final Task task;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasLogo = task.iconDomain != null && task.iconDomain!.isNotEmpty;
-    if (hasLogo) {
-      return BrandLogo(
-        brand: Brand(
-          name: task.iconName?.isNotEmpty == true ? task.iconName! : task.title,
-          domain: task.iconDomain!,
-        ),
-        size: 40,
-        radius: 11,
-      );
-    }
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: const Icon(
-        Icons.notifications_rounded,
-        color: AppColors.accent,
-        size: 22,
-      ),
-    );
-  }
-}
-
+/// The due date/time line under a task — a small clock icon + calm text.
 class _DueLine extends StatelessWidget {
   const _DueLine({required this.text, required this.scheduled});
 

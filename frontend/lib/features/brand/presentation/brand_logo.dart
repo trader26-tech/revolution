@@ -101,28 +101,24 @@ class _LetterAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // One clean, uniform tile for EVERY logo-less task: a light accent-tinted
-    // surface with a hairline accent border and a confident blue letter. Crisp
-    // and intentional (not a washed-out grey blob), yet calm enough to sit
-    // beside the real logos.
+    // Neutral tile for logo-less tasks — matches the real brand logos (white
+    // surface, subtle border) so the whole list looks consistent. The letter is
+    // a calm ash grey, not blue.
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.14),
+        color: AppColors.card, // white
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: AppColors.accent.withValues(alpha: 0.55),
-          width: 1.5,
-        ),
+        border: Border.all(color: AppColors.cardBorder),
       ),
       alignment: Alignment.center,
       child: Text(
         letter,
         style: TextStyle(
-          color: AppColors.accentDeep,
-          fontWeight: FontWeight.w800,
-          fontSize: size * 0.48,
+          color: AppColors.inkSoft, // ash grey
+          fontWeight: FontWeight.w700,
+          fontSize: size * 0.46,
           height: 1.0,
           letterSpacing: -0.3,
         ),

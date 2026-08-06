@@ -39,18 +39,18 @@ class CountryCode {
 
 /// A compact, common set — India first (the default). Extend as needed.
 const List<CountryCode> kCountryCodes = [
-  CountryCode(iso: 'IN', dial: '+91', flag: '🇮🇳', name: 'India', maxLen: 10),
-  CountryCode(iso: 'US', dial: '+1', flag: '🇺🇸', name: 'United States', maxLen: 10),
-  CountryCode(iso: 'GB', dial: '+44', flag: '🇬🇧', name: 'United Kingdom'),
-  CountryCode(iso: 'AE', dial: '+971', flag: '🇦🇪', name: 'UAE'),
-  CountryCode(iso: 'SG', dial: '+65', flag: '🇸🇬', name: 'Singapore'),
-  CountryCode(iso: 'AU', dial: '+61', flag: '🇦🇺', name: 'Australia'),
-  CountryCode(iso: 'CA', dial: '+1', flag: '🇨🇦', name: 'Canada', maxLen: 10),
-  CountryCode(iso: 'DE', dial: '+49', flag: '🇩🇪', name: 'Germany'),
-  CountryCode(iso: 'FR', dial: '+33', flag: '🇫🇷', name: 'France'),
-  CountryCode(iso: 'SA', dial: '+966', flag: '🇸🇦', name: 'Saudi Arabia'),
-  CountryCode(iso: 'JP', dial: '+81', flag: '🇯🇵', name: 'Japan'),
-  CountryCode(iso: 'CN', dial: '+86', flag: '🇨🇳', name: 'China'),
+  CountryCode(iso: 'IN', dial: '+91', flag: '🇮🇳', name: 'India', maxLen: 10, groups: [5, 5]),
+  CountryCode(iso: 'US', dial: '+1', flag: '🇺🇸', name: 'United States', maxLen: 10, groups: [3, 3, 4]),
+  CountryCode(iso: 'GB', dial: '+44', flag: '🇬🇧', name: 'United Kingdom', groups: [4, 6]),
+  CountryCode(iso: 'AE', dial: '+971', flag: '🇦🇪', name: 'UAE', groups: [2, 3, 4]),
+  CountryCode(iso: 'SG', dial: '+65', flag: '🇸🇬', name: 'Singapore', groups: [4, 4]),
+  CountryCode(iso: 'AU', dial: '+61', flag: '🇦🇺', name: 'Australia', groups: [3, 3, 3]),
+  CountryCode(iso: 'CA', dial: '+1', flag: '🇨🇦', name: 'Canada', maxLen: 10, groups: [3, 3, 4]),
+  CountryCode(iso: 'DE', dial: '+49', flag: '🇩🇪', name: 'Germany', groups: [4, 7]),
+  CountryCode(iso: 'FR', dial: '+33', flag: '🇫🇷', name: 'France', groups: [1, 2, 2, 2, 2]),
+  CountryCode(iso: 'SA', dial: '+966', flag: '🇸🇦', name: 'Saudi Arabia', groups: [2, 3, 4]),
+  CountryCode(iso: 'JP', dial: '+81', flag: '🇯🇵', name: 'Japan', groups: [2, 4, 4]),
+  CountryCode(iso: 'CN', dial: '+86', flag: '🇨🇳', name: 'China', groups: [3, 4, 4]),
 ];
 
 /// Split a stored E.164 number (e.g. '+919876543210') into its country and the

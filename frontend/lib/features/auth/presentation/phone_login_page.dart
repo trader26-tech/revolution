@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../domain/country_code.dart';
+import 'widgets/app_logo.dart';
+import 'widgets/country_flag.dart';
 
-/// The phone-number login page.
+/// The phone-number login page — the app's first impression.
 ///
-/// A clean, single-field form: a country-code picker + the number. On Continue
-/// it hands the full E.164 number back via [onSubmit]. No real verification yet
-/// — the number is taken at face value.
+/// Minimal and premium: the logo, one light line, and a large phone field with
+/// country-aware digit grouping (India → "98765 43210"). On Continue it hands
+/// the full E.164 number back via [onSubmit]. No verification yet.
 class PhoneLoginPage extends StatefulWidget {
   const PhoneLoginPage({super.key, required this.onSubmit});
 
@@ -21,6 +23,7 @@ class PhoneLoginPage extends StatefulWidget {
 
 class _PhoneLoginPageState extends State<PhoneLoginPage> {
   final _controller = TextEditingController();
+  final _focus = FocusNode();
   CountryCode _country = kCountryCodes.first; // India
   bool _submitting = false;
 
@@ -33,6 +36,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -41,6 +45,7 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
 
   Future<void> _submit() async {
     if (!_valid || _submitting) return;
+    FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
     final e164 = '${_country.dial}$_digits';
     try {
@@ -56,119 +61,97 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       backgroundColor: AppColors.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (_) => _CountrySheet(current: _country),
     );
-    if (picked != null) setState(() => _country = picked);
+    if (picked != null) {
+      setState(() => _country = picked);
+      // Trim to the new country's max length + re-space.
+      final trimmed = _digits.length > _country.maxLen
+          ? _digits.substring(0, _country.maxLen)
+          : _digits;
+      _controller.value = _formatted(trimmed);
+    }
+  }
+
+  /// Re-space the field to the country's grouping, keeping the caret at the end.
+  TextEditingValue _formatted(String digits) {
+    final text = _country.format(digits);
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.bgTop, AppColors.bg],
+      // Tap anywhere to dismiss the keyboard.
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFEAF1FF), AppColors.bg, AppColors.bg],
+              stops: [0.0, 0.42, 1.0],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Spacer(flex: 2),
-
-                // Brand mark.
-                Center(
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [AppColors.accent, AppColors.accentDeep],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accent.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.check_rounded,
-                        color: Colors.white, size: 38),
-                  ),
-                ),
-                const SizedBox(height: 28),
-                const Text(
-                  'What\'s your number?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'We\'ll use it to keep your reminders safe\nand synced across devices.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.4,
-                    color: AppColors.inkSoft,
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // The input: country pill + number field.
-                _PhoneField(
-                  country: _country,
-                  controller: _controller,
-                  onPickCountry: _pickCountry,
-                  onSubmit: _submit,
-                ),
-
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: _valid && !_submitting ? _submit : null,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(54),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Spacer(flex: 3),
+                  const Center(child: AppLogo(size: 84)),
+                  const SizedBox(height: 36),
+                  // One light line — minimal text.
+                  const Text(
+                    'Your number',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Continue',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700)),
-                ),
-
-                const Spacer(flex: 3),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    'By continuing you agree to our Terms & Privacy Policy.',
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Sign in to sync your reminders.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      color: AppColors.inkSoft,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 36),
+                  _PhoneField(
+                    country: _country,
+                    controller: _controller,
+                    focusNode: _focus,
+                    onPickCountry: _pickCountry,
+                    onSubmit: _submit,
+                  ),
+                  const Spacer(flex: 4),
+                  _ContinueButton(
+                    enabled: _valid && !_submitting,
+                    loading: _submitting,
+                    onTap: _submit,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'By continuing you agree to our Terms & Privacy.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 11.5, color: AppColors.inkFaint),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
         ),
@@ -177,16 +160,19 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   }
 }
 
+/// The phone input: a glass card holding the country pill and the big number.
 class _PhoneField extends StatelessWidget {
   const _PhoneField({
     required this.country,
     required this.controller,
+    required this.focusNode,
     required this.onPickCountry,
     required this.onSubmit,
   });
 
   final CountryCode country;
   final TextEditingController controller;
+  final FocusNode focusNode;
   final VoidCallback onPickCountry;
   final VoidCallback onSubmit;
 
@@ -195,65 +181,154 @@ class _PhoneField extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Row(
         children: [
           // Country pill.
           InkWell(
             onTap: onPickCountry,
-            borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+            borderRadius:
+                const BorderRadius.horizontal(left: Radius.circular(20)),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+              padding: const EdgeInsets.fromLTRB(18, 20, 12, 20),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(country.flag, style: const TextStyle(fontSize: 20)),
-                  const SizedBox(width: 6),
+                  CountryFlag(iso: country.iso, size: 22),
+                  const SizedBox(width: 8),
                   Text(
                     country.dial,
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: AppColors.ink,
                     ),
                   ),
-                  const Icon(Icons.arrow_drop_down, color: AppColors.inkSoft),
+                  const Icon(Icons.expand_more_rounded,
+                      size: 20, color: AppColors.inkSoft),
                 ],
               ),
             ),
           ),
-          Container(width: 1, height: 28, color: AppColors.cardBorder),
-          // Number field.
+          Container(width: 1, height: 30, color: AppColors.cardBorder),
+          // Number field — big, grouped digits.
           Expanded(
             child: TextField(
               controller: controller,
+              focusNode: focusNode,
               autofocus: true,
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => onSubmit(),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
-                LengthLimitingTextInputFormatter(15),
-              ],
+              inputFormatters: [_GroupingFormatter(country)],
               style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
                 color: AppColors.ink,
-                letterSpacing: 0.5,
+                letterSpacing: 1.5,
               ),
               decoration: const InputDecoration(
-                hintText: 'Phone number',
+                hintText: '00000 00000',
                 hintStyle: TextStyle(
-                    color: AppColors.inkFaint, fontWeight: FontWeight.w400),
+                  color: AppColors.inkFaint,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 1.5,
+                ),
                 border: InputBorder.none,
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Live-formats the number with the active country's grouping + caps its length.
+class _GroupingFormatter extends TextInputFormatter {
+  const _GroupingFormatter(this.country);
+  final CountryCode country;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length > country.maxLen) {
+      digits = digits.substring(0, country.maxLen);
+    }
+    final text = country.format(digits);
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+}
+
+/// The gradient Continue button — bold when enabled, muted when not.
+class _ContinueButton extends StatelessWidget {
+  const _ContinueButton({
+    required this.enabled,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final bool enabled;
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 58,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: enabled
+              ? const LinearGradient(
+                  colors: [AppColors.accent, AppColors.accentDeep],
+                )
+              : null,
+          color: enabled ? null : AppColors.cardBorder,
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.35),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
+        ),
+        alignment: Alignment.center,
+        child: loading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2.6, color: Colors.white),
+              )
+            : Text(
+                'Continue',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: enabled ? Colors.white : AppColors.inkFaint,
+                ),
+              ),
       ),
     );
   }
@@ -274,8 +349,7 @@ class _CountrySheetState extends State<_CountrySheet> {
   Widget build(BuildContext context) {
     final q = _query.toLowerCase();
     final items = kCountryCodes
-        .where((c) =>
-            c.name.toLowerCase().contains(q) || c.dial.contains(q))
+        .where((c) => c.name.toLowerCase().contains(q) || c.dial.contains(q))
         .toList();
 
     return Padding(
@@ -287,8 +361,17 @@ class _CountrySheetState extends State<_CountrySheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.cardBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text('Select country',
@@ -320,7 +403,7 @@ class _CountrySheetState extends State<_CountrySheet> {
                 itemBuilder: (_, i) {
                   final c = items[i];
                   return ListTile(
-                    leading: Text(c.flag, style: const TextStyle(fontSize: 24)),
+                    leading: CountryFlag(iso: c.iso, size: 24),
                     title: Text(c.name),
                     trailing: Text(c.dial,
                         style: const TextStyle(

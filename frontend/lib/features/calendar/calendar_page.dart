@@ -95,13 +95,18 @@ class _CalendarPageState extends State<CalendarPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 140),
             children: [
-              _SpendHeader(
+              // Month nav (tap the month → month+year picker).
+              _MonthNav(
                 month: _month,
-                total: monthTotal(monthOcc),
-                upcoming: upcomingTotal(monthOcc),
                 onPrev: () => _shiftMonth(-1),
                 onNext: () => _shiftMonth(1),
-                onTapYear: _pickMonthYear,
+                onTapMonth: _pickMonthYear,
+              ),
+              const SizedBox(height: 14),
+              // A clean top summary of the month's spend.
+              _MonthOverview(
+                total: monthTotal(monthOcc),
+                count: monthOcc.length,
               ),
               const SizedBox(height: 18),
               _WeekdayRow(),
@@ -112,9 +117,6 @@ class _CalendarPageState extends State<CalendarPage> {
                 byDay: byDay,
                 onSelectDay: (d) => _onSelectDay(d, byDay[d] ?? const []),
               ),
-              const SizedBox(height: 20),
-              // Useful info in what used to be empty space below the grid.
-              _MonthSummary(month: _month, occ: monthOcc),
             ],
           ),
         );
@@ -123,148 +125,19 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 }
 
-/// A summary of the visible month — item count, busiest day, and the next
-/// renewal — so the space under the grid isn't wasted.
-class _MonthSummary extends StatelessWidget {
-  const _MonthSummary({required this.month, required this.occ});
-
-  final DateTime month;
-  final List<Occurrence> occ;
-
-  static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    if (occ.isEmpty) {
-      return _card(
-        child: Row(
-          children: const [
-            Icon(Icons.event_available_rounded,
-                size: 20, color: AppColors.inkFaint),
-            SizedBox(width: 10),
-            Text('Nothing scheduled this month',
-                style: TextStyle(color: AppColors.inkSoft)),
-          ],
-        ),
-      );
-    }
-
-    // Next upcoming from today onward.
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final future = occ.where((o) => !o.date.isBefore(today)).toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
-    final next = future.isNotEmpty ? future.first : null;
-
-    // Busiest day.
-    final byDay = groupByDay(occ);
-    MapEntry<DateTime, List<Occurrence>>? busiest;
-    byDay.forEach((d, list) {
-      if (busiest == null || list.length > busiest!.value.length) {
-        busiest = MapEntry(d, list);
-      }
-    });
-
-    return _card(
-      child: Column(
-        children: [
-          _row(
-            Icons.calendar_month_rounded,
-            'This month',
-            '${occ.length} ${occ.length == 1 ? "item" : "items"}',
-          ),
-          if (next != null) ...[
-            const _Divider(),
-            _row(
-              Icons.arrow_forward_rounded,
-              'Next up',
-              '${next.task.title} · ${next.date.day} ${_months[next.date.month - 1]}',
-            ),
-          ],
-          if (busiest != null && busiest!.value.length > 1) ...[
-            const _Divider(),
-            _row(
-              Icons.local_fire_department_rounded,
-              'Busiest day',
-              '${busiest!.key.day} ${_months[busiest!.key.month - 1]} · '
-                  '${busiest!.value.length} items',
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _card({required Widget child}) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        child: child,
-      );
-
-  Widget _row(IconData icon, String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: AppColors.accentDeep),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Text(label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: AppColors.inkSoft, fontWeight: FontWeight.w600)),
-            ),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Text(
-                value,
-                textAlign: TextAlign.right,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    color: AppColors.ink, fontWeight: FontWeight.w700),
-              ),
-            ),
-          ],
-        ),
-      );
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider();
-  @override
-  Widget build(BuildContext context) => const Divider(
-        height: 1, thickness: 1, color: AppColors.hairline,
-      );
-}
-
-// ---------------------------------------------------------------------------
-// Header: month name + Total / Upcoming
-// ---------------------------------------------------------------------------
-class _SpendHeader extends StatelessWidget {
-  const _SpendHeader({
+/// The month nav pill: ‹ prev · Month Year (tap → month+year picker) · next ›.
+class _MonthNav extends StatelessWidget {
+  const _MonthNav({
     required this.month,
-    required this.total,
-    required this.upcoming,
     required this.onPrev,
     required this.onNext,
-    required this.onTapYear,
+    required this.onTapMonth,
   });
 
   final DateTime month;
-  final MoneyTotal total;
-  final MoneyTotal upcoming;
   final VoidCallback onPrev;
   final VoidCallback onNext;
-  final VoidCallback onTapYear;
+  final VoidCallback onTapMonth;
 
   static const _names = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -273,111 +146,138 @@ class _SpendHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A single clean nav pill: a calendar glyph + "August 2026" (tap to jump
-    // year), with prev / next arrows to shuffle months. Nothing hides the month.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: AppColors.cardBorder),
-          ),
-          child: Row(
-            children: [
-              _ArrowBtn(icon: Icons.chevron_left_rounded, onTap: onPrev),
-              // Month + year, centered and tappable (opens the year picker).
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: onTapYear,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.calendar_today_rounded,
-                            size: 17, color: AppColors.accentDeep),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            '${_names[month.month - 1]} ${month.year}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.ink,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          _ArrowBtn(icon: Icons.chevron_left_rounded, onTap: onPrev),
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: onTapMonth,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '${_names[month.month - 1]} ${month.year}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                          letterSpacing: -0.3,
                         ),
-                        const SizedBox(width: 2),
-                        const Icon(Icons.expand_more_rounded,
-                            size: 18, color: AppColors.inkFaint),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.expand_more_rounded,
+                        size: 18, color: AppColors.inkFaint),
+                  ],
                 ),
               ),
-              _ArrowBtn(icon: Icons.chevron_right_rounded, onTap: onNext),
-            ],
-          ),
-        ),
-        // Total + Upcoming — only when there's actually spend. With no data we
-        // show nothing here (no "₹0.00 Total"), keeping the header clean.
-        if (!total.isZero) ...[
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
-              children: [
-                _Figure(value: total.formatted, label: 'Total'),
-                if (!upcoming.isZero) ...[
-                  const SizedBox(width: 24),
-                  _Figure(value: upcoming.formatted, label: 'Upcoming'),
-                ],
-              ],
             ),
           ),
+          _ArrowBtn(icon: Icons.chevron_right_rounded, onTap: onNext),
         ],
-      ],
+      ),
     );
   }
 }
 
-class _Figure extends StatelessWidget {
-  const _Figure({required this.value, required this.label});
-  final String value;
-  final String label;
+/// The top month overview: how much is going out this month + item count. Shown
+/// as one clean card. (Everything tracked is a cost, so there's no "coming in".)
+class _MonthOverview extends StatelessWidget {
+  const _MonthOverview({required this.total, required this.count});
+
+  final MoneyTotal total;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.6,
-            color: AppColors.inkFaint,
-          ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
         ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.4,
-            color: AppColors.ink,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
-        ),
-      ],
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Going out this month',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  total.isZero ? '—' : total.formatted,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Item count pill.
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  count == 1 ? 'item' : 'items',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -478,7 +378,7 @@ class _MonthGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 5,
       crossAxisSpacing: 5,
-      childAspectRatio: 0.74, // boxed cells — number + one logo fit neatly
+      childAspectRatio: 0.86, // compact boxes — number + a count pill
       children: cells,
     );
   }
@@ -501,19 +401,25 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Every day is a rounded SQUARE box. Today = accent-filled box; selected =
-    // accent border + soft wash; days with items get a faint card fill so they
-    // read as "something here"; empty days are a plain hairline box.
+    // Rounded SQUARE box per day.
+    //  • SELECTED (user tapped)  → filled accent, white number.
+    //  • TODAY (not selected)    → just a soft accent RING — not a filled dark
+    //                              box (that looked "selected" when it wasn't).
+    //  • has items               → faint card fill.
+    //  • empty                   → plain hairline box.
     final bool hasItems = items.isNotEmpty;
 
     final Color boxFill;
     final Color boxBorder;
-    if (isToday) {
+    double borderW = 1;
+    if (isSelected) {
       boxFill = AppColors.accent;
       boxBorder = AppColors.accent;
-    } else if (isSelected) {
-      boxFill = AppColors.accent.withValues(alpha: 0.12);
+      borderW = 1.4;
+    } else if (isToday) {
+      boxFill = AppColors.card;
       boxBorder = AppColors.accent;
+      borderW = 1.6;
     } else if (hasItems) {
       boxFill = AppColors.card;
       boxBorder = AppColors.cardBorder;
@@ -522,9 +428,9 @@ class _DayCell extends StatelessWidget {
       boxBorder = AppColors.hairline;
     }
 
-    final Color numberColor = isToday
+    final Color numberColor = isSelected
         ? Colors.white
-        : (isSelected ? AppColors.accentDeep : AppColors.ink);
+        : (isToday ? AppColors.accentDeep : AppColors.ink);
 
     return GestureDetector(
       onTap: onTap,
@@ -533,10 +439,7 @@ class _DayCell extends StatelessWidget {
         decoration: BoxDecoration(
           color: boxFill,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: boxBorder,
-            width: isToday || isSelected ? 1.4 : 1,
-          ),
+          border: Border.all(color: boxBorder, width: borderW),
         ),
         padding: const EdgeInsets.fromLTRB(2, 5, 2, 5),
         child: Column(
@@ -551,7 +454,10 @@ class _DayCell extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Expanded(child: _DayLogos(items: items)),
+            // A count badge (not logos) showing how many are scheduled that day.
+            Expanded(
+              child: _DayCount(count: items.length, onAccent: isSelected),
+            ),
           ],
         ),
       ),
@@ -559,66 +465,40 @@ class _DayCell extends StatelessWidget {
   }
 }
 
-/// The logo (and "+N") shown under a date number.
-class _DayLogos extends StatelessWidget {
-  const _DayLogos({required this.items});
-  final List<Occurrence> items;
+/// A small pill showing how many tasks are on a day (no brand logos).
+class _DayCount extends StatelessWidget {
+  const _DayCount({required this.count, required this.onAccent});
+  final int count;
+  final bool onAccent;
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SizedBox.shrink();
-
-    final hasMore = items.length > 1;
-
-    // One prominent logo + a "+N" label when there are more (e.g. the Spotify
-    // logo with "+20" beneath on a busy day). We size everything from the height
-    // the cell actually gives us, so the logo + "+N" always fit — never overflow.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Reserve room for the "+N" line when present, then size the logo to the
-        // remaining height (clamped so it stays tidy on tall/short cells).
-        const labelHeight = 13.0;
-        const gap = 2.0;
-        final avail = constraints.maxHeight;
-        final forLogo = hasMore ? (avail - labelHeight - gap) : avail;
-        // Clamp to BOTH the available height and the cell width, so the logo
-        // never overflows a narrow boxed cell.
-        final logoSize =
-            forLogo.clamp(0.0, 26.0).clamp(0.0, constraints.maxWidth);
-
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (logoSize > 6)
-              BrandLogo(
-                brand: _brandOf(items.first.task),
-                size: logoSize,
-                radius: logoSize * 0.3,
-              ),
-            if (hasMore) ...[
-              const SizedBox(height: gap),
-              SizedBox(
-                height: labelHeight,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    '+${items.length - 1}',
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        );
-      },
+    if (count == 0) return const SizedBox.shrink();
+    // On a selected (accent) cell, use a light-on-dark pill; otherwise accent.
+    final bg = onAccent
+        ? Colors.white.withValues(alpha: 0.25)
+        : AppColors.accent.withValues(alpha: 0.14);
+    final fg = onAccent ? Colors.white : AppColors.accentDeep;
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          '$count',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: fg,
+          ),
+        ),
+      ),
     );
   }
 }
+
 
 // ---------------------------------------------------------------------------
 // Day sheet — a MODAL bottom sheet, so it overlays the app's bottom nav. The

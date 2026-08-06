@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../details/domain/currency.dart';
 import '../../domain/task.dart';
 import 'animated_check_circle.dart';
 
@@ -62,8 +63,14 @@ class _TaskTileState extends State<TaskTile> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  // Title + subtitle. No leading icon — the row is just the
-                  // task text and the checkbox.
+                  // Checkbox on the LEFT — toggles done.
+                  AnimatedCheckCircle(
+                    checked: task.done,
+                    onTap: widget.onToggle,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 14),
+                  // Title + date in the middle.
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,13 +96,11 @@ class _TaskTileState extends State<TaskTile> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // The checkbox on the right — toggles done.
-                  AnimatedCheckCircle(
-                    checked: task.done,
-                    onTap: widget.onToggle,
-                    size: 24,
-                  ),
+                  // Amount on the RIGHT — money going out, shown as −₹1,000.
+                  if (task.hasAmount) ...[
+                    const SizedBox(width: 12),
+                    _AmountLabel(amount: task.amount!, currencyCode: task.currency),
+                  ],
                 ],
               ),
             ),
@@ -153,6 +158,41 @@ class _TaskTileState extends State<TaskTile> {
   static const _weekdays = [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
   ];
+}
+
+/// The amount on the right of a task — money going OUT, shown as a red "−₹1,000"
+/// so it's clear how much gets deducted.
+class _AmountLabel extends StatelessWidget {
+  const _AmountLabel({required this.amount, required this.currencyCode});
+
+  final double amount;
+  final String currencyCode;
+
+  static const _out = Color(0xFFDC2626); // red = deduction
+
+  @override
+  Widget build(BuildContext context) {
+    final c = currencyOf(currencyCode);
+    final grouped = groupDigits(
+      amount.truncate().abs().toString(),
+      c.grouping,
+    );
+    // Show paise/cents only when they're non-zero.
+    final frac = amount.abs() - amount.abs().truncate();
+    final decimals = frac == 0
+        ? ''
+        : '.${(frac * 100).round().toString().padLeft(2, '0')}';
+    return Text(
+      '−${c.symbol}$grouped$decimals',
+      maxLines: 1,
+      style: const TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w800,
+        color: _out,
+        letterSpacing: -0.2,
+      ),
+    );
+  }
 }
 
 /// The due date/time line under a task — a small clock icon + calm text.

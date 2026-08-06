@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../brand/data/brand_catalog.dart';
-import '../../brand/data/custom_logo_store.dart';
-import '../../brand/domain/brand.dart';
-import '../../brand/presentation/brand_logo.dart';
-import '../../brand/presentation/brand_picker_sheet.dart';
 import '../../options/data/options_store.dart';
 import '../../options/presentation/option_picker_sheet.dart';
 import '../domain/currency.dart';

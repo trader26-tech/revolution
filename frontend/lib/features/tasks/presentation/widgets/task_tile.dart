@@ -65,19 +65,9 @@ class _TaskTileState extends State<TaskTile> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                   children: [
-                  // Logo on the left. BrandLogo falls back to a coloured
-                  // letter-avatar when the task has no real logo, so the left
-                  // slot is always a tidy tile.
-                  BrandLogo(
-                    brand: Brand(
-                      name: task.iconName?.isNotEmpty == true
-                          ? task.iconName!
-                          : task.title,
-                      domain: task.iconDomain ?? '',
-                    ),
-                    size: 40,
-                    radius: 11,
-                  ),
+                  // Left icon: the real brand logo when the task has one,
+                  // otherwise a clean on-brand blue tile (not a random letter).
+                  _LeadingIcon(task: task),
                   const SizedBox(width: 14),
                   // Title + subtitle.
                   Expanded(
@@ -183,6 +173,43 @@ class _TaskTileState extends State<TaskTile> {
 
 /// The due date/time line under a task — a small clock icon + calm text, so it
 /// reads clearly without the harsh blue.
+/// The tile's leading icon. A real brand logo when the task has a domain;
+/// otherwise a clean blue tile with a bell (on-brand, matches the app icon) —
+/// never a random letter avatar.
+class _LeadingIcon extends StatelessWidget {
+  const _LeadingIcon({required this.task});
+
+  final Task task;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLogo = task.iconDomain != null && task.iconDomain!.isNotEmpty;
+    if (hasLogo) {
+      return BrandLogo(
+        brand: Brand(
+          name: task.iconName?.isNotEmpty == true ? task.iconName! : task.title,
+          domain: task.iconDomain!,
+        ),
+        size: 40,
+        radius: 11,
+      );
+    }
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: const Icon(
+        Icons.notifications_rounded,
+        color: AppColors.accent,
+        size: 22,
+      ),
+    );
+  }
+}
+
 class _DueLine extends StatelessWidget {
   const _DueLine({required this.text, required this.scheduled});
 

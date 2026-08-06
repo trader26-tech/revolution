@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../brand/data/brand_catalog.dart';
+import '../../brand/domain/brand.dart';
+import '../../brand/presentation/brand_logo.dart';
+import '../../brand/presentation/brand_picker_sheet.dart';
 import '../../options/data/options_store.dart';
 import '../../options/presentation/option_picker_sheet.dart';
 import '../domain/currency.dart';
@@ -171,6 +175,32 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
     });
   }
 
+  /// The brand icon shown on the card. Uses the saved domain if there is one,
+  /// otherwise resolves the icon name (or the typed name) so a curated logo
+  /// still appears.
+  Brand get _brand {
+    final name = (_d.iconName != null && _d.iconName!.isNotEmpty)
+        ? _d.iconName!
+        : (_name.text.trim().isEmpty ? '?' : _name.text.trim());
+    final domain = _d.iconDomain ?? '';
+    if (domain.isNotEmpty) return Brand(name: name, domain: domain);
+    return BrandCatalog.resolve(name);
+  }
+
+  /// True once the user has picked an icon (or the item already had one).
+  bool get _hasIcon => (_d.iconName != null && _d.iconName!.isNotEmpty);
+
+  /// Tap the icon → open the brand/app logo picker. On pick, store its name +
+  /// domain so the logo shows here and on the task tile.
+  Future<void> _pickIcon() async {
+    final brand = await showBrandPicker(context);
+    if (brand == null) return;
+    setState(() {
+      _d.iconName = brand.name;
+      _d.iconDomain = brand.domain;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -188,6 +218,9 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                     amount: _amount,
                     currency: _currency,
                     onTapCurrency: _pickCurrency,
+                    brand: _brand,
+                    hasIcon: _hasIcon,
+                    onTapIcon: _pickIcon,
                   ),
                   const SizedBox(height: 20),
                   _Group(children: [
@@ -554,12 +587,24 @@ class _NameAmountCard extends StatelessWidget {
     required this.amount,
     required this.currency,
     required this.onTapCurrency,
+    required this.brand,
+    required this.hasIcon,
+    required this.onTapIcon,
   });
 
   final TextEditingController name;
   final TextEditingController amount;
   final Currency currency;
   final VoidCallback onTapCurrency;
+
+  /// The brand/logo to show in the tappable icon holder.
+  final Brand brand;
+
+  /// Whether an icon has been chosen (drives the "add" prompt vs. the logo).
+  final bool hasIcon;
+
+  /// Tap the icon holder → open the brand/app logo picker.
+  final VoidCallback onTapIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -568,7 +613,14 @@ class _NameAmountCard extends StatelessWidget {
       decoration: _cardDecoration,
       child: Row(
         children: [
-          // No icon holder — the card is just the name + amount.
+          // Tappable icon holder — pick a brand/app logo, or a dashed "add"
+          // placeholder until one is chosen.
+          _IconPickButton(
+            brand: brand,
+            hasIcon: hasIcon,
+            onTap: onTapIcon,
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -628,6 +680,74 @@ class _NameAmountCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The tappable icon holder on the name/amount card. Shows the chosen brand
+/// logo, or a dashed "+" placeholder inviting the user to pick one. A tiny
+/// pencil badge signals it's editable either way.
+class _IconPickButton extends StatelessWidget {
+  const _IconPickButton({
+    required this.brand,
+    required this.hasIcon,
+    required this.onTap,
+  });
+
+  final Brand brand;
+  final bool hasIcon;
+  final VoidCallback onTap;
+
+  static const _size = 56.0;
+  static const _radius = 16.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: _size,
+        height: _size,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            if (hasIcon)
+              BrandLogo(brand: brand, size: _size, radius: _radius)
+            else
+              // Dashed-look placeholder: soft accent tile with a + inside.
+              Container(
+                width: _size,
+                height: _size,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(_radius),
+                  border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.35),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(Icons.add_rounded,
+                    color: AppColors.accentDeep, size: 26),
+              ),
+            // The little edit badge, bottom-right.
+            Positioned(
+              right: -3,
+              bottom: -3,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.accent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.card, width: 2),
+                ),
+                child: const Icon(Icons.edit_rounded,
+                    color: Colors.white, size: 11),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

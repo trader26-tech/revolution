@@ -4,10 +4,10 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../tasks/domain/task_filter.dart';
 import '../../domain/home_groups.dart';
 
-/// The four stat cards at the top of Home — Scheduled (blue), Unscheduled (red),
-/// Active, Completed. Sleek white cards with a colored accent strip, an icon
-/// chip, and a big number. Tapping one filters the list below; tapping the
-/// selected one again clears back to All.
+/// The four stat cards at the top of Home — Scheduled, Unscheduled, Active,
+/// Completed. Each is a soft, colour-tinted card with a solid icon badge, a big
+/// number, and a label. Tapping one filters the list below; tapping the selected
+/// one again clears back to All.
 class StatCards extends StatelessWidget {
   const StatCards({
     super.key,
@@ -21,10 +21,10 @@ class StatCards extends StatelessWidget {
   final ValueChanged<TaskFilter> onTap;
 
   static const _cards = <(TaskFilter, String, IconData, Color)>[
-    (TaskFilter.scheduled, 'Scheduled', Icons.event_available_rounded, Color(0xFF2F6BFF)),
-    (TaskFilter.unscheduled, 'Unscheduled', Icons.inbox_rounded, Color(0xFFF0392B)),
-    (TaskFilter.active, 'Active', Icons.bolt_rounded, Color(0xFF00A870)),
-    (TaskFilter.completed, 'Completed', Icons.check_circle_rounded, Color(0xFF8A56E2)),
+    (TaskFilter.scheduled, 'Scheduled', Icons.event_available_rounded, Color(0xFF3B82F6)),
+    (TaskFilter.unscheduled, 'Unscheduled', Icons.inbox_rounded, Color(0xFFEF4444)),
+    (TaskFilter.active, 'Active', Icons.bolt_rounded, Color(0xFF10B981)),
+    (TaskFilter.completed, 'Completed', Icons.task_alt_rounded, Color(0xFF8B5CF6)),
   ];
 
   @override
@@ -35,7 +35,7 @@ class StatCards extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 2.35,
+      childAspectRatio: 1.62,
       children: [
         for (final (filter, label, icon, color) in _cards)
           _StatCard(
@@ -70,85 +70,79 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A gentle wash of the card's colour — calm, never harsh.
+    final tint = Color.alphaBlend(color.withValues(alpha: 0.07), AppColors.card);
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(20),
+          color: tint,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: selected ? color : AppColors.cardBorder,
+            color: selected ? color : color.withValues(alpha: 0.14),
             width: selected ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: selected
-                  ? color.withValues(alpha: 0.22)
-                  : Colors.black.withValues(alpha: 0.04),
-              blurRadius: selected ? 18 : 12,
-              offset: const Offset(0, 6),
+              color: color.withValues(alpha: selected ? 0.22 : 0.10),
+              blurRadius: selected ? 20 : 14,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
-        // ClipRRect so the accent strip follows the rounded corners.
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(19),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Colored accent strip along the top.
-              Container(height: 4, color: color),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                  child: Row(
-                    children: [
-                      // Icon chip in the card's color.
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: Icon(icon, color: color, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$count',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.ink,
-                                height: 1,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.inkSoft,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Solid icon badge.
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(13),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: Colors.white, size: 21),
+            ),
+            // Number + label.
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$count',
+                  style: const TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                    height: 1,
+                    letterSpacing: -0.5,
                   ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

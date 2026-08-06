@@ -27,6 +27,8 @@ class CalendarPage extends StatefulWidget {
 
 class _CalendarPageState extends State<CalendarPage> {
   late DateTime _month; // first day of the visible month
+  // The tapped day. Null by default — nothing is selected on launch, not even
+  // today. A day only becomes selected when the user actually taps it.
   DateTime? _selected;
 
   @override
@@ -34,12 +36,16 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
     final now = DateTime.now();
     _month = DateTime(now.year, now.month);
-    _selected = DateTime(now.year, now.month, now.day);
   }
 
   void _shiftMonth(int by) => setState(() {
         _month = DateTime(_month.year, _month.month + by);
-        _selected = null; // dismiss the day sheet when changing month
+        _selected = null; // clear any selection when changing month
+      });
+
+  void _jumpToYear(int year) => setState(() {
+        _month = DateTime(year, _month.month);
+        _selected = null;
       });
 
   Future<void> _edit(Task task) async {
@@ -47,13 +53,34 @@ class _CalendarPageState extends State<CalendarPage> {
     if (updated != null) widget.store.update(updated);
   }
 
+  /// Tapping a day selects it and — if it has items — opens the day sheet as a
+  /// MODAL, so it overlays the app's bottom nav (the user dismisses it to get
+  /// the nav back). Tapping an empty day just highlights it.
+  void _onSelectDay(DateTime day, List<Occurrence> items) {
+    setState(() => _selected = day);
+    if (items.isEmpty) return;
+    showDaySheet(
+      context,
+      day: day,
+      items: items,
+      onTapItem: _edit,
+    ).whenComplete(() {
+      // Clear the highlight once the sheet is dismissed.
+      if (mounted) setState(() => _selected = null);
+    });
+  }
+
+  Future<void> _pickYear() async {
+    final year = await showYearPicker(context, current: _month.year);
+    if (year != null) _jumpToYear(year);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: widget.store,
       builder: (context, _) {
-        // Expand occurrences across the visible month (+ padding so leading /
-        // trailing days of adjacent months are covered too).
+        // Expand occurrences across the visible month.
         final first = DateTime(_month.year, _month.month, 1);
         final last = DateTime(_month.year, _month.month + 1, 0);
         final monthOcc = expandOccurrences(
@@ -63,50 +90,30 @@ class _CalendarPageState extends State<CalendarPage> {
         );
         final byDay = groupByDay(monthOcc);
 
-        final selectedItems = _selected == null
-            ? const <Occurrence>[]
-            : (byDay[_selected!] ?? const <Occurrence>[]);
-
-        return Stack(
-          children: [
-            // --- the scrollable calendar ---
-            SafeArea(
-              bottom: false,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 140),
-                children: [
-                  _SpendHeader(
-                    month: _month,
-                    total: monthTotal(monthOcc),
-                    upcoming: upcomingTotal(monthOcc),
-                    onPrev: () => _shiftMonth(-1),
-                    onNext: () => _shiftMonth(1),
-                  ),
-                  const SizedBox(height: 18),
-                  _WeekdayRow(),
-                  const SizedBox(height: 8),
-                  _MonthGrid(
-                    month: _month,
-                    selected: _selected,
-                    byDay: byDay,
-                    onSelectDay: (d) => setState(() => _selected = d),
-                  ),
-                ],
+        return SafeArea(
+          bottom: false,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 140),
+            children: [
+              _SpendHeader(
+                month: _month,
+                total: monthTotal(monthOcc),
+                upcoming: upcomingTotal(monthOcc),
+                onPrev: () => _shiftMonth(-1),
+                onNext: () => _shiftMonth(1),
+                onTapYear: _pickYear,
               ),
-            ),
-
-            // --- the draggable day sheet ---
-            // Only lift it when the selected day actually has something. Tapping
-            // an empty day stays loose — no "nothing due" panel pops up.
-            if (_selected != null && selectedItems.isNotEmpty)
-              _DaySheet(
-                key: ValueKey(_selected),
-                day: _selected!,
-                items: selectedItems,
-                onClose: () => setState(() => _selected = null),
-                onTapItem: _edit,
+              const SizedBox(height: 18),
+              _WeekdayRow(),
+              const SizedBox(height: 8),
+              _MonthGrid(
+                month: _month,
+                selected: _selected,
+                byDay: byDay,
+                onSelectDay: (d) => _onSelectDay(d, byDay[d] ?? const []),
               ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -123,6 +130,7 @@ class _SpendHeader extends StatelessWidget {
     required this.upcoming,
     required this.onPrev,
     required this.onNext,
+    required this.onTapYear,
   });
 
   final DateTime month;
@@ -130,6 +138,7 @@ class _SpendHeader extends StatelessWidget {
   final MoneyTotal upcoming;
   final VoidCallback onPrev;
   final VoidCallback onNext;
+  final VoidCallback onTapYear;
 
   static const _names = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -144,9 +153,12 @@ class _SpendHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(
+            // Month name + a tappable year chip. Tapping the year opens a picker
+            // so you can jump years quickly.
+            Flexible(
               child: Text(
                 _names[month.month - 1],
+                overflow: TextOverflow.ellipsis,
                 style: text.displaySmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: AppColors.ink,
@@ -154,6 +166,9 @@ class _SpendHeader extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(width: 10),
+            _YearChip(year: month.year, onTap: onTapYear),
+            const Spacer(),
             _RoundBtn(icon: Icons.chevron_left_rounded, onTap: onPrev),
             const SizedBox(width: 8),
             _RoundBtn(icon: Icons.chevron_right_rounded, onTap: onNext),
@@ -210,6 +225,49 @@ class _Figure extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The tappable year beside the month name — opens the year picker.
+class _YearChip extends StatelessWidget {
+  const _YearChip({required this.year, required this.onTap});
+  final int year;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$year',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(width: 2),
+              const Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 20, color: AppColors.inkSoft),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -436,20 +494,42 @@ class _DayLogos extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Day sheet (draggable, lifted when a day is selected)
+// Day sheet — a MODAL bottom sheet, so it overlays the app's bottom nav. The
+// user drags it down (or taps the dimmed area / grabber) to dismiss and get the
+// nav back — the nav never sits on top of the sheet.
 // ---------------------------------------------------------------------------
-class _DaySheet extends StatelessWidget {
-  const _DaySheet({
-    super.key,
+Future<void> showDaySheet(
+  BuildContext context, {
+  required DateTime day,
+  required List<Occurrence> items,
+  required ValueChanged<Task> onTapItem,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.28),
+    builder: (_) => _DaySheetContent(
+      day: day,
+      items: items,
+      onTapItem: (t) {
+        // Close the sheet first, then open the item's editor.
+        Navigator.of(context).pop();
+        onTapItem(t);
+      },
+    ),
+  );
+}
+
+class _DaySheetContent extends StatelessWidget {
+  const _DaySheetContent({
     required this.day,
     required this.items,
-    required this.onClose,
     required this.onTapItem,
   });
 
   final DateTime day;
   final List<Occurrence> items;
-  final VoidCallback onClose;
   final ValueChanged<Task> onTapItem;
 
   static const _months = [
@@ -461,49 +541,32 @@ class _DaySheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final total = totalOf(items);
 
-    // Clear the floating glass nav bar so the sheet rests ABOVE it, not under
-    // it. The nav is a 64-tall pill with a 16 bottom margin over the safe area.
-    final navClearance = 64.0 + 16.0 + MediaQuery.of(context).viewPadding.bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: navClearance),
-      child: DraggableScrollableSheet(
-        initialChildSize: 0.42,
-        minChildSize: 0.20,
-        maxChildSize: 0.86,
-        snap: true,
-        snapSizes: const [0.42],
-        builder: (context, controller) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      minChildSize: 0.28,
+      maxChildSize: 0.9,
+      snap: true,
+      snapSizes: const [0.5],
+      expand: false,
+      builder: (context, controller) {
         return Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AppColors.card,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border.all(color: AppColors.cardBorder),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.10),
-                blurRadius: 30,
-                offset: const Offset(0, -8),
-              ),
-            ],
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
             children: [
               // Grabber.
-              GestureDetector(
-                onTap: onClose,
+              Container(
+                padding: const EdgeInsets.only(top: 12, bottom: 10),
+                width: double.infinity,
+                alignment: Alignment.center,
                 child: Container(
-                  padding: const EdgeInsets.only(top: 12, bottom: 10),
-                  width: double.infinity,
-                  color: Colors.transparent,
-                  alignment: Alignment.center,
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.cardBorder,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBorder,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
@@ -560,7 +623,128 @@ class _DaySheet extends StatelessWidget {
             ],
           ),
         );
-        },
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Year picker — a modal grid of years so you can jump years quickly.
+// ---------------------------------------------------------------------------
+Future<int?> showYearPicker(BuildContext context, {required int current}) {
+  return showModalBottomSheet<int>(
+    context: context,
+    backgroundColor: AppColors.card,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (_) => _YearPickerSheet(current: current),
+  );
+}
+
+class _YearPickerSheet extends StatelessWidget {
+  const _YearPickerSheet({required this.current});
+  final int current;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now().year;
+    // A generous, sensible span: a few years back through several ahead, so
+    // subscriptions renewing years out are reachable.
+    final start = now - 5;
+    final years = List.generate(16, (i) => start + i);
+
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.cardBorder,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Jump to year',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: GridView.count(
+              crossAxisCount: 4,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 1.7,
+              children: [
+                for (final y in years)
+                  _YearTile(
+                    year: y,
+                    isCurrent: y == current,
+                    isThisYear: y == now,
+                    onTap: () => Navigator.of(context).pop(y),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YearTile extends StatelessWidget {
+  const _YearTile({
+    required this.year,
+    required this.isCurrent,
+    required this.isThisYear,
+    required this.onTap,
+  });
+
+  final int year;
+  final bool isCurrent;
+  final bool isThisYear;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isCurrent ? AppColors.accent : AppColors.bg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isThisYear && !isCurrent
+                  ? AppColors.accent
+                  : Colors.transparent,
+              width: 1.4,
+            ),
+          ),
+          child: Text(
+            '$year',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isCurrent ? Colors.white : AppColors.ink,
+            ),
+          ),
+        ),
       ),
     );
   }

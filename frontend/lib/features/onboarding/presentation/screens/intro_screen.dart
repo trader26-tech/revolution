@@ -18,13 +18,16 @@ class _IntroScreenState extends State<IntroScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
-  // A recognisable spread across the areas the app covers.
+  // The serious, money-relevant areas the app covers — insurance first, then
+  // utilities, cards/banks, and investing. (Not a subscription tracker.)
   static const _brands = <_Item>[
-    _Item(Brand(name: 'Netflix', domain: 'netflix.com'), 'Subscription'),
-    _Item(Brand(name: 'LIC', domain: 'licindia.in'), 'Insurance'),
-    _Item(Brand(name: 'Airtel', domain: 'airtel.in'), 'Mobile bill'),
+    _Item(Brand(name: 'LIC', domain: 'licindia.in'), 'Life insurance'),
+    _Item(Brand(name: 'Star Health', domain: 'starhealth.in'),
+        'Health insurance'),
+    _Item(Brand(name: 'Tata Power', domain: 'tatapower.com'),
+        'Electricity bill'),
     _Item(Brand(name: 'HDFC Bank', domain: 'hdfcbank.com'), 'Card bill'),
-    _Item(Brand(name: 'Spotify', domain: 'spotify.com'), 'Renewal'),
+    _Item(Brand(name: 'Zerodha', domain: 'zerodha.com'), 'SIP / stocks'),
   ];
 
   @override
@@ -59,7 +62,7 @@ class _IntroScreenState extends State<IntroScreen>
           ),
           const SizedBox(height: 14),
           Text(
-            'Bills, renewals, subscriptions, insurance — '
+            'Insurance, bills, EMIs, investments — '
             'one calm list, never a missed date.',
             textAlign: TextAlign.center,
             style: text.bodyLarge?.copyWith(color: AppColors.inkSoft),
@@ -77,20 +80,20 @@ class _Item {
   final String label;
 }
 
-/// The scattered cluster: five logo cards fan out from the centre, each with a
-/// slight offset + rotation, staggered in.
+/// A centred cluster: the first (priority — insurance) card sits big in the
+/// middle; the rest are smaller logo pills tucked symmetrically around it, so
+/// the logos are the hero and everything reads centred, not off in a corner.
 class _Cluster extends StatelessWidget {
   const _Cluster({required this.anim, required this.items});
   final Animation<double> anim;
   final List<_Item> items;
 
-  // Fixed positions/rotations for a pleasant, deliberate scatter (dx, dy, rot).
+  // Positions for the 4 satellite pills around the centre card (dx, dy, rot).
   static const _slots = <List<double>>[
-    [-84, -34, -0.14],
-    [86, -20, 0.12],
-    [-58, 66, 0.10],
-    [70, 74, -0.10],
-    [4, 6, 0.0], // centre, on top
+    [-92, -58, -0.12],
+    [92, -58, 0.12],
+    [-92, 62, 0.10],
+    [92, 62, -0.10],
   ];
 
   @override
@@ -99,13 +102,15 @@ class _Cluster extends StatelessWidget {
       animation: anim,
       builder: (context, _) => Center(
         child: SizedBox(
-          width: 280,
-          height: 240,
+          width: 300,
+          height: 250,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              for (var i = 0; i < items.length; i++)
-                _card(i, items[i], _slots[i]),
+              // Satellites first (behind), then the hero centre card on top.
+              for (var i = 1; i < items.length; i++)
+                _satellite(i, items[i], _slots[i - 1]),
+              _hero(items.first),
             ],
           ),
         ),
@@ -113,8 +118,60 @@ class _Cluster extends StatelessWidget {
     );
   }
 
-  Widget _card(int i, _Item item, List<double> slot) {
-    final start = i * 0.12;
+  // The big, central, primary card — full logo + name + label.
+  Widget _hero(_Item item) {
+    final t = anim.value.clamp(0.0, 1.0);
+    final eased = Curves.easeOutBack.transform(t);
+    return Opacity(
+      opacity: t,
+      child: Transform.scale(
+        scale: 0.7 + 0.3 * eased,
+        child: Container(
+          width: 176,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 30,
+                offset: const Offset(0, 14),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BrandLogo(brand: item.brand, size: 56, radius: 15),
+              const SizedBox(height: 12),
+              Text(
+                item.brand.name,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+              Text(
+                item.label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkFaint,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // A small logo pill orbiting the hero.
+  Widget _satellite(int i, _Item item, List<double> slot) {
+    final start = i * 0.1;
     final t = ((anim.value - start) / (1 - start)).clamp(0.0, 1.0);
     final eased = Curves.easeOutBack.transform(t);
     return Transform.translate(
@@ -124,66 +181,25 @@ class _Cluster extends StatelessWidget {
         child: Opacity(
           opacity: t,
           child: Transform.scale(
-            scale: 0.6 + 0.4 * eased,
-            child: _LogoCard(item: item),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LogoCard extends StatelessWidget {
-  const _LogoCard({required this.item});
-  final _Item item;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 150,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          BrandLogo(brand: item.brand, size: 34, radius: 10),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.brand.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.ink,
+            scale: 0.5 + 0.5 * eased,
+            child: Container(
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.cardBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
                   ),
-                ),
-                Text(
-                  item.label,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.inkFaint,
-                  ),
-                ),
-              ],
+                ],
+              ),
+              child: BrandLogo(brand: item.brand, size: 38, radius: 11),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

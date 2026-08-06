@@ -20,6 +20,10 @@ class _BenefitsScreenState extends State<BenefitsScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
+  /// How many benefits to show before collapsing the rest behind "& N more".
+  static const _previewCount = 2;
+  bool _expanded = false;
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +37,7 @@ class _BenefitsScreenState extends State<BenefitsScreen>
   void didUpdateWidget(covariant BenefitsScreen old) {
     super.didUpdateWidget(old);
     _c.forward(from: 0); // re-run the stagger if the picks changed
+    _expanded = false;
   }
 
   @override
@@ -52,6 +57,12 @@ class _BenefitsScreenState extends State<BenefitsScreen>
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final items = _selected;
+    // The user shouldn't have to read a long list — show the top few, tuck the
+    // rest behind a "& N more" that reveals them on tap.
+    final hasMore = items.length > _previewCount;
+    final visibleCount =
+        _expanded || !hasMore ? items.length : _previewCount;
+    final remaining = items.length - _previewCount;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -64,8 +75,21 @@ class _BenefitsScreenState extends State<BenefitsScreen>
             style: text.displaySmall?.copyWith(color: AppColors.ink),
           ),
           const SizedBox(height: 24),
-          for (var i = 0; i < items.length; i++)
-            _BenefitLine(option: items[i], anim: _c, index: i, total: items.length),
+          for (var i = 0; i < visibleCount; i++)
+            _BenefitLine(
+              option: items[i],
+              anim: _c,
+              index: i,
+              total: visibleCount,
+            ),
+          if (hasMore && !_expanded)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 46),
+              child: _MorePill(
+                count: remaining,
+                onTap: () => setState(() => _expanded = true),
+              ),
+            ),
           const Spacer(flex: 2),
           Text(
             'Miss one of these and it costs you. '
@@ -74,6 +98,45 @@ class _BenefitsScreenState extends State<BenefitsScreen>
           ),
           const Spacer(),
         ],
+      ),
+    );
+  }
+}
+
+/// A subtle "& N more" pill that reveals the rest of the benefits on tap.
+class _MorePill extends StatelessWidget {
+  const _MorePill({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.accent.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '& $count more',
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.accentDeep,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.expand_more_rounded,
+                size: 18, color: AppColors.accentDeep),
+          ],
+        ),
       ),
     );
   }

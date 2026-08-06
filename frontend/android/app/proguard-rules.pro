@@ -20,3 +20,12 @@
 # original file name.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# Flutter's embedding always compiles in PlayStoreDeferredComponentManager,
+# which references the Play Core split-install API. This app doesn't use
+# deferred components, so that library isn't on the classpath and R8 aborts
+# with "Missing class com.google.android.play.core...". The references are
+# genuinely unreachable here — warn-suppress them rather than pulling in a
+# dependency the app never calls.
+-dontwarn com.google.android.play.core.**
+-keep class com.google.android.play.core.** { *; }

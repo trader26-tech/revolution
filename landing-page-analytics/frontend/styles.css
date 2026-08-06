@@ -151,6 +151,9 @@ h1 {
   color: var(--ink-soft);
   letter-spacing: 0.1px;
 }
+/* The author display rule above would defeat the [hidden] attribute — keep the
+   pill truly invisible until app.js fills it in. */
+.version-line[hidden] { display: none; }
 .version-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
@@ -321,9 +324,7 @@ h1 {
      content width and would push the whole page wider than the viewport. */
   .downloads { flex-direction: column; align-items: stretch; }
   .btn { justify-content: center; min-width: 0; }
-  .hero-visual { min-height: 430px; }
-  .phone { width: 170px; height: 354px; }
-  .phone-mid { width: 186px; height: 388px; }
-  .phone-left  { transform: translateX(-104px) translateY(-6px) rotate(-5deg) scale(.86); }
-  .phone-right { transform: translateX(104px) translateY(-6px) rotate(5deg) scale(.86); }
+  /* One full-size home screen beats three squeezed ones on a phone. */
+  .phone-left, .phone-right { display: none; }
+  .hero-visual { min-height: 480px; }
 }

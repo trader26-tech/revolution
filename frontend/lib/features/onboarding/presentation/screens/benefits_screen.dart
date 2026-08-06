@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/onboarding_quiz.dart';
 
-/// Screen 3 — the payoff. A big animated ₹ number, personalised to the quiz
-/// picks (sum of each option's typical yearly loss), then a short breakdown.
-/// Minimal text; the number does the talking.
+/// Screen 3 — the payoff, told as BENEFITS, not money. For each area the user
+/// picked, one short line on what they'd lose by forgetting it (life cover
+/// lapsing, a silent renewal charging them…). Short text; big meaning. The
+/// lines fade/slide in one by one.
 class BenefitsScreen extends StatefulWidget {
   const BenefitsScreen({super.key, required this.picked});
 
@@ -24,15 +25,14 @@ class _BenefitsScreenState extends State<BenefitsScreen>
     super.initState();
     _c = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1000),
     )..forward();
   }
 
   @override
   void didUpdateWidget(covariant BenefitsScreen old) {
     super.didUpdateWidget(old);
-    // Re-run the count-up whenever the picks change (e.g. user goes back).
-    _c.forward(from: 0);
+    _c.forward(from: 0); // re-run the stagger if the picks changed
   }
 
   @override
@@ -44,72 +44,32 @@ class _BenefitsScreenState extends State<BenefitsScreen>
   List<QuizOption> get _selected {
     final chosen =
         kQuizOptions.where((o) => widget.picked.contains(o.key)).toList();
-    // If they skipped the quiz, show a representative default set.
-    return chosen.isNotEmpty
-        ? chosen
-        : kQuizOptions.where((o) => o.annualSaving > 0).take(3).toList();
-  }
-
-  int get _total =>
-      _selected.fold(0, (sum, o) => sum + o.annualSaving);
-
-  String _inr(int v) {
-    // Indian grouping: 1,20,000.
-    final s = v.toString();
-    if (s.length <= 3) return s;
-    final head = s.substring(0, s.length - 3);
-    final tail = s.substring(s.length - 3);
-    final buf = StringBuffer();
-    for (var i = 0; i < head.length; i++) {
-      if (i != 0 && (head.length - i) % 2 == 0) buf.write(',');
-      buf.write(head[i]);
-    }
-    return '${buf.toString()},$tail';
+    // Skipped the quiz → show a representative default set.
+    return chosen.isNotEmpty ? chosen : kQuizOptions.take(4).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final withMoney = _selected.where((o) => o.annualSaving > 0).toList();
+    final items = _selected;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Spacer(),
           Text(
-            'You could keep',
-            style: text.titleMedium?.copyWith(color: AppColors.inkSoft),
+            'Here’s what Revolution\nkeeps safe for you.',
+            style: text.displaySmall?.copyWith(color: AppColors.ink),
           ),
-          const SizedBox(height: 6),
-          // The big animated number.
-          AnimatedBuilder(
-            animation: _c,
-            builder: (context, _) {
-              final shown = (_c.value * _total).round();
-              return Text(
-                '₹${_inr(shown)}',
-                style: text.displayLarge?.copyWith(
-                  color: AppColors.accent,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 56,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'a year, roughly.',
-            style: text.titleMedium?.copyWith(color: AppColors.inkSoft),
-          ),
-          const SizedBox(height: 28),
-          // A short, calm breakdown of where it comes from.
-          ...withMoney.map((o) => _BreakdownRow(option: o, inr: _inr)),
+          const SizedBox(height: 24),
+          for (var i = 0; i < items.length; i++)
+            _BenefitLine(option: items[i], anim: _c, index: i, total: items.length),
           const Spacer(flex: 2),
           Text(
-            'Never a late fee, a lapse, or a silent renewal again.',
-            textAlign: TextAlign.center,
+            'Miss one of these and it costs you. '
+            'We make sure you never do.',
             style: text.bodyMedium?.copyWith(color: AppColors.inkFaint),
           ),
           const Spacer(),
@@ -119,39 +79,81 @@ class _BenefitsScreenState extends State<BenefitsScreen>
   }
 }
 
-class _BreakdownRow extends StatelessWidget {
-  const _BreakdownRow({required this.option, required this.inr});
+class _BenefitLine extends StatelessWidget {
+  const _BenefitLine({
+    required this.option,
+    required this.anim,
+    required this.index,
+    required this.total,
+  });
 
   final QuizOption option;
-  final String Function(int) inr;
+  final Animation<double> anim;
+  final int index;
+  final int total;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Text(option.emoji, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '${option.label} · ${option.blurb}',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.ink,
+    final start = (index / (total + 1)).clamp(0.0, 0.85);
+    final curved = CurvedAnimation(
+      parent: anim,
+      curve: Interval(start, 1, curve: Curves.easeOut),
+    );
+    final c = option.color;
+
+    return AnimatedBuilder(
+      animation: curved,
+      builder: (context, child) => Opacity(
+        opacity: curved.value,
+        child: Transform.translate(
+          offset: Offset(0, (1 - curved.value) * 12),
+          child: child,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: c.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(option.icon, color: c, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    option.label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                      color: AppColors.inkFaint,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    option.benefit,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          Text(
-            '₹${inr(option.annualSaving)}',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: option.color,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

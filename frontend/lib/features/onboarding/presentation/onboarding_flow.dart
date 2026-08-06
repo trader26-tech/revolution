@@ -67,7 +67,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case 0:
         return 'Show me how';
       case 1:
-        return _picked.isEmpty ? 'Skip' : 'See what I save';
+        return _picked.isEmpty ? 'Skip' : 'Show me why it matters';
       default:
         return 'Get started';
     }

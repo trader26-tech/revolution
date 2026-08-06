@@ -62,7 +62,7 @@ class _IntroScreenState extends State<IntroScreen>
       children: [
         const Spacer(flex: 3),
         // Full-width so the wide fan can spread across and layer behind the text.
-        SizedBox(height: 250, child: _Cluster(anim: _c, items: _brands)),
+        SizedBox(height: 280, child: _Cluster(anim: _c, items: _brands)),
         // Small gap so the fanned cards sit right on top of the headline.
         const SizedBox(height: 8),
         Padding(
@@ -127,15 +127,15 @@ class _Cluster extends StatelessWidget {
   // the LAST entry is the centred hero on top. Outer cards sit wider + lower so
   // the stack reaches down onto the text.
   static const _slots = <List<double>>[
-    [-118, -18, -0.20], // far left, back
-    [118, -12, 0.20], // far right, back
-    [-92, 44, -0.13], // left
-    [92, 48, 0.13], // right
-    [-46, -46, -0.08], // upper-left
-    [50, -44, 0.08], // upper-right
-    [-40, 78, 0.06], // lower-left, reaches down
-    [44, 80, -0.06], // lower-right, reaches down
-    [0, 12, 0.0], // centre, on top
+    [-120, -22, -0.20], // far left, back
+    [120, -16, 0.20], // far right, back
+    [-96, 30, -0.13], // left
+    [96, 34, 0.13], // right
+    [-52, -40, -0.08], // upper-left
+    [56, -38, 0.08], // upper-right
+    [-46, 54, 0.06], // lower-left, reaches down
+    [50, 56, -0.06], // lower-right, reaches down
+    [0, 6, 0.0], // centre, on top
   ];
 
   @override

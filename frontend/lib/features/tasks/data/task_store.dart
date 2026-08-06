@@ -12,10 +12,15 @@ class TaskStore extends ChangeNotifier {
   final ApiClient _api;
   final List<Task> _tasks = [];
   bool _loading = false;
+  bool _hasLoaded = false; // true once the first fetch has completed (ok or err)
   Object? _error;
 
   List<Task> get tasks => List.unmodifiable(_tasks);
   bool get loading => _loading;
+
+  /// True until the very first fetch settles — so the UI can show a loading
+  /// screen instead of flashing the "All clear" empty state.
+  bool get isInitialLoad => !_hasLoaded;
   Object? get error => _error;
 
   List<Task> get scheduled {
@@ -42,6 +47,7 @@ class TaskStore extends ChangeNotifier {
       _error = e;
     } finally {
       _loading = false;
+      _hasLoaded = true;
       notifyListeners();
     }
   }

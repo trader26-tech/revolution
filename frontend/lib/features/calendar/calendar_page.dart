@@ -147,47 +147,70 @@ class _SpendHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
+    // A single clean nav pill: a calendar glyph + "August 2026" (tap to jump
+    // year), with prev / next arrows to shuffle months. Nothing hides the month.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            // Month name + a tappable year chip. Tapping the year opens a picker
-            // so you can jump years quickly.
-            Flexible(
-              child: Text(
-                _names[month.month - 1],
-                overflow: TextOverflow.ellipsis,
-                style: text.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                  letterSpacing: -0.5,
+        Container(
+          padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: Row(
+            children: [
+              _ArrowBtn(icon: Icons.chevron_left_rounded, onTap: onPrev),
+              // Month + year, centered and tappable (opens the year picker).
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: onTapYear,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.calendar_today_rounded,
+                            size: 17, color: AppColors.accentDeep),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_names[month.month - 1]} ${month.year}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(Icons.expand_more_rounded,
+                            size: 18, color: AppColors.inkFaint),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 10),
-            _YearChip(year: month.year, onTap: onTapYear),
-            const Spacer(),
-            _RoundBtn(icon: Icons.chevron_left_rounded, onTap: onPrev),
-            const SizedBox(width: 8),
-            _RoundBtn(icon: Icons.chevron_right_rounded, onTap: onNext),
-          ],
+              _ArrowBtn(icon: Icons.chevron_right_rounded, onTap: onNext),
+            ],
+          ),
         ),
         // Total + Upcoming — only when there's actually spend. With no data we
         // show nothing here (no "₹0.00 Total"), keeping the header clean.
         if (!total.isZero) ...[
-          const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              _Figure(value: total.formatted, label: 'Total'),
-              if (!upcoming.isZero) ...[
-                const SizedBox(width: 20),
-                _Figure(value: upcoming.formatted, label: 'Upcoming'),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                _Figure(value: total.formatted, label: 'Total'),
+                if (!upcoming.isZero) ...[
+                  const SizedBox(width: 24),
+                  _Figure(value: upcoming.formatted, label: 'Upcoming'),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       ],
@@ -202,26 +225,26 @@ class _Figure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.6,
+            color: AppColors.inkFaint,
+          ),
+        ),
+        const SizedBox(height: 2),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 20,
+            fontSize: 22,
             fontWeight: FontWeight.w800,
-            letterSpacing: -0.3,
+            letterSpacing: -0.4,
             color: AppColors.ink,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.inkFaint,
           ),
         ),
       ],
@@ -229,59 +252,17 @@ class _Figure extends StatelessWidget {
   }
 }
 
-/// The tappable year beside the month name — opens the year picker.
-class _YearChip extends StatelessWidget {
-  const _YearChip({required this.year, required this.onTap});
-  final int year;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.card,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: AppColors.cardBorder),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$year',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              const SizedBox(width: 2),
-              const Icon(Icons.keyboard_arrow_down_rounded,
-                  size: 20, color: AppColors.inkSoft),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RoundBtn extends StatelessWidget {
-  const _RoundBtn({required this.icon, required this.onTap});
+/// A round arrow button inside the month nav pill.
+class _ArrowBtn extends StatelessWidget {
+  const _ArrowBtn({required this.icon, required this.onTap});
   final IconData icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.card,
-      shape: const CircleBorder(side: BorderSide(color: AppColors.cardBorder)),
+      color: AppColors.bg,
+      shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
@@ -390,43 +371,56 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Selected wins visually; then today; then a plain soft tile.
-    final Color fill;
-    final Border? border;
-    if (isSelected) {
-      fill = AppColors.accent.withValues(alpha: 0.14);
-      border = Border.all(color: AppColors.accent, width: 1.5);
-    } else if (isToday) {
-      fill = AppColors.accent.withValues(alpha: 0.07);
-      border = null;
-    } else {
-      fill = AppColors.card;
-      border = Border.all(color: AppColors.cardBorder);
-    }
+    // Flat cells — no per-day boxes/borders (that "grid of white boxes" look).
+    // Selected gets a soft accent wash across the whole cell; today just marks
+    // its number with a filled dot. Everything else is transparent.
+    final Color cellFill =
+        isSelected ? AppColors.accent.withValues(alpha: 0.12) : Colors.transparent;
 
-    final numberColor = isSelected || isToday ? AppColors.accentDeep : AppColors.ink;
+    final Color numberColor;
+    final Color numberBg;
+    if (isToday) {
+      numberColor = Colors.white;
+      numberBg = AppColors.accent;
+    } else if (isSelected) {
+      numberColor = AppColors.accentDeep;
+      numberBg = Colors.transparent;
+    } else {
+      numberColor = AppColors.ink;
+      numberBg = Colors.transparent;
+    }
 
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
         decoration: BoxDecoration(
-          color: fill,
+          color: cellFill,
           borderRadius: BorderRadius.circular(14),
-          border: border,
         ),
-        padding: const EdgeInsets.fromLTRB(3, 6, 3, 5),
+        padding: const EdgeInsets.fromLTRB(2, 6, 2, 6),
         child: Column(
           children: [
-            Text(
-              '$day',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: isToday || isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: numberColor,
+            // The date number — today wears a filled dot.
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: numberBg,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '$day',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight:
+                      isToday || isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: numberColor,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 5),
             Expanded(child: _DayLogos(items: items)),
           ],
         ),
@@ -509,18 +503,21 @@ Future<void> showDaySheet(
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.28),
-    builder: (_) => _DaySheetContent(
+    builder: (sheetContext) => _DaySheetContent(
       day: day,
       items: items,
       onTapItem: (t) {
         // Close the sheet first, then open the item's editor.
-        Navigator.of(context).pop();
+        Navigator.of(sheetContext).pop();
         onTapItem(t);
       },
     ),
   );
 }
 
+/// A content-sized day sheet: it's exactly as tall as its rows (short for a
+/// couple of items, taller for many), capped at ~72% of the screen where the
+/// list scrolls. No fixed half-height, so there's never dead space at the bottom.
 class _DaySheetContent extends StatelessWidget {
   const _DaySheetContent({
     required this.day,
@@ -540,90 +537,86 @@ class _DaySheetContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = totalOf(items);
+    final maxHeight = MediaQuery.of(context).size.height * 0.72;
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.5,
-      minChildSize: 0.28,
-      maxChildSize: 0.9,
-      snap: true,
-      snapSizes: const [0.5],
-      expand: false,
-      builder: (context, controller) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            children: [
-              // Grabber.
-              Container(
-                padding: const EdgeInsets.only(top: 12, bottom: 10),
-                width: double.infinity,
-                alignment: Alignment.center,
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.cardBorder,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      decoration: const BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Grabber.
+          Container(
+            padding: const EdgeInsets.only(top: 12, bottom: 10),
+            width: double.infinity,
+            alignment: Alignment.center,
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.cardBorder,
+                borderRadius: BorderRadius.circular(2),
               ),
-              // Header row: date + day total.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${day.day} ${_months[day.month - 1]} ${day.year}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
-                        ),
-                      ),
+            ),
+          ),
+          // Header row: date + day total.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${day.day} ${_months[day.month - 1]} ${day.year}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
                     ),
-                    if (!total.isZero) ...[
-                      Text(
-                        total.formatted,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Total',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.inkFaint,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: AppColors.hairline),
-              Expanded(
-                child: ListView.separated(
-                  controller: controller,
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _DayItemRow(
-                    occ: items[i],
-                    onTap: () => onTapItem(items[i].task),
                   ),
                 ),
-              ),
-            ],
+                if (!total.isZero) ...[
+                  Text(
+                    total.formatted,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Total',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkFaint,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-        );
-      },
+          const Divider(height: 1, color: AppColors.hairline),
+          // The rows — shrink-wrapped so the sheet is only as tall as needed,
+          // and scrollable once they exceed the max height.
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 20 + bottomInset),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (_, i) => _DayItemRow(
+                occ: items[i],
+                onTap: () => onTapItem(items[i].task),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

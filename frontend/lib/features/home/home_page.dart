@@ -176,6 +176,17 @@ class _HomePageState extends State<HomePage> {
             onClear: () => setState(() => _filter = TaskFilter.all),
           )
         else ...[
+          // Pending = overdue & not done. Shown first, in red, to nudge action.
+          if (groups.pending.isNotEmpty)
+            TaskSection(
+              title: 'Pending',
+              icon: Icons.error_outline_rounded,
+              accent: const Color(0xFFDC2626),
+              tasks: groups.pending,
+              onToggleTask: (t) => widget.store.toggleDone(t),
+              onOpenTask: _editTask,
+              onDeleteTask: _deleteTask,
+            ),
           if (groups.today.isNotEmpty)
             TaskSection(
               title: 'Today',

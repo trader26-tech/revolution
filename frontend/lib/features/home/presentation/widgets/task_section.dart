@@ -18,6 +18,8 @@ class TaskSection extends StatelessWidget {
     this.collapsible = false,
     this.expanded = true,
     this.onToggleExpanded,
+    this.accent,
+    this.icon,
   });
 
   final String title;
@@ -30,8 +32,15 @@ class TaskSection extends StatelessWidget {
   final bool expanded;
   final VoidCallback? onToggleExpanded;
 
+  /// Optional colour for the title + count badge (e.g. red for Pending).
+  final Color? accent;
+
+  /// Optional leading icon before the title.
+  final IconData? icon;
+
   @override
   Widget build(BuildContext context) {
+    final titleColor = accent ?? AppColors.ink;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -43,17 +52,21 @@ class TaskSection extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(6, 6, 6, 8),
             child: Row(
               children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 20, color: titleColor),
+                  const SizedBox(width: 7),
+                ],
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
+                    color: titleColor,
                     letterSpacing: -0.3,
                   ),
                 ),
                 const SizedBox(width: 8),
-                _CountBadge(count: tasks.length),
+                _CountBadge(count: tasks.length, color: accent),
                 const Spacer(),
                 if (collapsible)
                   AnimatedRotation(
@@ -91,23 +104,25 @@ class TaskSection extends StatelessWidget {
 }
 
 class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
+  const _CountBadge({required this.count, this.color});
   final int count;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final c = color ?? AppColors.accent;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.12),
+        color: c.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         '$count',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: AppColors.accentDeep,
+          color: color ?? AppColors.accentDeep,
         ),
       ),
     );

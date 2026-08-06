@@ -38,7 +38,9 @@ class _AnimatedCheckCircleState extends State<AnimatedCheckCircle>
 
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 520),
+    // Snappy: the tick should feel instant, not a slow ~half-second reveal.
+    duration: const Duration(milliseconds: 240),
+    reverseDuration: const Duration(milliseconds: 160),
     value: widget.checked ? 1 : 0,
   );
 

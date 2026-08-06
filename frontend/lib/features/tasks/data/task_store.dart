@@ -77,8 +77,36 @@ class TaskStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleDone(Task task) =>
-      update(task.copyWith(done: !task.done));
+  /// Toggle done — OPTIMISTIC: flip the checkbox locally and repaint instantly,
+  /// then persist in the background. Rolls back only if the server rejects it,
+  /// so the tick feels immediate instead of waiting on the network.
+  Future<void> toggleDone(Task task) async {
+    final i = _tasks.indexWhere((t) => t.id == task.id);
+    if (i == -1) return;
+    final original = _tasks[i];
+    final toggled = original.copyWith(done: !original.done);
+    _tasks[i] = toggled;
+    notifyListeners(); // instant UI update
+
+    try {
+      final json = await _api.patch('/tasks/${toggled.id}', toggled.toJson())
+          as Map<String, dynamic>;
+      final saved = Task.fromJson(json);
+      final j = _tasks.indexWhere((t) => t.id == saved.id);
+      if (j != -1) {
+        _tasks[j] = saved;
+        notifyListeners();
+      }
+    } catch (_) {
+      // Roll back to the pre-toggle state on failure.
+      final j = _tasks.indexWhere((t) => t.id == original.id);
+      if (j != -1) {
+        _tasks[j] = original;
+        notifyListeners();
+      }
+      rethrow;
+    }
+  }
 
   /// Delete on the server. Optimistic: remove locally, roll back on failure.
   Future<void> remove(Task task) async {

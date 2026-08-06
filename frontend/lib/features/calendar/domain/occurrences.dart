@@ -55,6 +55,14 @@ List<Occurrence> expandOccurrences(
   return out;
 }
 
+/// The next occurrence strictly after [date] for a [cadence]. Used by the day
+/// sheet to show "Renews in N days · <date>" — the upcoming renewal, not the one
+/// on the tapped day. For a non-repeating item this just returns [date].
+DateTime nextOccurrenceAfter(DateTime date, RepeatCadence cadence) {
+  if (cadence == RepeatCadence.none) return date;
+  return _next(DateTime(date.year, date.month, date.day), cadence);
+}
+
 DateTime _next(DateTime d, RepeatCadence r) {
   switch (r) {
     case RepeatCadence.daily:

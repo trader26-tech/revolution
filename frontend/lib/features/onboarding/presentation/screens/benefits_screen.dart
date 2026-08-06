@@ -58,11 +58,10 @@ class _BenefitsScreenState extends State<BenefitsScreen>
     final text = Theme.of(context).textTheme;
     final items = _selected;
     // The user shouldn't have to read a long list — show the top few, tuck the
-    // rest behind a "& N more" that reveals them on tap.
+    // rest behind a light "& much more" that reveals them on tap.
     final hasMore = items.length > _previewCount;
     final visibleCount =
         _expanded || !hasMore ? items.length : _previewCount;
-    final remaining = items.length - _previewCount;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -102,39 +101,28 @@ class _BenefitsScreenState extends State<BenefitsScreen>
   }
 }
 
-/// A subtle "& N more" pill that reveals the rest of the benefits on tap.
-class _MorePill extends StatelessWidget {
-  const _MorePill({required this.count, required this.onTap});
+/// A plain, light "& much more" line that reveals the rest of the benefits on
+/// tap — no pill/chip, just quiet text.
+class _MoreText extends StatelessWidget {
+  const _MoreText({required this.onTap});
 
-  final int count;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.accent.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '& $count more',
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.accentDeep,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.expand_more_rounded,
-                size: 18, color: AppColors.accentDeep),
-          ],
+      borderRadius: BorderRadius.circular(6),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(vertical: 4),
+        child: Text(
+          '& much more',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            fontStyle: FontStyle.italic,
+            color: AppColors.inkFaint,
+          ),
         ),
       ),
     );

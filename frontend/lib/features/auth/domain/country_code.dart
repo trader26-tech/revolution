@@ -6,6 +6,7 @@ class CountryCode {
     required this.flag,
     required this.name,
     this.maxLen = 15,
+    this.groups = const [5, 5],
   });
 
   final String iso; // 'IN'
@@ -15,6 +16,25 @@ class CountryCode {
 
   /// Max national-number length (rough), used for light validation.
   final int maxLen;
+
+  /// How to space the national number for readability, left-to-right. E.g. India
+  /// is [5, 5] → "98765 43210"; US is [3, 3, 4] → "987 654 3210". Leftover
+  /// digits beyond the pattern are appended in one final group.
+  final List<int> groups;
+
+  /// Format [digits] (national part, digits only) with this country's spacing.
+  String format(String digits) {
+    if (digits.isEmpty) return '';
+    final out = <String>[];
+    var i = 0;
+    for (final g in groups) {
+      if (i >= digits.length) break;
+      out.add(digits.substring(i, (i + g).clamp(0, digits.length)));
+      i += g;
+    }
+    if (i < digits.length) out.add(digits.substring(i)); // remainder
+    return out.join(' ');
+  }
 }
 
 /// A compact, common set — India first (the default). Extend as needed.

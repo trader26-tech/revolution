@@ -20,9 +20,9 @@ class _BenefitsScreenState extends State<BenefitsScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
-  /// How many benefits to show before collapsing the rest behind "& N more".
-  static const _previewCount = 2;
-  bool _expanded = false;
+  /// How many benefit lines we show before the list would run off-screen. All
+  /// selected items are shown up to this; beyond it we add a quiet "& much more".
+  static const _maxLines = 5;
 
   @override
   void initState() {
@@ -37,7 +37,6 @@ class _BenefitsScreenState extends State<BenefitsScreen>
   void didUpdateWidget(covariant BenefitsScreen old) {
     super.didUpdateWidget(old);
     _c.forward(from: 0); // re-run the stagger if the picks changed
-    _expanded = false;
   }
 
   @override

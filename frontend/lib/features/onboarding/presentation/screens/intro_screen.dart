@@ -18,16 +18,18 @@ class _IntroScreenState extends State<IntroScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
-  // Each card is a mini BILL/STATEMENT — logo + name on top, the amount due
-  // below — so it instantly reads as "money I owe, on a date". The LAST item is
-  // the centre hero (on top, fully visible); the rest fan out, half-covered.
+  // Each card: a CATEGORY header on top, then logo + payee + amount due below.
+  // The LAST item is the centre hero (on top, fully visible); the rest fan out,
+  // half-covered.
   static const _brands = <_Item>[
-    _Item(Brand(name: 'LIC', domain: 'licindia.in'), 'Premium', 2400),
-    _Item(Brand(name: 'Star Health', domain: 'starhealth.in'), 'Renewal', 18000),
-    _Item(Brand(name: 'Tata Power', domain: 'tatapower.com'), 'Bill', 1860),
-    _Item(Brand(name: 'Zerodha', domain: 'zerodha.com'), 'SIP', 5000),
-    // Centre, on top — the actionable hero: a loan / card EMI.
-    _Item(Brand(name: 'HDFC Bank', domain: 'hdfcbank.com'), 'Loan EMI', 24500),
+    _Item('Life insurance', Brand(name: 'LIC', domain: 'licindia.in'), 2400),
+    _Item('Health cover',
+        Brand(name: 'Star Health', domain: 'starhealth.in'), 18000),
+    _Item('Electricity',
+        Brand(name: 'Tata Power', domain: 'tatapower.com'), 1860),
+    _Item('SIP', Brand(name: 'Zerodha', domain: 'zerodha.com'), 5000),
+    // Centre, on top — the actionable hero.
+    _Item('Loan EMI', Brand(name: 'HDFC Bank', domain: 'hdfcbank.com'), 24500),
   ];
 
   @override
@@ -53,7 +55,7 @@ class _IntroScreenState extends State<IntroScreen>
       child: Column(
         children: [
           const Spacer(flex: 2),
-          SizedBox(height: 270, child: _Cluster(anim: _c, items: _brands)),
+          SizedBox(height: 250, child: _Cluster(anim: _c, items: _brands)),
           const Spacer(),
           Text(
             'Everything you’d\nforget, remembered.',
@@ -75,11 +77,13 @@ class _IntroScreenState extends State<IntroScreen>
 }
 
 class _Item {
-  const _Item(this.brand, this.label, this.amount);
-  final Brand brand;
-  final String label;
+  const _Item(this.category, this.brand, this.amount);
 
-  /// Amount due (₹) — shown as a red "− ₹x,xxx" so each card reads as a bill.
+  /// The category header at the top of the card (e.g. "Loan EMI").
+  final String category;
+  final Brand brand;
+
+  /// Amount due (₹) — shown as a red "−₹x,xxx".
   final int amount;
 }
 
@@ -154,9 +158,9 @@ class _Cluster extends StatelessWidget {
   }
 }
 
-/// A card styled like a mini bank statement / bill: a header row with the logo
-/// + payee, a hairline, then the amount due in red. Reads instantly as "a bill
-/// on a date" — the best first impression of what the app does.
+/// A compact bill card: a small CATEGORY header on top ("Loan EMI"), then a row
+/// of logo + payee + amount due. Same footprint as the version that lightly
+/// overlapped the headline.
 class _LogoCard extends StatelessWidget {
   const _LogoCard({required this.item, required this.center});
   final _Item item;
@@ -167,8 +171,8 @@ class _LogoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: center ? 170 : 156,
-      padding: const EdgeInsets.all(13),
+      width: center ? 164 : 150,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(18),
@@ -185,59 +189,51 @@ class _LogoCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: logo tile + payee name. The neutral tile keeps every brand
-          // mark centred and consistently sized.
+          // Category header.
+          Text(
+            item.category.toUpperCase(),
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+              color: AppColors.inkFaint,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Logo + payee + amount.
           Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 30,
+                height: 30,
                 decoration: BoxDecoration(
                   color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(9),
                   border: Border.all(color: AppColors.cardBorder),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Center(
-                  child: BrandLogo(brand: item.brand, size: 26, radius: 7),
+                  child: BrandLogo(brand: item.brand, size: 22, radius: 6),
                 ),
               ),
-              const SizedBox(width: 9),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   item.brand.name,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.ink,
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 11),
-          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
-          const SizedBox(height: 10),
-          // Statement line: what it is (left) + amount due (right, red).
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Text(
-                  item.label,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkFaint,
-                  ),
-                ),
-              ),
+              const SizedBox(width: 6),
               Text(
                 '−₹${_inr(item.amount)}',
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 12.5,
                   fontWeight: FontWeight.w800,
                   color: _due,
                 ),

@@ -84,9 +84,8 @@ class _BenefitsScreenState extends State<BenefitsScreen>
             ),
           if (hasMore && !_expanded)
             Padding(
-              padding: const EdgeInsets.only(top: 8, left: 46),
-              child: _MorePill(
-                count: remaining,
+              padding: const EdgeInsets.only(top: 10, left: 46),
+              child: _MoreText(
                 onTap: () => setState(() => _expanded = true),
               ),
             ),

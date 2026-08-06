@@ -38,14 +38,6 @@ const List<QuizOption> kQuizOptions = [
     benefit: 'No late fees or service cut-offs.',
   ),
   QuizOption(
-    key: 'subscriptions',
-    icon: Icons.play_circle_rounded,
-    label: 'Subscriptions',
-    sub: 'Netflix, Spotify, Prime',
-    color: Color(0xFF8B5CF6),
-    benefit: 'Cancel before a silent renewal charges you.',
-  ),
-  QuizOption(
     key: 'insurance',
     icon: Icons.shield_rounded,
     label: 'Insurance',
@@ -68,6 +60,14 @@ const List<QuizOption> kQuizOptions = [
     sub: 'Licence, passport, RC',
     color: Color(0xFF6366F1),
     benefit: 'No fines or last-minute scrambles.',
+  ),
+  QuizOption(
+    key: 'subscriptions',
+    icon: Icons.play_circle_rounded,
+    label: 'Subscriptions',
+    sub: 'Netflix, Spotify, Prime',
+    color: Color(0xFF8B5CF6),
+    benefit: 'Cancel before a silent renewal charges you.',
   ),
   QuizOption(
     key: 'birthdays',

@@ -22,20 +22,18 @@ class _IntroScreenState extends State<IntroScreen>
   // headline. Categories repeat across brands (Loan EMI from several banks) so
   // it feels real. The LAST item is the centre hero (on top, fully visible).
   static const _brands = <_Item>[
-    // Loan EMI — multiple banks.
+    // Order aligns with _slots (paint order = back → front). The visible corner
+    // cards read LIC (upper-left) and Star Health (upper-right); HDFC is centre.
     _Item('Loan EMI', Brand(name: 'ICICI Bank', domain: 'icicibank.com'), 15200),
-    _Item('Loan EMI', Brand(name: 'Axis Bank', domain: 'axisbank.com'), 9800),
-    // Insurance.
+    _Item('SIP', Brand(name: 'Groww', domain: 'groww.in'), 3000),
+    _Item('Electricity',
+        Brand(name: 'Tata Power', domain: 'tatapower.com'), 1860),
+    _Item('SIP', Brand(name: 'Zerodha', domain: 'zerodha.com'), 5000),
     _Item('Life insurance', Brand(name: 'LIC', domain: 'licindia.in'), 2400),
     _Item('Health cover',
         Brand(name: 'Star Health', domain: 'starhealth.in'), 18000),
-    // Bills.
-    _Item('Electricity',
-        Brand(name: 'Tata Power', domain: 'tatapower.com'), 1860),
     _Item('Mobile bill', Brand(name: 'Airtel', domain: 'airtel.in'), 799),
-    // Investing.
-    _Item('SIP', Brand(name: 'Zerodha', domain: 'zerodha.com'), 5000),
-    _Item('SIP', Brand(name: 'Groww', domain: 'groww.in'), 3000),
+    _Item('Loan EMI', Brand(name: 'Axis Bank', domain: 'axisbank.com'), 9800),
     // Centre, on top — the actionable hero.
     _Item('Loan EMI', Brand(name: 'HDFC Bank', domain: 'hdfcbank.com'), 24500),
   ];

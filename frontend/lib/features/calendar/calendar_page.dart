@@ -185,8 +185,9 @@ class _MonthNav extends StatelessWidget {
   }
 }
 
-/// The top month overview: how much is going out this month + item count. Shown
-/// as one clean card. (Everything tracked is a cost, so there's no "coming in".)
+/// The month overview — a small, plain WHITE card: a quiet label + the month's
+/// total on the left, and the item count on the right. Neutral wording ("This
+/// month") so it still fits once income is added later. No colour block, no icon.
 class _MonthOverview extends StatelessWidget {
   const _MonthOverview({required this.total, required this.count});
 
@@ -195,123 +196,63 @@ class _MonthOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A refined hero: deep gradient with a large soft glow orb top-right for
-    // depth, a small labelled row up top, the big spend figure, and a subtle
-    // divider into a footer chip with the item count. Premium, not a flat box.
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF4C8DFF), Color(0xFF2563EB), Color(0xFF1E40AF)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF2563EB).withValues(alpha: 0.28),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            // Soft glow orb for depth (top-right).
-            Positioned(
-              top: -50,
-              right: -30,
-              child: Container(
-                width: 160,
-                height: 160,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withValues(alpha: 0.16),
-                      Colors.white.withValues(alpha: 0),
-                    ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'This month',
+                  style: TextStyle(
+                    color: AppColors.inkFaint,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
                   ),
                 ),
+                const SizedBox(height: 3),
+                Text(
+                  total.isZero ? '—' : total.formatted,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Item count — a quiet neutral pill.
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.bg,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count ${count == 1 ? "item" : "items"}',
+              style: const TextStyle(
+                color: AppColors.inkSoft,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.trending_up_rounded,
-                            size: 16, color: Colors.white),
-                      ),
-                      const SizedBox(width: 10),
-                      const Flexible(
-                        child: Text(
-                          'Spending this month',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.1,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    total.isZero ? '—' : total.formatted,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.0,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    height: 1,
-                    color: Colors.white.withValues(alpha: 0.16),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(Icons.event_note_rounded,
-                          size: 15,
-                          color: Colors.white.withValues(alpha: 0.85)),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          count == 0
-                              ? 'Nothing scheduled'
-                              : '$count ${count == 1 ? "payment" : "payments"} '
-                                  'scheduled',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -222,7 +222,7 @@ class _MonthOverview extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  total.isZero ? '—' : total.formatted,
+                  total.isZero ? '—' : total.formattedSigned,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -569,7 +569,7 @@ class _DaySheetContent extends StatelessWidget {
                 ),
                 if (!total.isZero) ...[
                   Text(
-                    total.formatted,
+                    total.formattedSigned,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -870,7 +870,7 @@ class _DayItemRow extends StatelessWidget {
 
   String _amountLabel(Task t) {
     if (t.amount == null) return '—';
-    return MoneyTotal(amount: t.amount!, currency: t.currency).formatted;
+    return MoneyTotal(amount: t.amount!, currency: t.currency).formattedSigned;
   }
 }
 

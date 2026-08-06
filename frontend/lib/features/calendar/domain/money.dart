@@ -24,6 +24,19 @@ class MoneyTotal {
     final fixed = amount.toStringAsFixed(c.decimals);
     return '${c.symbol}${formatAmount(fixed, c.grouping)}';
   }
+
+  /// The same figure with an explicit DIRECTION sign, so the money flow is
+  /// clear: outgoing spend shows "−₹8,244", incoming shows "+₹8,244".
+  ///
+  /// Amounts are stored positive for expenses (money leaving), so the common
+  /// case is "−". A negative stored total would be net income → "+". Today the
+  /// app only logs expenses, so this reads "−".
+  String get formattedSigned {
+    final c = currencyOf(currency);
+    final sign = amount < 0 ? '+' : '−';
+    final fixed = amount.abs().toStringAsFixed(c.decimals);
+    return '$sign${c.symbol}${formatAmount(fixed, c.grouping)}';
+  }
 }
 
 /// Sum the amounts of [occ], grouped by currency, and return the dominant one.

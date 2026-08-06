@@ -95,8 +95,10 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             ),
 
-            // --- the draggable day sheet, lifted when a day is selected ---
-            if (_selected != null)
+            // --- the draggable day sheet ---
+            // Only lift it when the selected day actually has something. Tapping
+            // an empty day stays loose — no "nothing due" panel pops up.
+            if (_selected != null && selectedItems.isNotEmpty)
               _DaySheet(
                 key: ValueKey(_selected),
                 day: _selected!,
@@ -157,31 +159,31 @@ class _SpendHeader extends StatelessWidget {
             _RoundBtn(icon: Icons.chevron_right_rounded, onTap: onNext),
           ],
         ),
-        const SizedBox(height: 6),
-        // Total + Upcoming, each a "figure Label" pair.
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            _Figure(value: total.formatted, label: 'Total'),
-            const SizedBox(width: 20),
-            _Figure(
-              value: upcoming.formatted,
-              label: 'Upcoming',
-              muted: upcoming.isZero,
-            ),
-          ],
-        ),
+        // Total + Upcoming — only when there's actually spend. With no data we
+        // show nothing here (no "₹0.00 Total"), keeping the header clean.
+        if (!total.isZero) ...[
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              _Figure(value: total.formatted, label: 'Total'),
+              if (!upcoming.isZero) ...[
+                const SizedBox(width: 20),
+                _Figure(value: upcoming.formatted, label: 'Upcoming'),
+              ],
+            ],
+          ),
+        ],
       ],
     );
   }
 }
 
 class _Figure extends StatelessWidget {
-  const _Figure({required this.value, required this.label, this.muted = false});
+  const _Figure({required this.value, required this.label});
   final String value;
   final String label;
-  final bool muted;
 
   @override
   Widget build(BuildContext context) {
@@ -191,11 +193,11 @@ class _Figure extends StatelessWidget {
       children: [
         Text(
           value,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.3,
-            color: muted ? AppColors.inkFaint : AppColors.ink,
+            color: AppColors.ink,
           ),
         ),
         const SizedBox(width: 6),
@@ -433,13 +435,19 @@ class _DaySheet extends StatelessWidget {
     final total = totalOf(items);
     final hasItems = items.isNotEmpty;
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.42,
-      minChildSize: 0.20,
-      maxChildSize: 0.9,
-      snap: true,
-      snapSizes: const [0.42],
-      builder: (context, controller) {
+    // Clear the floating glass nav bar so the sheet rests ABOVE it, not under
+    // it. The nav is a 64-tall pill with a 16 bottom margin over the safe area.
+    final navClearance = 64.0 + 16.0 + MediaQuery.of(context).viewPadding.bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: navClearance),
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.42,
+        minChildSize: 0.20,
+        maxChildSize: 0.86,
+        snap: true,
+        snapSizes: const [0.42],
+        builder: (context, controller) {
         return Container(
           decoration: BoxDecoration(
             color: AppColors.card,

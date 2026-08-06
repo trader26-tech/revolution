@@ -87,81 +87,183 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Tap anywhere to dismiss the keyboard.
+      resizeToAvoidBottomInset: true,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFEAF1FF), AppColors.bg, AppColors.bg],
-              stops: [0.0, 0.42, 1.0],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Spacer(flex: 3),
-                  const Center(child: AppLogo(size: 84)),
-                  const SizedBox(height: 36),
-                  // One light line — minimal text.
-                  const Text(
-                    'Your number',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
-                      letterSpacing: -0.5,
+        behavior: HitTestBehavior.opaque,
+        child: Stack(
+          children: [
+            // Ambient background — layered soft colour blobs, not a flat sheet.
+            const Positioned.fill(child: _AmbientBackground()),
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(28, 8, 28, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 24),
+                            const AppLogo(size: 72),
+                            const SizedBox(height: 40),
+                            // Confident, left-aligned headline.
+                            const Text(
+                              'Enter your\nphone number',
+                              style: TextStyle(
+                                fontSize: 32,
+                                height: 1.12,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.ink,
+                                letterSpacing: -0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'We’ll use this to securely save and sync your '
+                              'reminders across your devices.',
+                              style: TextStyle(
+                                fontSize: 15,
+                                height: 1.45,
+                                color: AppColors.inkSoft,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            _PhoneField(
+                              country: _country,
+                              controller: _controller,
+                              focusNode: _focus,
+                              onPickCountry: _pickCountry,
+                              onSubmit: _submit,
+                            ),
+                            const SizedBox(height: 16),
+                            const _TrustRow(),
+                            const SizedBox(height: 36),
+                            _ContinueButton(
+                              enabled: _valid && !_submitting,
+                              loading: _submitting,
+                              onTap: _submit,
+                            ),
+                            const SizedBox(height: 16),
+                            const Center(
+                              child: Text(
+                                'By continuing you agree to our Terms & Privacy.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontSize: 12, color: AppColors.inkFaint),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Sign in to sync your reminders.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      color: AppColors.inkSoft,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 36),
-                  _PhoneField(
-                    country: _country,
-                    controller: _controller,
-                    focusNode: _focus,
-                    onPickCountry: _pickCountry,
-                    onSubmit: _submit,
-                  ),
-                  const Spacer(flex: 4),
-                  _ContinueButton(
-                    enabled: _valid && !_submitting,
-                    loading: _submitting,
-                    onTap: _submit,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'By continuing you agree to our Terms & Privacy.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11.5, color: AppColors.inkFaint),
-                  ),
-                  const SizedBox(height: 8),
-                ],
+                  );
+                },
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// The phone input: a glass card holding the country pill and the big number.
-class _PhoneField extends StatelessWidget {
+/// Soft, out-of-focus colour blobs behind everything — a warm, premium ambient
+/// backdrop instead of a flat gradient.
+class _AmbientBackground extends StatelessWidget {
+  const _AmbientBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: AppColors.bg),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -80,
+            left: -60,
+            child: _Blob(220, const Color(0xFF3B82F6), 0.18),
+          ),
+          Positioned(
+            top: 40,
+            right: -90,
+            child: _Blob(240, const Color(0xFF8B5CF6), 0.14),
+          ),
+          Positioned(
+            bottom: -60,
+            left: -40,
+            child: _Blob(200, const Color(0xFF22D3EE), 0.10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Blob extends StatelessWidget {
+  const _Blob(this.size, this.color, this.opacity);
+  final double size;
+  final Color color;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            color.withValues(alpha: opacity),
+            color.withValues(alpha: 0),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A small, honest trust cue under the field.
+class _TrustRow extends StatelessWidget {
+  const _TrustRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppColors.accent.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.lock_rounded, size: 14, color: AppColors.accent),
+        ),
+        const SizedBox(width: 10),
+        const Expanded(
+          child: Text(
+            'Private & encrypted. We never share your number.',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: AppColors.inkSoft,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The phone input: a card with the country selector and the big number field.
+/// Lifts with an accent glow when focused, so it feels alive and premium.
+class _PhoneField extends StatefulWidget {
   const _PhoneField({
     required this.country,
     required this.controller,
@@ -177,74 +279,107 @@ class _PhoneField extends StatelessWidget {
   final VoidCallback onSubmit;
 
   @override
+  State<_PhoneField> createState() => _PhoneFieldState();
+}
+
+class _PhoneFieldState extends State<_PhoneField> {
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.focusNode.addListener(_onFocus);
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_onFocus);
+    super.dispose();
+  }
+
+  void _onFocus() => setState(() => _focused = widget.focusNode.hasFocus);
+
+  /// The country's hint, using X's (e.g. "XXXXX XXXXX"), not zeros.
+  String get _hint => widget.country.format('X' * widget.country.maxLen);
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(
+          color: _focused ? AppColors.accent : AppColors.cardBorder,
+          width: _focused ? 1.6 : 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: _focused
+                ? AppColors.accent.withValues(alpha: 0.18)
+                : Colors.black.withValues(alpha: 0.05),
+            blurRadius: _focused ? 22 : 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Row(
         children: [
-          // Country pill.
+          // Country selector.
           InkWell(
-            onTap: onPickCountry,
+            onTap: widget.onPickCountry,
             borderRadius:
                 const BorderRadius.horizontal(left: Radius.circular(20)),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 20, 12, 20),
+              padding: const EdgeInsets.fromLTRB(16, 18, 12, 18),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CountryFlag(iso: country.iso, size: 22),
+                  CountryFlag(iso: widget.country.iso, size: 22),
                   const SizedBox(width: 8),
                   Text(
-                    country.dial,
+                    widget.country.dial,
                     style: const TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.ink,
                     ),
                   ),
+                  const SizedBox(width: 2),
                   const Icon(Icons.expand_more_rounded,
                       size: 20, color: AppColors.inkSoft),
                 ],
               ),
             ),
           ),
-          Container(width: 1, height: 30, color: AppColors.cardBorder),
-          // Number field — big, grouped digits.
+          Container(width: 1, height: 28, color: AppColors.cardBorder),
+          // Number field — big, grouped, confident digits.
           Expanded(
             child: TextField(
-              controller: controller,
-              focusNode: focusNode,
+              controller: widget.controller,
+              focusNode: widget.focusNode,
               autofocus: true,
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.done,
-              onSubmitted: (_) => onSubmit(),
-              inputFormatters: [_GroupingFormatter(country)],
+              cursorColor: AppColors.accent,
+              onSubmitted: (_) => widget.onSubmit(),
+              inputFormatters: [_GroupingFormatter(widget.country)],
               style: const TextStyle(
                 fontSize: 22,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
                 color: AppColors.ink,
                 letterSpacing: 1.5,
               ),
-              decoration: const InputDecoration(
-                hintText: '00000 00000',
-                hintStyle: TextStyle(
+              decoration: InputDecoration(
+                hintText: _hint,
+                hintStyle: const TextStyle(
                   color: AppColors.inkFaint,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   letterSpacing: 1.5,
                 ),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
               ),
             ),
           ),

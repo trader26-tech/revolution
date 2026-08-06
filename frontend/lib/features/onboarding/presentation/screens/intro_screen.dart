@@ -54,9 +54,10 @@ class _IntroScreenState extends State<IntroScreen>
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
         children: [
-          const Spacer(flex: 2),
-          SizedBox(height: 262, child: _Cluster(anim: _c, items: _brands)),
-          const Spacer(),
+          const Spacer(flex: 3),
+          SizedBox(height: 268, child: _Cluster(anim: _c, items: _brands)),
+          // Small gap so the fanned cards sit right on top of the headline.
+          const SizedBox(height: 12),
           Text(
             'Everything you’d\nforget, remembered.',
             textAlign: TextAlign.center,
@@ -111,11 +112,11 @@ class _Cluster extends StatelessWidget {
   // Fixed positions/rotations for a pleasant, deliberate scatter (dx, dy, rot).
   // The 5th entry is the centred hero card.
   static const _slots = <List<double>>[
-    [-84, -34, -0.14],
-    [86, -20, 0.12],
-    [-58, 66, 0.10],
-    [70, 74, -0.10],
-    [0, 4, 0.0], // centre, on top
+    [-78, -40, -0.13],
+    [80, -26, 0.12],
+    [-54, 60, 0.10],
+    [66, 70, -0.10],
+    [0, 8, 0.0], // centre, on top
   ];
 
   @override
@@ -158,9 +159,9 @@ class _Cluster extends StatelessWidget {
   }
 }
 
-/// A compact bill card: a small CATEGORY header on top ("Loan EMI"), then a row
-/// of logo + payee + amount due. Same footprint as the version that lightly
-/// overlapped the headline.
+/// A bill card: a BOLD category header on top ("LOAN EMI"), then just the logo
+/// and the amount due — no brand name (the logo already says who). Big enough
+/// that the fanned cards overlap each other and the headline below.
 class _LogoCard extends StatelessWidget {
   const _LogoCard({required this.item, required this.center});
   final _Item item;
@@ -171,17 +172,17 @@ class _LogoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: center ? 164 : 150,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      width: center ? 184 : 170,
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: center ? 0.14 : 0.08),
-            blurRadius: center ? 28 : 22,
-            offset: Offset(0, center ? 12 : 10),
+            color: Colors.black.withValues(alpha: center ? 0.16 : 0.10),
+            blurRadius: center ? 30 : 24,
+            offset: Offset(0, center ? 14 : 11),
           ),
         ],
       ),
@@ -189,57 +190,44 @@ class _LogoCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Category header.
+          // Bold category header.
           Text(
             item.category.toUpperCase(),
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 10,
+              fontSize: 11.5,
               fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-              color: AppColors.inkFaint,
+              letterSpacing: 0.4,
+              color: AppColors.inkSoft,
             ),
           ),
-          const SizedBox(height: 8),
-          // Logo + payee.
+          const SizedBox(height: 12),
+          // Logo + amount — no brand name.
           Row(
             children: [
               Container(
-                width: 30,
-                height: 30,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(11),
                   border: Border.all(color: AppColors.cardBorder),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Center(
-                  child: BrandLogo(brand: item.brand, size: 22, radius: 6),
+                  child: BrandLogo(brand: item.brand, size: 30, radius: 8),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  item.brand.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.ink,
-                  ),
+              const Spacer(),
+              Text(
+                '−₹${_inr(item.amount)}',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: _due,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          // Amount due — on its own line so nothing truncates on narrow cards.
-          Text(
-            '−₹${_inr(item.amount)}',
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: _due,
-            ),
           ),
         ],
       ),

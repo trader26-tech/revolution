@@ -12,6 +12,7 @@ import '../tasks/presentation/filter_sheet.dart';
 import '../tasks/presentation/open_task_details.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
 import 'domain/home_groups.dart';
+import 'presentation/widgets/home_loading.dart';
 import 'presentation/widgets/task_section.dart';
 
 /// The Home screen.
@@ -111,12 +112,14 @@ class _HomePageState extends State<HomePage> {
     return Stack(
       children: [
         // The empty state is centred against the WHOLE screen (behind the top
-        // bar + nav), so the block sits optically dead-centre.
+        // bar + nav). It only shows once loading has settled — never during the
+        // initial fetch (which would flash "All clear").
         AnimatedBuilder(
           animation: widget.store,
           builder: (context, _) {
-            final showEmpty =
-                widget.store.tasks.isEmpty && widget.store.error == null;
+            final showEmpty = !widget.store.isInitialLoad &&
+                widget.store.tasks.isEmpty &&
+                widget.store.error == null;
             if (!showEmpty) return const SizedBox.shrink();
             return Positioned.fill(
               child: _EmptyContent(onAdd: _startAdd),
@@ -151,6 +154,12 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildList() {
     final allTasks = widget.store.tasks;
+
+    // Still fetching for the first time → a premium shimmer skeleton, so the
+    // content resolves into place instead of flashing "All clear" then the list.
+    if (widget.store.isInitialLoad) {
+      return const HomeLoading();
+    }
 
     // Surface a server error clearly instead of silently showing an empty list.
     if (widget.store.error != null && allTasks.isEmpty) {
@@ -260,7 +269,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Left: particle button. Right corner: Add · Funnel · Settings.
+    // Left: particle button. Right corner, in order: Settings · Filter · Add.
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Row(
@@ -272,10 +281,9 @@ class _TopBar extends StatelessWidget {
           ),
           const Spacer(),
           GlassIconButton(
-            icon: Icons.add_rounded,
-            tooltip: 'Add',
-            accent: true,
-            onTap: onAdd,
+            icon: Icons.settings_outlined,
+            tooltip: 'Settings',
+            onTap: onSettings,
           ),
           const SizedBox(width: 10),
           // Funnel filter, with an accent dot when active.
@@ -305,9 +313,10 @@ class _TopBar extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           GlassIconButton(
-            icon: Icons.settings_outlined,
-            tooltip: 'Settings',
-            onTap: onSettings,
+            icon: Icons.add_rounded,
+            tooltip: 'Add',
+            accent: true,
+            onTap: onAdd,
           ),
         ],
       ),

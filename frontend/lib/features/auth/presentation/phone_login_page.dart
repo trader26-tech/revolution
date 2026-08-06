@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../domain/country_code.dart';
-import 'widgets/app_logo.dart';
 import 'widgets/country_flag.dart';
 
 /// The phone-number login page — the app's first impression.
@@ -87,176 +86,66 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.bg,
       resizeToAvoidBottomInset: true,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
-        child: Stack(
-          children: [
-            // Ambient background — layered soft colour blobs, not a flat sheet.
-            const Positioned.fill(child: _AmbientBackground()),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(28, 8, 28, 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 24),
-                            const AppLogo(size: 72),
-                            const SizedBox(height: 40),
-                            // Confident, left-aligned headline.
-                            const Text(
-                              'Enter your\nphone number',
-                              style: TextStyle(
-                                fontSize: 32,
-                                height: 1.12,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.ink,
-                                letterSpacing: -0.8,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'We’ll use this to securely save and sync your '
-                              'reminders across your devices.',
-                              style: TextStyle(
-                                fontSize: 15,
-                                height: 1.45,
-                                color: AppColors.inkSoft,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 32),
-                            _PhoneField(
-                              country: _country,
-                              controller: _controller,
-                              focusNode: _focus,
-                              onPickCountry: _pickCountry,
-                              onSubmit: _submit,
-                            ),
-                            const SizedBox(height: 16),
-                            const _TrustRow(),
-                            const SizedBox(height: 36),
-                            _ContinueButton(
-                              enabled: _valid && !_submitting,
-                              loading: _submitting,
-                              onTap: _submit,
-                            ),
-                            const SizedBox(height: 16),
-                            const Center(
-                              child: Text(
-                                'By continuing you agree to our Terms & Privacy.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    fontSize: 12, color: AppColors.inkFaint),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --- content (no icon; short, concise copy) ---
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'What’s your number?',
+                        style: TextStyle(
+                          fontSize: 30,
+                          height: 1.1,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                          letterSpacing: -0.6,
                         ),
                       ),
-                    ),
-                  );
-                },
+                      const SizedBox(height: 10),
+                      const Text(
+                        'We’ll keep your reminders synced and private.',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: AppColors.inkSoft,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      _PhoneField(
+                        country: _country,
+                        controller: _controller,
+                        focusNode: _focus,
+                        onPickCountry: _pickCountry,
+                        onSubmit: _submit,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+              // --- Continue button, pinned at the bottom (matches onboarding) ---
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                child: _ContinueButton(
+                  enabled: _valid && !_submitting,
+                  loading: _submitting,
+                  onTap: _submit,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-}
-
-/// Soft, out-of-focus colour blobs behind everything — a warm, premium ambient
-/// backdrop instead of a flat gradient.
-class _AmbientBackground extends StatelessWidget {
-  const _AmbientBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: AppColors.bg),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -80,
-            left: -60,
-            child: _Blob(220, const Color(0xFF3B82F6), 0.18),
-          ),
-          Positioned(
-            top: 40,
-            right: -90,
-            child: _Blob(240, const Color(0xFF8B5CF6), 0.14),
-          ),
-          Positioned(
-            bottom: -60,
-            left: -40,
-            child: _Blob(200, const Color(0xFF22D3EE), 0.10),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Blob extends StatelessWidget {
-  const _Blob(this.size, this.color, this.opacity);
-  final double size;
-  final Color color;
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [
-            color.withValues(alpha: opacity),
-            color.withValues(alpha: 0),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A small, honest trust cue under the field.
-class _TrustRow extends StatelessWidget {
-  const _TrustRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: AppColors.accent.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.lock_rounded, size: 14, color: AppColors.accent),
-        ),
-        const SizedBox(width: 10),
-        const Expanded(
-          child: Text(
-            'Private & encrypted. We never share your number.',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: AppColors.inkSoft,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

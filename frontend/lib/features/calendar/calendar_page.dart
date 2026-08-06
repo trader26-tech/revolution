@@ -162,26 +162,18 @@ class _MonthNav extends StatelessWidget {
               onTap: onTapMonth,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        '${_names[month.month - 1]} ${month.year}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
+                child: Center(
+                  child: Text(
+                    '${_names[month.month - 1]} ${month.year}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                      letterSpacing: -0.3,
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.expand_more_rounded,
-                        size: 18, color: AppColors.inkFaint),
-                  ],
+                  ),
                 ),
               ),
             ),

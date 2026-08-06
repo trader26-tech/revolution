@@ -18,22 +18,16 @@ class _IntroScreenState extends State<IntroScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
 
-  // A rich, varied deck so the fan fills the width and layers behind the
-  // headline. Categories repeat across brands (Loan EMI from several banks) so
-  // it feels real. The LAST item is the centre hero (on top, fully visible).
+  // Each card: a CATEGORY header on top, then logo + payee + amount due below.
+  // The LAST item is the centre hero (on top, fully visible); the rest fan out,
+  // half-covered.
   static const _brands = <_Item>[
-    // Order aligns with _slots (paint order = back → front). The visible corner
-    // cards read LIC (upper-left) and Star Health (upper-right); HDFC is centre.
-    _Item('Loan EMI', Brand(name: 'ICICI Bank', domain: 'icicibank.com'), 15200),
-    _Item('SIP', Brand(name: 'Groww', domain: 'groww.in'), 3000),
-    _Item('Electricity',
-        Brand(name: 'Tata Power', domain: 'tatapower.com'), 1860),
-    _Item('SIP', Brand(name: 'Zerodha', domain: 'zerodha.com'), 5000),
     _Item('Life insurance', Brand(name: 'LIC', domain: 'licindia.in'), 2400),
     _Item('Health cover',
         Brand(name: 'Star Health', domain: 'starhealth.in'), 18000),
-    _Item('Mobile bill', Brand(name: 'Airtel', domain: 'airtel.in'), 799),
-    _Item('Loan EMI', Brand(name: 'Axis Bank', domain: 'axisbank.com'), 9800),
+    _Item('Electricity',
+        Brand(name: 'Tata Power', domain: 'tatapower.com'), 1860),
+    _Item('SIP', Brand(name: 'Zerodha', domain: 'zerodha.com'), 5000),
     // Centre, on top — the actionable hero.
     _Item('Loan EMI', Brand(name: 'HDFC Bank', domain: 'hdfcbank.com'), 24500),
   ];
@@ -56,34 +50,29 @@ class _IntroScreenState extends State<IntroScreen>
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Column(
-      children: [
-        const Spacer(flex: 3),
-        // Full-width so the wide fan can spread across and layer behind the text.
-        SizedBox(height: 280, child: _Cluster(anim: _c, items: _brands)),
-        // Small gap so the fanned cards sit right on top of the headline.
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            children: [
-              Text(
-                'Everything you’d\nforget, remembered.',
-                textAlign: TextAlign.center,
-                style: text.displaySmall?.copyWith(color: AppColors.ink),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Insurance, bills, EMIs, investments — '
-                'one calm list, never a missed date.',
-                textAlign: TextAlign.center,
-                style: text.bodyLarge?.copyWith(color: AppColors.inkSoft),
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: [
+          const Spacer(flex: 3),
+          SizedBox(height: 268, child: _Cluster(anim: _c, items: _brands)),
+          // Small gap so the fanned cards sit right on top of the headline.
+          const SizedBox(height: 12),
+          Text(
+            'Everything you’d\nforget, remembered.',
+            textAlign: TextAlign.center,
+            style: text.displaySmall?.copyWith(color: AppColors.ink),
           ),
-        ),
-        const Spacer(flex: 3),
-      ],
+          const SizedBox(height: 14),
+          Text(
+            'Insurance, bills, EMIs, investments — '
+            'one calm list, never a missed date.',
+            textAlign: TextAlign.center,
+            style: text.bodyLarge?.copyWith(color: AppColors.inkSoft),
+          ),
+          const Spacer(flex: 3),
+        ],
+      ),
     );
   }
 }
@@ -120,20 +109,14 @@ class _Cluster extends StatelessWidget {
   final Animation<double> anim;
   final List<_Item> items;
 
-  // Positions/rotations (dx, dy, rot) for a full, wide fan that fills the width
-  // and layers behind the headline. Order = paint order (earliest at the back);
-  // the LAST entry is the centred hero on top. Outer cards sit wider + lower so
-  // the stack reaches down onto the text.
+  // Fixed positions/rotations for a pleasant, deliberate scatter (dx, dy, rot).
+  // The 5th entry is the centred hero card.
   static const _slots = <List<double>>[
-    [-120, -22, -0.20], // far left, back
-    [120, -16, 0.20], // far right, back
-    [-96, 30, -0.13], // left
-    [96, 34, 0.13], // right
-    [-52, -40, -0.08], // upper-left
-    [56, -38, 0.08], // upper-right
-    [-46, 54, 0.06], // lower-left, reaches down
-    [50, 56, -0.06], // lower-right, reaches down
-    [0, 6, 0.0], // centre, on top
+    [-78, -40, -0.13],
+    [80, -26, 0.12],
+    [-54, 60, 0.10],
+    [66, 70, -0.10],
+    [0, 8, 0.0], // centre, on top
   ];
 
   @override
@@ -142,11 +125,10 @@ class _Cluster extends StatelessWidget {
       animation: anim,
       builder: (context, _) => Center(
         child: SizedBox(
-          width: 360,
-          height: 250,
+          width: 280,
+          height: 240,
           child: Stack(
             alignment: Alignment.center,
-            clipBehavior: Clip.none,
             children: [
               for (var i = 0; i < items.length; i++)
                 _card(i, items[i], _slots[i], center: i == items.length - 1),
@@ -158,8 +140,7 @@ class _Cluster extends StatelessWidget {
   }
 
   Widget _card(int i, _Item item, List<double> slot, {required bool center}) {
-    // Stagger across the whole deck so every card animates in (max start 0.5).
-    final start = (i / items.length) * 0.5;
+    final start = i * 0.12;
     final t = ((anim.value - start) / (1 - start)).clamp(0.0, 1.0);
     final eased = Curves.easeOutBack.transform(t);
     return Transform.translate(
@@ -188,20 +169,14 @@ class _LogoCard extends StatelessWidget {
 
   static const _due = Color(0xFFE5484D);
 
-  // Every card is the SAME size — matching the tall centre card in the design:
-  // category header, payee name, a big centred logo, then the amount.
-  static const _w = 176.0;
-  static const _h = 176.0;
-
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: _w,
-      height: _h,
-      padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+      width: center ? 184 : 170,
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: [
           BoxShadow(
@@ -212,58 +187,47 @@ class _LogoCard extends StatelessWidget {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Category header.
+          // Bold category header.
           Text(
-            item.category,
+            item.category.toUpperCase(),
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 11.5,
               fontWeight: FontWeight.w800,
-              color: AppColors.ink,
+              letterSpacing: 0.4,
+              color: AppColors.inkSoft,
             ),
           ),
-          const SizedBox(height: 1),
-          // Payee name.
-          Text(
-            item.brand.name,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: AppColors.inkFaint,
-            ),
-          ),
-          // Big centred logo fills the middle.
-          Expanded(
-            child: Center(
-              child: Container(
-                width: 46,
-                height: 46,
+          const SizedBox(height: 12),
+          // Logo + amount — no brand name.
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(11),
                   border: Border.all(color: AppColors.cardBorder),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Center(
-                  child: BrandLogo(brand: item.brand, size: 34, radius: 9),
+                  child: BrandLogo(brand: item.brand, size: 30, radius: 8),
                 ),
               ),
-            ),
-          ),
-          // Amount due, bottom-right — the "bill" line.
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '−₹${_inr(item.amount)}',
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: _due,
+              const Spacer(),
+              Text(
+                '−₹${_inr(item.amount)}',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: _due,
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),

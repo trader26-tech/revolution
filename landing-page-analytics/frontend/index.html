@@ -6,7 +6,6 @@
   <title>Revolution — Never miss a deadline again</title>
   <meta name="description" content="Revolution keeps every bill, renewal, insurance and subscription on track — so you never pay a late fee or lose cover again. Download for Android." />
 
-  <!-- Social preview -->
   <meta property="og:title" content="Revolution — Never miss a deadline again" />
   <meta property="og:description" content="Every bill, renewal, insurance & subscription — handled. Download the app." />
   <meta property="og:type" content="website" />
@@ -18,135 +17,121 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <!-- soft ambient glow -->
   <div class="ambient" aria-hidden="true"></div>
 
-  <header class="nav">
-    <a class="brand" href="#">
-      <span class="brand-badge">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
-          <path d="M12 3.5a6.2 6.2 0 1 1-5.6 3.6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
-          <circle cx="6.4" cy="7.1" r="2.1" fill="#fff"/>
-          <circle cx="12" cy="12" r="1.5" fill="#fff" opacity=".9"/>
-        </svg>
-      </span>
-      <span class="brand-name">Revolution</span>
-    </a>
-    <a class="nav-cta" href="#download">Get the app</a>
-  </header>
+  <div class="page">
+    <!-- NAV -->
+    <header class="nav">
+      <a class="brand" href="#">
+        <span class="brand-name">Revolution<span class="brand-dot">.</span></span>
+      </a>
+      <a class="nav-cta" href="#download">Get the app</a>
+    </header>
 
-  <main>
-    <!-- HERO -->
-    <section class="hero">
+    <!-- HERO (fills the viewport; no scroll needed on desktop) -->
+    <main class="hero">
       <div class="hero-copy">
-        <div class="pill">
-          <span class="dot"></span> Now in early access
-        </div>
+        <div class="pill"><span class="dot"></span> Now in early access</div>
         <h1>Never miss a<br /><span class="grad">deadline</span> again.</h1>
         <p class="sub">
           Bills, renewals, insurance, EMIs, subscriptions — Revolution remembers
-          them all and reminds you in time. No late fees. No lapsed cover. No stress.
+          them all and reminds you in time.
         </p>
+
+        <ul class="ticks">
+          <li>Reminded days ahead — never a late fee</li>
+          <li>Insurance &amp; licences never lapse</li>
+          <li>Every subscription in one place</li>
+        </ul>
 
         <div id="download" class="downloads">
           <a class="btn btn-android" id="androidBtn" href="/download/android">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
               <path d="M17.6 9.5 19 7.1a.4.4 0 0 0-.7-.4l-1.4 2.5a8.6 8.6 0 0 0-7.8 0L7.7 6.7a.4.4 0 1 0-.7.4l1.4 2.4A7.9 7.9 0 0 0 4 16h16a7.9 7.9 0 0 0-4.4-6.5ZM9 13.4a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8Zm6 0a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8Z"/>
             </svg>
-            <span class="btn-text">
-              <small>Download for</small>
-              <strong>Android (APK)</strong>
-            </span>
+            <span class="btn-text"><small>Download for</small><strong>Android (APK)</strong></span>
           </a>
-
           <button class="btn btn-ios" id="iosBtn" type="button" disabled>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
               <path d="M16.4 12.9c0-2 1.6-3 1.7-3-.9-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7s-1.6-.7-2.6-.7c-1.3 0-2.6.8-3.3 2-1.4 2.4-.4 6 1 8 .6 1 1.4 2.1 2.4 2 1-.1 1.3-.6 2.5-.6s1.5.6 2.6.6 1.7-1 2.3-2c.7-1.1 1-2.2 1-2.3-.1 0-2-.8-2-3.1ZM14.7 6.3c.5-.7.9-1.6.8-2.5-.8 0-1.7.5-2.3 1.2-.5.6-.9 1.5-.8 2.4.9.1 1.8-.4 2.3-1.1Z"/>
             </svg>
-            <span class="btn-text">
-              <small>Coming soon to</small>
-              <strong>App Store</strong>
-            </span>
+            <span class="btn-text"><small>Coming soon to</small><strong>App Store</strong></span>
           </button>
         </div>
-
-        <p class="fineprint" id="fineprint">
-          Free while in early access · Android 6.0+
-        </p>
+        <p class="fineprint">Free while in early access · Android 6.0+</p>
       </div>
 
-      <!-- Phone mockup -->
+      <!-- Phone cluster: three real app screens fanned out -->
       <div class="hero-visual" aria-hidden="true">
-        <div class="phone">
-          <div class="phone-notch"></div>
-          <div class="phone-screen">
+        <!-- BACK-LEFT: Onboarding intro -->
+        <div class="phone phone-back">
+          <div class="phone-screen screen-intro">
+            <div class="intro-dots"><i class="on"></i><i></i><i></i></div>
+            <div class="intro-badge">✓</div>
+            <div class="intro-h">Everything you need to remember, in one place.</div>
+            <div class="intro-p">Bills, renewals, insurance and subscriptions — handled.</div>
+            <div class="intro-cta">Show me how</div>
+          </div>
+        </div>
+
+        <!-- BACK-RIGHT: Calendar (how it helps) -->
+        <div class="phone phone-side">
+          <div class="phone-screen screen-cal">
+            <div class="cal-nav">‹ <b>August 2026</b> ›</div>
+            <div class="cal-over">
+              <div><span>This month</span><b>₹52,289</b></div>
+              <div class="cal-pill">12 items</div>
+            </div>
+            <div class="cal-week"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+            <div class="cal-grid">
+              <i></i><i></i><i class="c1">1</i><i>2</i><i>3</i><i class="c2">4</i><i>5</i>
+              <i>6</i><i class="today">7</i><i>8</i><i class="c1">9</i><i>10</i><i>11</i><i class="c3">12</i>
+              <i>13</i><i>14</i><i class="c1">15</i><i>16</i><i>17</i><i>18</i><i>19</i>
+              <i class="c1">20</i><i>21</i><i>22</i><i>23</i><i>24</i><i>25</i><i>26</i>
+            </div>
+          </div>
+        </div>
+
+        <!-- FRONT: Home -->
+        <div class="phone phone-front">
+          <div class="phone-screen screen-home">
             <div class="app-top">
-              <span class="app-title">Home</span>
-              <span class="app-add">＋</span>
+              <span class="app-ico">⚙</span>
+              <span class="app-ico app-add">＋</span>
             </div>
-            <div class="app-section-label pending">⚠ Pending</div>
-            <div class="app-row overdue">
-              <span class="app-check"></span>
-              <span class="app-lines"><b>Car insurance renewal</b><i>Yesterday</i></span>
-              <span class="app-amt">−₹8,400</span>
-            </div>
-            <div class="app-section-label">Today</div>
+            <div class="app-label">Today</div>
             <div class="app-row">
-              <span class="app-check on"></span>
-              <span class="app-lines"><b>Electricity bill</b><i>Today · 6 PM</i></span>
-              <span class="app-amt">−₹1,240</span>
+              <span class="app-logo l-netflix">N</span>
+              <span class="app-lines"><b>Netflix</b><i>Today · 6 PM</i></span>
+              <span class="app-amt">₹649</span>
             </div>
             <div class="app-row">
-              <span class="app-check"></span>
-              <span class="app-lines"><b>Netflix</b><i>Today</i></span>
-              <span class="app-amt">−₹649</span>
+              <span class="app-logo l-power">⚡</span>
+              <span class="app-lines"><b>Electricity bill</b><i>Today</i></span>
+              <span class="app-amt">₹1,240</span>
             </div>
-            <div class="app-section-label">Next 7 days</div>
+            <div class="app-label">Next 7 days</div>
             <div class="app-row">
-              <span class="app-check"></span>
+              <span class="app-logo l-hdfc">H</span>
               <span class="app-lines"><b>Home loan EMI</b><i>Mon, 12 Aug</i></span>
-              <span class="app-amt">−₹42,000</span>
+              <span class="app-amt">₹42,000</span>
+            </div>
+            <div class="app-row">
+              <span class="app-logo l-lic">L</span>
+              <span class="app-lines"><b>LIC premium</b><i>Fri, 16 Aug</i></span>
+              <span class="app-amt">₹8,400</span>
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </main>
 
-    <!-- FEATURES -->
-    <section class="features">
-      <div class="feature">
-        <div class="f-icon f-blue">🔔</div>
-        <h3>Reminded in time</h3>
-        <p>Nudged days ahead — book the slot, pay the bill, renew before it lapses.</p>
-      </div>
-      <div class="feature">
-        <div class="f-icon f-green">🛡️</div>
-        <h3>Nothing slips</h3>
-        <p>Insurance, licence, passport, EMIs — cover and validity never expire on you.</p>
-      </div>
-      <div class="feature">
-        <div class="f-icon f-amber">💸</div>
-        <h3>Stop wasting money</h3>
-        <p>No late fees, no penalty interest, no silent renewals charging your card.</p>
-      </div>
-    </section>
-
-    <!-- CTA STRIP -->
-    <section class="cta-strip">
-      <h2>Put it all out of your head.</h2>
-      <p>Install once. Let Revolution keep watch.</p>
-      <a class="btn btn-android big" href="/download/android">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M17.6 9.5 19 7.1a.4.4 0 0 0-.7-.4l-1.4 2.5a8.6 8.6 0 0 0-7.8 0L7.7 6.7a.4.4 0 1 0-.7.4l1.4 2.4A7.9 7.9 0 0 0 4 16h16a7.9 7.9 0 0 0-4.4-6.5ZM9 13.4a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8Zm6 0a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8Z"/></svg>
-        <span class="btn-text"><strong>Download the Android app</strong></span>
-      </a>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <span>© <span id="year"></span> Revolution</span>
-    <span class="foot-dot">·</span>
-    <span>Made for people who juggle a lot.</span>
-  </footer>
+    <footer class="footer">
+      <span>© <span id="year"></span> Revolution</span>
+      <span class="foot-dot">·</span>
+      <span>Made for people who juggle a lot.</span>
+    </footer>
+  </div>
 
   <script src="app.js"></script>
 </body>

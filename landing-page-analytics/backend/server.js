@@ -12,13 +12,39 @@ const PORT = process.env.PORT || 3000;
 const FRONTEND = path.join(__dirname, '..', 'frontend');
 const DOWNLOADS = path.join(FRONTEND, 'downloads');
 const APK = path.join(DOWNLOADS, 'revolution.apk');
+const VERSION_FILE = path.join(DOWNLOADS, 'version.json');
+
+// Read the release metadata the build script writes next to the APK. Falls back
+// gracefully to the APK's own file stats if version.json is missing.
+function releaseInfo() {
+  const info = { android: fs.existsSync(APK) };
+  if (!info.android) return info;
+
+  const stat = fs.statSync(APK);
+  info.sizeBytes = stat.size;
+  info.sizeMb = +(stat.size / (1024 * 1024)).toFixed(1);
+  // Last-updated = the APK's modified time (always accurate).
+  info.updatedAt = stat.mtime.toISOString();
+
+  // Version (+ optional build) from version.json when present.
+  try {
+    const v = JSON.parse(fs.readFileSync(VERSION_FILE, 'utf8'));
+    if (v.version) info.version = v.version;
+    if (v.build) info.build = v.build;
+    // Prefer an explicit built-at timestamp if the build script recorded one.
+    if (v.builtAt) info.updatedAt = v.builtAt;
+  } catch (_) {
+    /* no version.json — file stats above are enough */
+  }
+  return info;
+}
 
 // Health check (Railway pings this).
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-// Whether an APK is actually present (the page can adapt if not).
+// Release info: availability + version + last-updated + size (the page shows it).
 app.get('/api/availability', (_req, res) => {
-  res.json({ android: fs.existsSync(APK) });
+  res.json(releaseInfo());
 });
 
 // Android download → stream the APK as an attachment (forces a download).

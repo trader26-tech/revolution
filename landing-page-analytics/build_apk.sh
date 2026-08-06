@@ -20,3 +20,18 @@ mkdir -p "$(dirname "$DEST")"
 cp "$SRC" "$DEST"
 echo "✓ APK copied to: $DEST"
 echo "  Size: $(du -h "$DEST" | cut -f1)"
+
+# Write release metadata next to the APK so the site can show version + date.
+VERSION_LINE="$(grep '^version:' "$FLUTTER_DIR/pubspec.yaml" | awk '{print $2}')"
+APP_VERSION="${VERSION_LINE%%+*}"          # 1.0.0
+APP_BUILD="${VERSION_LINE##*+}"            # 1
+BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"  # ISO-8601 UTC
+VERSION_JSON="$(dirname "$DEST")/version.json"
+cat > "$VERSION_JSON" <<JSON
+{
+  "version": "$APP_VERSION",
+  "build": "$APP_BUILD",
+  "builtAt": "$BUILT_AT"
+}
+JSON
+echo "✓ Wrote $VERSION_JSON  (v$APP_VERSION+$APP_BUILD @ $BUILT_AT)"

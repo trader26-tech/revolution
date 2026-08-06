@@ -102,11 +102,13 @@ class _StatCard extends StatelessWidget {
             color: selected ? color : color.withValues(alpha: 0.14),
             width: selected ? 2 : 1,
           ),
+          // A soft, neutral lift — not a bright coloured glow (that read as too
+          // flashy). Selected cards lean on the border, not a halo.
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: selected ? 0.22 : 0.10),
-              blurRadius: selected ? 20 : 14,
-              offset: const Offset(0, 8),
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -122,13 +124,6 @@ class _StatCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: color,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.35),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
                   child: Icon(icon, color: Colors.white, size: 20),
                 ),

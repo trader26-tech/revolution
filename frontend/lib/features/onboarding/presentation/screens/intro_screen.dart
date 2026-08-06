@@ -55,7 +55,7 @@ class _IntroScreenState extends State<IntroScreen>
       child: Column(
         children: [
           const Spacer(flex: 2),
-          SizedBox(height: 250, child: _Cluster(anim: _c, items: _brands)),
+          SizedBox(height: 262, child: _Cluster(anim: _c, items: _brands)),
           const Spacer(),
           Text(
             'Everything you’d\nforget, remembered.',
@@ -201,7 +201,7 @@ class _LogoCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          // Logo + payee + amount.
+          // Logo + payee.
           Row(
             children: [
               Container(
@@ -229,16 +229,17 @@ class _LogoCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                '−₹${_inr(item.amount)}',
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  color: _due,
-                ),
-              ),
             ],
+          ),
+          const SizedBox(height: 8),
+          // Amount due — on its own line so nothing truncates on narrow cards.
+          Text(
+            '−₹${_inr(item.amount)}',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: _due,
+            ),
           ),
         ],
       ),

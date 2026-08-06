@@ -56,11 +56,11 @@ class _BenefitsScreenState extends State<BenefitsScreen>
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final items = _selected;
-    // The user shouldn't have to read a long list — show the top few, tuck the
-    // rest behind a light "& much more" that reveals them on tap.
-    final hasMore = items.length > _previewCount;
+    // Show all selected benefits, but cap so the list never runs off-screen.
+    // When capped, a quiet "& much more" sits just above the closing line.
     final visibleCount =
-        _expanded || !hasMore ? items.length : _previewCount;
+        items.length > _maxLines ? _maxLines : items.length;
+    final overflowed = items.length > _maxLines;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -80,14 +80,22 @@ class _BenefitsScreenState extends State<BenefitsScreen>
               index: i,
               total: visibleCount,
             ),
-          if (hasMore && !_expanded)
-            Padding(
-              padding: const EdgeInsets.only(top: 10, left: 46),
-              child: _MoreText(
-                onTap: () => setState(() => _expanded = true),
+          const Spacer(flex: 2),
+          // "& much more" — quiet text, only when more were selected than shown.
+          // Sits just above the closing line.
+          if (overflowed)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Text(
+                '& much more',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.inkFaint,
+                ),
               ),
             ),
-          const Spacer(flex: 2),
           Text(
             'Miss one of these and it costs you. '
             'We make sure you never do.',
@@ -95,34 +103,6 @@ class _BenefitsScreenState extends State<BenefitsScreen>
           ),
           const Spacer(),
         ],
-      ),
-    );
-  }
-}
-
-/// A plain, light "& much more" line that reveals the rest of the benefits on
-/// tap — no pill/chip, just quiet text.
-class _MoreText extends StatelessWidget {
-  const _MoreText({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(vertical: 4),
-        child: Text(
-          '& much more',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            fontStyle: FontStyle.italic,
-            color: AppColors.inkFaint,
-          ),
-        ),
       ),
     );
   }

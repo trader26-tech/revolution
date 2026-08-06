@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'core/api/api_client.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/auth_store.dart';
-import 'features/auth/presentation/auth_gate.dart';
 import 'features/brand/data/custom_logo_store.dart';
+import 'features/onboarding/data/onboarding_store.dart';
+import 'features/onboarding/presentation/onboarding_gate.dart';
 import 'features/options/data/options_store.dart';
 import 'features/settings/data/profile_store.dart';
 

@@ -24,6 +24,7 @@ class ProfileStore extends ChangeNotifier {
   static const _kNotifReminders = 'profile_notif_reminders';
   static const _kNotifEmail = 'profile_notif_email';
   static const _kNotifWhatsapp = 'profile_notif_whatsapp';
+  static const _kCallReminder = 'profile_call_reminder';
   static const _kQuietEnabled = 'profile_quiet_enabled';
   static const _kQuietStart = 'profile_quiet_start_min'; // minutes since midnight
   static const _kQuietEnd = 'profile_quiet_end_min';
@@ -36,6 +37,7 @@ class ProfileStore extends ChangeNotifier {
   bool _notifReminders = true;
   bool _notifEmail = false;
   bool _notifWhatsapp = true;
+  bool _callReminder = false; // opt-in: a phone call one week before
   bool _quietEnabled = false;
   int _quietStartMin = 22 * 60; // 10:00 PM
   int _quietEndMin = 7 * 60; //  7:00 AM
@@ -49,6 +51,7 @@ class ProfileStore extends ChangeNotifier {
   bool get notifReminders => _notifReminders;
   bool get notifEmail => _notifEmail;
   bool get notifWhatsapp => _notifWhatsapp;
+  bool get callReminder => _callReminder;
   bool get quietEnabled => _quietEnabled;
   int get quietStartMin => _quietStartMin;
   int get quietEndMin => _quietEndMin;
@@ -64,6 +67,7 @@ class ProfileStore extends ChangeNotifier {
     _notifReminders = p.getBool(_kNotifReminders) ?? true;
     _notifEmail = p.getBool(_kNotifEmail) ?? false;
     _notifWhatsapp = p.getBool(_kNotifWhatsapp) ?? true;
+    _callReminder = p.getBool(_kCallReminder) ?? false;
     _quietEnabled = p.getBool(_kQuietEnabled) ?? false;
     _quietStartMin = p.getInt(_kQuietStart) ?? (22 * 60);
     _quietEndMin = p.getInt(_kQuietEnd) ?? (7 * 60);
@@ -100,6 +104,11 @@ class ProfileStore extends ChangeNotifier {
   Future<void> setNotifWhatsapp(bool v) async {
     _notifWhatsapp = v;
     await _persist((p) => p.setBool(_kNotifWhatsapp, v));
+  }
+
+  Future<void> setCallReminder(bool v) async {
+    _callReminder = v;
+    await _persist((p) => p.setBool(_kCallReminder, v));
   }
 
   Future<void> setQuietEnabled(bool v) async {

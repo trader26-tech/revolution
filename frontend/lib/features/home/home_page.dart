@@ -216,7 +216,7 @@ class _HomePageState extends State<HomePage> {
           // Everything further out — collapsible.
           if (groups.remaining.isNotEmpty)
             TaskSection(
-              title: 'Remaining',
+              title: 'Scheduled',
               tasks: groups.remaining,
               collapsible: true,
               expanded: _laterExpanded,

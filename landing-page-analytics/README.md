@@ -5,7 +5,7 @@ installs directly (an APK is streamed as a download); iOS shows "Coming soon to
 the App Store".
 
 ```
-download-site/
+landing-page-analytics/
 ├── frontend/            # the landing page (static)
 │   ├── index.html
 │   ├── styles.css
@@ -25,7 +25,7 @@ download-site/
 ## Run locally
 
 ```bash
-cd download-site
+cd landing-page-analytics
 npm install          # installs the backend deps too
 npm start            # → http://localhost:3000
 ```
@@ -52,7 +52,7 @@ This runs `flutter build apk --release` and copies the result to
 
 1. Push this repo to GitHub.
 2. In Railway → **New Project → Deploy from GitHub repo**.
-3. Set the **Root Directory** to `download-site`.
+3. Set the **Root Directory** to `landing-page-analytics`.
 4. Railway auto-detects Node (Nixpacks). It runs `npm install` then `npm start`.
 5. It injects `PORT`; the server binds to it automatically.
 6. Health check: `/health` (already configured in `railway.json`).

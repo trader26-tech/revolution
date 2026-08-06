@@ -1,5 +1,5 @@
 {
-  "name": "revolution-download-site-root",
+  "name": "revolution-landing-page-analytics",
   "version": "1.0.0",
   "description": "Deploy root — installs and starts the backend server.",
   "scripts": {

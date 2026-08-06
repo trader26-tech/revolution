@@ -1,5 +1,5 @@
 {
-  "name": "revolution-download-site",
+  "name": "revolution-landing-page-analytics",
   "version": "1.0.0",
   "description": "Landing page + app download server for Revolution",
   "main": "server.js",

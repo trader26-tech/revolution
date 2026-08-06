@@ -55,9 +55,9 @@ class _IntroScreenState extends State<IntroScreen>
       child: Column(
         children: [
           const Spacer(flex: 3),
-          SizedBox(height: 300, child: _Cluster(anim: _c, items: _brands)),
+          SizedBox(height: 268, child: _Cluster(anim: _c, items: _brands)),
           // Small gap so the fanned cards sit right on top of the headline.
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             'Everything you’d\nforget, remembered.',
             textAlign: TextAlign.center,
@@ -112,11 +112,11 @@ class _Cluster extends StatelessWidget {
   // Fixed positions/rotations for a pleasant, deliberate scatter (dx, dy, rot).
   // The 5th entry is the centred hero card.
   static const _slots = <List<double>>[
-    [-80, -44, -0.12],
-    [82, -30, 0.11],
-    [-58, 48, 0.09],
-    [70, 56, -0.09],
-    [0, 4, 0.0], // centre, on top
+    [-78, -40, -0.13],
+    [80, -26, 0.12],
+    [-54, 60, 0.10],
+    [66, 70, -0.10],
+    [0, 8, 0.0], // centre, on top
   ];
 
   @override
@@ -125,11 +125,10 @@ class _Cluster extends StatelessWidget {
       animation: anim,
       builder: (context, _) => Center(
         child: SizedBox(
-          width: 320,
-          height: 290,
+          width: 280,
+          height: 240,
           child: Stack(
             alignment: Alignment.center,
-            clipBehavior: Clip.none,
             children: [
               for (var i = 0; i < items.length; i++)
                 _card(i, items[i], _slots[i], center: i == items.length - 1),
@@ -160,9 +159,9 @@ class _Cluster extends StatelessWidget {
   }
 }
 
-/// A tall bill card: category header, payee name, a big centred logo filling
-/// the middle, then the amount at the bottom. The height is the point — the
-/// fanned stack becomes big and clearly overlaps the headline.
+/// A bill card: a BOLD category header on top ("LOAN EMI"), then just the logo
+/// and the amount due — no brand name (the logo already says who). Big enough
+/// that the fanned cards overlap each other and the headline below.
 class _LogoCard extends StatelessWidget {
   const _LogoCard({required this.item, required this.center});
   final _Item item;
@@ -173,74 +172,62 @@ class _LogoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: center ? 178 : 168,
-      height: center ? 200 : 188,
-      padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+      width: center ? 184 : 170,
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: center ? 0.16 : 0.10),
-            blurRadius: center ? 32 : 24,
-            offset: Offset(0, center ? 15 : 11),
+            blurRadius: center ? 30 : 24,
+            offset: Offset(0, center ? 14 : 11),
           ),
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Category header.
+          // Bold category header.
           Text(
-            item.category,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 2),
-          // Payee name.
-          Text(
-            item.brand.name,
+            item.category.toUpperCase(),
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 11.5,
-              fontWeight: FontWeight.w500,
-              color: AppColors.inkFaint,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+              color: AppColors.inkSoft,
             ),
           ),
-          // Big centred logo fills the middle — the source of the height.
-          Expanded(
-            child: Center(
-              child: Container(
-                width: 52,
-                height: 52,
+          const SizedBox(height: 12),
+          // Logo + amount — no brand name.
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(11),
                   border: Border.all(color: AppColors.cardBorder),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Center(
-                  child: BrandLogo(brand: item.brand, size: 38, radius: 10),
+                  child: BrandLogo(brand: item.brand, size: 30, radius: 8),
                 ),
               ),
-            ),
-          ),
-          // Amount due, bottom-right.
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '−₹${_inr(item.amount)}',
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: _due,
+              const Spacer(),
+              Text(
+                '−₹${_inr(item.amount)}',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: _due,
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),

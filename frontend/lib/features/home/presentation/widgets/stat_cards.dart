@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../tasks/domain/task_filter.dart';
 import '../../domain/home_groups.dart';
 
-/// The four coloured stat cards at the top of Home — Scheduled, Unscheduled,
-/// Active, Completed. Each shows a live count; tapping one filters the list
-/// below (tap the selected one again to clear back to All).
+/// The four stat cards at the top of Home — Scheduled (blue), Unscheduled (red),
+/// Active, Completed. Sleek white cards with a colored accent strip, an icon
+/// chip, and a big number. Tapping one filters the list below; tapping the
+/// selected one again clears back to All.
 class StatCards extends StatelessWidget {
   const StatCards({
     super.key,
@@ -15,16 +17,14 @@ class StatCards extends StatelessWidget {
   });
 
   final HomeStats stats;
-
-  /// The currently applied filter (TaskFilter.all → none selected).
-  final TaskFilter active;
+  final TaskFilter active; // TaskFilter.all → none selected
   final ValueChanged<TaskFilter> onTap;
 
   static const _cards = <(TaskFilter, String, IconData, Color)>[
-    (TaskFilter.scheduled, 'Scheduled', Icons.event_available_rounded, Color(0xFFEB5757)),
-    (TaskFilter.unscheduled, 'Unscheduled', Icons.inbox_rounded, Color(0xFF2F80ED)),
-    (TaskFilter.active, 'Active', Icons.bolt_rounded, Color(0xFF27AE60)),
-    (TaskFilter.completed, 'Completed', Icons.check_circle_rounded, Color(0xFF9B51E0)),
+    (TaskFilter.scheduled, 'Scheduled', Icons.event_available_rounded, Color(0xFF2F6BFF)),
+    (TaskFilter.unscheduled, 'Unscheduled', Icons.inbox_rounded, Color(0xFFF0392B)),
+    (TaskFilter.active, 'Active', Icons.bolt_rounded, Color(0xFF00A870)),
+    (TaskFilter.completed, 'Completed', Icons.check_circle_rounded, Color(0xFF8A56E2)),
   ];
 
   @override
@@ -35,7 +35,7 @@ class StatCards extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 2.2,
+      childAspectRatio: 2.35,
       children: [
         for (final (filter, label, icon, color) in _cards)
           _StatCard(
@@ -74,61 +74,81 @@ class _StatCard extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [color, Color.lerp(color, Colors.black, 0.14)!],
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? color : AppColors.cardBorder,
+            width: selected ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(18),
-          border: selected
-              ? Border.all(color: Colors.white, width: 2.5)
-              : null,
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: selected ? 0.45 : 0.28),
-              blurRadius: selected ? 18 : 10,
+              color: selected
+                  ? color.withValues(alpha: 0.22)
+                  : Colors.black.withValues(alpha: 0.04),
+              blurRadius: selected ? 18 : 12,
               offset: const Offset(0, 6),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(8),
+        // ClipRRect so the accent strip follows the rounded corners.
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(19),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Colored accent strip along the top.
+              Container(height: 4, color: color),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: Row(
+                    children: [
+                      // Icon chip in the card's color.
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Icon(icon, color: color, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '$count',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.ink,
+                                height: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.inkSoft,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  child: Icon(icon, color: Colors.white, size: 16),
                 ),
-                Text(
-                  '$count',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    height: 1,
-                  ),
-                ),
-              ],
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

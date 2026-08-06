@@ -10,28 +10,41 @@ import 'widgets/wheel_pickers.dart';
 /// The details sheet — set/update a task's reminder, date, time, and repeat.
 /// Modeled on the reference: a Reminder toggle, an "on `date` at `time`" block,
 /// and a Repeat control. Returns the edited [Task], or null if dismissed.
-Future<Task?> showTaskDetailsSheet(BuildContext context, Task task) {
+///
+/// When [requireDate] is true (used right after quick-adding a task), a date is
+/// MANDATORY: the Reminder toggle is hidden/forced on, and dismissing without
+/// setting one asks for confirmation — so tasks rarely stay unscheduled.
+Future<Task?> showTaskDetailsSheet(
+  BuildContext context,
+  Task task, {
+  bool requireDate = false,
+}) {
   return showModalBottomSheet<Task>(
     context: context,
     isScrollControlled: true,
+    // Make it harder to dismiss when a date is required.
+    isDismissible: !requireDate,
+    enableDrag: !requireDate,
     backgroundColor: AppColors.card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (_) => _TaskDetailsSheet(task: task),
+    builder: (_) => _TaskDetailsSheet(task: task, requireDate: requireDate),
   );
 }
 
 class _TaskDetailsSheet extends StatefulWidget {
-  const _TaskDetailsSheet({required this.task});
+  const _TaskDetailsSheet({required this.task, this.requireDate = false});
   final Task task;
+  final bool requireDate;
 
   @override
   State<_TaskDetailsSheet> createState() => _TaskDetailsSheetState();
 }
 
 class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
-  late bool _reminderOn = widget.task.reminderOn;
+  // When a date is required, the reminder is always on.
+  late bool _reminderOn = widget.requireDate ? true : widget.task.reminderOn;
   late DateTime _due =
       widget.task.dueAt ?? _defaultDue();
   late RepeatCadence _repeat = widget.task.repeat;
@@ -104,49 +117,72 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Title + a check to confirm.
-            Row(
-              children: [
-                Expanded(
+    return PopScope(
+      // When a date is required, intercept back/dismiss and confirm first.
+      canPop: !widget.requireDate,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop || !widget.requireDate) return;
+        final navigator = Navigator.of(context);
+        final leave = await _confirmLeaveWithoutDate();
+        if (leave == true) navigator.pop();
+      },
+      child: Padding(
+        padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Title + a check to confirm.
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.task.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _save,
+                    icon:
+                        const Icon(Icons.check_rounded, color: AppColors.accent),
+                    tooltip: 'Done',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Reminder toggle — hidden when a date is required (always on).
+              if (!widget.requireDate)
+                _Row(
+                  label: 'Reminder',
+                  trailing: Switch(
+                    value: _reminderOn,
+                    activeThumbColor: Colors.white,
+                    activeTrackColor: AppColors.accent,
+                    onChanged: (v) => setState(() => _reminderOn = v),
+                  ),
+                )
+              else
+                const Padding(
+                  padding: EdgeInsets.only(top: 2, bottom: 4),
                   child: Text(
-                    widget.task.title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
+                    'When is this due?',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkSoft,
                     ),
                   ),
                 ),
-                IconButton(
-                  onPressed: _save,
-                  icon: const Icon(Icons.check_rounded, color: AppColors.accent),
-                  tooltip: 'Done',
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
 
-            // Reminder on/off.
-            _Row(
-              label: 'Reminder',
-              trailing: Switch(
-                value: _reminderOn,
-                activeThumbColor: Colors.white,
-                activeTrackColor: AppColors.accent,
-                onChanged: (v) => setState(() => _reminderOn = v),
-              ),
-            ),
-
-            // Everything below only matters when the reminder is on.
-            AnimatedCrossFade(
+              // Everything below only matters when the reminder is on.
+              AnimatedCrossFade(
               duration: const Duration(milliseconds: 200),
               crossFadeState: _reminderOn
                   ? CrossFadeState.showFirst
@@ -199,10 +235,37 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: _save, child: const Text('Save')),
-          ],
+              const SizedBox(height: 12),
+              FilledButton(onPressed: _save, child: const Text('Save')),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  /// Confirm dialog shown when the user tries to leave the required-date sheet
+  /// without setting a date — deliberate friction so it rarely happens.
+  Future<bool?> _confirmLeaveWithoutDate() {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Text('Leave without a date?'),
+        content: const Text(
+          'This task will sit in “Unscheduled” until you set a date.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Set a date'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Leave',
+                style: TextStyle(color: AppColors.inkSoft)),
+          ),
+        ],
       ),
     );
   }

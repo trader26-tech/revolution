@@ -32,7 +32,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   bool _adding = false;
   TaskFilter _filter = TaskFilter.all; // scoped by the stat cards
-  bool _laterExpanded = false; // the "Scheduled" (later) section, collapsed
+  bool _laterExpanded = true; // "Scheduled" (later) section, open by default
   final _addController = TextEditingController();
   final _addFocus = FocusNode();
 
@@ -69,20 +69,36 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _addFocus.requestFocus());
   }
 
-  /// Add the current text and keep the field open for the next task (the ✓).
+  /// Add the current text, then immediately prompt to set its date (required),
+  /// so tasks don't linger unscheduled. The quick-add field closes so the date
+  /// sheet has focus.
   Future<void> _confirmAdd() async {
     final text = _addController.text.trim();
     if (text.isEmpty) return;
     _addController.clear();
-    _addFocus.requestFocus(); // keep going
+    _addFocus.unfocus();
+    setState(() => _adding = false);
+
+    final Task created;
     try {
-      await widget.store.add(text);
+      created = await widget.store.add(text);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Couldn't add task: $e")),
         );
       }
+      return;
+    }
+    if (!mounted) return;
+
+    // Force scheduling right away using the existing date/time/repeat sheet.
+    final scheduled =
+        await showTaskDetailsSheet(context, created, requireDate: true);
+    if (scheduled != null) {
+      try {
+        await widget.store.update(scheduled);
+      } catch (_) {}
     }
   }
 
@@ -153,7 +169,7 @@ class _HomePageState extends State<HomePage> {
                 onSettings: _openSettings,
                 onIntro: _replayFullFlow,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Expanded(
                 child: AnimatedBuilder(
                   animation: widget.store,
@@ -203,11 +219,11 @@ class _HomePageState extends State<HomePage> {
     final groups = groupForHome(allTasks, filter: _filter);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 140),
       children: [
         // Stat cards — the filters, as tappable cards.
         StatCards(stats: stats, active: _filter, onTap: _tapCard),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
 
         // Quick-add row sits at the very top of the groups while adding.
         if (_adding)

@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/api/api_client.dart';
+import '../../auth/data/auth_store.dart';
+
 /// Holds the user's personal preferences shown on the Settings page.
 ///
 /// The phone number is the account identity and lives in [AuthStore]; this store
@@ -37,7 +40,7 @@ class ProfileStore extends ChangeNotifier {
   bool _notifReminders = true;
   bool _notifEmail = false;
   bool _notifWhatsapp = true;
-  bool _callReminder = false; // opt-in: a phone call one week before
+  bool _callReminder = true; // ON by default: a weekly WhatsApp call reminder
   bool _quietEnabled = false;
   int _quietStartMin = 22 * 60; // 10:00 PM
   int _quietEndMin = 7 * 60; //  7:00 AM
@@ -67,7 +70,7 @@ class ProfileStore extends ChangeNotifier {
     _notifReminders = p.getBool(_kNotifReminders) ?? true;
     _notifEmail = p.getBool(_kNotifEmail) ?? false;
     _notifWhatsapp = p.getBool(_kNotifWhatsapp) ?? true;
-    _callReminder = p.getBool(_kCallReminder) ?? false;
+    _callReminder = p.getBool(_kCallReminder) ?? true;
     _quietEnabled = p.getBool(_kQuietEnabled) ?? false;
     _quietStartMin = p.getInt(_kQuietStart) ?? (22 * 60);
     _quietEndMin = p.getInt(_kQuietEnd) ?? (7 * 60);
@@ -109,6 +112,22 @@ class ProfileStore extends ChangeNotifier {
   Future<void> setCallReminder(bool v) async {
     _callReminder = v;
     await _persist((p) => p.setBool(_kCallReminder, v));
+    // Sync to the server so the weekly digest knows who to call.
+    await syncCallReminderToServer();
+  }
+
+  /// Push the user's phone + call-reminder choice to the server (best-effort),
+  /// so the operator's weekly digest can list who to WhatsApp-call. Call this on
+  /// login and whenever the toggle changes.
+  Future<void> syncCallReminderToServer() async {
+    try {
+      await ApiClient.instance.put('/prefs', {
+        'phone': AuthStore.instance.phone,
+        'call_reminder': _callReminder,
+      });
+    } catch (_) {
+      // Non-fatal — retried next time it changes.
+    }
   }
 
   Future<void> setQuietEnabled(bool v) async {

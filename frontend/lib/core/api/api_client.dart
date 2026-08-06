@@ -69,6 +69,12 @@ class ApiClient {
     return _decode(res);
   }
 
+  Future<dynamic> put(String path, Object body) async {
+    final res = await _http.put(_uri(path),
+        headers: _headers, body: jsonEncode(body));
+    return _decode(res);
+  }
+
   Future<void> delete(String path) async {
     final res = await _http.delete(_uri(path), headers: _headers);
     if (res.statusCode >= 300 && res.statusCode != 404) {

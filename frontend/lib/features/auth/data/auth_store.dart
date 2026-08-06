@@ -41,6 +41,11 @@ class AuthStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_phoneKey, phoneE164);
     notifyListeners();
+    // Register the user's phone + default "call me to remind" (on) on the
+    // server, so the weekly digest can reach them. Best-effort.
+    try {
+      await _api.put('/prefs', {'phone': phoneE164, 'call_reminder': true});
+    } catch (_) {}
   }
 
   /// Sign out — forget the number (data stays on the server under that number).

@@ -357,3 +357,27 @@ drop policy if exists brand_logos_public_read on public.brand_logos;
 create policy brand_logos_public_read
     on public.brand_logos for select
     using (true);
+
+
+-- ---------------------------------------------------------------------------
+-- User preferences (per owner) — powers the weekly "call me to remind" digest
+--
+-- The app upserts one row per user with their phone number and whether they
+-- want the weekly WhatsApp call reminder. The admin digest joins this with
+-- tasks so the operator knows WHO to call and WHAT is coming up next week.
+-- ---------------------------------------------------------------------------
+create table if not exists public.user_prefs (
+    owner_id       text primary key,          -- the X-Owner-Id (per install/user)
+    phone          text,                      -- E.164, for the WhatsApp call
+    call_reminder  boolean not null default true,
+
+    created_at     timestamptz not null default now(),
+    updated_at     timestamptz not null default now()
+);
+
+drop trigger if exists user_prefs_set_updated_at on public.user_prefs;
+create trigger user_prefs_set_updated_at
+    before update on public.user_prefs
+    for each row execute function public.set_updated_at();
+
+alter table public.user_prefs enable row level security;

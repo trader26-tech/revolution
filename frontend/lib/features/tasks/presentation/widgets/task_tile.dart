@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../brand/data/brand_catalog.dart';
+import '../../../brand/domain/brand.dart';
+import '../../../brand/presentation/brand_logo.dart';
 import '../../../details/domain/currency.dart';
 import '../../domain/task.dart';
 import 'animated_check_circle.dart';
 
 /// A single task in the home list.
 ///
-/// Layout: the title + due-date subtitle on the left, and a **checkbox on the
-/// right** that toggles done. No leading icon. Interaction:
+/// Layout, left → right: the **brand logo**, the title + due-date subtitle, the
+/// debited **amount**, then the **checkbox** that toggles done. Interaction:
 ///  * Tap the **row body** → open the details page to update it.
 ///  * **Long-press** the row → it expands downward to reveal a subtle Delete
 ///    action. Tap the row (or long-press again) to collapse. Fully reversible.
@@ -63,13 +66,9 @@ class _TaskTileState extends State<TaskTile> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  // Checkbox on the LEFT — toggles done.
-                  AnimatedCheckCircle(
-                    checked: task.done,
-                    onTap: widget.onToggle,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 14),
+                  // Brand logo on the LEFT — falls back to a letter avatar.
+                  BrandLogo(brand: _brandOf(task), size: 40, radius: 11),
+                  const SizedBox(width: 12),
                   // Title + date in the middle.
                   Expanded(
                     child: Column(
@@ -96,11 +95,18 @@ class _TaskTileState extends State<TaskTile> {
                       ],
                     ),
                   ),
-                  // Amount on the RIGHT — money going out, shown as −₹1,000.
+                  // Amount — money going out, shown as −₹1,000.
                   if (task.hasAmount) ...[
                     const SizedBox(width: 12),
                     _AmountLabel(amount: task.amount!, currencyCode: task.currency),
                   ],
+                  // Checkbox on the RIGHT, after the amount — toggles done.
+                  const SizedBox(width: 12),
+                  AnimatedCheckCircle(
+                    checked: task.done,
+                    onTap: widget.onToggle,
+                    size: 24,
+                  ),
                 ],
               ),
             ),
@@ -158,6 +164,16 @@ class _TaskTileState extends State<TaskTile> {
   static const _weekdays = [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
   ];
+
+  /// Build a Brand for the task's logo. If the task has a saved domain, use it
+  /// directly; otherwise re-resolve the name (which also checks curated/custom
+  /// logos), so bucket logos and aliases show correctly.
+  Brand _brandOf(Task t) {
+    final name = (t.iconName?.isNotEmpty ?? false) ? t.iconName! : t.title;
+    final domain = t.iconDomain ?? '';
+    if (domain.isNotEmpty) return Brand(name: name, domain: domain);
+    return BrandCatalog.resolve(name);
+  }
 }
 
 /// The amount on the right of a task — money going OUT, shown as a red "−₹1,000"

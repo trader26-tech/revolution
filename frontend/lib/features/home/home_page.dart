@@ -84,7 +84,12 @@ class _HomePageState extends State<HomePage> {
 
   /// Tap a task → the full "Update details" screen (same page, update mode).
   Future<void> _editTask(Task task) async {
-    final updated = await openTaskDetails(context, existing: task);
+    final updated = await openTaskDetails(
+      context,
+      existing: task,
+      // Delete button at the bottom of the editor → remove with Undo.
+      onDelete: () => _deleteTask(task),
+    );
     if (updated == null) return;
     try {
       await widget.store.update(updated);

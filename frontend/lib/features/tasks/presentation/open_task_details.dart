@@ -14,6 +14,7 @@ import '../domain/task.dart';
 Future<Task?> openTaskDetails(
   BuildContext context, {
   Task? existing,
+  VoidCallback? onDelete,
 }) async {
   final isUpdate = existing != null;
 
@@ -23,6 +24,8 @@ Future<Task?> openTaskDetails(
       builder: (_) => ItemDetailsPage(
         title: isUpdate ? 'Update details' : 'Add details',
         initial: _toItemDetails(existing),
+        // Delete is only meaningful when editing an existing item.
+        onDelete: isUpdate ? onDelete : null,
       ),
     ),
   );

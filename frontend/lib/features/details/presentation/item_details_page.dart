@@ -17,10 +17,15 @@ class ItemDetailsPage extends StatefulWidget {
     super.key,
     required this.title,
     this.initial,
+    this.onDelete,
   });
 
   final String title;
   final ItemDetails? initial;
+
+  /// When editing an existing item, a callback that removes it. Null when
+  /// creating a new item (nothing to delete yet) → the Delete button is hidden.
+  final VoidCallback? onDelete;
 
   @override
   State<ItemDetailsPage> createState() => _ItemDetailsPageState();
@@ -78,6 +83,47 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       ..amount = double.tryParse(unformatAmount(_amount.text))
       ..notes = _notes.text.trim();
     Navigator.of(context).pop(_d);
+  }
+
+  /// Confirm, then delete this item. Pops the details page first, then runs the
+  /// caller's [onDelete] (which removes it and shows an Undo snackbar).
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text('Delete this item?',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        content: Text(
+          _name.text.trim().isEmpty
+              ? 'This will remove it. You can undo right after.'
+              : '"${_name.text.trim()}" will be removed. You can undo right after.',
+          style: const TextStyle(color: AppColors.inkSoft),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.inkSoft)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    // Close the details page (returning null → no save), then delete.
+    Navigator.of(context).pop();
+    widget.onDelete!.call();
   }
 
   /// Pick the currency (₹ / $ / KD). Re-groups the amount for the new system.
@@ -204,6 +250,12 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                     hint: 'Add a note…',
                     maxLines: 4,
                   ),
+                  // Delete — only when editing an existing item. Sits at the
+                  // very bottom, away from Save, so it's never hit by accident.
+                  if (widget.onDelete != null) ...[
+                    const SizedBox(height: 32),
+                    _DeleteButton(onTap: _confirmDelete),
+                  ],
                 ],
               ),
             ),
@@ -886,3 +938,44 @@ const _cardDecoration = BoxDecoration(
   borderRadius: BorderRadius.all(Radius.circular(20)),
   border: Border.fromBorderSide(BorderSide(color: AppColors.cardBorder)),
 );
+
+/// A full-width, quiet-but-clear Delete button at the bottom of the editor.
+/// Red text on a soft red tint — unmistakable, without shouting.
+class _DeleteButton extends StatelessWidget {
+  const _DeleteButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  static const _red = Color(0xFFDC2626);
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _red.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 54,
+          alignment: Alignment.center,
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.delete_outline_rounded, size: 20, color: _red),
+              SizedBox(width: 8),
+              Text(
+                'Delete item',
+                style: TextStyle(
+                  color: _red,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

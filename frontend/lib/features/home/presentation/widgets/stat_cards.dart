@@ -29,24 +29,39 @@ class StatCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.62,
+    // Fixed, comfortable card height — never depends on a fragile aspect ratio,
+    // so the content always fits regardless of screen width.
+    const rowGap = 12.0;
+    return Column(
       children: [
-        for (final (filter, label, icon, color) in _cards)
-          _StatCard(
-            label: label,
-            icon: icon,
-            color: color,
-            count: stats.countFor(filter),
-            selected: active == filter,
-            onTap: () => onTap(filter),
-          ),
+        Row(
+          children: [
+            Expanded(child: _card(_cards[0])),
+            const SizedBox(width: rowGap),
+            Expanded(child: _card(_cards[1])),
+          ],
+        ),
+        const SizedBox(height: rowGap),
+        Row(
+          children: [
+            Expanded(child: _card(_cards[2])),
+            const SizedBox(width: rowGap),
+            Expanded(child: _card(_cards[3])),
+          ],
+        ),
       ],
+    );
+  }
+
+  Widget _card((TaskFilter, String, IconData, Color) c) {
+    final (filter, label, icon, color) = c;
+    return _StatCard(
+      label: label,
+      icon: icon,
+      color: color,
+      count: stats.countFor(filter),
+      selected: active == filter,
+      onTap: () => onTap(filter),
     );
   }
 }
@@ -78,7 +93,8 @@ class _StatCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.all(16),
+        height: 116,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: tint,
           borderRadius: BorderRadius.circular(22),
@@ -96,15 +112,14 @@ class _StatCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // Solid icon badge.
             Container(
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: color,
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
                     color: color.withValues(alpha: 0.35),
@@ -113,34 +128,29 @@ class _StatCard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(icon, color: Colors.white, size: 21),
+              child: Icon(icon, color: Colors.white, size: 20),
             ),
-            // Number + label.
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$count',
-                  style: const TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
-                    height: 1,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkSoft,
-                  ),
-                ),
-              ],
+            const Spacer(),
+            Text(
+              '$count',
+              maxLines: 1,
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
+                height: 1.05,
+                letterSpacing: -0.5,
+              ),
+            ),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkSoft,
+              ),
             ),
           ],
         ),

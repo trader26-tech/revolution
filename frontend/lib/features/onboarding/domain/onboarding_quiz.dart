@@ -35,7 +35,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Bills',
     sub: 'Electricity, mobile, internet',
     color: Color(0xFFF59E0B),
-    benefit: 'No late fees or service cut-offs.',
+    benefit: 'Your power, phone and wifi never get cut.',
   ),
   QuizOption(
     key: 'insurance',
@@ -43,7 +43,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Insurance',
     sub: 'Life, health, vehicle',
     color: Color(0xFF10B981),
-    benefit: 'Cover never lapses when you need it most.',
+    benefit: 'You stay covered the moment life goes wrong.',
   ),
   QuizOption(
     key: 'loans',
@@ -51,7 +51,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Loans & EMIs',
     sub: 'Home, car, credit card',
     color: Color(0xFF3B82F6),
-    benefit: 'No penalty interest or credit-score hits.',
+    benefit: 'Your credit score stays spotless — zero penalties.',
   ),
   QuizOption(
     key: 'renewals',
@@ -59,7 +59,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Renewals',
     sub: 'Licence, passport, RC',
     color: Color(0xFF6366F1),
-    benefit: 'No fines or last-minute scrambles.',
+    benefit: 'Never stopped, fined, or stuck without valid ID.',
   ),
   QuizOption(
     key: 'subscriptions',
@@ -67,7 +67,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Subscriptions',
     sub: 'Netflix, Spotify, Prime',
     color: Color(0xFF8B5CF6),
-    benefit: 'Cancel before a silent renewal charges you.',
+    benefit: 'You stop paying for things you forgot you had.',
   ),
   QuizOption(
     key: 'birthdays',
@@ -75,6 +75,6 @@ const List<QuizOption> kQuizOptions = [
     label: 'Birthdays',
     sub: 'Family & friends',
     color: Color(0xFFEC4899),
-    benefit: 'Never an awkward “happy belated” again.',
+    benefit: 'You’re the one who always remembers.',
   ),
 ];

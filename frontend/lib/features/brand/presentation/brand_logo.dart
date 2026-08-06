@@ -109,11 +109,11 @@ class _LetterAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.12),
+        color: AppColors.accent.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
-          color: AppColors.accent.withValues(alpha: 0.22),
-          width: 1,
+          color: AppColors.accent.withValues(alpha: 0.55),
+          width: 1.5,
         ),
       ),
       alignment: Alignment.center,
@@ -122,7 +122,7 @@ class _LetterAvatar extends StatelessWidget {
         style: TextStyle(
           color: AppColors.accentDeep,
           fontWeight: FontWeight.w800,
-          fontSize: size * 0.46,
+          fontSize: size * 0.48,
           height: 1.0,
           letterSpacing: -0.3,
         ),

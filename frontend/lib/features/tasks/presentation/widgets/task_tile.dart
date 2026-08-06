@@ -168,39 +168,38 @@ class _TaskTileState extends State<TaskTile> {
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
   ];
 
-  /// Build a Brand for the task's logo. If the task has a saved domain, use it
-  /// directly; otherwise re-resolve the name (which also checks curated/custom
-  /// logos), so bucket logos and aliases show correctly.
+  /// Build a Brand for the task's logo. If the task has a saved domain (the user
+  /// picked an icon), use it directly. Otherwise resolve ONLY known brands — a
+  /// plain typed name ("test") gets an empty domain, so it shows the clean blue
+  /// letter tile instead of fetching a blank grey favicon for a guessed domain.
   Brand _brandOf(Task t) {
     final name = (t.iconName?.isNotEmpty ?? false) ? t.iconName! : t.title;
     final domain = t.iconDomain ?? '';
     if (domain.isNotEmpty) return Brand(name: name, domain: domain);
-    return BrandCatalog.resolve(name);
+    return BrandCatalog.resolveKnown(name);
   }
 }
 
-/// The amount on the right of a task, with an explicit SIGN so the money
-/// direction is unmistakable:
-///   • money going OUT (the usual case) → red  "−₹1,000"
-///   • money coming IN / an increment    → green "+₹1,000"
-/// The sign follows the amount: a negative amount is income (+), a positive
-/// amount is an outgoing payment (−). Most tasks are outgoing.
+/// The amount on the right of a task. Plain, neutral tones (NO red/green) so it
+/// reads as calm information, not an alert:
+///   • the number itself → dark ash (strong, readable)
+///   • the sign + currency symbol → light ash (quiet)
+/// The sign still shows the direction: outgoing payment "−₹1,000", income /
+/// increment "+₹1,000" (a negative stored amount = income).
 class _AmountLabel extends StatelessWidget {
   const _AmountLabel({required this.amount, required this.currencyCode});
 
   final double amount;
   final String currencyCode;
 
-  static const _out = Color(0xFFDC2626); // red  = money leaving
-  static const _in = Color(0xFF059669); // green = money arriving
+  static const _darkAsh = Color(0xFF3A3F45); // the number — strong, readable
+  static const _lightAsh = Color(0xFF9AA1AC); // sign + symbol — quiet
 
   @override
   Widget build(BuildContext context) {
     final c = currencyOf(currencyCode);
-    // A negative stored amount = income (+); otherwise it's an outgoing payment (−).
-    final isIncome = amount < 0;
-    final sign = isIncome ? '+' : '−';
-    final color = isIncome ? _in : _out;
+    // A negative stored amount = income (+); otherwise it's an outgoing (−).
+    final sign = amount < 0 ? '+' : '−';
 
     final grouped = groupDigits(
       amount.truncate().abs().toString(),
@@ -211,15 +210,23 @@ class _AmountLabel extends StatelessWidget {
     final decimals = frac == 0
         ? ''
         : '.${(frac * 100).round().toString().padLeft(2, '0')}';
-    return Text(
-      '$sign${c.symbol}$grouped$decimals',
-      maxLines: 1,
-      style: TextStyle(
-        fontSize: 15.5,
-        fontWeight: FontWeight.w800,
-        color: color,
-        letterSpacing: -0.2,
+    return Text.rich(
+      TextSpan(
+        children: [
+          // Sign + currency symbol in a lighter ash.
+          TextSpan(
+            text: '$sign${c.symbol}',
+            style: const TextStyle(color: _lightAsh, fontWeight: FontWeight.w700),
+          ),
+          // The number itself in dark ash.
+          TextSpan(
+            text: '$grouped$decimals',
+            style: const TextStyle(color: _darkAsh, fontWeight: FontWeight.w800),
+          ),
+        ],
       ),
+      maxLines: 1,
+      style: const TextStyle(fontSize: 15.5, letterSpacing: -0.2),
     );
   }
 }

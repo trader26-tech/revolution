@@ -271,6 +271,40 @@ class BrandCatalog {
     return Brand(name: q, domain: '$slug.com');
   }
 
+  /// Like [resolve], but ONLY returns a logo domain for a brand we actually
+  /// KNOW (curated/custom/alias/catalog, or an explicit domain). For a plain
+  /// free-typed name ("test", "hshhsh") it returns an empty domain → the widget
+  /// shows the clean letter tile instead of fetching a blank grey favicon for a
+  /// guessed domain that doesn't exist.
+  ///
+  /// Used on the task list so unknown names get the nice blue letter tile, not
+  /// an ugly grey placeholder.
+  static Brand resolveKnown(String query) {
+    final q = query.trim();
+    final lower = q.toLowerCase();
+    if (q.isEmpty) return Brand(name: q, domain: '');
+
+    final custom = CustomLogoStore.instance.match(q);
+    if (custom != null) return custom.toBrand();
+
+    for (final b in popular) {
+      if (b.name.toLowerCase() == lower) return b;
+    }
+    for (final cat in categories) {
+      for (final b in cat.brands) {
+        if (b.name.toLowerCase() == lower) return b;
+      }
+    }
+    if (_aliases.containsKey(lower)) {
+      return Brand(name: q, domain: _aliases[lower]!);
+    }
+    if (_looksLikeDomain(lower)) {
+      return Brand(name: q, domain: lower);
+    }
+    // Unknown free-typed name → no logo fetch, just the letter tile.
+    return Brand(name: q, domain: '');
+  }
+
   /// Popular brands whose name contains [query] (for the live suggestion list).
   ///
   /// The free-typed guess goes first (so ANY name works), then matching popular

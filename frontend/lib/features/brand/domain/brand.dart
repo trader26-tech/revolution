@@ -2,28 +2,34 @@
 /// a real PNG for a domain (formats Flutter can decode — we avoid .ico / .svg
 /// sources, which won't render).
 ///
-/// ORDER MATTERS: we try the HIGH-RESOLUTION sources first (icon.horse and
-/// allesedv both serve 200-256px logos), so the crispest image that loads wins.
-/// Google's favicon service comes last as the always-reliable fallback — it's
-/// low-res (often 16-48px) but resolves essentially any domain, so a logo is
-/// almost always shown even when the sharp sources miss.
-// Google's favicon service FIRST — it's the most reliable (Google CDN, resolves
-// nearly any domain), so a logo almost always shows. icon.horse & allesedv add
-// crisper options when they respond, but they're small free services that can
-// be slow, so they're not first. The first URL that loads is shown.
-enum LogoSource { googleLarge, iconHorse, googleSmall }
+/// ORDER MATTERS — the first URL that loads is shown:
+///  1. [googleFavicon] — Google's CURRENT favicon endpoint
+///     (`t2.gstatic.com/faviconV2`). It returns a real `image/png` DIRECTLY (no
+///     redirect) at up to 256px and resolves essentially any domain, so it's
+///     both the most reliable AND crisp — hence first.
+///  2. [iconHorse] — a sharp 200-256px source when it responds; a small free
+///     service that can be slow, so it's the backup.
+///  3. [googleSmall] — the legacy `google.com/s2/favicons` form as a last
+///     resort (it 301-redirects, but Flutter follows redirects to a PNG).
+///
+/// NOTE: the old primary (`www.google.com/s2/favicons?...&sz=256`) now
+/// 301-redirects to an HTML page for many domains, which Flutter can't decode —
+/// that's why logos stopped loading. faviconV2 fixes it.
+enum LogoSource { googleFavicon, iconHorse, googleSmall }
 
 extension LogoSourceInfo on LogoSource {
   /// The image URL for [domain] from this source (empty domain → '').
   String urlFor(String domain) {
     if (domain.isEmpty) return '';
     switch (this) {
-      case LogoSource.googleLarge:
-        return 'https://www.google.com/s2/favicons?domain=$domain&sz=256';
+      case LogoSource.googleFavicon:
+        // Google's current favicon service — real PNG, no redirect, up to 256px.
+        return 'https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON'
+            '&fallback_opts=TYPE,SIZE,URL&size=256&url=https://$domain';
       case LogoSource.iconHorse:
         return 'https://icon.horse/icon/$domain';
       case LogoSource.googleSmall:
-        return 'https://www.google.com/s2/favicons?domain=$domain&sz=64';
+        return 'https://www.google.com/s2/favicons?domain=$domain&sz=128';
     }
   }
 }
@@ -53,9 +59,9 @@ class Brand {
   final String? overrideLogoUrl;
 
   /// The logo URL, from [source] if chosen, else the default best source
-  /// (icon.horse, which gives the crispest brand logos).
+  /// (Google's faviconV2 — reliable real PNGs for essentially any domain).
   String get logoUrl =>
-      (source ?? LogoSource.iconHorse).urlFor(domain);
+      (source ?? LogoSource.googleFavicon).urlFor(domain);
 
   /// The same brand pinned to a specific [LogoSource].
   Brand withSource(LogoSource s) =>

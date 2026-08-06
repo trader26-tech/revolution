@@ -176,15 +176,13 @@ class _TaskTileState extends State<TaskTile> {
   }
 }
 
-/// The amount on the right of a task — money going OUT, shown as a red "−₹1,000"
-/// so it's clear how much gets deducted.
+/// The amount on the right of a task — a calm, neutral "₹1,000" (no red, no
+/// minus sign; those read as an error/alert).
 class _AmountLabel extends StatelessWidget {
   const _AmountLabel({required this.amount, required this.currencyCode});
 
   final double amount;
   final String currencyCode;
-
-  static const _out = Color(0xFFDC2626); // red = deduction
 
   @override
   Widget build(BuildContext context) {
@@ -199,12 +197,12 @@ class _AmountLabel extends StatelessWidget {
         ? ''
         : '.${(frac * 100).round().toString().padLeft(2, '0')}';
     return Text(
-      '−${c.symbol}$grouped$decimals',
+      '${c.symbol}$grouped$decimals',
       maxLines: 1,
       style: const TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.w800,
-        color: _out,
+        color: AppColors.ink,
         letterSpacing: -0.2,
       ),
     );

@@ -36,10 +36,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
 
   Currency get _currency => currencyOf(_d.currency);
 
-  /// True once the user has explicitly chosen an icon via the picker. While
-  /// false, the icon auto-follows the typed name; a manual pick locks it.
-  bool _iconManuallyChosen = false;
-
   /// The first payment date is COMPULSORY. When editing an existing item it's
   /// already set; for a new item the user must pick it before saving.
   late bool _dateChosen = widget.initial?.firstPaymentDate != null;
@@ -56,41 +52,7 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       TextEditingController(text: _d.notes);
 
   @override
-  void initState() {
-    super.initState();
-    // If we opened with an existing icon, treat it as already chosen so we
-    // don't overwrite it from the name.
-    _iconManuallyChosen =
-        _d.iconName != null && _d.iconName!.isNotEmpty;
-    _name.addListener(_onNameChanged);
-  }
-
-  /// As the user types the name, auto-suggest a matching icon — unless they've
-  /// manually picked one. Resolves the text to a brand and previews its logo.
-  void _onNameChanged() {
-    if (_iconManuallyChosen) return;
-    final text = _name.text.trim();
-    if (text.isEmpty) {
-      if (_d.iconName != null || _d.iconDomain != null) {
-        setState(() {
-          _d.iconName = null;
-          _d.iconDomain = null;
-        });
-      }
-      return;
-    }
-    final suggested = BrandCatalog.resolve(text);
-    if (suggested.domain != _d.iconDomain || text != _d.iconName) {
-      setState(() {
-        _d.iconName = text;
-        _d.iconDomain = suggested.domain;
-      });
-    }
-  }
-
-  @override
   void dispose() {
-    _name.removeListener(_onNameChanged);
     _name.dispose();
     _amount.dispose();
     _notes.dispose();
@@ -121,26 +83,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
       ..amount = double.tryParse(unformatAmount(_amount.text))
       ..notes = _notes.text.trim();
     Navigator.of(context).pop(_d);
-  }
-
-  /// Tap the big + circle → the brand/app icon picker (Amazon, Netflix, …).
-  /// This is an explicit choice, so it LOCKS the icon (auto-suggest stops
-  /// overriding it). Fills the name too if it was still empty.
-  Future<void> _pickIcon() async {
-    final brand = await showBrandPicker(context);
-    if (brand == null || !mounted) return;
-    setState(() {
-      _iconManuallyChosen = true;
-      _d.iconName = brand.name;
-      _d.iconDomain = brand.domain;
-      if (_name.text.trim().isEmpty) {
-        _name.text = brand.name;
-        _d.name = brand.name;
-      }
-    });
-    // Save the pick to the server so the curated logo set grows from real
-    // usage. Category = the item's category. Best-effort, fire-and-forget.
-    CustomLogoStore.instance.saveUserPick(brand, category: _d.category);
   }
 
   /// Pick the currency (₹ / $ / KD). Re-groups the amount for the new system.
@@ -205,9 +147,6 @@ class _ItemDetailsPageState extends State<ItemDetailsPage> {
                     amount: _amount,
                     currency: _currency,
                     onTapCurrency: _pickCurrency,
-                    iconName: _d.iconName,
-                    iconDomain: _d.iconDomain,
-                    onTapIcon: _pickIcon,
                   ),
                   const SizedBox(height: 20),
                   _Group(children: [
@@ -568,20 +507,12 @@ class _NameAmountCard extends StatelessWidget {
     required this.amount,
     required this.currency,
     required this.onTapCurrency,
-    required this.onTapIcon,
-    this.iconName,
-    this.iconDomain,
   });
 
   final TextEditingController name;
   final TextEditingController amount;
   final Currency currency;
   final VoidCallback onTapCurrency;
-  final VoidCallback onTapIcon;
-  final String? iconName;
-  final String? iconDomain;
-
-  bool get _hasIcon => iconName != null && iconName!.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -590,59 +521,7 @@ class _NameAmountCard extends StatelessWidget {
       decoration: _cardDecoration,
       child: Row(
         children: [
-          // The big + circle → auto-suggests a logo from the typed name; tap to
-          // pick/change it. A tiny hint underneath tells the user it's tappable.
-          GestureDetector(
-            onTap: onTapIcon,
-            behavior: HitTestBehavior.opaque,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    _hasIcon
-                        ? BrandLogo(
-                            brand: Brand(
-                              name: iconName!,
-                              domain: iconDomain ?? '',
-                            ),
-                            size: 64,
-                            radius: 32, // circular
-                          )
-                        : Container(
-                            width: 64,
-                            height: 64,
-                            decoration: const BoxDecoration(
-                              color: AppColors.bg,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.add,
-                                size: 30, color: AppColors.inkSoft),
-                          ),
-                    // A little edit badge overlapping the logo, so it's obvious
-                    // the icon can be changed.
-                    if (_hasIcon)
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.card, width: 2),
-                          ),
-                          child: const Icon(Icons.edit_rounded,
-                              size: 11, color: Colors.white),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
+          // No icon holder — the card is just the name + amount.
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

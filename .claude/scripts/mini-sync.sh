@@ -487,6 +487,17 @@ while true; do
     if [[ "${LOCAL}" != "${REMOTE}" && "${REMOTE}" != "none" ]]; then
       if git merge-base --is-ancestor "${LOCAL}" "${REMOTE}" 2>/dev/null; then
         log "new commit on origin/${BRANCH} (${REMOTE:0:8}). Pulling..."
+        # This script runs `flutter pub get` itself, which rewrites
+        # pubspec.lock. That dirties the tree, and from then on every
+        # --ff-only merge refuses to overwrite it — the pull fails on every
+        # tick and both emulators sit frozen on stale code while the log
+        # scrolls "fast-forward failed". The lockfile is generated and the
+        # incoming one is authoritative, so drop our copy. Deliberately
+        # narrow: only this one generated path, never anything you wrote.
+        if ! git diff --quiet -- frontend/pubspec.lock 2>/dev/null; then
+          log "discarding regenerated frontend/pubspec.lock so the pull applies"
+          git checkout -- frontend/pubspec.lock 2>/dev/null || true
+        fi
         git merge --ff-only "origin/${BRANCH}" >/dev/null 2>&1 \
           || log "fast-forward failed — fix with: git reset --hard origin/${BRANCH}"
       elif git merge-base --is-ancestor "${REMOTE}" "${LOCAL}" 2>/dev/null; then

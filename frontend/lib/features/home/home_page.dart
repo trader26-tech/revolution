@@ -8,9 +8,8 @@ import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
 import '../tasks/domain/task_filter.dart';
-import '../tasks/presentation/task_details_sheet.dart';
+import '../tasks/presentation/open_task_details.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
-import '../tasks/presentation/widgets/quick_add_row.dart';
 import 'domain/home_groups.dart';
 import 'presentation/widgets/stat_cards.dart';
 import 'presentation/widgets/task_section.dart';
@@ -30,18 +29,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool _adding = false;
   TaskFilter _filter = TaskFilter.all; // scoped by the stat cards
   bool _laterExpanded = true; // "Scheduled" (later) section, open by default
-  final _addController = TextEditingController();
-  final _addFocus = FocusNode();
-
-  @override
-  void dispose() {
-    _addController.dispose();
-    _addFocus.dispose();
-    super.dispose();
-  }
 
   void _openSettings() {
     Navigator.of(context).push(
@@ -63,54 +52,38 @@ class _HomePageState extends State<HomePage> {
     setState(() => _filter = _filter == f ? TaskFilter.all : f);
   }
 
-  void _startAdd() {
-    setState(() => _adding = true);
-    // Focus after the row mounts so the keyboard opens.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _addFocus.requestFocus());
-  }
-
-  /// Add the current text, then immediately prompt to set its date (required),
-  /// so tasks don't linger unscheduled. The quick-add field closes so the date
-  /// sheet has focus.
-  Future<void> _confirmAdd() async {
-    final text = _addController.text.trim();
-    if (text.isEmpty) return;
-    _addController.clear();
-    _addFocus.unfocus();
-    setState(() => _adding = false);
-
-    final Task created;
+  /// Press + → straight to the full details screen (prefilled/blank), no
+  /// quick-add field. On save, create the task from the form.
+  Future<void> _startAdd() async {
+    final result = await openTaskDetails(context);
+    if (result == null || !mounted) return;
     try {
-      created = await widget.store.add(text);
+      // Create with the name + icon, then persist the rest of the form's fields.
+      final created = await widget.store.add(
+        result.title,
+        iconName: result.iconName,
+        iconDomain: result.iconDomain,
+      );
+      await widget.store.update(created.copyWith(
+        dueAt: result.dueAt,
+        clearDueAt: result.dueAt == null,
+        repeat: result.repeat,
+        amount: result.amount,
+        clearAmount: result.amount == null,
+        currency: result.currency,
+      ));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Couldn't add task: $e")),
         );
       }
-      return;
-    }
-    if (!mounted) return;
-
-    // Force scheduling right away using the existing date/time/repeat sheet.
-    final scheduled =
-        await showTaskDetailsSheet(context, created, requireDate: true);
-    if (scheduled != null) {
-      try {
-        await widget.store.update(scheduled);
-      } catch (_) {}
     }
   }
 
-  /// Finish adding — clear + dismiss the field and keyboard (the ✕ / tap-out).
-  void _closeAdd() {
-    _addController.clear();
-    _addFocus.unfocus();
-    setState(() => _adding = false);
-  }
-
+  /// Tap a task → the full "Update details" screen (same page, update mode).
   Future<void> _editTask(Task task) async {
-    final updated = await showTaskDetailsSheet(context, task);
+    final updated = await openTaskDetails(context, existing: task);
     if (updated == null) return;
     try {
       await widget.store.update(updated);
@@ -135,25 +108,15 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Keyboard height — the FAB rides just above it while adding, and sits above
-    // the floating nav bar when idle.
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    // Just enough to clear the floating nav bar (~64h + 16 margin) — the FAB
-    // rests low, right above the nav, not high up the screen.
-    const navBarClearance = 44.0;
-
     return Stack(
       children: [
         // The empty state is centred against the WHOLE screen (behind the top
-        // bar + nav), so the icon + text block sits optically dead-centre — not
-        // pushed up by the top bar's height.
+        // bar + nav), so the block sits optically dead-centre.
         AnimatedBuilder(
           animation: widget.store,
           builder: (context, _) {
-            // Don't show the welcoming empty state over a server error.
-            final showEmpty = widget.store.tasks.isEmpty &&
-                !_adding &&
-                widget.store.error == null;
+            final showEmpty =
+                widget.store.tasks.isEmpty && widget.store.error == null;
             if (!showEmpty) return const SizedBox.shrink();
             return Positioned.fill(
               child: _EmptyContent(onAdd: _startAdd),
@@ -168,6 +131,7 @@ class _HomePageState extends State<HomePage> {
               _TopBar(
                 onSettings: _openSettings,
                 onIntro: _replayFullFlow,
+                onAdd: _startAdd,
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -179,23 +143,6 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        // The single morphing + / ✓ button, bottom-right. It slides up to sit
-        // above the keyboard while adding, and rests above the nav when idle.
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-          right: 0,
-          bottom: _adding ? keyboardInset : navBarClearance,
-          child: SafeArea(
-            top: false,
-            child: QuickAddBar(
-              adding: _adding,
-              onStart: _startAdd,
-              onConfirm: _confirmAdd,
-              onClose: _closeAdd,
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -204,14 +151,14 @@ class _HomePageState extends State<HomePage> {
     final allTasks = widget.store.tasks;
 
     // Surface a server error clearly instead of silently showing an empty list.
-    if (widget.store.error != null && allTasks.isEmpty && !_adding) {
+    if (widget.store.error != null && allTasks.isEmpty) {
       return _ServerError(
         error: widget.store.error!,
         onRetry: () => widget.store.load(),
       );
     }
     // Truly empty (no tasks at all) → the welcoming empty state (drawn behind).
-    if (allTasks.isEmpty && !_adding) {
+    if (allTasks.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -225,18 +172,8 @@ class _HomePageState extends State<HomePage> {
         StatCards(stats: stats, active: _filter, onTap: _tapCard),
         const SizedBox(height: 14),
 
-        // Quick-add row sits at the very top of the groups while adding.
-        if (_adding)
-          QuickAddRow(
-            controller: _addController,
-            focusNode: _addFocus,
-            onSubmitText: _confirmAdd,
-            onTapOutsideEmpty: _closeAdd,
-            showHint: allTasks.isEmpty,
-          ),
-
         // Nothing matches the active card's filter.
-        if (groups.isEmpty && !_adding)
+        if (groups.isEmpty)
           _FilteredEmpty(
             filter: _filter,
             onClear: () => setState(() => _filter = TaskFilter.all),
@@ -293,6 +230,7 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.onSettings,
     required this.onIntro,
+    required this.onAdd,
   });
 
   final VoidCallback onSettings;
@@ -300,33 +238,33 @@ class _TopBar extends StatelessWidget {
   /// TEMP (dev): replays the onboarding so it can be reviewed anytime.
   final VoidCallback onIntro;
 
+  /// Press + → straight to the full details screen.
+  final VoidCallback onAdd;
+
   @override
   Widget build(BuildContext context) {
+    // Settings (left) · sparkle (right of settings) · Add (far right). No title.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Row(
         children: [
-          const Text(
-            'Home',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-              letterSpacing: -0.5,
-            ),
+          GlassIconButton(
+            icon: Icons.settings_outlined,
+            tooltip: 'Settings',
+            onTap: onSettings,
           ),
-          const Spacer(),
-          // TEMP (dev): replay onboarding for review.
+          const SizedBox(width: 10),
           GlassIconButton(
             icon: Icons.auto_awesome_rounded,
             tooltip: 'Onboarding (dev)',
             onTap: onIntro,
           ),
-          const SizedBox(width: 10),
+          const Spacer(),
           GlassIconButton(
-            icon: Icons.settings_outlined,
-            tooltip: 'Settings',
-            onTap: onSettings,
+            icon: Icons.add_rounded,
+            tooltip: 'Add',
+            accent: true,
+            onTap: onAdd,
           ),
         ],
       ),

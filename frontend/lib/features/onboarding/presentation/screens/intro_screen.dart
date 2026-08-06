@@ -190,14 +190,20 @@ class _LogoCard extends StatelessWidget {
 
   static const _due = Color(0xFFE5484D);
 
+  // Every card is the SAME size — matching the tall centre card in the design:
+  // category header, payee name, a big centred logo, then the amount.
+  static const _w = 176.0;
+  static const _h = 176.0;
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: center ? 184 : 170,
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+      width: _w,
+      height: _h,
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.cardBorder),
         boxShadow: [
           BoxShadow(
@@ -208,47 +214,58 @@ class _LogoCard extends StatelessWidget {
         ],
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Bold category header.
+          // Category header.
           Text(
-            item.category.toUpperCase(),
+            item.category,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 11.5,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
-              letterSpacing: 0.4,
-              color: AppColors.inkSoft,
+              color: AppColors.ink,
             ),
           ),
-          const SizedBox(height: 12),
-          // Logo + amount — no brand name.
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
+          const SizedBox(height: 1),
+          // Payee name.
+          Text(
+            item.brand.name,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppColors.inkFaint,
+            ),
+          ),
+          // Big centred logo fills the middle.
+          Expanded(
+            child: Center(
+              child: Container(
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(13),
                   border: Border.all(color: AppColors.cardBorder),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Center(
-                  child: BrandLogo(brand: item.brand, size: 30, radius: 8),
+                  child: BrandLogo(brand: item.brand, size: 34, radius: 9),
                 ),
               ),
-              const Spacer(),
-              Text(
-                '−₹${_inr(item.amount)}',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: _due,
-                ),
+            ),
+          ),
+          // Amount due, bottom-right — the "bill" line.
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '−₹${_inr(item.amount)}',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: _due,
               ),
-            ],
+            ),
           ),
         ],
       ),

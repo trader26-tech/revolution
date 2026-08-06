@@ -66,9 +66,9 @@ class _TaskTileState extends State<TaskTile> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  // Brand logo on the LEFT — falls back to a letter avatar.
-                  BrandLogo(brand: _brandOf(task), size: 40, radius: 11),
-                  const SizedBox(width: 12),
+                  // Brand logo on the LEFT — falls back to a filled letter tile.
+                  BrandLogo(brand: _brandOf(task), size: 44, radius: 12),
+                  const SizedBox(width: 14),
                   // Title + date in the middle.
                   Expanded(
                     child: Column(

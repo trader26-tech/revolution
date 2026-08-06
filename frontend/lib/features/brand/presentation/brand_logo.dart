@@ -101,23 +101,43 @@ class _LetterAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // One uniform colour for EVERY letter-avatar — a calm neutral tile with the
-    // app's accent letter, so tasks without a logo all look consistent (no
-    // rainbow of green/orange/yellow).
+    // One confident, uniform tile for EVERY logo-less task: a rich blue gradient
+    // fill with a large WHITE letter that properly fills the square — so it
+    // reads as a real icon, not a small letter lost in the middle. Consistent
+    // across every task (no rainbow of colours).
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.10),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.accent, AppColors.accentDeep],
+        ),
         borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accentDeep.withValues(alpha: 0.28),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       alignment: Alignment.center,
-      child: Text(
-        letter,
-        style: TextStyle(
-          color: AppColors.accentDeep,
-          fontWeight: FontWeight.w800,
-          fontSize: size * 0.46,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Padding(
+          padding: EdgeInsets.all(size * 0.12),
+          child: Text(
+            letter,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: size * 0.56,
+              height: 1.0,
+              letterSpacing: -0.5,
+            ),
+          ),
         ),
       ),
     );

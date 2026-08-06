@@ -63,7 +63,10 @@ class _TaskTileState extends State<TaskTile> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              // A single, consistent 20px inset — the list itself has no side
+              // padding, so the row spreads across the FULL width (no more
+              // double-inset squishing everything into the middle).
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 children: [
                   // Brand logo on the LEFT — falls back to a filled letter tile.
@@ -176,17 +179,29 @@ class _TaskTileState extends State<TaskTile> {
   }
 }
 
-/// The amount on the right of a task — a calm, neutral "₹1,000" (no red, no
-/// minus sign; those read as an error/alert).
+/// The amount on the right of a task, with an explicit SIGN so the money
+/// direction is unmistakable:
+///   • money going OUT (the usual case) → red  "−₹1,000"
+///   • money coming IN / an increment    → green "+₹1,000"
+/// The sign follows the amount: a negative amount is income (+), a positive
+/// amount is an outgoing payment (−). Most tasks are outgoing.
 class _AmountLabel extends StatelessWidget {
   const _AmountLabel({required this.amount, required this.currencyCode});
 
   final double amount;
   final String currencyCode;
 
+  static const _out = Color(0xFFDC2626); // red  = money leaving
+  static const _in = Color(0xFF059669); // green = money arriving
+
   @override
   Widget build(BuildContext context) {
     final c = currencyOf(currencyCode);
+    // A negative stored amount = income (+); otherwise it's an outgoing payment (−).
+    final isIncome = amount < 0;
+    final sign = isIncome ? '+' : '−';
+    final color = isIncome ? _in : _out;
+
     final grouped = groupDigits(
       amount.truncate().abs().toString(),
       c.grouping,
@@ -197,12 +212,12 @@ class _AmountLabel extends StatelessWidget {
         ? ''
         : '.${(frac * 100).round().toString().padLeft(2, '0')}';
     return Text(
-      '${c.symbol}$grouped$decimals',
+      '$sign${c.symbol}$grouped$decimals',
       maxLines: 1,
-      style: const TextStyle(
-        fontSize: 15,
+      style: TextStyle(
+        fontSize: 15.5,
         fontWeight: FontWeight.w800,
-        color: AppColors.ink,
+        color: color,
         letterSpacing: -0.2,
       ),
     );
@@ -262,8 +277,8 @@ class _DeleteSection extends StatelessWidget {
         const Divider(
           height: 1,
           thickness: 1,
-          indent: 16,
-          endIndent: 16,
+          indent: 20,
+          endIndent: 20,
           color: AppColors.hairline,
         ),
         InkWell(

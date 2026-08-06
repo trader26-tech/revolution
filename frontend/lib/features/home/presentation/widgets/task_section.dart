@@ -49,7 +49,8 @@ class TaskSection extends StatelessWidget {
           onTap: collapsible ? onToggleExpanded : null,
           behavior: HitTestBehavior.opaque,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 8),
+            // Aligned to the task rows' 20px inset (the list has no side padding).
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
             child: Row(
               children: [
                 if (icon != null) ...[

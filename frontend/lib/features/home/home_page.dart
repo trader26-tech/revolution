@@ -181,7 +181,9 @@ class _HomePageState extends State<HomePage> {
     final groups = groupForHome(allTasks, filter: _filter);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 140),
+      // No side padding on the list — the section headers and task rows carry
+      // their own consistent 20px inset, so rows can use the full width.
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 140),
       children: [
         // Nothing matches the active funnel filter.
         if (groups.isEmpty)

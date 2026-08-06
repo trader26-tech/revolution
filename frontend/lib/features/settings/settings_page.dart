@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_toast.dart';
 import '../auth/data/auth_store.dart';
 import '../auth/domain/country_code.dart';
+import '../update/data/update_service.dart';
+import '../update/presentation/update_prompt.dart';
 import 'data/profile_store.dart';
 import 'presentation/sheets/edit_sheets.dart';
 import 'presentation/widgets/settings_widgets.dart';
@@ -22,6 +25,31 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _auth = AuthStore.instance;
   final _profile = ProfileStore.instance;
+
+  String _versionLabel = 'Version …';
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) {
+        setState(() =>
+            _versionLabel = 'Version ${info.version} (${info.buildNumber})');
+      }
+    });
+  }
+
+  /// Manual update check. Tells the user when they're already up to date.
+  Future<void> _checkForUpdate() async {
+    _toast('Checking for updates…');
+    final info = await UpdateService.instance.check();
+    if (!mounted) return;
+    if (info.available) {
+      await showUpdatePrompt(context, info);
+    } else {
+      _toast("You're on the latest version");
+    }
+  }
 
   Future<void> _editName() async {
     final name = await showEditNameSheet(context, initial: _profile.name);
@@ -163,6 +191,20 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: "We'll call you one week before",
                 value: _profile.callReminder,
                 onChanged: (v) => _profile.setCallReminder(v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+
+          // --- ABOUT ---
+          SettingsSection(
+            title: 'About',
+            children: [
+              SettingsTile(
+                icon: Icons.system_update_rounded,
+                title: 'Check for updates',
+                subtitle: _versionLabel,
+                onTap: _checkForUpdate,
               ),
             ],
           ),

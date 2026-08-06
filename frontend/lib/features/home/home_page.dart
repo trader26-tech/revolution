@@ -11,6 +11,8 @@ import '../tasks/domain/task_filter.dart';
 import '../tasks/presentation/filter_sheet.dart';
 import '../tasks/presentation/open_task_details.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
+import '../update/data/update_service.dart';
+import '../update/presentation/update_prompt.dart';
 import 'domain/home_groups.dart';
 import 'presentation/widgets/home_loading.dart';
 import 'presentation/widgets/task_section.dart';
@@ -32,6 +34,21 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   TaskFilter _filter = TaskFilter.all; // scoped by the stat cards
   bool _laterExpanded = true; // "Scheduled" (later) section, open by default
+
+  @override
+  void initState() {
+    super.initState();
+    // On launch, quietly check for a newer sideloaded build and prompt if one
+    // is available. Best-effort — never blocks or errors the UI.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+  }
+
+  Future<void> _checkForUpdate() async {
+    final info = await UpdateService.instance.check();
+    if (info.available && mounted) {
+      await showUpdatePrompt(context, info);
+    }
+  }
 
   void _openSettings() {
     Navigator.of(context).push(

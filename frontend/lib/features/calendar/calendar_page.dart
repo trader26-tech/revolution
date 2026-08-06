@@ -215,10 +215,14 @@ class _MonthSummary extends StatelessWidget {
           children: [
             Icon(icon, size: 18, color: AppColors.accentDeep),
             const SizedBox(width: 10),
-            Text(label,
-                style: const TextStyle(
-                    color: AppColors.inkSoft, fontWeight: FontWeight.w600)),
-            const Spacer(),
+            Flexible(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: AppColors.inkSoft, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(width: 12),
             Flexible(
               child: Text(
                 value,
@@ -297,13 +301,17 @@ class _SpendHeader extends StatelessWidget {
                         const Icon(Icons.calendar_today_rounded,
                             size: 17, color: AppColors.accentDeep),
                         const SizedBox(width: 8),
-                        Text(
-                          '${_names[month.month - 1]} ${month.year}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.ink,
-                            letterSpacing: -0.3,
+                        Flexible(
+                          child: Text(
+                            '${_names[month.month - 1]} ${month.year}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
+                              letterSpacing: -0.3,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 2),
@@ -573,7 +581,10 @@ class _DayLogos extends StatelessWidget {
         const gap = 2.0;
         final avail = constraints.maxHeight;
         final forLogo = hasMore ? (avail - labelHeight - gap) : avail;
-        final logoSize = forLogo.clamp(0.0, 26.0);
+        // Clamp to BOTH the available height and the cell width, so the logo
+        // never overflows a narrow boxed cell.
+        final logoSize =
+            forLogo.clamp(0.0, 26.0).clamp(0.0, constraints.maxWidth);
 
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,

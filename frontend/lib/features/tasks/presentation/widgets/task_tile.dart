@@ -100,20 +100,8 @@ class _TaskTileState extends State<TaskTile> {
                           child:
                               Text(task.title, overflow: TextOverflow.ellipsis),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _subtitle(task),
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: task.isScheduled && task.reminderOn
-                                ? AppColors.accentDeep
-                                : AppColors.inkFaint,
-                            fontWeight: task.isScheduled
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                          ),
-                        ),
+                        const SizedBox(height: 3),
+                        _DueLine(text: _subtitle(task), scheduled: task.isScheduled),
                       ],
                     ),
                   ),

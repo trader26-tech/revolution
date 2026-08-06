@@ -43,8 +43,8 @@ class _CalendarPageState extends State<CalendarPage> {
         _selected = null; // clear any selection when changing month
       });
 
-  void _jumpToYear(int year) => setState(() {
-        _month = DateTime(year, _month.month);
+  void _jumpTo(DateTime monthYear) => setState(() {
+        _month = DateTime(monthYear.year, monthYear.month);
         _selected = null;
       });
 
@@ -70,9 +70,9 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
-  Future<void> _pickYear() async {
-    final year = await showYearPicker(context, current: _month.year);
-    if (year != null) _jumpToYear(year);
+  Future<void> _pickMonthYear() async {
+    final picked = await showMonthYearPicker(context, current: _month);
+    if (picked != null) _jumpTo(picked);
   }
 
   @override
@@ -112,12 +112,134 @@ class _CalendarPageState extends State<CalendarPage> {
                 byDay: byDay,
                 onSelectDay: (d) => _onSelectDay(d, byDay[d] ?? const []),
               ),
+              const SizedBox(height: 20),
+              // Useful info in what used to be empty space below the grid.
+              _MonthSummary(month: _month, occ: monthOcc),
             ],
           ),
         );
       },
     );
   }
+}
+
+/// A summary of the visible month — item count, busiest day, and the next
+/// renewal — so the space under the grid isn't wasted.
+class _MonthSummary extends StatelessWidget {
+  const _MonthSummary({required this.month, required this.occ});
+
+  final DateTime month;
+  final List<Occurrence> occ;
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (occ.isEmpty) {
+      return _card(
+        child: Row(
+          children: const [
+            Icon(Icons.event_available_rounded,
+                size: 20, color: AppColors.inkFaint),
+            SizedBox(width: 10),
+            Text('Nothing scheduled this month',
+                style: TextStyle(color: AppColors.inkSoft)),
+          ],
+        ),
+      );
+    }
+
+    // Next upcoming from today onward.
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final future = occ.where((o) => !o.date.isBefore(today)).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    final next = future.isNotEmpty ? future.first : null;
+
+    // Busiest day.
+    final byDay = groupByDay(occ);
+    MapEntry<DateTime, List<Occurrence>>? busiest;
+    byDay.forEach((d, list) {
+      if (busiest == null || list.length > busiest!.value.length) {
+        busiest = MapEntry(d, list);
+      }
+    });
+
+    return _card(
+      child: Column(
+        children: [
+          _row(
+            Icons.calendar_month_rounded,
+            'This month',
+            '${occ.length} ${occ.length == 1 ? "item" : "items"}',
+          ),
+          if (next != null) ...[
+            const _Divider(),
+            _row(
+              Icons.arrow_forward_rounded,
+              'Next up',
+              '${next.task.title} · ${next.date.day} ${_months[next.date.month - 1]}',
+            ),
+          ],
+          if (busiest != null && busiest!.value.length > 1) ...[
+            const _Divider(),
+            _row(
+              Icons.local_fire_department_rounded,
+              'Busiest day',
+              '${busiest!.key.day} ${_months[busiest!.key.month - 1]} · '
+                  '${busiest!.value.length} items',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _card({required Widget child}) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: child,
+      );
+
+  Widget _row(IconData icon, String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: AppColors.accentDeep),
+            const SizedBox(width: 10),
+            Text(label,
+                style: const TextStyle(
+                    color: AppColors.inkSoft, fontWeight: FontWeight.w600)),
+            const Spacer(),
+            Flexible(
+              child: Text(
+                value,
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    color: AppColors.ink, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+  @override
+  Widget build(BuildContext context) => const Divider(
+        height: 1, thickness: 1, color: AppColors.hairline,
+      );
 }
 
 // ---------------------------------------------------------------------------
@@ -371,56 +493,56 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Flat cells — no per-day boxes/borders (that "grid of white boxes" look).
-    // Selected gets a soft accent wash across the whole cell; today just marks
-    // its number with a filled dot. Everything else is transparent.
-    final Color cellFill =
-        isSelected ? AppColors.accent.withValues(alpha: 0.12) : Colors.transparent;
+    // Every day is a rounded SQUARE box. Today = accent-filled box; selected =
+    // accent border + soft wash; days with items get a faint card fill so they
+    // read as "something here"; empty days are a plain hairline box.
+    final bool hasItems = items.isNotEmpty;
 
-    final Color numberColor;
-    final Color numberBg;
+    final Color boxFill;
+    final Color boxBorder;
     if (isToday) {
-      numberColor = Colors.white;
-      numberBg = AppColors.accent;
+      boxFill = AppColors.accent;
+      boxBorder = AppColors.accent;
     } else if (isSelected) {
-      numberColor = AppColors.accentDeep;
-      numberBg = Colors.transparent;
+      boxFill = AppColors.accent.withValues(alpha: 0.12);
+      boxBorder = AppColors.accent;
+    } else if (hasItems) {
+      boxFill = AppColors.card;
+      boxBorder = AppColors.cardBorder;
     } else {
-      numberColor = AppColors.ink;
-      numberBg = Colors.transparent;
+      boxFill = AppColors.bg;
+      boxBorder = AppColors.hairline;
     }
+
+    final Color numberColor = isToday
+        ? Colors.white
+        : (isSelected ? AppColors.accentDeep : AppColors.ink);
 
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
         decoration: BoxDecoration(
-          color: cellFill,
-          borderRadius: BorderRadius.circular(14),
+          color: boxFill,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: boxBorder,
+            width: isToday || isSelected ? 1.4 : 1,
+          ),
         ),
-        padding: const EdgeInsets.fromLTRB(2, 6, 2, 6),
+        padding: const EdgeInsets.fromLTRB(2, 5, 2, 5),
         child: Column(
           children: [
-            // The date number — today wears a filled dot.
-            Container(
-              width: 24,
-              height: 24,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: numberBg,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                '$day',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight:
-                      isToday || isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: numberColor,
-                ),
+            Text(
+              '$day',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight:
+                    isToday || isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: numberColor,
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 4),
             Expanded(child: _DayLogos(items: items)),
           ],
         ),
@@ -624,96 +746,137 @@ class _DaySheetContent extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Year picker — a modal grid of years so you can jump years quickly.
 // ---------------------------------------------------------------------------
-Future<int?> showYearPicker(BuildContext context, {required int current}) {
-  return showModalBottomSheet<int>(
+/// A combined MONTH + YEAR picker. Returns the chosen `DateTime` (first of the
+/// month), or null if dismissed. Year steps with ‹ ›; months are a tappable grid.
+Future<DateTime?> showMonthYearPicker(
+  BuildContext context, {
+  required DateTime current,
+}) {
+  return showModalBottomSheet<DateTime>(
     context: context,
     backgroundColor: AppColors.card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (_) => _YearPickerSheet(current: current),
+    builder: (_) => _MonthYearSheet(current: current),
   );
 }
 
-class _YearPickerSheet extends StatelessWidget {
-  const _YearPickerSheet({required this.current});
-  final int current;
+class _MonthYearSheet extends StatefulWidget {
+  const _MonthYearSheet({required this.current});
+  final DateTime current;
+
+  @override
+  State<_MonthYearSheet> createState() => _MonthYearSheetState();
+}
+
+class _MonthYearSheetState extends State<_MonthYearSheet> {
+  late int _year = widget.current.year;
+
+  static const _short = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now().year;
-    // A generous, sensible span: a few years back through several ahead, so
-    // subscriptions renewing years out are reachable.
-    final start = now - 5;
-    final years = List.generate(16, (i) => start + i);
-
+    final now = DateTime.now();
     return SafeArea(
       top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.cardBorder,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Jump to year',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBorder,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: GridView.count(
-              crossAxisCount: 4,
+            const Padding(
+              padding: EdgeInsets.fromLTRB(4, 14, 4, 12),
+              child: Text('Jump to month',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            ),
+            // Year stepper.
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                children: [
+                  _ArrowBtn(
+                    icon: Icons.chevron_left_rounded,
+                    onTap: () => setState(() => _year--),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text('$_year',
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink)),
+                    ),
+                  ),
+                  _ArrowBtn(
+                    icon: Icons.chevron_right_rounded,
+                    onTap: () => setState(() => _year++),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            // Month grid.
+            GridView.count(
+              crossAxisCount: 3,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
-              childAspectRatio: 1.7,
+              childAspectRatio: 2.2,
               children: [
-                for (final y in years)
-                  _YearTile(
-                    year: y,
-                    isCurrent: y == current,
-                    isThisYear: y == now,
-                    onTap: () => Navigator.of(context).pop(y),
+                for (var m = 1; m <= 12; m++)
+                  _MonthTile(
+                    label: _short[m - 1],
+                    isSelected:
+                        _year == widget.current.year && m == widget.current.month,
+                    isThisMonth: _year == now.year && m == now.month,
+                    onTap: () => Navigator.of(context).pop(DateTime(_year, m)),
                   ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _YearTile extends StatelessWidget {
-  const _YearTile({
-    required this.year,
-    required this.isCurrent,
-    required this.isThisYear,
+class _MonthTile extends StatelessWidget {
+  const _MonthTile({
+    required this.label,
+    required this.isSelected,
+    required this.isThisMonth,
     required this.onTap,
   });
 
-  final int year;
-  final bool isCurrent;
-  final bool isThisYear;
+  final String label;
+  final bool isSelected;
+  final bool isThisMonth;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: isCurrent ? AppColors.accent : AppColors.bg,
+      color: isSelected ? AppColors.accent : AppColors.bg,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -723,18 +886,18 @@ class _YearTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isThisYear && !isCurrent
+              color: isThisMonth && !isSelected
                   ? AppColors.accent
                   : Colors.transparent,
               width: 1.4,
             ),
           ),
           child: Text(
-            '$year',
+            label,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: isCurrent ? Colors.white : AppColors.ink,
+              color: isSelected ? Colors.white : AppColors.ink,
             ),
           ),
         ),

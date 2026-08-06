@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../domain/brand.dart';
 
 /// Shows a brand's logo, fetched from the network and cached by Flutter's image
@@ -98,37 +99,23 @@ class _LetterAvatar extends StatelessWidget {
   final double radius;
   final String seed;
 
-  // Deterministic, pleasant colour derived from the name so the same brand
-  // always gets the same avatar colour.
-  static const _palette = [
-    Color(0xFF4F46E5), Color(0xFF0EA5E9), Color(0xFF16A34A),
-    Color(0xFFCA8A04), Color(0xFFEF4444), Color(0xFF9333EA),
-    Color(0xFFEC4899), Color(0xFF06B6D4), Color(0xFFF59E0B),
-  ];
-
-  Color get _color {
-    var h = 0;
-    for (final c in seed.codeUnits) {
-      h = (h * 31 + c) & 0x7fffffff;
-    }
-    return _palette[h % _palette.length];
-  }
-
   @override
   Widget build(BuildContext context) {
-    final color = _color;
+    // One uniform colour for EVERY letter-avatar — a calm neutral tile with the
+    // app's accent letter, so tasks without a logo all look consistent (no
+    // rainbow of green/orange/yellow).
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
+        color: AppColors.accent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(radius),
       ),
       alignment: Alignment.center,
       child: Text(
         letter,
         style: TextStyle(
-          color: color,
+          color: AppColors.accentDeep,
           fontWeight: FontWeight.w800,
           fontSize: size * 0.46,
         ),

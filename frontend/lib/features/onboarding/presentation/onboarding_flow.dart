@@ -90,19 +90,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   /// Leave onboarding WITHOUT saving anything (the Skip affordance). Used by the
   /// top-right "Skip" on the pre-schedule pages.
   ///
-  /// Skip should land the user on the "What's your number?" (phone login) page.
-  /// In the real launch flow that's what [onDone] does — it marks onboarding
-  /// complete, and [OnboardingGate] rebuilds into the AuthGate (→ phone login).
-  /// When there's no [onDone] (the dev preview opened bare), fall back to marking
-  /// the shared store complete so the gate still routes to phone login, rather
-  /// than just popping back to Home.
+  /// Skip goes straight to the "What's your number?" phone login page. We push
+  /// [AuthGate] (which shows PhoneLoginPage while logged out, with its OTP
+  /// verification wired up) and REPLACE the onboarding route so Back can't return
+  /// to it. Onboarding is also marked complete so it won't reappear next launch.
   void _skip() {
-    if (widget.onDone != null) {
-      widget.onDone!();
-    } else {
-      OnboardingStore.instance.markComplete();
-      Navigator.of(context).maybePop();
-    }
+    OnboardingStore.instance.markComplete();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const AuthGate()),
+    );
   }
 
   /// The real finish — fired from the schedule step's "Finish". Hand the drafts

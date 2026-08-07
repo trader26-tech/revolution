@@ -20,45 +20,56 @@ class IntroScreen extends StatefulWidget {
 
 class _IntroScreenState extends State<IntroScreen>
     with TickerProviderStateMixin {
-  /// One-shot entrance: app logo → brand logos → headline → chips.
+  /// One-shot entrance: app logo → brand logos → headline → category line.
   late final AnimationController _enter;
 
   /// Endless idle loop that keeps every logo drifting.
   late final AnimationController _float;
 
-  // Big, instantly recognisable apps only — bare logos, no backing cards.
-  // Birthdays get a drawn icon tile (no brand exists for that — and an emoji
-  // would render as a missing-glyph "?" on devices without an emoji font).
+  // Real, instantly recognisable apps only — bare logos, no backing cards —
+  // balanced across ALL FIVE categories (not just subscriptions). Every domain
+  // here was hand-checked to return a crisp, correct logo:
+  //   · web.whatsapp.com → 194px WhatsApp mark (whatsapp.com only serves 23px)
+  //   · services.india.gov.in → 256px Indian flag (Aadhaar/UIDAI favicons are
+  //     16px and DigiLocker's mark is unrecognisable — the flag says
+  //     "government" instantly)
+  // Order = entrance order: a clockwise cascade starting from the top.
   static const _tiles = <_Tile>[
     // Subscriptions
     _Tile(
         brand: Brand(name: 'Netflix', domain: 'netflix.com'),
-        size: 74, dx: -106, dy: -86, tilt: -0.08, phase: 0.0, speed: 1.0, amp: 7),
+        size: 66, dx: 0, dy: -136, tilt: -0.06, phase: 0.0, speed: 1.0, amp: 7),
     _Tile(
         brand: Brand(name: 'Spotify', domain: 'spotify.com'),
-        size: 62, dx: 6, dy: -132, tilt: 0.06, phase: 1.4, speed: 1.2, amp: 6),
+        size: 56, dx: 90, dy: -103, tilt: 0.08, phase: 1.4, speed: 1.2, amp: 6),
+    // Birthdays — the apps where birthdays actually live.
     _Tile(
-        brand: Brand(name: 'YouTube', domain: 'youtube.com'),
-        size: 58, dx: 108, dy: -96, tilt: 0.10, phase: 2.6, speed: 0.9, amp: 7),
+        brand: Brand(name: 'WhatsApp', domain: 'web.whatsapp.com'),
+        size: 60, dx: 138, dy: -23, tilt: -0.05, phase: 2.6, speed: 0.9, amp: 7),
     // Insurance
     _Tile(
-        brand: Brand(name: 'LIC', domain: 'licindia.in'),
-        size: 60, dx: 134, dy: 4, tilt: -0.06, phase: 3.4, speed: 1.1, amp: 6),
-    // Subscriptions
-    _Tile(
-        brand: Brand(name: 'Prime Video', domain: 'primevideo.com'),
-        size: 52, dx: 104, dy: 100, tilt: 0.08, phase: 4.2, speed: 1.0, amp: 6),
+        brand: Brand(name: 'Policybazaar', domain: 'policybazaar.com'),
+        size: 48, dx: 121, dy: 68, tilt: 0.09, phase: 3.4, speed: 1.1, amp: 6),
     // Birthdays
     _Tile(
-        icon: Icons.cake_rounded,
-        size: 64, dx: 0, dy: 134, tilt: 0.05, phase: 0.8, speed: 0.8, amp: 8),
+        brand: Brand(name: 'Facebook', domain: 'facebook.com'),
+        size: 54, dx: 48, dy: 127, tilt: -0.07, phase: 4.2, speed: 1.0, amp: 6),
+    // Government documents
+    _Tile(
+        brand: Brand(name: 'India', domain: 'services.india.gov.in'),
+        size: 54, dx: -48, dy: 127, tilt: 0.06, phase: 0.8, speed: 0.8, amp: 8),
     // SIP
     _Tile(
         brand: Brand(name: 'Groww', domain: 'groww.in'),
-        size: 58, dx: -104, dy: 104, tilt: -0.10, phase: 5.0, speed: 1.3, amp: 6),
+        size: 52, dx: -121, dy: 68, tilt: -0.09, phase: 5.0, speed: 1.3, amp: 6),
     _Tile(
         brand: Brand(name: 'Zerodha', domain: 'zerodha.com'),
-        size: 64, dx: -134, dy: -2, tilt: 0.07, phase: 2.0, speed: 1.1, amp: 7),
+        size: 60, dx: -138, dy: -23, tilt: 0.07, phase: 2.0, speed: 1.1, amp: 7),
+    // Insurance — LIC's real mark is wide (emblem + wordmark), so it gets a
+    // bigger box to stay legible.
+    _Tile(
+        brand: Brand(name: 'LIC', domain: 'licindia.in'),
+        size: 84, dx: -90, dy: -103, tilt: -0.04, phase: 3.0, speed: 0.95, amp: 6),
   ];
 
   @override
@@ -204,29 +215,13 @@ class _IntroScreenState extends State<IntroScreen>
   }
 
   /// The logo itself — big and bare. No card, no border, no backing box; real
-  /// brand marks rounded like app icons. Brandless categories get a drawn
-  /// app-icon-style tile, which renders identically on every device.
+  /// brand marks rounded like app icons.
   Widget _logo(_Tile tile) {
-    if (tile.brand != null) {
-      return BrandLogo(
-        brand: tile.brand!,
-        size: tile.size,
-        radius: tile.size * 0.24,
-        bare: true,
-      );
-    }
-    return Container(
-      width: tile.size,
-      height: tile.size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(tile.size * 0.24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFB7185), Color(0xFFE11D48)], // warm rose
-        ),
-      ),
-      child: Icon(tile.icon, size: tile.size * 0.56, color: Colors.white),
+    return BrandLogo(
+      brand: tile.brand,
+      size: tile.size,
+      radius: tile.size * 0.24,
+      bare: true,
     );
   }
 
@@ -271,13 +266,11 @@ class _IntroScreenState extends State<IntroScreen>
 
 }
 
-/// One floating logo: a real brand (or a drawn icon tile for the brandless
-/// categories), its resting position, static tilt, and the phase / speed /
-/// amplitude of its idle bob.
+/// One floating logo: a real brand, its resting position, static tilt, and the
+/// phase / speed / amplitude of its idle bob.
 class _Tile {
   const _Tile({
-    this.brand,
-    this.icon,
+    required this.brand,
     required this.size,
     required this.dx,
     required this.dy,
@@ -285,10 +278,9 @@ class _Tile {
     required this.phase,
     required this.speed,
     required this.amp,
-  }) : assert(brand != null || icon != null);
+  });
 
-  final Brand? brand;
-  final IconData? icon;
+  final Brand brand;
   final double size;
   final double dx, dy;
   final double tilt;

@@ -58,25 +58,34 @@ class _IntroScreenState extends State<IntroScreen>
       radiusF: 0.241,
       hubIcon: Icons.play_circle_fill_rounded,
       logos: [
-        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42, 17),
-        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 44, 232),
-        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40, 142),
+        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42, 263),
+        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 44, 127),
+        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40, 195),
       ],
     ),
-    // Investments / SIP — the small ring, upper-right.
+    // Investments & documents — the mid ring, upper-right. Groww and Upstox
+    // carry "money", DigiLocker carries "documents"; all three are household
+    // names with crisp, high-res marks.
     _Ring(
       cxF: 0.256,
       cyF: -0.240,
       radiusF: 0.171,
       hubIcon: Icons.trending_up_rounded,
       logos: [
-        _OrbitLogo(Brand(name: 'Zerodha', domain: 'zerodha.com'), 38, 321),
-        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 36, 42),
+        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 38, 220),
+        // DigiLocker — the govt document wallet; its violet mark sits
+        // naturally in this palette.
+        _OrbitLogo(
+          Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'),
+          36,
+          298,
+        ),
         // Upstox: a crisp 196px violet mark — reads beautifully on the sky.
-        _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36, 224),
+        _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36, 8),
       ],
     ),
-    // Insurance & documents — lower-right.
+    // Insurance — lower-right. Three of the biggest names in Indian insurance,
+    // so the ring reads as "insurance" without a label.
     _Ring(
       cxF: 0.181,
       cyF: 0.180,
@@ -84,16 +93,22 @@ class _IntroScreenState extends State<IntroScreen>
       hubIcon: Icons.shield_rounded,
       logos: [
         // LIC's real mark is wide (emblem + wordmark) → a slightly bigger box.
-        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 46, 33),
-        // HDFC Life: a clean 256px red mark.
-        _OrbitLogo(Brand(name: 'HDFC Life', domain: 'hdfclife.com'), 38, 188),
-        // DigiLocker — the actual govt DOCUMENT wallet, and its violet mark
-        // sits naturally in this palette (the national emblem is near-black
-        // and would disappear against the sky).
+        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 46, 142),
+        // HDFC Bank — hdfclife.com serves the clean 256px mark; hdfcbank.com's
+        // own favicon is a 16px blur and icon.horse returns a placeholder "H".
+        _OrbitLogo(Brand(name: 'HDFC', domain: 'hdfclife.com'), 38, 323),
+        // SBI: pinned to Google's favicon service — it's the only source that
+        // returns a decodable PNG of the keyhole mark (icon.horse serves .ico,
+        // which Flutter can't decode, and sbilife.co.in's is an unreadable
+        // 17px JPEG).
         _OrbitLogo(
-          Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'),
+          Brand(
+            name: 'SBI',
+            domain: 'onlinesbi.sbi',
+            source: LogoSource.googleFavicon,
+          ),
           38,
-          137,
+          14,
         ),
       ],
     ),
@@ -164,6 +179,28 @@ class _IntroScreenState extends State<IntroScreen>
         'Orbit ring $i escapes the cluster box (reach $reach > 0.5).',
       );
     }
+    // No logo may sit ON another ring's outline — the rings can be disjoint
+    // while a logo still straddles a neighbouring track, which reads as a
+    // collision even though the circles never touch.
+    const smallestBox = 300.0;
+    for (final ring in _rings) {
+      for (final logo in ring.logos) {
+        final a = logo.angleDeg * math.pi / 180;
+        final lx = (ring.cxF + ring.radiusF * math.cos(a)) * smallestBox;
+        final ly = (ring.cyF + ring.radiusF * math.sin(a)) * smallestBox;
+        for (final other in _rings) {
+          if (identical(other, ring)) continue;
+          final d = math.sqrt(
+            math.pow(lx - other.cxF * smallestBox, 2) +
+                math.pow(ly - other.cyF * smallestBox, 2),
+          );
+          assert(
+            (d - other.radiusF * smallestBox).abs() > logo.size / 2 + 3,
+            '${logo.brand.name} sits on another ring\'s outline.',
+          );
+        }
+      }
+    }
     return true;
   }
 
@@ -218,11 +255,13 @@ class _IntroScreenState extends State<IntroScreen>
           ),
           Column(
             children: [
-              // The cluster takes the top ~half; it sizes itself to whatever
-              // space is left, so short screens shrink it instead of clipping.
-              Expanded(flex: 62, child: _orbits()),
+              // The orbits get the stage: they claim the whole upper area and
+              // size themselves to it, so short screens shrink the cluster
+              // instead of clipping it. Everything below is deliberately
+              // compact and pushed down so nothing competes with the rings.
+              Expanded(flex: 72, child: _orbits()),
               _appLogo(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               _reveal(
                 start: 0.52,
                 child: Padding(
@@ -234,7 +273,7 @@ class _IntroScreenState extends State<IntroScreen>
                       maxLines: 1,
                       style: text.headlineLarge?.copyWith(
                         color: AppColors.ink,
-                        fontSize: 33,
+                        fontSize: 29,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
                       ),
@@ -253,12 +292,12 @@ class _IntroScreenState extends State<IntroScreen>
                     textAlign: TextAlign.center,
                     style: text.bodyLarge?.copyWith(
                       color: AppColors.inkSoft,
-                      fontSize: 16,
+                      fontSize: 15,
                     ),
                   ),
                 ),
               ),
-              const Spacer(flex: 12),
+              const Spacer(flex: 8),
             ],
           ),
         ],
@@ -453,14 +492,14 @@ class _IntroScreenState extends State<IntroScreen>
         child: Transform.scale(
           scale: 0.6 + 0.4 * pop,
           child: Container(
-            width: 108,
-            height: 108,
+            width: 82,
+            height: 82,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
                   color: AppColors.accent.withValues(alpha: 0.42),
-                  blurRadius: 46,
+                  blurRadius: 38,
                   spreadRadius: 2,
                   offset: const Offset(0, 8),
                 ),

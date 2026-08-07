@@ -7,6 +7,7 @@ import 'features/brand/data/custom_logo_store.dart';
 import 'features/onboarding/data/onboarding_store.dart';
 import 'features/onboarding/presentation/onboarding_gate.dart';
 import 'features/options/data/options_store.dart';
+import 'features/reminders/data/reminder_scheduler.dart';
 import 'features/settings/data/profile_store.dart';
 
 Future<void> main() async {
@@ -24,6 +25,9 @@ Future<void> main() async {
   await ProfileStore.instance.load();
   // Whether the one-time onboarding intro has been completed.
   await OnboardingStore.instance.load();
+  // Set up the daily-summary notification machinery (timezones, channels,
+  // tray actions). Must run before TaskStore starts feeding it task changes.
+  await ReminderScheduler.instance.init();
   runApp(const RevolutionApp());
 }
 

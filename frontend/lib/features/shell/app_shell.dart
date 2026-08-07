@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../calendar/calendar_page.dart';
 import '../home/home_page.dart';
+import '../reminders/data/reminder_scheduler.dart';
 import '../tasks/data/task_store.dart';
 
 /// The app shell: two tabs (Home, Calendar) behind a floating glass nav.
@@ -25,6 +26,11 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     // Restore saved tasks (and their icons) from on-device storage.
     _store.load();
+    // The user is past onboarding and inside the app — the right moment to
+    // ask for notification permission (Android 13+ / iOS prompt).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ReminderScheduler.instance.ensurePermissions();
+    });
   }
 
   @override

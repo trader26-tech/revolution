@@ -73,6 +73,23 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) Navigator.of(context).pop(); // AuthGate shows login
   }
 
+  /// "8:00 AM" from minutes-since-midnight.
+  String _formatMinutes(int minutes) {
+    final t = TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+    return t.format(context);
+  }
+
+  Future<void> _pickDigestTime() async {
+    final current = TimeOfDay(
+      hour: _profile.digestTimeMin ~/ 60,
+      minute: _profile.digestTimeMin % 60,
+    );
+    final picked = await showTimePicker(context: context, initialTime: current);
+    if (picked == null) return;
+    await _profile.setDigestTime(picked.hour * 60 + picked.minute);
+    if (mounted) _toast('Daily summary at ${picked.format(context)}');
+  }
+
   void _toast(String message) => AppToast.show(context, message: message);
 
   Future<bool?> _confirm({
@@ -181,10 +198,17 @@ class _SettingsPageState extends State<SettingsPage> {
               SettingsSwitchTile(
                 icon: Icons.notifications_active_outlined,
                 title: 'Reminder alerts',
-                subtitle: 'Get notified before things are due',
+                subtitle: 'One summary of your day, every morning',
                 value: _profile.notifReminders,
                 onChanged: (v) => _profile.setNotifReminders(v),
               ),
+              if (_profile.notifReminders)
+                SettingsTile(
+                  icon: Icons.schedule_rounded,
+                  title: 'Daily summary time',
+                  value: _formatMinutes(_profile.digestTimeMin),
+                  onTap: _pickDigestTime,
+                ),
               SettingsSwitchTile(
                 icon: Icons.call_outlined,
                 title: 'Call me to remind',

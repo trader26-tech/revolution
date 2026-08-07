@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../reminders/data/reminder_scheduler.dart';
 import '../domain/task.dart';
 
 /// Task store — the SERVER is the only store. Every add/update/delete goes to
@@ -16,6 +17,16 @@ class TaskStore extends ChangeNotifier {
   Object? _error;
 
   List<Task> get tasks => List.unmodifiable(_tasks);
+
+  /// Every change flows through notifyListeners, so this one override keeps
+  /// the scheduled daily notifications in lockstep with the task list —
+  /// add/edit/toggle/delete included. The scheduler debounces, so bursts (and
+  /// the load() loading-state notifications) cost one rebuild.
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    ReminderScheduler.instance.onTasksChanged(List.unmodifiable(_tasks));
+  }
   bool get loading => _loading;
 
   /// True until the very first fetch settles — so the UI can show a loading

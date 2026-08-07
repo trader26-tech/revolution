@@ -25,6 +25,7 @@ class ProfileStore extends ChangeNotifier {
   static const _kCurrency = 'profile_currency'; // ISO code (INR/USD/KWD)
   static const _kLeadDays = 'profile_lead_days';
   static const _kNotifReminders = 'profile_notif_reminders';
+  static const _kDigestTime = 'profile_digest_time_min'; // minutes since midnight
   static const _kNotifEmail = 'profile_notif_email';
   static const _kNotifWhatsapp = 'profile_notif_whatsapp';
   static const _kCallReminder = 'profile_call_reminder';
@@ -38,6 +39,7 @@ class ProfileStore extends ChangeNotifier {
   String _currency = 'INR';
   int _leadDays = 30;
   bool _notifReminders = true;
+  int _digestTimeMin = 8 * 60; // 8:00 AM — when the one daily summary fires
   bool _notifEmail = false;
   bool _notifWhatsapp = true;
   bool _callReminder = true; // ON by default: a weekly WhatsApp call reminder
@@ -52,6 +54,7 @@ class ProfileStore extends ChangeNotifier {
   String get currency => _currency;
   int get leadDays => _leadDays;
   bool get notifReminders => _notifReminders;
+  int get digestTimeMin => _digestTimeMin;
   bool get notifEmail => _notifEmail;
   bool get notifWhatsapp => _notifWhatsapp;
   bool get callReminder => _callReminder;
@@ -68,6 +71,7 @@ class ProfileStore extends ChangeNotifier {
     _currency = p.getString(_kCurrency) ?? 'INR';
     _leadDays = p.getInt(_kLeadDays) ?? 30;
     _notifReminders = p.getBool(_kNotifReminders) ?? true;
+    _digestTimeMin = p.getInt(_kDigestTime) ?? (8 * 60);
     _notifEmail = p.getBool(_kNotifEmail) ?? false;
     _notifWhatsapp = p.getBool(_kNotifWhatsapp) ?? true;
     _callReminder = p.getBool(_kCallReminder) ?? true;
@@ -97,6 +101,11 @@ class ProfileStore extends ChangeNotifier {
   Future<void> setNotifReminders(bool v) async {
     _notifReminders = v;
     await _persist((p) => p.setBool(_kNotifReminders, v));
+  }
+
+  Future<void> setDigestTime(int minutesSinceMidnight) async {
+    _digestTimeMin = minutesSinceMidnight;
+    await _persist((p) => p.setInt(_kDigestTime, minutesSinceMidnight));
   }
 
   Future<void> setNotifEmail(bool v) async {

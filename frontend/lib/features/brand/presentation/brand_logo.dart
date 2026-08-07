@@ -12,11 +12,17 @@ class BrandLogo extends StatelessWidget {
     required this.brand,
     this.size = 44,
     this.radius = 12,
+    this.bare = false,
   });
 
   final Brand brand;
   final double size;
   final double radius;
+
+  /// When true, the logo is drawn with NO white backing tile or padding — just
+  /// the (rounded) logo image itself. For hero/marketing surfaces where the
+  /// logos float freely rather than sit in list rows.
+  final bool bare;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +35,17 @@ class BrandLogo extends StatelessWidget {
 
     final urls = brand.logoUrlCandidates;
     if (urls.isEmpty) return fallback;
+
+    if (bare) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: _chain(urls, 0, fallback),
+        ),
+      );
+    }
 
     // Try each candidate in order; the first that loads is shown. `contain` +
     // white backdrop keeps the WHOLE logo visible (no crop). Simple + reliable.

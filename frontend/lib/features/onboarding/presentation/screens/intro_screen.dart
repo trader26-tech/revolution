@@ -8,10 +8,9 @@ import '../../../brand/presentation/brand_logo.dart';
 
 /// Screen 1 — what the app does, in one glance.
 ///
-/// A constellation of *real* app logos — the things people forget to pay,
-/// renew and remember — floats gently around a reminder bell. Everything pops
-/// in with a soft stagger, then keeps drifting on a slow idle loop. Below it:
-/// one bold promise and the five categories the app covers.
+/// Maximum logo, minimum text: big, bare app logos (no cards, no boxes) float
+/// gently around the REAL app logo (bell + green tick). Below: one bold line
+/// and the five category chips. That's it.
 class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});
 
@@ -21,45 +20,44 @@ class IntroScreen extends StatefulWidget {
 
 class _IntroScreenState extends State<IntroScreen>
     with TickerProviderStateMixin {
-  /// One-shot entrance: bell → logo tiles → headline → chips → badge.
+  /// One-shot entrance: app logo → brand logos → headline → chips.
   late final AnimationController _enter;
 
-  /// Endless idle loop that makes the tiles bob and the bell swing.
+  /// Endless idle loop that keeps every logo drifting.
   late final AnimationController _float;
 
-  // The five categories, each represented by the apps people actually know.
-  // Birthdays and documents have no "brand", so they get emoji tiles that sit
-  // naturally next to the real logos.
+  // Big, instantly recognisable apps only — bare logos, no backing cards.
+  // Birthdays get the cake emoji (no brand exists for that).
   static const _tiles = <_Tile>[
     // Subscriptions
     _Tile(
         brand: Brand(name: 'Netflix', domain: 'netflix.com'),
-        size: 60, dx: -108, dy: -62, tilt: -0.10, phase: 0.0, speed: 1.0, amp: 6),
+        size: 74, dx: -106, dy: -86, tilt: -0.08, phase: 0.0, speed: 1.0, amp: 7),
     _Tile(
         brand: Brand(name: 'Spotify', domain: 'spotify.com'),
-        size: 52, dx: -6, dy: -116, tilt: 0.08, phase: 1.4, speed: 1.2, amp: 5),
+        size: 62, dx: 6, dy: -132, tilt: 0.06, phase: 1.4, speed: 1.2, amp: 6),
     _Tile(
-        brand: Brand(name: 'Hotstar', domain: 'hotstar.com'),
-        size: 46, dx: 92, dy: -88, tilt: 0.12, phase: 2.6, speed: 0.9, amp: 7),
+        brand: Brand(name: 'YouTube', domain: 'youtube.com'),
+        size: 58, dx: 108, dy: -96, tilt: 0.10, phase: 2.6, speed: 0.9, amp: 7),
     // Insurance
     _Tile(
         brand: Brand(name: 'LIC', domain: 'licindia.in'),
-        size: 58, dx: 118, dy: -6, tilt: -0.08, phase: 3.4, speed: 1.1, amp: 5),
-    // SIP
+        size: 60, dx: 134, dy: 4, tilt: -0.06, phase: 3.4, speed: 1.1, amp: 6),
+    // Subscriptions
     _Tile(
-        brand: Brand(name: 'Zerodha', domain: 'zerodha.com'),
-        size: 50, dx: 98, dy: 74, tilt: 0.10, phase: 4.2, speed: 1.0, amp: 6),
-    _Tile(
-        brand: Brand(name: 'Groww', domain: 'groww.in'),
-        size: 46, dx: -88, dy: 92, tilt: -0.12, phase: 5.0, speed: 1.3, amp: 5),
+        brand: Brand(name: 'Prime Video', domain: 'primevideo.com'),
+        size: 52, dx: 104, dy: 100, tilt: 0.08, phase: 4.2, speed: 1.0, amp: 6),
     // Birthdays
     _Tile(
         emoji: '🎂',
-        size: 54, dx: 10, dy: 112, tilt: 0.06, phase: 0.8, speed: 0.8, amp: 7),
-    // Government documents
+        size: 64, dx: 0, dy: 134, tilt: 0.05, phase: 0.8, speed: 0.8, amp: 8),
+    // SIP
     _Tile(
-        brand: Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'),
-        size: 48, dx: -124, dy: 22, tilt: 0.09, phase: 2.0, speed: 1.1, amp: 6),
+        brand: Brand(name: 'Groww', domain: 'groww.in'),
+        size: 58, dx: -104, dy: 104, tilt: -0.10, phase: 5.0, speed: 1.3, amp: 6),
+    _Tile(
+        brand: Brand(name: 'Zerodha', domain: 'zerodha.com'),
+        size: 64, dx: -134, dy: -2, tilt: 0.07, phase: 2.0, speed: 1.1, amp: 7),
   ];
 
   static const _categories = <(IconData, String)>[
@@ -110,8 +108,8 @@ class _IntroScreenState extends State<IntroScreen>
         child: Column(
           children: [
             const Spacer(flex: 5),
-            SizedBox(height: 300, child: _cluster()),
-            const SizedBox(height: 18),
+            SizedBox(height: 340, child: _cluster()),
+            const SizedBox(height: 24),
             _reveal(
               start: 0.42,
               child: Text(
@@ -120,16 +118,7 @@ class _IntroScreenState extends State<IntroScreen>
                 style: text.displaySmall?.copyWith(color: AppColors.ink),
               ),
             ),
-            const SizedBox(height: 12),
-            _reveal(
-              start: 0.50,
-              child: Text(
-                'The dates that slip your mind — remembered\nfor you, reminded before they’re due.',
-                textAlign: TextAlign.center,
-                style: text.bodyLarge?.copyWith(color: AppColors.inkSoft),
-              ),
-            ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 20),
             _chips(),
             const Spacer(flex: 4),
           ],
@@ -152,15 +141,15 @@ class _IntroScreenState extends State<IntroScreen>
   Widget _cluster() {
     return Center(
       child: SizedBox(
-        width: 320,
-        height: 300,
+        width: 340,
+        height: 340,
         child: Stack(
           alignment: Alignment.center,
           clipBehavior: Clip.none,
           children: [
             _glow(),
             for (var i = 0; i < _tiles.length; i++) _floatingTile(i),
-            _bell(),
+            _appLogo(),
           ],
         ),
       ),
@@ -172,8 +161,8 @@ class _IntroScreenState extends State<IntroScreen>
     return Opacity(
       opacity: _lin(0.0, 0.5),
       child: Container(
-        width: 280,
-        height: 280,
+        width: 300,
+        height: 300,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: RadialGradient(
@@ -191,7 +180,7 @@ class _IntroScreenState extends State<IntroScreen>
     final tile = _tiles[i];
     final pop = _pop(0.10 + i * 0.055);
     final fade = _lin(0.10 + i * 0.055);
-    // Idle bob: every tile drifts on its own phase + speed, so the cluster
+    // Idle bob: every logo drifts on its own phase + speed, so the cluster
     // feels alive but never busy.
     final bob = math.sin(
           _float.value * 2 * math.pi * tile.speed + tile.phase,
@@ -203,124 +192,69 @@ class _IntroScreenState extends State<IntroScreen>
         angle: tile.tilt * pop,
         child: Opacity(
           opacity: fade,
-          child: Transform.scale(scale: 0.4 + 0.6 * pop, child: _tileBox(tile)),
+          child: Transform.scale(scale: 0.4 + 0.6 * pop, child: _logo(tile)),
         ),
       ),
     );
   }
 
-  /// An app-icon style squircle: real logo, or an emoji for the brandless
-  /// categories (birthdays, documents).
-  Widget _tileBox(_Tile tile) {
-    return Container(
-      width: tile.size,
-      height: tile.size,
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(tile.size * 0.30),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: tile.brand != null
-          ? BrandLogo(
-              brand: tile.brand!,
-              size: tile.size * 0.62,
-              radius: tile.size * 0.16,
-            )
-          : Text(tile.emoji!, style: TextStyle(fontSize: tile.size * 0.48)),
+  /// The logo itself — big and bare. No card, no border, no backing box; real
+  /// brand marks rounded like app icons, emoji drawn straight on the page.
+  Widget _logo(_Tile tile) {
+    if (tile.brand != null) {
+      return BrandLogo(
+        brand: tile.brand!,
+        size: tile.size,
+        radius: tile.size * 0.24,
+        bare: true,
+      );
+    }
+    return Text(
+      tile.emoji!,
+      style: TextStyle(fontSize: tile.size * 0.86, height: 1.0),
     );
   }
 
-  /// The centre bell — the app itself — with a slow, subtle swing and a badge
-  /// that pops in last (five categories, five things it never forgets).
-  Widget _bell() {
+  /// The centre: the REAL app logo (blue bell + green tick), swinging ever so
+  /// slightly — exactly the icon on the user's home screen.
+  Widget _appLogo() {
     final pop = _pop(0.0, 0.45);
     final fade = _lin(0.0, 0.45);
-    final swing = math.sin(_float.value * 2 * math.pi) * 0.05 * fade;
-    final badge = Curves.elasticOut.transform(_lin(0.78, 0.22));
+    final swing = math.sin(_float.value * 2 * math.pi) * 0.04 * fade;
     return Opacity(
       opacity: fade,
-      child: Transform.scale(
-        scale: 0.5 + 0.5 * pop,
-        child: SizedBox(
-          width: 104,
-          height: 104,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                top: 8,
-                bottom: 8,
-                left: 8,
-                right: 8,
-                child: Transform.rotate(
-                  angle: swing,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [AppColors.accent, AppColors.accentDeep],
-                      ),
-                      borderRadius: BorderRadius.circular(26),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accent.withValues(alpha: 0.38),
-                          blurRadius: 26,
-                          offset: const Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.notifications_rounded,
-                      color: Colors.white,
-                      size: 44,
-                    ),
-                  ),
+      child: Transform.rotate(
+        angle: swing,
+        child: Transform.scale(
+          scale: 0.5 + 0.5 * pop,
+          child: Container(
+            width: 108,
+            height: 108,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.accent.withValues(alpha: 0.35),
+                  blurRadius: 30,
+                  offset: const Offset(0, 14),
                 ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(26),
+              child: Image.asset(
+                'assets/images/app_logo.png',
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
               ),
-              // Notification badge — "5", one per category.
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Transform.scale(
-                  scale: badge,
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5484D),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.bg, width: 2.5),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      '5',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        height: 1.0,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ── The five category chips ────────────────────────────────────────────────
+  // ── The five category chips — the only other text on the page ─────────────
 
   Widget _chips() {
     return Wrap(
@@ -364,9 +298,9 @@ class _IntroScreenState extends State<IntroScreen>
   }
 }
 
-/// One tile in the constellation: a real brand logo (or an emoji for the
-/// brandless categories), its resting position, static tilt, and the phase /
-/// speed / amplitude of its idle bob.
+/// One floating logo: a real brand (or an emoji for the brandless categories),
+/// its resting position, static tilt, and the phase / speed / amplitude of its
+/// idle bob.
 class _Tile {
   const _Tile({
     this.brand,

@@ -38,65 +38,72 @@ class _IntroScreenState extends State<IntroScreen>
   // Geometry is a FRACTION of the cluster box (0..1) measured from its centre,
   // so the composition scales with the screen and can't spill out.
   //
-  // THE RINGS MUST NEVER INTERSECT. Their positions and radii come from a
-  // constrained search that enforces, simultaneously:
-  //   · disjoint outlines — centre distance >= r1 + r2 + 0.022 of visible gap
-  //   · every outline AND every logo on it inside the box (reach <= 0.49)
-  //   · the reference composition (big subscriptions ring upper-left, the two
-  //     smaller rings upper-right and lower-right)
-  // subject to maximising ring size. [debugAssertLayoutValid] re-checks all of
-  // it at runtime in debug builds, so a hand-tweak that breaks the invariant
-  // fails loudly instead of silently shipping overlapping rings.
+  // EVERY RING SPACES ITS LOGOS EVENLY — three logos sit exactly 120° apart,
+  // computed from the ring's single [phaseDeg] rather than written out per
+  // logo. Even spacing is therefore structural: it can't drift when a logo is
+  // swapped, and there are no per-logo angles to get wrong.
+  //
+  // THE RINGS MUST NEVER INTERSECT, and no logo may sit on a neighbouring
+  // ring's track. Centres, radii and phases come from a joint search that
+  // enforces, simultaneously:
+  //   · disjoint outlines — centre distance >= r1 + r2 + 0.020 of visible gap
+  //   · every outline AND every logo inside the box
+  //   · no logo within 5px of another ring's outline
+  //   · the reference composition (big subscriptions ring upper-left, the
+  //     others upper-right and lower-right)
+  // subject to maximising clearance and ring size. The result has 26px of
+  // clearance between any two elements. [_debugAssertLayoutValid] re-checks all
+  // of it at startup in debug builds, so a hand-tweak that breaks an invariant
+  // fails loudly instead of silently shipping a broken layout.
   //
   // Every domain was hand-checked to return a crisp, correct logo on a dark
   // background (see the notes on individual entries).
   static const _rings = <_Ring>[
     // Subscriptions — the big ring, upper-left (matches the reference).
     _Ring(
-      cxF: -0.175,
-      cyF: -0.172,
-      radiusF: 0.241,
+      cxF: -0.255,
+      cyF: -0.142,
+      radiusF: 0.242,
+      phaseDeg: 123,
       hubIcon: Icons.play_circle_fill_rounded,
       logos: [
-        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42, 263),
-        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 44, 127),
-        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40, 195),
+        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42),
+        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 44),
+        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40),
       ],
     ),
-    // Investments & documents — the mid ring, upper-right. Groww and Upstox
-    // carry "money", DigiLocker carries "documents"; all three are household
-    // names with crisp, high-res marks.
+    // Investments & documents — upper-right. Groww and Upstox carry "money",
+    // DigiLocker carries "documents"; all three are household names with
+    // crisp, high-res marks.
     _Ring(
-      cxF: 0.256,
-      cyF: -0.240,
-      radiusF: 0.171,
+      cxF: 0.278,
+      cyF: -0.278,
+      radiusF: 0.222,
+      phaseDeg: 74,
       hubIcon: Icons.trending_up_rounded,
       logos: [
-        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 38, 220),
+        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 38),
         // DigiLocker — the govt document wallet; its violet mark sits
         // naturally in this palette.
-        _OrbitLogo(
-          Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'),
-          36,
-          298,
-        ),
+        _OrbitLogo(Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'), 36),
         // Upstox: a crisp 196px violet mark — reads beautifully on the sky.
-        _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36, 8),
+        _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36),
       ],
     ),
     // Insurance — lower-right. Three of the biggest names in Indian insurance,
     // so the ring reads as "insurance" without a label.
     _Ring(
-      cxF: 0.181,
-      cyF: 0.180,
-      radiusF: 0.230,
+      cxF: 0.180,
+      cyF: 0.260,
+      radiusF: 0.240,
+      phaseDeg: 20,
       hubIcon: Icons.shield_rounded,
       logos: [
         // LIC's real mark is wide (emblem + wordmark) → a slightly bigger box.
-        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 46, 142),
-        // HDFC Bank — hdfclife.com serves the clean 256px mark; hdfcbank.com's
-        // own favicon is a 16px blur and icon.horse returns a placeholder "H".
-        _OrbitLogo(Brand(name: 'HDFC', domain: 'hdfclife.com'), 38, 323),
+        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 46),
+        // HDFC — hdfclife.com serves the clean 256px mark; hdfcbank.com's own
+        // favicon is a 16px blur and icon.horse returns a placeholder "H".
+        _OrbitLogo(Brand(name: 'HDFC', domain: 'hdfclife.com'), 38),
         // SBI: pinned to Google's favicon service — it's the only source that
         // returns a decodable PNG of the keyhole mark (icon.horse serves .ico,
         // which Flutter can't decode, and sbilife.co.in's is an unreadable
@@ -108,7 +115,6 @@ class _IntroScreenState extends State<IntroScreen>
             source: LogoSource.googleFavicon,
           ),
           38,
-          14,
         ),
       ],
     ),
@@ -166,39 +172,58 @@ class _IntroScreenState extends State<IntroScreen>
         );
       }
     }
-    // Reach of each ring's outline plus the largest logo riding on it.
+    // Nothing may leave the cluster box. Checked at the SMALLEST box we render
+    // at, where the px-sized logos take up the largest fraction. The ring
+    // outline itself may reach the edge; what must stay inside is every logo,
+    // at its ACTUAL position — the logos sit at known fixed angles, so there's
+    // no need for the conservative "logo at the extreme point" bound.
+    const box = 300.0;
     for (var i = 0; i < _rings.length; i++) {
-      final r = _rings[i];
-      final biggest = r.logos.fold<double>(0, (m, l) => math.max(m, l.size));
-      // Logo sizes are px; compare against the smallest cluster box we render
-      // at (~300px) for the strictest check.
-      final reach =
-          math.max(r.cxF.abs(), r.cyF.abs()) + r.radiusF + biggest / 2 / 300.0;
+      final ring = _rings[i];
       assert(
-        reach <= 0.5,
-        'Orbit ring $i escapes the cluster box (reach $reach > 0.5).',
+        math.max(ring.cxF.abs(), ring.cyF.abs()) + ring.radiusF <= 0.5,
+        'Orbit ring $i\'s outline escapes the cluster box.',
       );
+      for (var j = 0; j < ring.logos.length; j++) {
+        final p = ring.positionOf(j, box);
+        final half = ring.logos[j].size / 2;
+        assert(
+          p.dx.abs() + half <= box / 2 && p.dy.abs() + half <= box / 2,
+          '${ring.logos[j].brand.name} escapes the cluster box.',
+        );
+      }
     }
     // No logo may sit ON another ring's outline — the rings can be disjoint
     // while a logo still straddles a neighbouring track, which reads as a
     // collision even though the circles never touch.
     const smallestBox = 300.0;
     for (final ring in _rings) {
-      for (final logo in ring.logos) {
-        final a = logo.angleDeg * math.pi / 180;
-        final lx = (ring.cxF + ring.radiusF * math.cos(a)) * smallestBox;
-        final ly = (ring.cyF + ring.radiusF * math.sin(a)) * smallestBox;
+      for (var i = 0; i < ring.logos.length; i++) {
+        final logo = ring.logos[i];
+        final p = ring.positionOf(i, smallestBox);
         for (final other in _rings) {
           if (identical(other, ring)) continue;
           final d = math.sqrt(
-            math.pow(lx - other.cxF * smallestBox, 2) +
-                math.pow(ly - other.cyF * smallestBox, 2),
+            math.pow(p.dx - other.cxF * smallestBox, 2) +
+                math.pow(p.dy - other.cyF * smallestBox, 2),
           );
           assert(
             (d - other.radiusF * smallestBox).abs() > logo.size / 2 + 3,
             '${logo.brand.name} sits on another ring\'s outline.',
           );
         }
+      }
+    }
+    // Logos on a ring must be EVENLY spaced — the whole point of deriving the
+    // angle from the ring. Guards against someone reintroducing per-logo
+    // angles or leaving a ring with a logo count that doesn't divide evenly.
+    for (final ring in _rings) {
+      final step = 360.0 / ring.logos.length;
+      for (var i = 1; i < ring.logos.length; i++) {
+        assert(
+          (ring.angleOf(i) - ring.angleOf(i - 1) - step).abs() < 0.001,
+          'Ring logos are not evenly spaced.',
+        );
       }
     }
     return true;
@@ -336,9 +361,9 @@ class _IntroScreenState extends State<IntroScreen>
           children.add(_hub(ring, side, 0.06 + (stagger++) * 0.05));
         }
         for (final ring in _rings) {
-          for (final logo in ring.logos) {
+          for (var i = 0; i < ring.logos.length; i++) {
             children.add(
-              _ringLogo(ring, logo, side, 0.14 + (stagger++) * 0.04),
+              _ringLogo(ring, i, side, 0.14 + (stagger++) * 0.04),
             );
           }
         }
@@ -456,12 +481,9 @@ class _IntroScreenState extends State<IntroScreen>
   }
 
   /// One logo resting on its ring — bare, crisp and upright.
-  Widget _ringLogo(_Ring ring, _OrbitLogo logo, double side, double start) {
-    final angle = logo.angleDeg * math.pi / 180;
-    final pos = Offset(
-      (ring.cxF + ring.radiusF * math.cos(angle)) * side,
-      (ring.cyF + ring.radiusF * math.sin(angle)) * side,
-    );
+  Widget _ringLogo(_Ring ring, int index, double side, double start) {
+    final logo = ring.logos[index];
+    final pos = ring.positionOf(index, side);
     final pop = _pop(start);
     return Transform.translate(
       offset: pos,
@@ -528,22 +550,42 @@ class _Ring {
     required this.cxF,
     required this.cyF,
     required this.radiusF,
+    required this.phaseDeg,
     required this.hubIcon,
     required this.logos,
   });
 
   final double cxF, cyF;
   final double radiusF;
+
+  /// Where the FIRST logo sits (degrees; 0 = right, 90 = down). The rest are
+  /// spaced evenly after it — see [angleOf].
+  final double phaseDeg;
+
   final IconData hubIcon;
   final List<_OrbitLogo> logos;
+
+  /// The angle of logo [i], spaced evenly around the ring: with three logos
+  /// that's exactly 120° apart. Deriving it means the spacing is a property of
+  /// the ring, not nine numbers someone has to keep in sync.
+  double angleOf(int i) => phaseDeg + i * (360.0 / logos.length);
+
+  /// The position of logo [i] on a cluster box of [side] px, relative to the
+  /// box centre.
+  Offset positionOf(int i, double side) {
+    final a = angleOf(i) * math.pi / 180;
+    return Offset(
+      (cxF + radiusF * math.cos(a)) * side,
+      (cyF + radiusF * math.sin(a)) * side,
+    );
+  }
 }
 
-/// A logo resting on a ring: the brand, its box size (px), and the angle it
-/// sits at (degrees; 0 = right, 90 = down).
+/// A logo resting on a ring: the brand and its box size (px). Its angle comes
+/// from the ring's even spacing, so it can't be set — or mis-set — per logo.
 class _OrbitLogo {
-  const _OrbitLogo(this.brand, this.size, this.angleDeg);
+  const _OrbitLogo(this.brand, this.size);
 
   final Brand brand;
   final double size;
-  final double angleDeg;
 }

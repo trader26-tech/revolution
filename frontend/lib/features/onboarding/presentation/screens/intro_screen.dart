@@ -50,22 +50,23 @@ class _IntroScreenState extends State<IntroScreen>
   //   · disjoint outlines — centre distance >= r1 + r2 + 0.020 of visible gap
   //   · every outline AND every logo inside the box
   //   · no logo within 5px of another ring's outline
-  //   · the reference composition (big subscriptions ring upper-left, the
-  //     others upper-right and lower-right)
-  // subject to maximising clearance and ring size. The result has 26px of
-  // clearance between any two elements. [_debugAssertLayoutValid] re-checks all
+  //   · the size hierarchy and placement below — the rings are deliberately
+  //     DIFFERENT sizes, which gives the composition rhythm instead of three
+  //     interchangeable circles
+  // subject to maximising clearance and that size spread. The result keeps 12px
+  // of clearance between any two elements. [_debugAssertLayoutValid] re-checks all
   // of it at startup in debug builds, so a hand-tweak that breaks an invariant
   // fails loudly instead of silently shipping a broken layout.
   //
   // Every domain was hand-checked to return a crisp, correct logo on a dark
   // background (see the notes on individual entries).
   static const _rings = <_Ring>[
-    // Subscriptions — the big ring, upper-left (matches the reference).
+    // Subscriptions — the SMALLEST ring, out on the left.
     _Ring(
-      cxF: -0.255,
-      cyF: -0.142,
-      radiusF: 0.242,
-      phaseDeg: 123,
+      cxF: -0.306,
+      cyF: -0.126,
+      radiusF: 0.165,
+      phaseDeg: 131,
       hubIcon: Icons.play_circle_fill_rounded,
       logos: [
         _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42),
@@ -73,14 +74,14 @@ class _IntroScreenState extends State<IntroScreen>
         _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40),
       ],
     ),
-    // Investments & documents — upper-right. Groww and Upstox carry "money",
-    // DigiLocker carries "documents"; all three are household names with
-    // crisp, high-res marks.
+    // Investments & documents — the BIGGEST ring, upper-right. Groww and
+    // Upstox carry "money", DigiLocker carries "documents"; all three are
+    // household names with crisp, high-res marks.
     _Ring(
-      cxF: 0.278,
-      cyF: -0.278,
-      radiusF: 0.222,
-      phaseDeg: 74,
+      cxF: 0.198,
+      cyF: -0.198,
+      radiusF: 0.274,
+      phaseDeg: 85,
       hubIcon: Icons.trending_up_rounded,
       logos: [
         _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 38),
@@ -91,13 +92,13 @@ class _IntroScreenState extends State<IntroScreen>
         _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36),
       ],
     ),
-    // Insurance — lower-right. Three of the biggest names in Indian insurance,
-    // so the ring reads as "insurance" without a label.
+    // Insurance — the mid-sized ring, along the bottom. Three of the biggest
+    // names in Indian insurance, so the ring reads as "insurance" unlabelled.
     _Ring(
-      cxF: 0.180,
-      cyF: 0.260,
-      radiusF: 0.240,
-      phaseDeg: 20,
+      cxF: -0.006,
+      cyF: 0.246,
+      radiusF: 0.194,
+      phaseDeg: 11,
       hubIcon: Icons.shield_rounded,
       logos: [
         // LIC's real mark is wide (emblem + wordmark) → a slightly bigger box.
@@ -294,43 +295,66 @@ class _IntroScreenState extends State<IntroScreen>
               Expanded(flex: 72, child: _orbits()),
               _appLogo(),
               const SizedBox(height: 20),
-              _reveal(
-                start: 0.52,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      'Welcome to Revolution',
-                      maxLines: 1,
-                      style: text.headlineLarge?.copyWith(
-                        color: AppColors.ink,
-                        fontSize: 29,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _reveal(
-                start: 0.60,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(
-                    'Track your subscriptions, investments and\n'
-                    'insurance — and never miss a date',
-                    textAlign: TextAlign.center,
-                    style: text.bodyLarge?.copyWith(
-                      color: AppColors.inkSoft,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ),
+              // Headline + subtitle share ONE width, so the two blocks line up
+              // edge to edge instead of each finding its own natural width.
+              // The headline scales down to fit that width (never wraps); the
+              // subtitle wraps inside it — so both read as one tidy column.
+              _textBlock(text),
               const Spacer(flex: 8),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The headline and its subtitle, locked to a single shared width.
+  ///
+  /// [_textWidth] is that width: wide enough for "Welcome to Revolution" to sit
+  /// comfortably on one line at its full size, and the subtitle wraps to the
+  /// same measure. Because both blocks are the same width and centred, their
+  /// left and right edges align exactly — which is what makes the pairing read
+  /// as deliberate rather than two independently-sized paragraphs.
+  static const _textWidth = 320.0;
+
+  Widget _textBlock(TextTheme text) {
+    return SizedBox(
+      width: _textWidth,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _reveal(
+            start: 0.52,
+            // Scale-down (not wrap) keeps the title on one line even on a
+            // narrow screen, so it can never break into an awkward two.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'Welcome to Revolution',
+                maxLines: 1,
+                style: text.headlineLarge?.copyWith(
+                  color: AppColors.ink,
+                  fontSize: 29,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _reveal(
+            start: 0.60,
+            // No hard line break — it wraps to the shared width on its own, so
+            // the balance holds if the copy or the font ever changes.
+            child: Text(
+              'Track your subscriptions, investments and insurance — '
+              'never miss a date',
+              textAlign: TextAlign.center,
+              style: text.bodyLarge?.copyWith(
+                color: AppColors.inkSoft,
+                fontSize: 15,
+              ),
+            ),
           ),
         ],
       ),
@@ -406,20 +430,24 @@ class _IntroScreenState extends State<IntroScreen>
       child: Opacity(
         opacity: _lin(0.0, 0.6),
         child: Container(
-          width: side * 1.30,
-          height: side * 1.30,
+          // Wide enough to spill past the rings and wash the whole upper half
+          // of the screen, so the cluster sits IN light rather than in front of
+          // a disc.
+          width: side * 1.85,
+          height: side * 1.85,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: RadialGradient(
-              // A tight violet core that falls off well before the edge, so it
-              // reads as a glow rather than a flat disc.
+              // A brighter violet core with a long, gentle falloff — the extra
+              // stops keep the edge from banding now that it's this wide.
               colors: [
-                const Color(0xFF7C5CFC).withValues(alpha: 0.30),
-                const Color(0xFF6742EE).withValues(alpha: 0.14),
-                const Color(0xFF4C1D95).withValues(alpha: 0.05),
+                const Color(0xFF8B6BFF).withValues(alpha: 0.46),
+                const Color(0xFF7C5CFC).withValues(alpha: 0.28),
+                const Color(0xFF6742EE).withValues(alpha: 0.15),
+                const Color(0xFF4C1D95).withValues(alpha: 0.06),
                 Colors.transparent,
               ],
-              stops: const [0.0, 0.32, 0.58, 1.0],
+              stops: const [0.0, 0.22, 0.42, 0.66, 1.0],
             ),
           ),
         ),

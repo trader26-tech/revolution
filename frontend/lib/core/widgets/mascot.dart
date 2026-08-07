@@ -109,8 +109,11 @@ class _AnimatedMascotState extends State<AnimatedMascot>
           child: Mascot(
             size: widget.size,
             blink: blink,
+            // Gaze rests toward the LEFT to counterbalance the tail at the
+            // bottom-right — the eyes lean away from the point, which reads as
+            // deliberate and balanced. The wander happens around that offset.
             look: Offset(
-              math.sin(t * 2 * math.pi + 1.2) * 0.35,
+              -0.42 + math.sin(t * 2 * math.pi + 1.2) * 0.22,
               math.cos(t * 4 * math.pi + 0.4) * 0.15,
             ),
             squash: breath * 0.05,
@@ -148,33 +151,46 @@ class _MascotPainter extends CustomPainter {
   static const _lavender = Color(0xFFC4B5FD);
   static const _eye = Color(0xFF16181C);
 
-  /// A perfect circle with one small triangular point on the right.
+  /// A perfect circle with one small triangular point at the bottom-right.
   ///
   /// We trace the full circle as an arc, but interrupt it over a short span on
-  /// the right side: instead of following the arc between two tangent angles,
-  /// we run a straight line out to a (slightly rounded) tip and back. Because
-  /// the break points sit on the circle and the tip is centred on the axis, the
-  /// point reads as a natural beak growing out of an otherwise flawless round
-  /// body.
+  /// the bottom-right diagonal: instead of following the arc between two tangent
+  /// angles, we run out to a (slightly rounded) tip along the 45° diagonal and
+  /// back. Because the break points sit on the circle and the tip lies on the
+  /// diagonal through the centre, the point reads as a natural tail growing out
+  /// of an otherwise flawless round body — pulling the eye down-right.
   static Path _buildBody(double s) {
     final r = s * 0.40; // the head's radius — a true circle
 
-    // The triangle spans a small arc on the right, symmetric about the x-axis.
-    const half = 0.34; // half-angle of the notch (radians) → base height
-    final tip = Offset(r + s * 0.11, 0); // how far the point juts out
+    // The point is centred on the bottom-right diagonal (45° down from +x).
+    const centre = math.pi / 4; // 45° → bottom-right corner
+    const half = 0.32; // half-angle of the notch (radians) → base height
 
-    // The two points where the point meets the circle (upper & lower).
-    final top = Offset(r * math.cos(-half), r * math.sin(-half));
-    final bot = Offset(r * math.cos(half), r * math.sin(half));
+    // The two points where the point meets the circle, straddling the diagonal.
+    final top = Offset(
+      r * math.cos(centre - half),
+      r * math.sin(centre - half),
+    );
+    final bot = Offset(
+      r * math.cos(centre + half),
+      r * math.sin(centre + half),
+    );
 
-    // A short control point just shy of the tip on each side rounds the apex,
-    // so it's a soft point rather than a needle.
-    final tipUp = Offset(tip.dx - s * 0.02, -s * 0.03);
-    final tipDn = Offset(tip.dx - s * 0.02, s * 0.03);
+    // The tip juts out along the diagonal, past the circle's edge.
+    final reach = r + s * 0.12;
+    final tip = Offset(reach * math.cos(centre), reach * math.sin(centre));
+
+    // Two control shoulders just shy of the tip, offset perpendicular to the
+    // diagonal, round the apex into a soft point rather than a needle.
+    final nx = math.cos(centre), ny = math.sin(centre); // diagonal unit
+    final px = -ny, py = nx; // perpendicular unit
+    final back = Offset(tip.dx - nx * s * 0.02, tip.dy - ny * s * 0.02);
+    final tipA = Offset(back.dx - px * s * 0.03, back.dy - py * s * 0.03);
+    final tipB = Offset(back.dx + px * s * 0.03, back.dy + py * s * 0.03);
 
     return Path()
-      // Start at the top break point and sweep the long way around the circle
-      // (clockwise, through the left) back to the bottom break point.
+      // Start at the leading break point and sweep the long way around the
+      // circle (counter-clockwise, the whole body) to the trailing break point.
       ..moveTo(top.dx, top.dy)
       ..arcToPoint(
         bot,
@@ -182,9 +198,9 @@ class _MascotPainter extends CustomPainter {
         clockwise: false,
         largeArc: true,
       )
-      // Now the point: bottom break → rounded tip → top break.
-      ..lineTo(tipDn.dx, tipDn.dy)
-      ..quadraticBezierTo(tip.dx, tip.dy, tipUp.dx, tipUp.dy)
+      // Now the point: trailing break → rounded tip → leading break.
+      ..lineTo(tipB.dx, tipB.dy)
+      ..quadraticBezierTo(tip.dx, tip.dy, tipA.dx, tipA.dy)
       ..lineTo(top.dx, top.dy)
       ..close();
   }
@@ -252,7 +268,9 @@ class _MascotPainter extends CustomPainter {
     // sliver as [blink] rises — everything a face needs, nothing more.
     final eyePaint = Paint()..color = _eye;
     final open = (1 - blink * 0.94).clamp(0.06, 1.0);
-    final eyeOffset = Offset(look.dx * s * 0.050, look.dy * s * 0.040);
+    // A wider horizontal travel so a left-leaning gaze reads clearly (the tail
+    // sits bottom-right, so the eyes look the other way).
+    final eyeOffset = Offset(look.dx * s * 0.075, look.dy * s * 0.040);
     for (final dx in [-s * 0.125, s * 0.125]) {
       canvas.drawOval(
         Rect.fromCenter(

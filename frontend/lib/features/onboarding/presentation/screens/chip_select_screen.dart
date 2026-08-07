@@ -94,7 +94,9 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1700),
+      // Slow and deliberate — a proper introduction. Revo takes his time, the
+      // words materialise one by one, then the rows drift up. No hurry.
+      duration: const Duration(milliseconds: 3400),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _intro.forward();
@@ -140,12 +142,11 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
       ..forward();
   }
 
-  /// 0→1 typing progress over the timeline slice [start]..[end], eased so the
-  /// last few words don't rush. Feeds the typewriter's visible-word count.
-  double _typeProgress(double start, double end) {
-    final raw = ((_intro.value - start) / (end - start)).clamp(0.0, 1.0);
-    return Curves.easeInOut.transform(raw);
-  }
+  /// 0→1 progress over the timeline slice [start]..[end]. Linear, so each word
+  /// gets an equal, unhurried beat to materialise (the per-word spring supplies
+  /// the character of the motion).
+  double _typeProgress(double start, double end) =>
+      ((_intro.value - start) / (end - start)).clamp(0.0, 1.0);
 
   /// Fade + slide-up for the slice of the timeline [start]..[start]+[window].
   Widget _reveal(double start, Widget child, {double window = 0.3}) {
@@ -161,14 +162,17 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
   Widget build(BuildContext context) {
     final section = _section;
     final items = section.items;
-    // The staged entry timeline (0..1): Revo pops (0..0.16), the question types
-    // in word-by-word (0.16..0.55), "Tap all that apply." fades up (0.55), then
-    // the rows cascade one-by-one across the back stretch.
-    const questionStart = 0.16;
-    const questionEnd = 0.55;
-    const taglineStart = 0.55;
-    const rowsStart = 0.62;
-    final perRow = (0.92 - rowsStart) / items.length;
+    // The staged entry timeline (0..1), slow and deliberate:
+    //   0.00..0.26  Revo makes his entrance — a slow bubbly bounce-in.
+    //   0.26..0.66  the question's words MATERIALISE one by one (blur in, float
+    //               up, settle with a springy overshoot + a soft glow).
+    //   0.66..0.72  "Tap all that apply." drifts up.
+    //   0.72..0.98  the rows cascade in, one calm beat each.
+    const questionStart = 0.26;
+    const questionEnd = 0.66;
+    const taglineStart = 0.68;
+    const rowsStart = 0.74;
+    final perRow = (0.98 - rowsStart) / items.length;
 
     // No Scaffold/Starfield/SafeArea here — this renders as page 2 inside the
     // OnboardingFlow, which already provides the sky and safe area.
@@ -214,13 +218,14 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Revo, first to arrive — a little scale-in pop.
+                            // Revo, first to arrive — a slow bubbly entrance: he
+                            // fades in while scaling up past his size and
+                            // settling back (a springy overshoot), so he lands
+                            // with a little bounce rather than a snap.
                             Padding(
                               padding: const EdgeInsets.only(right: 6, top: 2),
-                              child: Transform.scale(
-                                scale: Curves.easeOutBack.transform(
-                                  (_intro.value / 0.16).clamp(0.0, 1.0),
-                                ),
+                              child: _RevoEntrance(
+                                t: (_intro.value / 0.26).clamp(0.0, 1.0),
                                 child: const AnimatedMascot(
                                   size: 60,
                                   glow: false,
@@ -230,7 +235,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                             Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.only(top: 6),
-                                child: _Typewriter(
+                                child: _MagicText(
                                   // Keyed by category so it restarts cleanly
                                   // when the question changes.
                                   key: ValueKey(section.key),
@@ -405,8 +410,41 @@ class _ProgressBar extends StatelessWidget {
 ///
 /// The full text is laid out invisibly underneath so the box reserves its final
 /// height from frame one — the rows below never jump as words land.
-class _Typewriter extends StatelessWidget {
-  const _Typewriter({
+/// Revo's entrance: fades in while scaling up past full size and settling back
+/// with a springy overshoot, rising a touch as he arrives — a bubbly bounce,
+/// not a snap. [t] runs 0->1 across his slice of the timeline.
+class _RevoEntrance extends StatelessWidget {
+  const _RevoEntrance({required this.t, required this.child});
+
+  final double t;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // elasticOut gives the bubbly overshoot-and-settle; easeOut fades/lifts.
+    final spring = Curves.elasticOut.transform(t);
+    final ease = Curves.easeOut.transform(t);
+    final scale = 0.2 + spring * 0.8; // starts small, overshoots, then settles
+    return Opacity(
+      opacity: ease,
+      child: Transform.translate(
+        offset: Offset(0, (1 - ease) * 10),
+        child: Transform.scale(scale: scale, child: child),
+      ),
+    );
+  }
+}
+
+/// The question, revealed the way an AI would conjure it: each word
+/// MATERIALISES on its own — blurring in from a haze, floating up into place,
+/// and settling with a springy overshoot and a brief violet glow. Not typed.
+///
+/// [progress] is a 0->1 fraction across the question's timeline slice; from it
+/// each word gets its own local 0->1 so they arrive one after another. The full
+/// text is laid out invisibly beneath so the box holds its final size from
+/// frame one and nothing below ever reflows.
+class _MagicText extends StatelessWidget {
+  const _MagicText({
     super.key,
     required this.text,
     required this.progress,

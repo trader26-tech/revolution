@@ -75,27 +75,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     _picked.contains(key) ? _picked.remove(key) : _picked.add(key);
   });
 
-  String get _cta {
-    switch (_page) {
-      case 0:
-        return 'Start tracking';
-      case 1:
-        return _picked.isEmpty ? 'Skip' : 'Add it up for me';
-      default:
-        return 'Get started';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // Page 1 is the category wizard, which owns its own progress bar + bottom
     // button, so the flow's shared top dots and bottom CTA hide on that page.
     final wizardPage = _page == 1;
-    // Page 0 (the intro) now carries its OWN "Start tracking" button, sitting
-    // right under its copy — so the flow's shared bottom CTA only belongs to the
-    // final payoff page. Without this the intro showed a dead-end (no button in
-    // view) and the bar would double up.
-    final showBottomCta = _page == _pageCount - 1;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -144,20 +128,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                       onComplete: (_) => _goToPage(2),
                       onExit: () => _goToPage(0),
                     ),
-                    PayoffScreen(picked: _picked),
+                    PayoffScreen(picked: _picked, onDone: _finish),
                   ],
                 ),
               ),
-              // Bottom CTA — only the payoff page uses the shared bar now; the
-              // intro carries its own button and the wizard has its own.
-              if (showBottomCta)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(onPressed: _next, child: Text(_cta)),
-                  ),
-                ),
+              // No shared bottom CTA: EVERY page now carries its own button —
+              // the intro ("Start tracking"), the wizard ("Continue"/"Finish"),
+              // and the payoff ("Get started"). That's what stops a stray bar
+              // from bleeding onto the wrong page during a transition.
             ],
           ),
         ),

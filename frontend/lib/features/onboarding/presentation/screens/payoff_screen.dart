@@ -23,9 +23,15 @@ import 'chip_select_screen.dart';
 /// story structure — problem, beat, hero — is carried purely by timing and
 /// Revo's body language.
 class PayoffScreen extends StatefulWidget {
-  const PayoffScreen({super.key, required this.picked});
+  const PayoffScreen({super.key, required this.picked, this.onDone});
 
   final Set<String> picked;
+
+  /// Finish onboarding — the flow's "we're done" callback. The button lives on
+  /// THIS screen (like the intro's) rather than in the flow's shared bottom
+  /// bar, so no CTA can ever bleed onto the intro or wizard during a page
+  /// transition. Null in previews/tests → the button hides.
+  final VoidCallback? onDone;
 
   @override
   State<PayoffScreen> createState() => _PayoffScreenState();
@@ -153,6 +159,8 @@ class _PayoffScreenState extends State<PayoffScreen>
               _revo(),
               const Spacer(flex: 3),
               _promise(),
+              const SizedBox(height: 22),
+              if (widget.onDone != null) _getStarted(),
               const Spacer(flex: 2),
             ],
           ),
@@ -342,6 +350,25 @@ class _PayoffScreenState extends State<PayoffScreen>
           fontWeight: FontWeight.w700,
           letterSpacing: -0.2,
           color: AppColors.inkSoft,
+        ),
+      ),
+      window: 0.10,
+    );
+  }
+
+  /// The "Get started" CTA — the last beat of the story, landing just after the
+  /// closing line. Full-width to match the app's primary buttons.
+  Widget _getStarted() {
+    return _reveal(
+      _promiseStart + 0.06,
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: widget.onDone,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Text('Get started'),
+          ),
         ),
       ),
       window: 0.10,

@@ -52,10 +52,17 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
   static const _resendSeconds = 30;
 
   final _controller = TextEditingController();
-  final _focus = FocusNode();
+  final _focus = FocusNode(); // drives the hidden field behind the boxes
+  final _fallbackFocus = FocusNode(); // the visible fallback text field
   Timer? _timer;
+  Timer? _kbCheck;
   int _secondsLeft = _resendSeconds;
   bool _submitting = false;
+
+  /// Shown only when the keyboard refused to appear for the box UI — then we
+  /// reveal a real, visible text field so the code can always be typed by hand
+  /// (e.g. the OTP arrived on another device, so nothing auto-fills).
+  bool _showFallbackField = false;
 
   String get _code => _controller.text.replaceAll(RegExp(r'[^0-9]'), '');
   bool get _complete => _code.length == _len;
@@ -89,10 +96,38 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
 
   /// Request focus after the current frame, so the keyboard reliably rises even
   /// right after a route/lifecycle transition (a bare requestFocus mid-build is
-  /// often dropped).
+  /// often dropped). Then verify the keyboard actually appeared — if it didn't,
+  /// fall back to the visible text field.
   void _focusSoon() {
+    if (_showFallbackField) return; // already on the visible field
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !widget.sending) _focus.requestFocus();
+      if (!mounted || widget.sending) return;
+      _focus.requestFocus();
+      _scheduleKeyboardCheck();
+    });
+  }
+
+  /// Give the keyboard a moment to rise; if it hasn't (no bottom inset), the box
+  /// UI's hidden field failed — reveal the visible fallback field instead.
+  void _scheduleKeyboardCheck() {
+    _kbCheck?.cancel();
+    _kbCheck = Timer(const Duration(milliseconds: 700), () {
+      if (!mounted || widget.sending || _showFallbackField) return;
+      final keyboardUp = MediaQuery.of(context).viewInsets.bottom > 0;
+      if (!keyboardUp) _revealFallbackField();
+    });
+  }
+
+  /// Manual "tap to enter" → try the keyboard once more, then fall back.
+  void _summonKeyboard() {
+    _focus.requestFocus();
+    _scheduleKeyboardCheck();
+  }
+
+  void _revealFallbackField() {
+    setState(() => _showFallbackField = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _fallbackFocus.requestFocus();
     });
   }
 
@@ -100,8 +135,10 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _kbCheck?.cancel();
     _controller.dispose();
     _focus.dispose();
+    _fallbackFocus.dispose();
     super.dispose();
   }
 
@@ -140,7 +177,13 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
     _controller.clear();
     await widget.onResend();
     _startCountdown();
-    if (mounted) _focus.requestFocus();
+    if (!mounted) return;
+    // Fresh attempt — try the box UI + keyboard again from scratch.
+    if (_showFallbackField) {
+      _fallbackFocus.requestFocus();
+    } else {
+      _focusSoon();
+    }
   }
 
   @override
@@ -157,7 +200,10 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
       body: Starfield(
         intensity: 0.7,
         child: GestureDetector(
-          onTap: () => _focus.requestFocus(),
+          // Tap anywhere to bring the keyboard back — to the visible fallback
+          // field if it's showing, otherwise the boxes' hidden field.
+          onTap: () =>
+              (_showFallbackField ? _fallbackFocus : _focus).requestFocus(),
           behavior: HitTestBehavior.opaque,
           child: SafeArea(
             child: Padding(
@@ -202,25 +248,98 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
                     ),
                   ),
                   const SizedBox(height: 28),
-                  // The six code boxes ARE the text field — a real, always-tappable
-                  // input with a visible caret. Tapping anywhere on the row opens
-                  // the keyboard, so a code that arrives on ANOTHER device can
-                  // always be typed by hand (no reliance on SMS auto-fill).
-                  _CodeInput(
-                    length: _len,
-                    controller: _controller,
-                    focusNode: _focus,
-                    code: _code,
-                    error: widget.errorText != null,
-                    sending: widget.sending,
-                    onSubmit: _submit,
+                  // Primary: the six code boxes (the version that worked), driven
+                  // by the hidden field. Tapping them summons the keyboard.
+                  Stack(
+                    children: [
+                      SizedBox(
+                        height: 1,
+                        width: 1,
+                        child: Opacity(
+                          opacity: 0,
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _focus,
+                            autofocus: !_showFallbackField,
+                            showCursor: false,
+                            keyboardType: TextInputType.number,
+                            enableSuggestions: false,
+                            autofillHints: const [AutofillHints.oneTimeCode],
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(_len),
+                            ],
+                            onSubmitted: (_) => _submit(),
+                          ),
+                        ),
+                      ),
+                      _CodeBoxes(
+                        length: _len,
+                        code: _code,
+                        focused: _focus.hasFocus && !widget.sending,
+                        error: widget.errorText != null,
+                        sending: widget.sending,
+                        onTap: () => _focus.requestFocus(),
+                      ),
+                    ],
                   ),
+                  // Fallback: if the keyboard never came up (e.g. code arrived on
+                  // ANOTHER device and there's nothing to auto-fill), show a real,
+                  // visible text field right here so the code can always be typed.
+                  if (_showFallbackField) ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _controller,
+                      focusNode: _fallbackFocus,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      autofocus: true,
+                      enableSuggestions: false,
+                      autofillHints: const [AutofillHints.oneTimeCode],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(_len),
+                      ],
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 8,
+                        color: AppColors.ink,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Enter the 6-digit code',
+                        hintStyle: const TextStyle(
+                          fontSize: 15,
+                          letterSpacing: 0,
+                          color: AppColors.inkFaint,
+                        ),
+                        filled: true,
+                        fillColor: AppColors.card,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 16),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: AppColors.cardBorder),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: AppColors.cardBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: AppColors.accent, width: 2),
+                        ),
+                      ),
+                      onSubmitted: (_) => _submit(),
+                    ),
+                  ],
                   const SizedBox(height: 6),
-                  // An explicit tap affordance — a guaranteed way to bring the
-                  // keypad back if it ever drops (e.g. after the robot check).
-                  if (!widget.sending && !_focus.hasFocus)
+                  // Tap affordance — brings the keypad back, and if that still
+                  // doesn't work, reveals the fallback field above.
+                  if (!widget.sending && !_focus.hasFocus && !_showFallbackField)
                     GestureDetector(
-                      onTap: () => _focus.requestFocus(),
+                      onTap: _summonKeyboard,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: const [

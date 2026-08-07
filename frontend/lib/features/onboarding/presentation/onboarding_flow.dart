@@ -35,6 +35,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final Set<String> _picked = preselectedChipKeys();
   int _page = 0;
 
+  /// True only while a PROGRAMMATIC page transition is in flight. The wizard
+  /// page normally blocks user swipes with NeverScrollableScrollPhysics — but
+  /// that physics also blocks [PageController.animateToPage], so finishing the
+  /// wizard (page 1 → payoff page 2) would silently fail and snap back to the
+  /// intro. Flipping this true for the duration of a driven transition lets the
+  /// controller move the viewport, then it flips back so the wizard is locked
+  /// to the user again.
+  bool _animating = false;
+
   static const _pageCount = 3;
 
   @override
@@ -120,8 +129,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 child: PageView(
                   controller: _controller,
                   // The wizard drives its own paging; block manual swipes on it
-                  // so the category flow stays in charge.
-                  physics: wizardPage
+                  // so the category flow stays in charge — but NOT while a
+                  // programmatic transition is running, or the controller's own
+                  // animateToPage off the wizard would be blocked too.
+                  physics: (wizardPage && !_animating)
                       ? const NeverScrollableScrollPhysics()
                       : null,
                   onPageChanged: (i) => setState(() => _page = i),
@@ -154,11 +165,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
   }
 
-  void _goToPage(int i) => _controller.animateToPage(
-    i,
-    duration: const Duration(milliseconds: 360),
-    curve: Curves.easeInOutCubic,
-  );
+  Future<void> _goToPage(int i) async {
+    // Unlock the PageView for the driven scroll (see [_animating]), animate,
+    // then re-lock. Without the unlock, a transition that STARTS on the wizard
+    // page — finishing the categories (1 → 2) or backing out (1 → 0) — is
+    // rejected by the wizard's NeverScrollableScrollPhysics and never lands.
+    setState(() => _animating = true);
+    try {
+      await _controller.animateToPage(
+        i,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeInOutCubic,
+      );
+    } finally {
+      if (mounted) setState(() => _animating = false);
+    }
+  }
 }
 
 /// The wide-pill progress indicator: the current page is a long accent bar.

@@ -77,8 +77,8 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>app-1-795412577532-ios-9569d9c9464c4c1c27ab79</string>
-				<string>com.revolution.revolution</string>
+				<string>app-1-795412577532-ios-8427f1fa5a9663aa27ab79</string>
+				<string>com.revolution.revolution.dev</string>
 			</array>
 		</dict>
 	</array>

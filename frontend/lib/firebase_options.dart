@@ -66,10 +66,10 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDcND95IDaMr813TURrW6SgN-OMscSdys4',
-    appId: '1:795412577532:ios:9569d9c9464c4c1c27ab79',
+    appId: '1:795412577532:ios:8427f1fa5a9663aa27ab79',
     messagingSenderId: '795412577532',
     projectId: 'revolution-86562',
     storageBucket: 'revolution-86562.firebasestorage.app',
-    iosBundleId: 'com.revolution.revolution',
+    iosBundleId: 'com.revolution.revolution.dev',
   );
 }

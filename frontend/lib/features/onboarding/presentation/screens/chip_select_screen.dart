@@ -166,16 +166,19 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     final section = _section;
     final items = section.items;
     // The staged entry timeline (0..1), slow and deliberate:
-    //   0.00..0.26  Revo makes his entrance — a slow bubbly bounce-in.
-    //   0.26..0.66  the question's words MATERIALISE one by one (blur in, float
-    //               up, settle with a springy overshoot + a soft glow).
-    //   0.66..0.72  "Tap all that apply." drifts up.
-    //   0.72..0.98  the rows cascade in, one calm beat each.
-    const questionStart = 0.26;
-    const questionEnd = 0.66;
-    const taglineStart = 0.68;
-    const rowsStart = 0.74;
-    final perRow = (0.98 - rowsStart) / items.length;
+    //   0.00..0.20  Revo makes his entrance — a slow bubbly bounce-in.
+    //   0.20..0.40  three dots gather and PULSE together (Revo "thinking").
+    //   0.40..0.48  the cluster BURSTS with a bright violet flash.
+    //   0.48..0.74  the question's words bloom out of the burst, one by one.
+    //   0.76..0.80  "Tap all that apply." drifts up.
+    //   0.80..0.99  the rows cascade in, one calm beat each.
+    const dotsStart = 0.20;
+    const dotsEnd = 0.48; // pulse (..0.40) then burst (0.40..0.48)
+    const questionStart = 0.42; // words begin as the burst flashes
+    const questionEnd = 0.74;
+    const taglineStart = 0.76;
+    const rowsStart = 0.80;
+    final perRow = (0.99 - rowsStart) / items.length;
 
     // No Scaffold/Starfield/SafeArea here — this renders as page 2 inside the
     // OnboardingFlow, which already provides the sky and safe area.
@@ -238,21 +241,40 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                             Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.only(top: 6),
-                                child: _MagicText(
-                                  // Keyed by category so it restarts cleanly
-                                  // when the question changes.
-                                  key: ValueKey(section.key),
-                                  text: _questionFor(section),
-                                  progress: _typeProgress(
-                                    questionStart,
-                                    questionEnd,
-                                  ),
-                                  style: const TextStyle(
-                                    fontSize: 27,
-                                    height: 1.12,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.ink,
-                                  ),
+                                // The dots cluster and the words share this
+                                // slot: the dots pulse then burst, and the words
+                                // bloom out of the burst as the dots fade. They
+                                // overlap in a Stack, top-left aligned so the
+                                // burst sits right where the first word lands.
+                                child: Stack(
+                                  children: [
+                                    _MagicText(
+                                      // Keyed by category so it restarts cleanly
+                                      // when the question changes.
+                                      key: ValueKey(section.key),
+                                      text: _questionFor(section),
+                                      progress: _typeProgress(
+                                        questionStart,
+                                        questionEnd,
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 27,
+                                        height: 1.12,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.ink,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      left: 0,
+                                      top: 10,
+                                      child: _ThinkingDots(
+                                        progress: _typeProgress(
+                                          dotsStart,
+                                          dotsEnd,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -429,6 +451,137 @@ class _RevoEntrance extends StatelessWidget {
       child: Transform.translate(
         offset: Offset(0, (1 - ease) * 10),
         child: Transform.scale(scale: scale, child: child),
+      ),
+    );
+  }
+}
+
+/// Revo "thinking", then the spark the words are born from. Across its 0->1
+/// life [progress] it runs two acts:
+///   pulse (0 .. 0.72):  three violet dots gather and breathe together, like a
+///                       typing indicator — Revo composing the question.
+///   burst (0.72 .. 1):  the cluster swells and pops in a bright violet flash
+///                       ring, then vanishes — the words bloom out of it.
+class _ThinkingDots extends StatelessWidget {
+  const _ThinkingDots({required this.progress});
+
+  final double progress;
+
+  static const _burstAt = 0.72;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = AppColors.accent;
+
+    if (progress >= 1.0) return const SizedBox.shrink();
+
+    if (progress < _burstAt) {
+      // ── Act 1: the three dots pulse together ──────────────────────────────
+      final p = (progress / _burstAt).clamp(0.0, 1.0);
+      final appear = Curves.easeOut.transform((p / 0.25).clamp(0.0, 1.0));
+      // A shared breathing pulse; each dot lags the last a touch so the cluster
+      // shimmers rather than throbbing as one solid block.
+      Widget dot(int i) {
+        final phase = p * math.pi * 4 - i * 0.7;
+        final pulse = 0.5 + 0.5 * math.sin(phase); // 0..1
+        final scale = 0.8 + pulse * 0.35;
+        return Opacity(
+          opacity: appear,
+          child: Transform.scale(
+            scale: scale,
+            child: Container(
+              width: 12,
+              height: 12,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.5 + 0.5 * pulse),
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.6 * pulse),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [dot(0), dot(1), dot(2)],
+        ),
+      );
+    }
+
+    // ── Act 2: the burst ─────────────────────────────────────────────────────
+    final b = ((progress - _burstAt) / (1 - _burstAt)).clamp(0.0, 1.0);
+    // The flash ring swells outward and fades; a bright core blooms then dies.
+    final ring = Curves.easeOut.transform(b);
+    final ringSize = 16 + ring * 64; // expands past the cluster
+    final ringOpacity = (1 - b).clamp(0.0, 1.0);
+    final coreOpacity = math.sin(b * math.pi); // 0 -> 1 -> 0
+    final coreScale = 0.6 + Curves.easeOut.transform(b) * 1.2;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: SizedBox(
+        width: 80,
+        height: 24,
+        child: Stack(
+          alignment: Alignment.centerLeft,
+          clipBehavior: Clip.none,
+          children: [
+            // Expanding flash ring.
+            Transform.translate(
+              offset: const Offset(20, 0),
+              child: Container(
+                width: ringSize,
+                height: ringSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: accent.withValues(alpha: 0.7 * ringOpacity),
+                    width: 3,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.5 * ringOpacity),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Bright core that blooms and dies as the words take over.
+            Transform.translate(
+              offset: const Offset(20, 0),
+              child: Transform.scale(
+                scale: coreScale,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: coreOpacity),
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.8 * coreOpacity),
+                        blurRadius: 24,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

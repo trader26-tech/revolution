@@ -224,10 +224,10 @@ class _PayoffScreenState extends State<PayoffScreen>
               child: Text(
                 '$_running',
                 style: const TextStyle(
-                  fontSize: 28,
+                  fontSize: 40,
                   height: 1.2,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
+                  letterSpacing: -1.0,
                   color: AppColors.accent,
                   fontFeatures: [FontFeature.tabularFigures()],
                 ),
@@ -239,10 +239,10 @@ class _PayoffScreenState extends State<PayoffScreen>
       ),
       textAlign: TextAlign.center,
       style: const TextStyle(
-        fontSize: 21,
-        height: 1.35,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -0.3,
+        fontSize: 24,
+        height: 1.3,
+        fontWeight: FontWeight.w900,
+        letterSpacing: -0.4,
         color: AppColors.ink,
       ),
     );
@@ -257,7 +257,7 @@ class _PayoffScreenState extends State<PayoffScreen>
           TextSpan(
             text: "Revo's got you.",
             style: TextStyle(
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: AppColors.accent,
             ),
           ),
@@ -265,11 +265,11 @@ class _PayoffScreenState extends State<PayoffScreen>
       ),
       textAlign: TextAlign.center,
       style: const TextStyle(
-        fontSize: 20,
+        fontSize: 16,
         height: 1.35,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -0.3,
-        color: AppColors.ink,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        color: AppColors.inkSoft,
       ),
     );
   }

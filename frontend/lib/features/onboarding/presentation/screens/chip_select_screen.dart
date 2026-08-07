@@ -13,10 +13,10 @@ import '../widgets/reminder_confirm_sheet.dart';
 ///
 /// A one-category-per-screen wizard. The flow's shared 3-dot header (common to
 /// every onboarding screen) carries the macro progress. Two lines of copy do
-/// the rest: the tagline under the question is the reassurance — "Not here? Add
-/// more in the app" — while the line just above the Continue button carries
-/// forward momentum — "3 more to go", then "Last one" on the final screen. No
-/// separate progress element;
+/// the rest: the tagline under the question — "Tap all that apply · add more in
+/// the app" — while the line just above the Continue button carries forward
+/// momentum — "3 more to go", then "Last one" on the final screen. No separate
+/// progress element;
 /// the Continue button stays plain. Just a back-arrow sits at the top. Revo
 /// greets from the top-left, and each category is a clean LIST of rows (icon +
 /// name + radio) — the commonest ones arrive already selected.
@@ -235,8 +235,9 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                           ],
                         ),
                         const SizedBox(height: 6),
-                        // Tagline under the question — just the "not here?"
-                        // reassurance now, accent on "in the app". The forward
+                        // Tagline under the question — one clean, unpunctuated
+                        // line: the instruction, then the reassurance, joined by
+                        // a soft dot. Accent on "add more in the app". Forward
                         // progress ("N more to go") lives down by the button.
                         _reveal(
                           taglineStart,
@@ -245,9 +246,16 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                             child: Text.rich(
                               TextSpan(
                                 children: [
-                                  const TextSpan(text: 'Not here? Add more '),
+                                  const TextSpan(text: 'Tap all that apply'),
                                   TextSpan(
-                                    text: 'in the app',
+                                    text: '   ·   ',
+                                    style: TextStyle(
+                                      color: AppColors.inkFaint
+                                          .withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'add more in the app',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w700,
                                       color: AppColors.accent

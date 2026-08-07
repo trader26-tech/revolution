@@ -66,5 +66,21 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Firebase phone auth: the reCAPTCHA verification fallback opens a web
+	     flow and returns to the app via a custom URL scheme. The app id and
+	     bundle id are valid schemes for this. (Silent APNs verification is the
+	     primary path; this covers the fallback when a push can't be delivered.) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>app-1-795412577532-ios-9569d9c9464c4c1c27ab79</string>
+				<string>com.revolution.revolution</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

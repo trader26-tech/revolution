@@ -46,7 +46,8 @@ class OtpVerifyPage extends StatefulWidget {
   State<OtpVerifyPage> createState() => _OtpVerifyPageState();
 }
 
-class _OtpVerifyPageState extends State<OtpVerifyPage> {
+class _OtpVerifyPageState extends State<OtpVerifyPage>
+    with WidgetsBindingObserver {
   static const _len = 6;
   static const _resendSeconds = 30;
 
@@ -64,10 +65,40 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
     super.initState();
     _controller.addListener(_onChanged);
     _startCountdown();
+    // The reCAPTCHA / SMS-consent step leaves and re-enters this screen, and
+    // the OS drops the keyboard while we're away. Watch the app lifecycle so we
+    // can bring the keyboard back the moment we return.
+    WidgetsBinding.instance.addObserver(this);
+    _focusSoon();
+  }
+
+  @override
+  void didUpdateWidget(covariant OtpVerifyPage old) {
+    super.didUpdateWidget(old);
+    // Once the code has actually been sent (sending → false), pop the keyboard
+    // so the user can type immediately without tapping.
+    if (old.sending && !widget.sending) _focusSoon();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning to the foreground (back from the reCAPTCHA webview / SMS
+    // screen) → re-open the keyboard so the field is ready to type.
+    if (state == AppLifecycleState.resumed && !widget.sending) _focusSoon();
+  }
+
+  /// Request focus after the current frame, so the keyboard reliably rises even
+  /// right after a route/lifecycle transition (a bare requestFocus mid-build is
+  /// often dropped).
+  void _focusSoon() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !widget.sending) _focus.requestFocus();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _controller.dispose();
     _focus.dispose();
@@ -171,28 +202,69 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                     ),
                   ),
                   const SizedBox(height: 28),
-                  _CodeBoxes(
-                    length: _len,
-                    code: _code,
-                    focused: _focus.hasFocus && !widget.sending,
-                    error: widget.errorText != null,
-                    sending: widget.sending,
-                    onTap: () => _focus.requestFocus(),
+                  // Tapping the boxes summons the keyboard. The boxes are driven
+                  // by the real (but visually hidden) field stacked behind them.
+                  Stack(
+                    children: [
+                      // The real input. Kept IN the tree (not Offstage) so it can
+                      // actually hold focus and raise the keyboard, but sized to
+                      // nothing and fully transparent so it's invisible. Offstage
+                      // fields can't reliably show the keyboard, which is why the
+                      // keypad wasn't coming back after the reCAPTCHA step.
+                      SizedBox(
+                        height: 1,
+                        width: 1,
+                        child: Opacity(
+                          opacity: 0,
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _focus,
+                            autofocus: true,
+                            showCursor: false,
+                            keyboardType: TextInputType.number,
+                            enableSuggestions: false,
+                            autofillHints: const [AutofillHints.oneTimeCode],
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(_len),
+                            ],
+                            onSubmitted: (_) => _submit(),
+                          ),
+                        ),
+                      ),
+                      _CodeBoxes(
+                        length: _len,
+                        code: _code,
+                        focused: _focus.hasFocus && !widget.sending,
+                        error: widget.errorText != null,
+                        sending: widget.sending,
+                        onTap: () => _focus.requestFocus(),
+                      ),
+                    ],
                   ),
-                  // The real (invisible) input driving the boxes.
-                  Offstage(
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focus,
-                      autofocus: true,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(_len),
-                      ],
-                      onSubmitted: (_) => _submit(),
+                  const SizedBox(height: 6),
+                  // An explicit tap affordance — a guaranteed way to bring the
+                  // keypad back if it ever drops (e.g. after the robot check).
+                  if (!widget.sending && !_focus.hasFocus)
+                    GestureDetector(
+                      onTap: () => _focus.requestFocus(),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.keyboard_rounded,
+                              size: 16, color: AppColors.accent),
+                          SizedBox(width: 6),
+                          Text(
+                            'Tap to enter the code',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   if (widget.errorText != null) ...[
                     const SizedBox(height: 14),
                     Text(

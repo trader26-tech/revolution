@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import FirebaseAuth
 import flutter_local_notifications
 
 @main
@@ -20,5 +21,36 @@ import flutter_local_notifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+  }
+
+  // ── Firebase phone auth: silent APNs verification ─────────────────────────
+  // Firebase proves the app is genuine by sending it a silent push. These two
+  // hooks hand the APNs device token and any incoming silent push to
+  // FirebaseAuth. If Auth consumes the notification, we stop; otherwise we pass
+  // it along so normal notifications still work.
+
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    // .unknown lets Firebase auto-detect sandbox vs production APNs environment.
+    Auth.auth().setAPNSToken(deviceToken, type: .unknown)
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification notification: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    if Auth.auth().canHandleNotification(notification) {
+      completionHandler(.noData)
+      return
+    }
+    super.application(
+      application,
+      didReceiveRemoteNotification: notification,
+      fetchCompletionHandler: completionHandler
+    )
   }
 }

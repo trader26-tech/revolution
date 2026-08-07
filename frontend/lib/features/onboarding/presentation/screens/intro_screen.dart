@@ -10,7 +10,7 @@ import '../../../brand/presentation/brand_logo.dart';
 ///
 /// Maximum logo, minimum text: big, bare app logos (no cards, no boxes) float
 /// gently around the REAL app logo (bell + green tick). Below: one bold line
-/// and the five category chips. That's it.
+/// and one short muted line of categories. That's it.
 class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});
 
@@ -27,7 +27,8 @@ class _IntroScreenState extends State<IntroScreen>
   late final AnimationController _float;
 
   // Big, instantly recognisable apps only — bare logos, no backing cards.
-  // Birthdays get the cake emoji (no brand exists for that).
+  // Birthdays get a drawn icon tile (no brand exists for that — and an emoji
+  // would render as a missing-glyph "?" on devices without an emoji font).
   static const _tiles = <_Tile>[
     // Subscriptions
     _Tile(
@@ -49,7 +50,7 @@ class _IntroScreenState extends State<IntroScreen>
         size: 52, dx: 104, dy: 100, tilt: 0.08, phase: 4.2, speed: 1.0, amp: 6),
     // Birthdays
     _Tile(
-        emoji: '🎂',
+        icon: Icons.cake_rounded,
         size: 64, dx: 0, dy: 134, tilt: 0.05, phase: 0.8, speed: 0.8, amp: 8),
     // SIP
     _Tile(
@@ -58,14 +59,6 @@ class _IntroScreenState extends State<IntroScreen>
     _Tile(
         brand: Brand(name: 'Zerodha', domain: 'zerodha.com'),
         size: 64, dx: -134, dy: -2, tilt: 0.07, phase: 2.0, speed: 1.1, amp: 7),
-  ];
-
-  static const _categories = <(IconData, String)>[
-    (Icons.autorenew_rounded, 'Subscriptions'),
-    (Icons.cake_rounded, 'Birthdays'),
-    (Icons.badge_rounded, 'Govt documents'),
-    (Icons.trending_up_rounded, 'SIP'),
-    (Icons.verified_user_rounded, 'Insurance'),
   ];
 
   @override
@@ -118,8 +111,20 @@ class _IntroScreenState extends State<IntroScreen>
                 style: text.displaySmall?.copyWith(color: AppColors.ink),
               ),
             ),
-            const SizedBox(height: 20),
-            _chips(),
+            const SizedBox(height: 14),
+            _reveal(
+              start: 0.56,
+              child: const Text(
+                'Subscriptions, birthdays, documents,\nSIPs and insurance — all in one place.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.45,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+            ),
             const Spacer(flex: 4),
           ],
         ),
@@ -199,7 +204,8 @@ class _IntroScreenState extends State<IntroScreen>
   }
 
   /// The logo itself — big and bare. No card, no border, no backing box; real
-  /// brand marks rounded like app icons, emoji drawn straight on the page.
+  /// brand marks rounded like app icons. Brandless categories get a drawn
+  /// app-icon-style tile, which renders identically on every device.
   Widget _logo(_Tile tile) {
     if (tile.brand != null) {
       return BrandLogo(
@@ -209,9 +215,18 @@ class _IntroScreenState extends State<IntroScreen>
         bare: true,
       );
     }
-    return Text(
-      tile.emoji!,
-      style: TextStyle(fontSize: tile.size * 0.86, height: 1.0),
+    return Container(
+      width: tile.size,
+      height: tile.size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(tile.size * 0.24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFB7185), Color(0xFFE11D48)], // warm rose
+        ),
+      ),
+      child: Icon(tile.icon, size: tile.size * 0.56, color: Colors.white),
     );
   }
 
@@ -254,57 +269,15 @@ class _IntroScreenState extends State<IntroScreen>
     );
   }
 
-  // ── The five category chips — the only other text on the page ─────────────
-
-  Widget _chips() {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (var i = 0; i < _categories.length; i++)
-          _reveal(
-            start: 0.56 + i * 0.05,
-            child: _chip(_categories[i].$1, _categories[i].$2),
-          ),
-      ],
-    );
-  }
-
-  Widget _chip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: AppColors.accent),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.ink,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-/// One floating logo: a real brand (or an emoji for the brandless categories),
-/// its resting position, static tilt, and the phase / speed / amplitude of its
-/// idle bob.
+/// One floating logo: a real brand (or a drawn icon tile for the brandless
+/// categories), its resting position, static tilt, and the phase / speed /
+/// amplitude of its idle bob.
 class _Tile {
   const _Tile({
     this.brand,
-    this.emoji,
+    this.icon,
     required this.size,
     required this.dx,
     required this.dy,
@@ -312,10 +285,10 @@ class _Tile {
     required this.phase,
     required this.speed,
     required this.amp,
-  }) : assert(brand != null || emoji != null);
+  }) : assert(brand != null || icon != null);
 
   final Brand? brand;
-  final String? emoji;
+  final IconData? icon;
   final double size;
   final double dx, dy;
   final double tilt;

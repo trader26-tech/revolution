@@ -305,9 +305,18 @@ session_alive() {
 # reloads into a dead pipe and that emulator silently serves a stale build
 # forever. Bring it back instead.
 restart_session() {
-  local name="$1" fd dev now last
+  local name="$1" reason="${2:-session is gone}" fd dev now last fails
   fd="$(fd_for_name "${name}")"
   [[ -n "${fd}" ]] || return 1
+
+  # Give up after repeated failures instead of retrying forever. A genuinely
+  # broken build fails every single attempt, and those attempts fight anything
+  # else touching the Gradle/Xcode output directory. Loud once beats silent
+  # hammering; the counter resets the moment a new commit arrives.
+  fails="$(cat "${STATE_DIR}/${name}.fails" 2>/dev/null || echo 0)"
+  if [[ ${fails} -ge ${MAX_RELAUNCH_FAILS} ]]; then
+    return 1
+  fi
 
   # Back off so a device that is gone for good doesn't get hammered every tick.
   now="$(date +%s)"
@@ -315,7 +324,7 @@ restart_session() {
   [[ $(( now - last )) -lt ${RESTART_BACKOFF} ]] && return 1
   echo "${now}" > "${STATE_DIR}/${name}.retry"
 
-  log "${name} session is gone — restarting it."
+  log "${name}: ${reason} — relaunching the session."
   case "${fd}" in
     3) { exec 3>&-; } 2>/dev/null || true ;;
     4) { exec 4>&-; } 2>/dev/null || true ;;
@@ -342,8 +351,42 @@ restart_session() {
   fi
 
   start_session "${name}" "${dev}" "${fd}"
-  wait_for_app "${name}" || { log "  ${name}: did not come back up."; return 1; }
+  if ! wait_for_app "${name}"; then
+    fails=$(( fails + 1 ))
+    echo "${fails}" > "${STATE_DIR}/${name}.fails"
+    log "  ${name}: did not come back up (${fails}/${MAX_RELAUNCH_FAILS})."
+    if [[ ${fails} -ge ${MAX_RELAUNCH_FAILS} ]]; then
+      log "  ${name}: giving up until the next commit. The build is broken —"
+      log "  run 'flutter analyze' / 'flutter build apk --debug' to see why."
+    fi
+    return 1
+  fi
+  echo 0 > "${STATE_DIR}/${name}.fails"
   return 0
+}
+
+# Stop a session that is alive but unusable (wedged mid-reload, poisoned
+# element tree). app.restart cannot fix either: it re-runs main() inside the
+# same process, on the same broken state.
+kill_session() {
+  local pid
+  pid="$(cat "${STATE_DIR}/$1.pid" 2>/dev/null || true)"
+  [[ -n "${pid}" ]] && kill -9 "${pid}" 2>/dev/null
+  sleep 1
+  return 0
+}
+
+# relaunch_session <name> <reason> — the top rung of the ladder. Kills the
+# session first (it may still be alive but useless), then rebuilds it from
+# scratch. This is the only rung that can pick up a new native plugin, a
+# deleted .dart_tool, or a changed Podfile.
+relaunch_session() {
+  local name="$1" reason="$2"
+  kill_session "${name}"
+  # Clear the backoff stamp: this is a deliberate escalation, not a retry storm.
+  # The MAX_RELAUNCH_FAILS counter is what stops runaway attempts.
+  rm -f "${STATE_DIR}/${name}.retry"
+  restart_session "${name}" "${reason}"
 }
 
 # wait_for_app <name> — block until the daemon reports the app started,
@@ -392,7 +435,10 @@ reload_session() {
   pipe="${STATE_DIR}/${name}.in"
   logf="${STATE_DIR}/${name}.log"
   app_id="$(cat "${STATE_DIR}/${name}.appid" 2>/dev/null || true)"
-  [[ -p "${pipe}" && -n "${app_id}" ]] || return 0
+  # No pipe or no appId means there is nothing to talk to — the session needs
+  # rebuilding, not reloading. Returning 0 here (as this used to) is precisely
+  # how a device ends up silently stale.
+  [[ -p "${pipe}" && -n "${app_id}" ]] || return 2
 
   REQ_ID=$((REQ_ID + 1))
   if [[ "${full}" == "1" ]]; then
@@ -402,7 +448,7 @@ reload_session() {
   fi
   # fd 3/4 keep the pipe open, so this write can't EOF the daemon.
   printf '[{"id":%d,"method":"app.restart","params":{"appId":"%s","fullRestart":%s,"pause":false,"reason":"manual"}}]\n' \
-    "${REQ_ID}" "${app_id}" "${flag}" > "${pipe}" 2>/dev/null || return 0
+    "${REQ_ID}" "${app_id}" "${flag}" > "${pipe}" 2>/dev/null || return 2
 
   # Wait for this request's reply (RELOAD_TIMEOUT seconds, then give up).
   reply=""
@@ -413,26 +459,87 @@ reload_session() {
     sleep 1; waited=$((waited + 1))
   done
 
+  # Silence is the wedged case: a session stuck mid-reload never answers, and
+  # every later request just queues behind the stuck one.
   if [[ -z "${reply}" ]]; then
-    log "hot ${kind} → ${name}: sent, no reply in ${RELOAD_TIMEOUT}s"
-    return 0
+    log "hot ${kind} → ${name}: no reply in ${RELOAD_TIMEOUT}s (session wedged)"
+    return 2
   fi
 
   code="$(printf '%s' "${reply}" | grep -oE '"code":[0-9]+' | cut -d: -f2)"
   msg="$(printf '%s' "${reply}" | sed -E 's/.*"message":"([^"]*)".*/\1/')"
   if [[ "${code}" == "0" ]]; then
     log "hot ${kind} → ${name}: ${msg}"
-  else
-    log "hot ${kind} → ${name} FAILED: ${msg}"
-    # Show the first real compile error — that is almost always the cause.
+    return 0
+  fi
+
+  log "hot ${kind} → ${name} FAILED: ${msg}"
+
+  # Flutter tells us outright when a reload can't express the change — a const
+  # class losing a field, a State type being renamed. Take it at its word.
+  case "${msg}" in
+    *"hot restart"*|*"Const class"*|*"not a subtype"*)
+      return 1 ;;
+  esac
+
+  # A DevFS failure means the tree doesn't compile. Escalating is pointless —
+  # a restart and a relaunch would both hit the same compiler error. Report the
+  # actual error and leave the device on the last build that worked.
+  if printf '%s' "${msg}" | grep -q "DevFS"; then
     firstErr="$(grep -a -E '^lib/.*: Error:' "${logf}" 2>/dev/null | tail -1)"
     [[ -n "${firstErr}" ]] && log "  ${firstErr}"
-    log "  ${name} is still running the last build that compiled."
+    log "  ${name} is still on the last build that compiled — fix the error above."
+    return 3
   fi
+
+  return 1
 }
 REQ_ID=0
 RELOAD_TIMEOUT="${RELOAD_TIMEOUT:-30}"
 RESTART_BACKOFF="${RESTART_BACKOFF:-30}"
+MAX_RELAUNCH_FAILS="${MAX_RELAUNCH_FAILS:-3}"
+
+# apply_change <name> <full> <relaunch> — the escalation ladder.
+#
+# The whole point of this script is that a device is never quietly left on old
+# code. Each rung does something the rung below it provably cannot:
+#
+#   reload   Dart method bodies. Cheapest, keeps app state.
+#   restart  const classes, State types, anything reload refuses. Re-runs
+#            main() — but in the SAME process, so it cannot help with native
+#            code or a poisoned element tree.
+#   relaunch new/removed native plugins, deleted build metadata, a wedged or
+#            corrupted session. Rebuilds the binary. The only rung that can.
+#
+# Stopping at rung one is what produced every "why is it stale?" this script
+# has ever caused, so a failure here always escalates rather than reporting
+# success and moving on.
+apply_change() {
+  local name="$1" full="$2" relaunch="$3" rc
+
+  if [[ "${relaunch}" == "1" ]]; then
+    relaunch_session "${name}" "dependencies or native config changed"
+    return $?
+  fi
+
+  reload_session "${name}" "${full}"; rc=$?
+  case ${rc} in
+    0) return 0 ;;
+    1)
+      log "  ${name}: Flutter says a reload can't express this — hot restarting."
+      reload_session "${name}" 1; rc=$?
+      [[ ${rc} -eq 0 ]] && return 0
+      relaunch_session "${name}" "hot restart did not take either"
+      return $?
+      ;;
+    2)
+      relaunch_session "${name}" "session stopped responding"
+      return $?
+      ;;
+    3) return 3 ;;   # doesn't compile: escalating hits the same error
+  esac
+  return 1
+}
 # Remember any explicit device pins so re-detection after a restart doesn't
 # quietly wander onto a different device than the one you asked for.
 ANDROID_ID_PINNED="${ANDROID_ID}"
@@ -516,23 +623,61 @@ while true; do
   if [[ "${HEAD_NOW}" != "${LAST_HEAD}" && "${HEAD_NOW}" != "none" ]]; then
     CHANGED="$(git diff --name-only "${LAST_HEAD}" "${HEAD_NOW}" 2>/dev/null || true)"
     FULL=0
-    # Dart deps changed → refresh packages; a hot reload won't cut it.
-    if printf '%s' "${CHANGED}" | grep -q '^frontend/pubspec'; then
-      log "pubspec changed — running flutter pub get"
+    RELAUNCH=0
+
+    # A new commit is a fresh chance — clear the give-up counters so a build
+    # that was broken and has now been fixed gets retried.
+    for name in ${SESSIONS}; do
+      echo 0 > "${STATE_DIR}/${name}.fails" 2>/dev/null || true
+    done
+
+    # pubspec.yaml changing can mean a new *native* plugin, and no amount of
+    # reloading or restarting can add native code to a binary that was built
+    # without it — the app throws MissingPluginException at startup and dies
+    # half-initialised, rendering fine but responding to nothing. Rebuild.
+    if printf '%s' "${CHANGED}" | grep -q '^frontend/pubspec.yaml'; then
+      log "pubspec.yaml changed — running flutter pub get"
+      (cd "${APP_DIR}" && flutter pub get >/dev/null 2>&1 || true)
+      RELAUNCH=1
+    elif printf '%s' "${CHANGED}" | grep -q '^frontend/pubspec.lock'; then
+      log "pubspec.lock changed — running flutter pub get"
       (cd "${APP_DIR}" && flutter pub get >/dev/null 2>&1 || true)
       FULL=1
     fi
-    # Native code changed → hot reload can't apply it either.
-    if printf '%s' "${CHANGED}" | grep -qE '^frontend/(android|ios)/'; then
-      log "native code changed — full restart (a rebuild may still be needed)"
-      FULL=1
+
+    # Pods must be reinstalled before the iOS session is rebuilt, or the build
+    # dies with "sandbox is not in sync with the Podfile.lock".
+    if printf '%s' "${CHANGED}" | grep -q '^frontend/ios/Podfile'; then
+      if command -v pod >/dev/null 2>&1; then
+        log "iOS Podfile changed — running pod install"
+        (cd "${APP_DIR}/ios" && pod install >/dev/null 2>&1 \
+          || log "  pod install failed — the iOS build may not come back up")
+      else
+        log "iOS Podfile changed but CocoaPods isn't on PATH — iOS may fail to build"
+      fi
+      RELAUNCH=1
     fi
+
+    # Native sources changed → the binary itself has to be rebuilt.
+    if printf '%s' "${CHANGED}" | grep -qE '^frontend/(android|ios)/'; then
+      log "native code changed — rebuilding the sessions"
+      RELAUNCH=1
+    fi
+
     # Skip pure backend/docs commits — no point reloading the UI for those.
     if printf '%s' "${CHANGED}" | grep -q '^frontend/'; then
+      STALE=""
       for name in ${SESSIONS}; do
-        reload_session "${name}" "${FULL}"
+        apply_change "${name}" "${FULL}" "${RELAUNCH}" || STALE="${STALE} ${name}"
       done
-      log "synced to ${HEAD_NOW:0:8}."
+      if [[ -z "${STALE// /}" ]]; then
+        log "synced to ${HEAD_NOW:0:8} — both devices on the latest code."
+      else
+        # Never let this pass quietly. A device that didn't take the change is
+        # showing old code, and that must be impossible to miss in the log.
+        log "!! ${HEAD_NOW:0:8} did NOT apply to:${STALE}"
+        log "!! those devices are showing OLDER code than the repo."
+      fi
     else
       log "${HEAD_NOW:0:8} touched no frontend files — skipping reload."
     fi

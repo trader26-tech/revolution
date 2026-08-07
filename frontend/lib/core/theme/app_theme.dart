@@ -2,42 +2,43 @@ import 'package:flutter/material.dart';
 
 /// The app's single source of colour + theme truth.
 ///
-/// A clean, neutral, light "glass" world: soft off-white surfaces, frosted white
-/// panes, hairline borders, and one calm accent. Everything else is greys, so
-/// the frosted glass and the accent do all the talking.
+/// A deep-space, dark-purple world (the "Orbit" scheme): a near-black violet
+/// sky, soft lavender inks, dark elevated cards, and one vivid purple accent.
+/// Everything else stays muted so the accent and the brand logos do all the
+/// talking.
 class AppColors {
   const AppColors._();
 
-  // Backgrounds — soft, warm-neutral off-white (never pure #FFF).
-  static const bg = Color(0xFFF4F5F7);
-  static const bgTop = Color(0xFFEFF1F4);
+  // Backgrounds — near-black violet space (never pure #000).
+  static const bg = Color(0xFF100B20);
+  static const bgTop = Color(0xFF171030);
 
-  // Ink (text) — near-black with soft secondary/tertiary greys.
-  static const ink = Color(0xFF1A1C1E);
-  static const inkSoft = Color(0xFF6B7280);
-  static const inkFaint = Color(0xFF9AA1AC);
+  // Ink (text) — soft white with lavender-grey secondary/tertiary.
+  static const ink = Color(0xFFF5F2FF);
+  static const inkSoft = Color(0xFFA9A1C4);
+  static const inkFaint = Color(0xFF6F6890);
 
-  // The single accent.
-  static const accent = Color(0xFF3B82F6); // calm blue
-  static const accentDeep = Color(0xFF2563EB);
+  // The single accent — vivid violet.
+  static const accent = Color(0xFF7C5CFC);
+  static const accentDeep = Color(0xFF6742EE);
 
-  // Glass — translucent white panes + hairline borders/edges.
-  static const glass = Color(0xB3FFFFFF); // ~70% white fill behind the blur
-  static const glassBorder = Color(0x33FFFFFF); // bright top edge
-  static const hairline = Color(0x14000000); // faint dark separator
+  // Glass — translucent dark panes + faint light edges.
+  static const glass = Color(0xB31D1636); // ~70% dark-violet fill behind blur
+  static const glassBorder = Color(0x1FFFFFFF); // faint bright top edge
+  static const hairline = Color(0x14FFFFFF); // faint light separator
 
-  // Solid card surface (for content that shouldn't blur).
-  static const card = Color(0xFFFFFFFF);
-  static const cardBorder = Color(0xFFE8EAED);
+  // Solid card surface (elevated above the sky).
+  static const card = Color(0xFF1C1636);
+  static const cardBorder = Color(0xFF2C2450);
 }
 
 class AppTheme {
   const AppTheme._();
 
-  static ThemeData get light {
+  static ThemeData get dark {
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.accent,
-      brightness: Brightness.light,
+      brightness: Brightness.dark,
     ).copyWith(
       primary: AppColors.accent,
       onPrimary: Colors.white,
@@ -61,7 +62,7 @@ class AppTheme {
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(54),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(27), // full pill, like Orbit
           ),
           textStyle: const TextStyle(
             fontFamily: 'PlusJakartaSans',

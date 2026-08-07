@@ -43,10 +43,12 @@ class GlassPanel extends StatelessWidget {
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: opacity),
+            // Dark violet glass over the space background; the faint light
+            // border is the "bright edge" that sells it as glass.
+            color: AppColors.card.withValues(alpha: opacity),
             borderRadius: radius,
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.55),
+              color: Colors.white.withValues(alpha: 0.10),
               width: 1,
             ),
           ),
@@ -71,7 +73,7 @@ class GlassPanel extends StatelessWidget {
         borderRadius: radius,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withValues(alpha: 0.30),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),

@@ -39,7 +39,7 @@ class RevolutionApp extends StatelessWidget {
     return MaterialApp(
       title: 'Revolution',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
+      theme: AppTheme.dark,
       // The flow: Onboarding (first launch only) → Phone number → Home.
       // OnboardingGate shows the intro once, then hands off to AuthGate, which
       // requires phone login before revealing the app.

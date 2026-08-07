@@ -6,11 +6,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../brand/domain/brand.dart';
 import '../../../brand/presentation/brand_logo.dart';
 
-/// Screen 1 — what the app does, in one glance.
+/// Screen 1 — the "Orbit" welcome.
 ///
-/// Maximum logo, minimum text: big, bare app logos (no cards, no boxes) float
-/// gently around the REAL app logo (bell + green tick). Below: one bold line
-/// and one short muted line of categories. That's it.
+/// A deep-space sky with twinkling stars. Three faint orbit rings hang in it —
+/// subscriptions, investments, insurance & documents — each with a category
+/// hub at its centre and real, crisp app logos slowly orbiting it. Below: the
+/// app logo as a floating planet, "Welcome to Revolution", one muted line.
+/// Minimal text, maximum motion — all of it slow and calm.
 class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});
 
@@ -20,56 +22,52 @@ class IntroScreen extends StatefulWidget {
 
 class _IntroScreenState extends State<IntroScreen>
     with TickerProviderStateMixin {
-  /// One-shot entrance: app logo → brand logos → headline → category line.
+  /// One-shot entrance: rings → hubs → logos → planet → text.
   late final AnimationController _enter;
 
-  /// Endless idle loop that keeps every logo drifting.
-  late final AnimationController _float;
+  /// The endless sky clock: orbital motion, star twinkle, planet bob.
+  /// One full revolution of the orbits per cycle — slow enough to feel like
+  /// space, alive enough to catch the eye.
+  late final AnimationController _sky;
 
-  // Real, instantly recognisable apps only — bare logos, no backing cards —
-  // balanced across ALL FIVE categories (not just subscriptions). Every domain
-  // here was hand-checked to return a crisp, correct logo:
-  //   · web.whatsapp.com → 194px WhatsApp mark (whatsapp.com only serves 23px)
-  //   · services.india.gov.in → 256px Indian flag (Aadhaar/UIDAI favicons are
-  //     16px and DigiLocker's mark is unrecognisable — the flag says
-  //     "government" instantly)
-  // Order = entrance order: a clockwise cascade starting from the top.
-  static const _tiles = <_Tile>[
-    // Subscriptions
-    _Tile(
-        brand: Brand(name: 'Netflix', domain: 'netflix.com'),
-        size: 66, dx: 0, dy: -136, tilt: -0.06, phase: 0.0, speed: 1.0, amp: 7),
-    _Tile(
-        brand: Brand(name: 'Spotify', domain: 'spotify.com'),
-        size: 56, dx: 90, dy: -103, tilt: 0.08, phase: 1.4, speed: 1.2, amp: 6),
-    // Birthdays — the apps where birthdays actually live.
-    _Tile(
-        brand: Brand(name: 'WhatsApp', domain: 'web.whatsapp.com'),
-        size: 60, dx: 138, dy: -23, tilt: -0.05, phase: 2.6, speed: 0.9, amp: 7),
-    // Insurance
-    _Tile(
-        brand: Brand(name: 'Policybazaar', domain: 'policybazaar.com'),
-        size: 48, dx: 121, dy: 68, tilt: 0.09, phase: 3.4, speed: 1.1, amp: 6),
-    // Birthdays
-    _Tile(
-        brand: Brand(name: 'Facebook', domain: 'facebook.com'),
-        size: 54, dx: 48, dy: 127, tilt: -0.07, phase: 4.2, speed: 1.0, amp: 6),
-    // Government documents
-    _Tile(
-        brand: Brand(name: 'India', domain: 'services.india.gov.in'),
-        size: 54, dx: -48, dy: 127, tilt: 0.06, phase: 0.8, speed: 0.8, amp: 8),
-    // SIP
-    _Tile(
-        brand: Brand(name: 'Groww', domain: 'groww.in'),
-        size: 52, dx: -121, dy: 68, tilt: -0.09, phase: 5.0, speed: 1.3, amp: 6),
-    _Tile(
-        brand: Brand(name: 'Zerodha', domain: 'zerodha.com'),
-        size: 60, dx: -138, dy: -23, tilt: 0.07, phase: 2.0, speed: 1.1, amp: 7),
-    // Insurance — LIC's real mark is wide (emblem + wordmark), so it gets a
-    // bigger box to stay legible.
-    _Tile(
-        brand: Brand(name: 'LIC', domain: 'licindia.in'),
-        size: 84, dx: -90, dy: -103, tilt: -0.04, phase: 3.0, speed: 0.95, amp: 6),
+  // The three rings. Every domain hand-checked to return a crisp, correct
+  // logo (web.whatsapp.com serves 194px where whatsapp.com serves 23px, etc.).
+  static const _rings = <_Ring>[
+    // Subscriptions — mid-left, the biggest ring (like the screenshot).
+    _Ring(
+      cx: -70, cy: 10, radius: 100, hubSize: 74,
+      hubIcon: Icons.subscriptions_rounded,
+      dir: 1,
+      logos: [
+        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 52, -10),
+        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 56, 128),
+        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 44, 243),
+      ],
+    ),
+    // Investments / SIP — top-right, bleeding off the edge like the original.
+    _Ring(
+      cx: 95, cy: -125, radius: 82, hubSize: 68,
+      hubIcon: Icons.trending_up_rounded,
+      dir: -1,
+      logos: [
+        _OrbitLogo(Brand(name: 'Zerodha', domain: 'zerodha.com'), 50, 195),
+        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 44, 20),
+      ],
+    ),
+    // Insurance & documents — bottom-right.
+    _Ring(
+      cx: 85, cy: 120, radius: 84, hubSize: 68,
+      hubIcon: Icons.verified_user_rounded,
+      dir: 1,
+      logos: [
+        // LIC's real mark is wide (emblem + wordmark) → bigger box.
+        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 62, 155),
+        _OrbitLogo(
+            Brand(name: 'Policybazaar', domain: 'policybazaar.com'), 42, -30),
+        _OrbitLogo(
+            Brand(name: 'India', domain: 'services.india.gov.in'), 44, 75),
+      ],
+    ),
   ];
 
   @override
@@ -79,16 +77,16 @@ class _IntroScreenState extends State<IntroScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     )..forward();
-    _float = AnimationController(
+    _sky = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 6),
+      duration: const Duration(seconds: 60),
     )..repeat();
   }
 
   @override
   void dispose() {
     _enter.dispose();
-    _float.dispose();
+    _sky.dispose();
     super.dispose();
   }
 
@@ -106,39 +104,54 @@ class _IntroScreenState extends State<IntroScreen>
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return AnimatedBuilder(
-      animation: Listenable.merge([_enter, _float]),
-      builder: (context, _) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          children: [
-            const Spacer(flex: 5),
-            SizedBox(height: 340, child: _cluster()),
-            const SizedBox(height: 24),
-            _reveal(
-              start: 0.42,
-              child: Text(
-                'Never forget\nanything again.',
-                textAlign: TextAlign.center,
-                style: text.displaySmall?.copyWith(color: AppColors.ink),
-              ),
-            ),
-            const SizedBox(height: 14),
-            _reveal(
-              start: 0.56,
-              child: const Text(
-                'Subscriptions, birthdays, documents,\nSIPs and insurance — all in one place.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.45,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.inkSoft,
+      animation: Listenable.merge([_enter, _sky]),
+      builder: (context, _) => Stack(
+        fit: StackFit.expand,
+        children: [
+          // The twinkling starfield behind everything.
+          CustomPaint(painter: _Starfield(_sky.value)),
+          Column(
+            children: [
+              const Spacer(flex: 2),
+              SizedBox(height: 380, child: _orbits()),
+              const Spacer(flex: 1),
+              _planet(),
+              const SizedBox(height: 26),
+              _reveal(
+                start: 0.48,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Welcome to Revolution',
+                      maxLines: 1,
+                      style: text.headlineLarge?.copyWith(
+                        color: AppColors.ink,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const Spacer(flex: 4),
-          ],
-        ),
+              const SizedBox(height: 12),
+              _reveal(
+                start: 0.58,
+                child: Text(
+                  'Track your subscriptions, investments and\n'
+                  'insurance — and never miss a date',
+                  textAlign: TextAlign.center,
+                  style: text.bodyLarge?.copyWith(
+                    color: AppColors.inkSoft,
+                    fontSize: 16.5,
+                  ),
+                ),
+              ),
+              const Spacer(flex: 2),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -152,106 +165,140 @@ class _IntroScreenState extends State<IntroScreen>
     );
   }
 
-  // ── The floating logo constellation ────────────────────────────────────────
+  // ── The three orbit rings ──────────────────────────────────────────────────
 
-  Widget _cluster() {
+  Widget _orbits() {
+    // A global stagger index so hubs and logos cascade in one sweep.
+    var stagger = 0;
+    final children = <Widget>[];
+    for (final ring in _rings) {
+      children.add(_ringOutline(ring));
+      children.add(_hub(ring, 0.08 + (stagger++) * 0.06));
+      for (final logo in ring.logos) {
+        children.add(_orbitingLogo(ring, logo, 0.16 + (stagger++) * 0.06));
+      }
+    }
     return Center(
       child: SizedBox(
         width: 340,
-        height: 340,
+        height: 380,
         child: Stack(
           alignment: Alignment.center,
           clipBehavior: Clip.none,
-          children: [
-            _glow(),
-            for (var i = 0; i < _tiles.length; i++) _floatingTile(i),
-            _appLogo(),
-          ],
+          children: children,
         ),
       ),
     );
   }
 
-  /// A soft accent halo behind the whole cluster.
-  Widget _glow() {
-    return Opacity(
-      opacity: _lin(0.0, 0.5),
-      child: Container(
-        width: 300,
-        height: 300,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [
-              AppColors.accent.withValues(alpha: 0.10),
-              AppColors.accent.withValues(alpha: 0.0),
-            ],
+  /// The faint circular track a ring's logos travel on.
+  Widget _ringOutline(_Ring ring) {
+    return Transform.translate(
+      offset: Offset(ring.cx, ring.cy),
+      child: Opacity(
+        opacity: _lin(0.0, 0.5),
+        child: Container(
+          width: ring.radius * 2,
+          height: ring.radius * 2,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.07),
+              width: 1,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _floatingTile(int i) {
-    final tile = _tiles[i];
-    final pop = _pop(0.10 + i * 0.055);
-    final fade = _lin(0.10 + i * 0.055);
-    // Idle bob: every logo drifts on its own phase + speed, so the cluster
-    // feels alive but never busy.
-    final bob = math.sin(
-          _float.value * 2 * math.pi * tile.speed + tile.phase,
-        ) *
-        tile.amp;
+  /// The dark category hub at a ring's centre.
+  Widget _hub(_Ring ring, double start) {
+    final pop = _pop(start);
     return Transform.translate(
-      offset: Offset(tile.dx * pop, tile.dy * pop + bob * fade),
-      child: Transform.rotate(
-        angle: tile.tilt * pop,
-        child: Opacity(
-          opacity: fade,
-          child: Transform.scale(scale: 0.4 + 0.6 * pop, child: _logo(tile)),
+      offset: Offset(ring.cx, ring.cy),
+      child: Opacity(
+        opacity: _lin(start),
+        child: Transform.scale(
+          scale: 0.5 + 0.5 * pop,
+          child: Container(
+            width: ring.hubSize,
+            height: ring.hubSize,
+            decoration: BoxDecoration(
+              color: const Color(0xFF221B3F),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 22,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(
+              ring.hubIcon,
+              color: AppColors.ink.withValues(alpha: 0.85),
+              size: ring.hubSize * 0.42,
+            ),
+          ),
         ),
       ),
     );
   }
 
-  /// The logo itself — big and bare. No card, no border, no backing box; real
-  /// brand marks rounded like app icons.
-  Widget _logo(_Tile tile) {
-    return BrandLogo(
-      brand: tile.brand,
-      size: tile.size,
-      radius: tile.size * 0.24,
-      bare: true,
+  /// One logo travelling its ring — bare, crisp, upright (the position orbits;
+  /// the logo itself never rotates).
+  Widget _orbitingLogo(_Ring ring, _OrbitLogo logo, double start) {
+    final angle = logo.angleDeg * math.pi / 180 +
+        _sky.value * 2 * math.pi * ring.dir;
+    final pos = Offset(
+      ring.cx + ring.radius * math.cos(angle),
+      ring.cy + ring.radius * math.sin(angle),
+    );
+    final pop = _pop(start);
+    return Transform.translate(
+      offset: pos,
+      child: Opacity(
+        opacity: _lin(start),
+        child: Transform.scale(
+          scale: 0.4 + 0.6 * pop,
+          child: BrandLogo(
+            brand: logo.brand,
+            size: logo.size,
+            radius: logo.size * 0.24,
+            bare: true,
+          ),
+        ),
+      ),
     );
   }
 
-  /// The centre: the REAL app logo (blue bell + green tick), swinging ever so
-  /// slightly — exactly the icon on the user's home screen.
-  Widget _appLogo() {
-    final pop = _pop(0.0, 0.45);
-    final fade = _lin(0.0, 0.45);
-    final swing = math.sin(_float.value * 2 * math.pi) * 0.04 * fade;
+  // ── The planet: the app's own logo ─────────────────────────────────────────
+
+  Widget _planet() {
+    final pop = _pop(0.30, 0.45);
+    final bob = math.sin(_sky.value * 2 * math.pi * 6) * 4;
     return Opacity(
-      opacity: fade,
-      child: Transform.rotate(
-        angle: swing,
+      opacity: _lin(0.30, 0.45),
+      child: Transform.translate(
+        offset: Offset(0, bob),
         child: Transform.scale(
-          scale: 0.5 + 0.5 * pop,
+          scale: 0.6 + 0.4 * pop,
           child: Container(
-            width: 108,
-            height: 108,
+            width: 118,
+            height: 118,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
+              shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.accent.withValues(alpha: 0.35),
-                  blurRadius: 30,
-                  offset: const Offset(0, 14),
+                  color: AppColors.accent.withValues(alpha: 0.45),
+                  blurRadius: 44,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(26),
+            child: ClipOval(
               child: Image.asset(
                 'assets/images/app_logo.png',
                 fit: BoxFit.cover,
@@ -263,26 +310,98 @@ class _IntroScreenState extends State<IntroScreen>
       ),
     );
   }
-
 }
 
-/// One floating logo: a real brand, its resting position, static tilt, and the
-/// phase / speed / amplitude of its idle bob.
-class _Tile {
-  const _Tile({
-    required this.brand,
-    required this.size,
-    required this.dx,
-    required this.dy,
-    required this.tilt,
-    required this.phase,
-    required this.speed,
-    required this.amp,
+// ── Data ─────────────────────────────────────────────────────────────────────
+
+/// One orbit ring: its centre (relative to the cluster centre), radius, the
+/// category hub at its middle, orbit direction, and the logos travelling it.
+class _Ring {
+  const _Ring({
+    required this.cx,
+    required this.cy,
+    required this.radius,
+    required this.hubSize,
+    required this.hubIcon,
+    required this.dir,
+    required this.logos,
   });
+
+  final double cx, cy;
+  final double radius;
+  final double hubSize;
+  final IconData hubIcon;
+
+  /// 1 = clockwise, -1 = counter-clockwise — alternating keeps it organic.
+  final int dir;
+  final List<_OrbitLogo> logos;
+}
+
+/// A logo on a ring: the brand, its box size, and its starting angle (deg).
+class _OrbitLogo {
+  const _OrbitLogo(this.brand, this.size, this.angleDeg);
 
   final Brand brand;
   final double size;
-  final double dx, dy;
-  final double tilt;
-  final double phase, speed, amp;
+  final double angleDeg;
+}
+
+// ── The starfield ────────────────────────────────────────────────────────────
+
+/// A fixed constellation of ~90 tiny stars (seeded, so it never jumps between
+/// frames), each twinkling on its own phase. White and faint-violet mix.
+class _Starfield extends CustomPainter {
+  _Starfield(this.t);
+
+  final double t;
+
+  static final List<_Star> _stars = _generate();
+
+  static List<_Star> _generate() {
+    final rnd = math.Random(7);
+    return List.generate(90, (_) {
+      return _Star(
+        x: rnd.nextDouble(),
+        y: rnd.nextDouble(),
+        r: 0.6 + rnd.nextDouble() * 1.4,
+        phase: rnd.nextDouble() * 2 * math.pi,
+        speed: 2 + rnd.nextDouble() * 6,
+        violet: rnd.nextDouble() < 0.4,
+      );
+    });
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+    for (final s in _stars) {
+      final twinkle =
+          0.5 + 0.5 * math.sin(t * 2 * math.pi * s.speed + s.phase);
+      final alpha = 0.08 + 0.30 * twinkle;
+      paint.color = (s.violet ? const Color(0xFF9F7BFF) : Colors.white)
+          .withValues(alpha: alpha);
+      canvas.drawCircle(
+        Offset(s.x * size.width, s.y * size.height),
+        s.r,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_Starfield old) => old.t != t;
+}
+
+class _Star {
+  const _Star({
+    required this.x,
+    required this.y,
+    required this.r,
+    required this.phase,
+    required this.speed,
+    required this.violet,
+  });
+
+  final double x, y, r, phase, speed;
+  final bool violet;
 }

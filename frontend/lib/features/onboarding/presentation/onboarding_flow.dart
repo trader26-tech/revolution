@@ -68,7 +68,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   String get _cta {
     switch (_page) {
       case 0:
-        return 'Show me how';
+        return 'Start tracking';
       case 1:
         return _picked.isEmpty ? 'Skip' : 'Add it up for me';
       default:

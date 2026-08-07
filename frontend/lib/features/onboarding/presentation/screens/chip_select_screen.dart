@@ -13,12 +13,13 @@ import '../widgets/reminder_confirm_sheet.dart';
 ///
 /// A one-category-per-screen wizard. The flow's shared 3-dot header (common to
 /// every onboarding screen) carries the macro progress; the "which of five
-/// categories" is spoken by Revo's own tagline — "Tap all that apply · 4 of 5"
-/// — so there's no separate progress element and the Continue button stays
-/// plain. Just a back-arrow sits at the top. Revo greets from the top-left, and
-/// each category is a clean LIST of rows (icon + name + radio) — the commonest
-/// ones arrive already selected. A bottom line reassures ("not here? add more
-/// in the app") above the Continue button, which walks to the next category.
+/// categories" is spoken by Revo's own tagline as forward momentum — "3 more to
+/// go · Tap all that apply", then "Last one" on the final screen — so there's
+/// no separate progress element and the Continue button stays plain. Just a
+/// back-arrow sits at the top. Revo greets from the top-left, and each category
+/// is a clean LIST of rows (icon + name + radio) — the commonest ones arrive
+/// already selected. A bottom line reassures ("not here? add more in the app")
+/// above the Continue button, which walks to the next category.
 ///
 /// [ChipSelectWizard] is the full self-driving flow used as page 2 of the
 /// onboarding PageView; it fires [onComplete] with a draft per picked item
@@ -234,9 +235,10 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                           ],
                         ),
                         const SizedBox(height: 6),
-                        // Revo's tagline, now also speaking the position: "Tap
-                        // all that apply · 4 of 5". The count sits in the copy,
-                        // so there's no separate progress element anywhere.
+                        // Revo's tagline leads with FORWARD momentum — "3 more
+                        // to go" (or "Last one") in accent — then "Tap all that
+                        // apply". The progress sits in the copy first, so it
+                        // reads as a path ahead, not a bare position count.
                         _reveal(
                           taglineStart,
                           Padding(
@@ -244,7 +246,14 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                             child: Text.rich(
                               TextSpan(
                                 children: [
-                                  const TextSpan(text: 'Tap all that apply'),
+                                  TextSpan(
+                                    text: _remainingPhrase(),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.accent
+                                          .withValues(alpha: 0.9),
+                                    ),
+                                  ),
                                   TextSpan(
                                     text: '   ·   ',
                                     style: TextStyle(
@@ -252,14 +261,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                                           .withValues(alpha: 0.6),
                                     ),
                                   ),
-                                  TextSpan(
-                                    text: '${_index + 1} of ${_sections.length}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.accent
-                                          .withValues(alpha: 0.9),
-                                    ),
-                                  ),
+                                  const TextSpan(text: 'Tap all that apply'),
                                 ],
                               ),
                               style: const TextStyle(
@@ -371,6 +373,16 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     final last = _index >= _sections.length - 1;
     if (_pickedInSection == 0) return last ? 'Finish' : 'None of these';
     return last ? 'Finish' : 'Continue';
+  }
+
+  /// The forward-looking progress phrase that leads Revo's tagline — how many
+  /// categories are still ahead AFTER this one, framed as momentum: "4 more to
+  /// go" … "1 more to go" … then "Last one" on the final screen. Short and
+  /// motivating rather than a bare "N of 5".
+  String _remainingPhrase() {
+    final remaining = _sections.length - 1 - _index;
+    if (remaining <= 0) return 'Last one';
+    return '$remaining more to go';
   }
 }
 

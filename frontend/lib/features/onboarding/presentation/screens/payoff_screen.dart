@@ -148,24 +148,7 @@ class _PayoffScreenState extends State<PayoffScreen>
               const Spacer(flex: 5),
               _bubble(
                 start: _bubble1Start,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _countLine(),
-                    // The turn of the story fades in inside the SAME bubble,
-                    // on its own beat — the box was already sized for both, so
-                    // nothing below jumps when the second line lands.
-                    _reveal(
-                      _bubble2Start,
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: _reassuranceLine(),
-                      ),
-                      window: 0.14,
-                    ),
-                  ],
-                ),
+                child: _storyParagraph(),
               ),
               const SizedBox(height: 22),
               _revo(),
@@ -206,11 +189,19 @@ class _PayoffScreenState extends State<PayoffScreen>
     );
   }
 
-  /// Bubble 1 — the problem, with the number climbing live. It settles with a
-  /// tiny pop the instant the count completes.
-  Widget _countLine() {
+  /// The whole story as ONE continuous, left-aligned paragraph. The number
+  /// climbs live and settles with a tiny pop; the reassurance clause is part of
+  /// the same sentence and simply continues on — it just fades up on its own
+  /// beat (its ink and accent both easing in from transparent) so the story
+  /// still lands in two moments, but reads as one flowing block of text.
+  Widget _storyParagraph() {
     final settle = _lin(_countEnd, 0.10);
     final pop = math.sin(settle * math.pi) * 0.06;
+
+    // Reassurance clause reveal — 0 → 1 across its beat, easing in.
+    final reveal = Curves.easeOutCubic.transform(_lin(_bubble2Start, 0.16));
+    final ink = AppColors.ink.withValues(alpha: reveal);
+    final accent = AppColors.accent.withValues(alpha: reveal);
 
     return Text.rich(
       TextSpan(
@@ -235,39 +226,19 @@ class _PayoffScreenState extends State<PayoffScreen>
               ),
             ),
           ),
-          const TextSpan(text: ' things to remember this year…'),
-        ],
-      ),
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        fontSize: 21,
-        height: 1.35,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -0.3,
-        color: AppColors.ink,
-      ),
-    );
-  }
-
-  /// Bubble 2 — the turn of the story.
-  Widget _reassuranceLine() {
-    return Text.rich(
-      const TextSpan(
-        children: [
-          TextSpan(text: "But don't worry — "),
+          const TextSpan(text: ' things to remember this year… '),
+          // The turn of the story — same paragraph, fading in on its own beat.
+          TextSpan(text: "But don't worry — ", style: TextStyle(color: ink)),
           TextSpan(
             text: "Revo's got you.",
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              color: AppColors.accent,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w900, color: accent),
           ),
         ],
       ),
-      textAlign: TextAlign.center,
+      textAlign: TextAlign.left,
       style: const TextStyle(
-        fontSize: 20,
-        height: 1.35,
+        fontSize: 21,
+        height: 1.4,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.3,
         color: AppColors.ink,

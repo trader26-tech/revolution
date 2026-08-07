@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../auth/data/auth_store.dart';
 import '../onboarding/data/onboarding_store.dart';
+import '../onboarding/presentation/screens/gallery_preview_page.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
@@ -62,6 +63,16 @@ class _HomePageState extends State<HomePage> {
   Future<void> _replayFullFlow() async {
     await OnboardingStore.instance.reset();
     await AuthStore.instance.logout();
+  }
+
+  /// DEV: open the new category gallery + knob date picker to test the feel.
+  void _openGalleryPreview() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const GalleryPreviewPage(),
+      ),
+    );
   }
 
   /// Open the funnel filter sheet.
@@ -155,7 +166,7 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 8),
               _TopBar(
                 onSettings: _openSettings,
-                onIntro: _replayFullFlow,
+                onIntro: _openGalleryPreview,
                 onAdd: _startAdd,
                 onFilter: _openFilter,
                 filterActive: _filter.isActive,

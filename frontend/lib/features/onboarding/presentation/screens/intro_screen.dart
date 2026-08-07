@@ -299,7 +299,7 @@ class _IntroScreenState extends State<IntroScreen>
               // edge to edge instead of each finding its own natural width.
               // The headline scales down to fit that width (never wraps); the
               // subtitle wraps inside it — so both read as one tidy column.
-              _textBlock(text),
+              _textBlock(context, text),
               const Spacer(flex: 8),
             ],
           ),
@@ -317,9 +317,12 @@ class _IntroScreenState extends State<IntroScreen>
   /// as deliberate rather than two independently-sized paragraphs.
   static const _textWidth = 320.0;
 
-  Widget _textBlock(TextTheme text) {
+  Widget _textBlock(BuildContext context, TextTheme text) {
+    // Never wider than the screen allows — on a 320px phone the block shrinks
+    // to fit rather than forcing the headline to scale down needlessly.
+    final available = MediaQuery.sizeOf(context).width - 40;
     return SizedBox(
-      width: _textWidth,
+      width: math.min(_textWidth, available),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

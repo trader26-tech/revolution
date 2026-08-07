@@ -42,9 +42,20 @@ class _AuthGateState extends State<AuthGate> {
     );
   }
 
+  /// Guards so the many ways verification can resolve on a REAL phone never
+  /// collide: Firebase may fire codeSent more than once, auto-retrieval can land
+  /// while the user is already typing, and a slow tap could double-fire. These
+  /// latches make "open the OTP screen" and "finish sign-in" each happen at most
+  /// once per attempt.
+  bool _otpScreenOpen = false;
+  bool _signingIn = false;
+
   /// Kick off verification for [phoneE164]: send the OTP, then push the OTP
   /// screen. If Android auto-retrieves the code, we sign in straight away.
   Future<void> _startVerification(String phoneE164) async {
+    // Fresh attempt — reset the per-attempt latches.
+    _otpScreenOpen = false;
+    _signingIn = false;
     final completer = _CodeSentGate();
 
     await _phoneAuth.sendCode(
@@ -55,14 +66,10 @@ class _AuthGateState extends State<AuthGate> {
       },
       onAutoVerified: (credential) async {
         completer.complete();
-        try {
-          final verified =
-              await _phoneAuth.signInWithCredential(credential);
-          await _auth.login(verified);
-        } catch (_) {
-          // If auto sign-in fails, the OTP screen (if open) still lets them
-          // type the code manually.
-        }
+        // Android read the SMS itself — sign in and dismiss the OTP screen if
+        // it's already showing. If this fails, the OTP screen still lets the
+        // user type the code by hand.
+        await _finishSignIn(() => _phoneAuth.signInWithCredential(credential));
       },
       onFailed: (message) {
         completer.complete();
@@ -76,38 +83,60 @@ class _AuthGateState extends State<AuthGate> {
     // never arrive on this device), stop the spinner and say so, instead of
     // hanging indefinitely.
     try {
-      await completer.future.timeout(const Duration(seconds: 20));
+      await completer.future.timeout(const Duration(seconds: 45));
     } on TimeoutException {
-      if (mounted) {
+      if (mounted && !_otpScreenOpen) {
         _showError(
-          'Verification is taking too long. On an emulator, use a registered '
-          'test number; on a real phone, check your signal and try again.',
+          'Verification is taking too long. Check your signal and try again.',
         );
       }
     }
   }
 
   void _openOtpScreen(String phoneE164, String verificationId) {
-    if (!mounted) return;
-    final navigator = Navigator.of(context);
-    navigator.push(
+    if (!mounted || _otpScreenOpen) return; // never push twice
+    _otpScreenOpen = true;
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (_) => _OtpFlow(
           phoneE164: phoneE164,
           verificationId: verificationId,
           phoneAuth: _phoneAuth,
-          onVerified: (verifiedNumber) async {
-            await _auth.login(verifiedNumber);
-            // AuthStore now reports logged-in; pop back so the gate rebuilds
-            // into AppShell.
-            if (navigator.canPop()) navigator.pop();
-          },
+          onVerified: (signIn) => _finishSignIn(signIn),
         ),
       ),
-    );
+    )
+        .then((_) {
+      // The OTP route was popped (verified, or the user backed out) — allow a
+      // future attempt to open it again.
+      _otpScreenOpen = false;
+    });
+  }
+
+  /// The single choke point for completing sign-in, shared by the manual-code
+  /// and auto-retrieval paths. Runs the given sign-in, persists the session,
+  /// and closes the OTP screen — guaranteed to run its effect at most once per
+  /// attempt so we never double-login or pop the wrong route.
+  Future<void> _finishSignIn(Future<String> Function() signIn) async {
+    if (_signingIn || _auth.isLoggedIn) return;
+    _signingIn = true;
+    try {
+      final verifiedNumber = await signIn();
+      await _auth.login(verifiedNumber);
+      // Dismiss the OTP screen if it's open; the gate rebuilds into AppShell.
+      if (mounted && _otpScreenOpen) {
+        Navigator.of(context).popUntil((r) => r.isFirst);
+        _otpScreenOpen = false;
+      }
+    } catch (e) {
+      _signingIn = false; // let them retry
+      rethrow; // surfaced by the caller (OTP screen shows it; auto-path ignores)
+    }
   }
 
   void _showError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -128,7 +157,10 @@ class _OtpFlow extends StatefulWidget {
   final String phoneE164;
   final String verificationId;
   final PhoneAuthService phoneAuth;
-  final Future<void> Function(String verifiedNumber) onVerified;
+
+  /// Complete sign-in by running the given sign-in call through the gate's
+  /// single choke point. Throws on failure so this screen can show it.
+  final Future<void> Function(Future<String> Function() signIn) onVerified;
 
   @override
   State<_OtpFlow> createState() => _OtpFlowState();
@@ -137,17 +169,23 @@ class _OtpFlow extends StatefulWidget {
 class _OtpFlowState extends State<_OtpFlow> {
   late String _verificationId = widget.verificationId;
   String? _error;
+  bool _busy = false; // block double-submits of the same code
 
   Future<void> _confirm(String code) async {
+    if (_busy) return;
+    _busy = true;
     setState(() => _error = null);
     try {
-      final verified = await widget.phoneAuth.confirmCode(
-        verificationId: _verificationId,
-        smsCode: code,
+      await widget.onVerified(
+        () => widget.phoneAuth.confirmCode(
+          verificationId: _verificationId,
+          smsCode: code,
+        ),
       );
-      await widget.onVerified(verified);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
+    } finally {
+      _busy = false;
     }
   }
 
@@ -158,9 +196,9 @@ class _OtpFlowState extends State<_OtpFlow> {
       onCodeSent: (id) => setState(() => _verificationId = id),
       onAutoVerified: (credential) async {
         try {
-          final verified =
-              await widget.phoneAuth.signInWithCredential(credential);
-          await widget.onVerified(verified);
+          await widget.onVerified(
+            () => widget.phoneAuth.signInWithCredential(credential),
+          );
         } catch (_) {}
       },
       onFailed: (message) {

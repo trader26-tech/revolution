@@ -1,6 +1,9 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'core/api/api_client.dart';
+import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/auth_store.dart';
 import 'features/brand/data/custom_logo_store.dart';
@@ -12,6 +15,15 @@ import 'features/settings/data/profile_store.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Boot Firebase (phone/OTP auth). Guarded so a misconfigured/absent native
+  // config degrades to "can't verify" instead of crashing the whole app.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase init failed: $e');
+  }
   // Establish the owner id used on every server request.
   await ApiClient.instance.init();
   // Restore a signed-in session (the phone number → API owner id), if any. This

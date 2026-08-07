@@ -6,10 +6,8 @@ import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/mascot.dart';
 import '../../domain/onboarding_chip_catalog.dart';
-import '../widgets/day_knob.dart';
 import '../widgets/magic_text.dart';
 import '../widgets/reminder_confirm_sheet.dart';
-import '../widgets/year_frequency_picker.dart';
 
 /// Revo's per-category question — the category is baked into the ask, so he
 /// speaks it directly ("When should we remind you about your subscriptions?")
@@ -302,10 +300,34 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   }
 }
 
-/// One picked item's schedule card — exactly THREE things and no more: the
-/// event NAME (icon + label), the DAY of the month (a pill opening the day
-/// knob), and HOW OFTEN each year (the friendly [YearFrequencyPicker]). No
-/// abstract monthly/yearly/weekly segments, no "every N" stepper.
+String _ordinal(int d) {
+  if (d >= 11 && d <= 13) return '${d}th';
+  switch (d % 10) {
+    case 1:
+      return '${d}st';
+    case 2:
+      return '${d}nd';
+    case 3:
+      return '${d}rd';
+    default:
+      return '${d}th';
+  }
+}
+
+/// A short label for a "times per year" preset — shown on the frequency button.
+String _freqShort(int timesPerYear) => switch (timesPerYear) {
+      1 => 'Yearly',
+      2 => 'Twice a yr',
+      4 => 'Quarterly',
+      6 => 'Every 2 mo',
+      _ => 'Monthly',
+    };
+
+/// One picked item's schedule card — designed to read like a form field the
+/// user just fills: the NAME on the left, and on the SAME line two compact
+/// value buttons on the right — the DAY ("15th") and HOW OFTEN ("Monthly").
+/// Tapping either opens a focused picker (a calendar-grid for the day, a preset
+/// list for the frequency). Minimal height, both settings at a glance.
 class _ItemScheduleCard extends StatelessWidget {
   const _ItemScheduleCard({
     super.key,
@@ -327,7 +349,7 @@ class _ItemScheduleCard extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (_) => _DayPickerSheet(name: item.defaultName, initial: draft.day),
+      builder: (_) => _DayPickerSheet(name: item.label, initial: draft.day),
     );
     if (picked != null) {
       draft.day = picked;
@@ -335,56 +357,71 @@ class _ItemScheduleCard extends StatelessWidget {
     }
   }
 
+  Future<void> _editFreq(BuildContext context) async {
+    HapticFeedback.selectionClick();
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: AppColors.card,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) =>
+          _FreqPickerSheet(name: item.label, initial: draft.timesPerYear),
+    );
+    if (picked != null) {
+      draft.timesPerYear = picked;
+      onChanged();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.glassBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // 1 (name) + 2 (day-of-month): icon + label on the left, the day pill
-          // on the right.
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(item.icon, size: 20, color: AppColors.ink),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  item.label,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _DayPill(day: draft.day, onTap: () => _editDay(context)),
-            ],
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(item.icon, size: 19, color: AppColors.ink),
           ),
-          const SizedBox(height: 14),
-          // 3 (how often each year): the friendly presets dial.
-          YearFrequencyPicker(
-            timesPerYear: draft.timesPerYear,
-            onChanged: (n) {
-              draft.timesPerYear = n;
-              onChanged();
-            },
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // The two settable buttons, on one line.
+          _ValueButton(
+            icon: Icons.event_rounded,
+            value: _ordinal(draft.day),
+            onTap: () => _editDay(context),
+          ),
+          const SizedBox(width: 6),
+          _ValueButton(
+            icon: Icons.repeat_rounded,
+            value: _freqShort(draft.timesPerYear),
+            onTap: () => _editFreq(context),
           ),
         ],
       ),
@@ -392,46 +429,38 @@ class _ItemScheduleCard extends StatelessWidget {
   }
 }
 
-/// The little "17th" day pill on a card — tap to open the knob.
-class _DayPill extends StatelessWidget {
-  const _DayPill({required this.day, required this.onTap});
-  final int day;
-  final VoidCallback onTap;
+/// A compact settable pill — an icon + its current value — that opens a picker
+/// on tap. Two of these sit on one line (day + how-often) per item.
+class _ValueButton extends StatelessWidget {
+  const _ValueButton({
+    required this.icon,
+    required this.value,
+    required this.onTap,
+  });
 
-  static String _ordinal(int d) {
-    if (d >= 11 && d <= 13) return '${d}th';
-    switch (d % 10) {
-      case 1:
-        return '${d}st';
-      case 2:
-        return '${d}nd';
-      case 3:
-        return '${d}rd';
-      default:
-        return '${d}th';
-    }
-  }
+  final IconData icon;
+  final String value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.accent.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(11),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.event_rounded,
-                  size: 15, color: AppColors.accent),
-              const SizedBox(width: 6),
+              Icon(icon, size: 14, color: AppColors.accent),
+              const SizedBox(width: 5),
               Text(
-                _ordinal(day),
+                value,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w800,
                   color: AppColors.ink,
                 ),
@@ -444,18 +473,20 @@ class _DayPill extends StatelessWidget {
   }
 }
 
-/// The day-of-month picker in a sheet, built around the polished [DayKnob].
-class _DayPickerSheet extends StatefulWidget {
-  const _DayPickerSheet({required this.name, required this.initial});
-  final String name;
-  final int initial;
+/// A small shared sheet chrome — grab handle, a title that names the item so
+/// the user always knows WHAT they're setting, and the given body + confirm.
+class _PickerSheet extends StatelessWidget {
+  const _PickerSheet({
+    required this.title,
+    required this.body,
+    required this.onConfirm,
+    this.confirmLabel = 'Done',
+  });
 
-  @override
-  State<_DayPickerSheet> createState() => _DayPickerSheetState();
-}
-
-class _DayPickerSheetState extends State<_DayPickerSheet> {
-  late int _day = widget.initial;
+  final String title;
+  final Widget body;
+  final VoidCallback onConfirm;
+  final String confirmLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -474,9 +505,9 @@ class _DayPickerSheetState extends State<_DayPickerSheet> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Text(
-              'Which day for ${widget.name}?',
+              title,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 18,
@@ -484,25 +515,252 @@ class _DayPickerSheetState extends State<_DayPickerSheet> {
                 color: AppColors.ink,
               ),
             ),
-            const SizedBox(height: 8),
-            DayKnob(
-              day: _day,
-              size: 240,
-              onChanged: (d) => setState(() => _day = d),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+            body,
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               height: 52,
               child: FilledButton(
-                onPressed: () => Navigator.of(context).pop(_day),
-                child: const Text(
-                  'Set day',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                onPressed: onConfirm,
+                child: Text(
+                  confirmLabel,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The day-of-month picker — a clean CALENDAR GRID (1–31 in 7 columns). The
+/// chosen day is a filled accent circle; tapping any day selects it with a
+/// haptic tick. Reads like a real calendar, not an abstract dial.
+class _DayPickerSheet extends StatefulWidget {
+  const _DayPickerSheet({required this.name, required this.initial});
+  final String name;
+  final int initial;
+
+  @override
+  State<_DayPickerSheet> createState() => _DayPickerSheetState();
+}
+
+class _DayPickerSheetState extends State<_DayPickerSheet> {
+  late int _day = widget.initial;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PickerSheet(
+      title: 'What day is ${widget.name}?',
+      confirmLabel: 'Set to ${_ordinal(_day)}',
+      onConfirm: () => Navigator.of(context).pop(_day),
+      body: _DayGrid(
+        selected: _day,
+        onPick: (d) {
+          HapticFeedback.selectionClick();
+          setState(() => _day = d);
+        },
+      ),
+    );
+  }
+}
+
+/// The 1–31 calendar grid.
+class _DayGrid extends StatelessWidget {
+  const _DayGrid({required this.selected, required this.onPick});
+  final int selected;
+  final ValueChanged<int> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: 31,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 7,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 1,
+      ),
+      itemBuilder: (context, i) {
+        final day = i + 1;
+        final isSel = day == selected;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onPick(day),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isSel
+                  ? AppColors.accent
+                  : Colors.white.withValues(alpha: 0.04),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSel ? AppColors.accent : AppColors.cardBorder,
+              ),
+              boxShadow: isSel
+                  ? [
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        spreadRadius: -2,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              '$day',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: isSel ? Colors.white : AppColors.inkSoft,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The "how often" picker sheet — the same friendly year presets as a tidy
+/// list, each naming what it means in plain words.
+class _FreqPickerSheet extends StatefulWidget {
+  const _FreqPickerSheet({required this.name, required this.initial});
+  final String name;
+  final int initial;
+
+  @override
+  State<_FreqPickerSheet> createState() => _FreqPickerSheetState();
+}
+
+class _FreqPickerSheetState extends State<_FreqPickerSheet> {
+  late int _times = widget.initial;
+
+  static const _options = <(int, String, String)>[
+    (1, 'Once a year', 'Yearly'),
+    (2, 'Twice a year', 'Every 6 months'),
+    (4, 'Four times a year', 'Every 3 months'),
+    (6, 'Six times a year', 'Every 2 months'),
+    (12, 'Every month', '12 times a year'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    // Snap the stored value to the nearest preset for the initial highlight.
+    return _PickerSheet(
+      title: 'How often is ${widget.name}?',
+      confirmLabel: 'Done',
+      onConfirm: () => Navigator.of(context).pop(_times),
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (times, title, sub) in _options)
+            _FreqRow(
+              title: title,
+              subtitle: sub,
+              selected: times == _times,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _times = times);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FreqRow extends StatelessWidget {
+  const _FreqRow({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: selected
+            ? AppColors.accent.withValues(alpha: 0.16)
+            : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? AppColors.accent : AppColors.cardBorder,
+                width: selected ? 1.6 : 1,
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.inkFaint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? AppColors.accent : Colors.transparent,
+                    border: Border.all(
+                      color: selected
+                          ? AppColors.accent
+                          : AppColors.inkFaint.withValues(alpha: 0.7),
+                      width: 2,
+                    ),
+                  ),
+                  child: selected
+                      ? const Icon(Icons.check_rounded,
+                          size: 14, color: Colors.white)
+                      : null,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

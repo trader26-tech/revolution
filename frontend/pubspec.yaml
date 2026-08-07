@@ -58,6 +58,12 @@ dependencies:
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0
 
+  # Firebase — phone (OTP) authentication. firebase_core boots the SDK from the
+  # generated firebase_options.dart; firebase_auth drives the verify-phone /
+  # confirm-code flow. See features/auth/data/phone_auth_service.dart.
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

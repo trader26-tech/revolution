@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import app_version, brand_logos, prefs, tasks
 
-app = FastAPI(title="Revolution API", version="0.1.0")
+app = FastAPI(title="Revolution API", version="0.1.1")
 
 # The app is a native mobile client, so CORS is permissive (CORS only affects
 # browsers anyway).

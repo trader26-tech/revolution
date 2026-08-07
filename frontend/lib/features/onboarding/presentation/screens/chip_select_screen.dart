@@ -77,7 +77,14 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
   int _index = 0;
 
   /// Drives the per-category entry cascade; replays on each category change.
+  /// The timeline runs: Revo pops in → the question types in word-by-word →
+  /// "Tap all that apply." fades up → the rows cascade one-by-one → the bottom
+  /// CTA reveals. Longer than a plain fade so the typewriter has room to read.
   late final AnimationController _intro;
+
+  /// Resets to the top on every category change so each screen starts fresh
+  /// (Revo at the top, question typing in) rather than mid-scroll.
+  final _scroll = ScrollController();
 
   List<OnboardingChipSection> get _sections => kOnboardingChipSections;
   OnboardingChipSection get _section => _sections[_index];
@@ -87,7 +94,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1700),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _intro.forward();
@@ -97,6 +104,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
   @override
   void dispose() {
     _intro.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -123,9 +131,21 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     _replay();
   }
 
-  void _replay() => _intro
-    ..reset()
-    ..forward();
+  void _replay() {
+    // Jump back to the top so the new category starts from Revo, then replay
+    // the whole entry cascade.
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    _intro
+      ..reset()
+      ..forward();
+  }
+
+  /// 0→1 typing progress over the timeline slice [start]..[end], eased so the
+  /// last few words don't rush. Feeds the typewriter's visible-word count.
+  double _typeProgress(double start, double end) {
+    final raw = ((_intro.value - start) / (end - start)).clamp(0.0, 1.0);
+    return Curves.easeInOut.transform(raw);
+  }
 
   /// Fade + slide-up for the slice of the timeline [start]..[start]+[window].
   Widget _reveal(double start, Widget child, {double window = 0.3}) {
@@ -141,9 +161,14 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
   Widget build(BuildContext context) {
     final section = _section;
     final items = section.items;
-    // Rows share the back half of the timeline, one staggered beat each.
-    const rowsStart = 0.34;
-    final perRow = (0.9 - rowsStart) / items.length;
+    // The staged entry timeline (0..1): Revo pops (0..0.16), the question types
+    // in word-by-word (0.16..0.55), "Tap all that apply." fades up (0.55), then
+    // the rows cascade one-by-one across the back stretch.
+    const questionStart = 0.16;
+    const questionEnd = 0.55;
+    const taglineStart = 0.55;
+    const rowsStart = 0.62;
+    final perRow = (0.92 - rowsStart) / items.length;
 
     // No Scaffold/Starfield/SafeArea here — this renders as page 2 inside the
     // OnboardingFlow, which already provides the sky and safe area.
@@ -182,6 +207,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                   ),
                   Expanded(
                     child: ListView(
+                      controller: _scroll,
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                       children: [
                         // Header: Revo (left) + question.
@@ -202,18 +228,22 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                               ),
                             ),
                             Expanded(
-                              child: _reveal(
-                                0.12,
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(
-                                    _questionFor(section),
-                                    style: const TextStyle(
-                                      fontSize: 27,
-                                      height: 1.12,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.ink,
-                                    ),
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: _Typewriter(
+                                  // Keyed by category so it restarts cleanly
+                                  // when the question changes.
+                                  key: ValueKey(section.key),
+                                  text: _questionFor(section),
+                                  progress: _typeProgress(
+                                    questionStart,
+                                    questionEnd,
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 27,
+                                    height: 1.12,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.ink,
                                   ),
                                 ),
                               ),
@@ -222,7 +252,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                         ),
                         const SizedBox(height: 6),
                         _reveal(
-                          0.22,
+                          taglineStart,
                           const Padding(
                             padding: EdgeInsets.only(left: 2),
                             child: Text(
@@ -364,6 +394,63 @@ class _ProgressBar extends StatelessWidget {
           ),
           if (i < count - 1) const SizedBox(width: 6),
         ],
+      ],
+    );
+  }
+}
+
+/// The question, revealed word-by-word like it's being typed. [progress] is a
+/// 0→1 fraction of how much of the text is shown; the last visible word carries
+/// a soft violet caret while typing, which vanishes once the line is complete.
+///
+/// The full text is laid out invisibly underneath so the box reserves its final
+/// height from frame one — the rows below never jump as words land.
+class _Typewriter extends StatelessWidget {
+  const _Typewriter({
+    super.key,
+    required this.text,
+    required this.progress,
+    required this.style,
+  });
+
+  final String text;
+
+  /// 0 → nothing shown, 1 → whole line shown.
+  final double progress;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    // Split on spaces but keep newlines attached, so the two-line questions
+    // ("Which subscriptions\nshould we remember?") wrap where they're meant to.
+    final words = text.split(' ');
+    final shown = (words.length * progress).ceil().clamp(0, words.length);
+    final done = shown >= words.length;
+    final visible = words.take(shown).join(' ');
+
+    final caretColor = AppColors.accent.withValues(alpha: done ? 0.0 : 0.9);
+
+    // A Stack: the full text sizes the box (transparent), the typed slice sits
+    // on top. Both share the same style + wrapping, so no reflow.
+    return Stack(
+      children: [
+        Opacity(
+          opacity: 0,
+          child: Text(text, style: style),
+        ),
+        Text.rich(
+          TextSpan(
+            style: style,
+            children: [
+              TextSpan(text: visible),
+              // A block caret riding just after the last typed word.
+              TextSpan(
+                text: done ? '' : ' |',
+                style: TextStyle(color: caretColor),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

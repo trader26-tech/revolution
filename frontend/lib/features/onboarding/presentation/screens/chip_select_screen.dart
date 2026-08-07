@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' show FontFeature, ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,11 +13,11 @@ import '../widgets/reminder_confirm_sheet.dart';
 ///
 /// A one-category-per-screen wizard. The flow's shared 3-dot header (common to
 /// every onboarding screen) carries the macro progress; the "which of five
-/// categories" is carried by the Continue button itself, which FILLS as you
-/// advance — no rival progress bar or counter. Just a back-arrow sits at the
-/// top. Revo greets from the top-left, and each category is a clean LIST of
-/// rows (icon + name + radio) — the commonest ones arrive already selected. A
-/// bottom line reassures ("not here? add more in the app") above the Continue
+/// categories" rides in the Continue button's own label as an "N of 5" badge
+/// that ticks up on each press — no rival progress bar. Just a back-arrow sits
+/// at the top. Revo greets from the top-left, and each category is a clean LIST
+/// of rows (icon + name + radio) — the commonest ones arrive already selected.
+/// A bottom line reassures ("not here? add more in the app") above the Continue
 /// button, which walks to the next category.
 ///
 /// [ChipSelectWizard] is the full self-driving flow used as page 2 of the
@@ -342,24 +342,31 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
   }
 }
 
-/// The Continue button, doubling as the wizard's progress indicator.
+/// The Continue button, carrying the "how many more" count in its own label.
 ///
-/// The button sits on the deep accent; a brighter accent fill sweeps in from
-/// the left to cover [progress] of its width — 1/5 after the first category,
-/// 2/5 after the second, full on the last. The fill ANIMATES between steps, so
-/// pressing Continue visibly advances the button itself. A hairline of the
-/// five segment ticks runs along the base as a second, quieter read of the same
-/// progress. No separate bar or counter — the control the user is already
-/// looking at carries the "how far along" on its own.
+/// The label sits centred; a soft "N of 5" badge rides on the right. When the
+/// step advances, the badge does a little count-up POP — the old number drops
+/// away and the new one springs in — so the user feels the counter tick without
+/// any bar or line. On the final category the badge is hidden (the button reads
+/// "Finish", which needs no count). A clean, solid accent button otherwise.
 class _ContinueButton extends StatefulWidget {
   const _ContinueButton({
     required this.label,
-    required this.progress,
+    required this.step,
+    required this.total,
+    required this.showBadge,
     required this.onPressed,
   });
 
   final String label;
-  final double progress;
+
+  /// 1-based position of the current category, and how many there are.
+  final int step;
+  final int total;
+
+  /// Hidden on the last step, where the button finishes rather than advances.
+  final bool showBadge;
+
   final VoidCallback onPressed;
 
   @override
@@ -368,141 +375,154 @@ class _ContinueButton extends StatefulWidget {
 
 class _ContinueButtonState extends State<_ContinueButton>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-  late Animation<double> _fill;
-  double _from = 0;
+  /// Drives the badge's count-up pop when [step] changes.
+  late final AnimationController _pop;
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(
+    _pop = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 520),
-    );
-    _fill = AlwaysStoppedAnimation(widget.progress);
-    // Fill in from empty on first appearance, so the very first category also
-    // shows the button "arriving" at 1/5 rather than starting pre-filled.
-    _animateTo(from: 0, to: widget.progress);
+      duration: const Duration(milliseconds: 420),
+    )..forward();
   }
 
   @override
   void didUpdateWidget(covariant _ContinueButton old) {
     super.didUpdateWidget(old);
-    if (old.progress != widget.progress) {
-      _animateTo(from: _from, to: widget.progress);
+    if (old.step != widget.step) {
+      _pop
+        ..reset()
+        ..forward();
     }
-  }
-
-  void _animateTo({required double from, required double to}) {
-    _from = to;
-    _fill = Tween<double>(begin: from, end: to).animate(
-      CurvedAnimation(parent: _c, curve: Curves.easeOutCubic),
-    );
-    _c
-      ..reset()
-      ..forward();
   }
 
   @override
   void dispose() {
-    _c.dispose();
+    _pop.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    const height = 54.0;
-    const radius = 16.0;
     return SizedBox(
       width: double.infinity,
-      height: height,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(radius),
-        clipBehavior: Clip.antiAlias,
+      height: 56,
+      child: FilledButton(
+        onPressed: widget.onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.accent,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        // A Stack, not a Row: the label is centred across the FULL width, and
+        // the badge is overlaid at the right edge. This keeps the label
+        // perfectly centred and can never overflow — the two never fight for
+        // width the way a Row's fixed gutters did.
         child: Stack(
-          fit: StackFit.expand,
+          alignment: Alignment.center,
           children: [
-            // The unfilled base — the deep accent.
-            const ColoredBox(color: AppColors.accentDeep),
-            // The brighter fill, its width tracking progress.
-            AnimatedBuilder(
-              animation: _fill,
-              builder: (context, _) {
-                return Align(
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: _fill.value.clamp(0.0, 1.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.accent, Color(0xFF9A80FF)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.accent.withValues(alpha: 0.45),
-                            blurRadius: 18,
-                            spreadRadius: -4,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-            // Five faint segment ticks along the bottom — the same progress,
-            // read a second, quieter way.
+            // Reserve the badge's lane on both sides so a centred label doesn't
+            // slide under the badge — it ellipsizes before it reaches it.
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Align(
-                alignment: const Alignment(0, 0.86),
-                child: AnimatedBuilder(
-                  animation: _fill,
-                  builder: (context, _) => Row(
-                    children: [
-                      for (var i = 0; i < 5; i++) ...[
-                        Expanded(
-                          child: Container(
-                            height: 3,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(
-                                alpha: (i + 1) / 5 <= _fill.value + 0.001
-                                    ? 0.9
-                                    : 0.22,
-                              ),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                        if (i < 4) const SizedBox(width: 5),
-                      ],
-                    ],
-                  ),
+              padding: const EdgeInsets.symmetric(horizontal: 60),
+              child: Text(
+                widget.label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-            // The label + tap target on top of it all.
-            InkWell(
-              onTap: widget.onPressed,
-              child: Center(
-                child: Padding(
-                  // Lift the label a hair so it doesn't crowd the tick row.
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    widget.label,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
+            if (widget.showBadge)
+              Positioned(
+                right: 0,
+                child: _CountBadge(
+                  step: widget.step,
+                  total: widget.total,
+                  pop: _pop,
                 ),
               ),
-            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The "N of 5" pill on the Continue button. On each [pop] the current number
+/// springs up from below and fades in (the previous one having dropped away),
+/// so the counter visibly ticks. The pill itself gives a soft, gentle pulse at
+/// the same moment to draw the eye.
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({
+    required this.step,
+    required this.total,
+    required this.pop,
+  });
+
+  final int step;
+  final int total;
+  final Animation<double> pop;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: pop,
+      builder: (context, _) {
+        final t = Curves.easeOutBack.transform(pop.value.clamp(0.0, 1.0));
+        // A soft one-shot pulse of the pill at the moment the number lands.
+        final pulse = 1 + 0.06 * math.sin(pop.value.clamp(0.0, 1.0) * math.pi);
+        return Transform.scale(
+          scale: pulse,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // The counting number — springs up + fades in on each tick.
+                ClipRect(
+                  child: Transform.translate(
+                    offset: Offset(0, 12 * (1 - t)),
+                    child: Opacity(
+                      opacity: t,
+                      child: Text(
+                        '$step',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.0,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Text(
+                  ' of $total',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.0,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

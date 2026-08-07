@@ -150,6 +150,7 @@ class _PayoffScreenState extends State<PayoffScreen>
                 start: _bubble1Start,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _countLine(),
                     // The turn of the story fades in inside the SAME bubble,
@@ -192,8 +193,8 @@ class _PayoffScreenState extends State<PayoffScreen>
       child: Transform.scale(
         scale: 0.85 + 0.15 * pop,
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 320),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           decoration: BoxDecoration(
             color: AppColors.card,
             borderRadius: BorderRadius.circular(22),

@@ -119,16 +119,6 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
   int get _pickedInSection =>
       _section.items.where((i) => widget.picked.contains(i.key)).length;
 
-  void _back() {
-    HapticFeedback.lightImpact();
-    if (_index == 0) {
-      widget.onExit?.call();
-      return;
-    }
-    setState(() => _index--);
-    _replay();
-  }
-
   void _next() {
     HapticFeedback.lightImpact();
     if (_index >= _sections.length - 1) {
@@ -190,17 +180,11 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                   Expanded(
                     child: ListView(
                       controller: _scroll,
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                       children: [
-                        // Just a back-arrow — no counter, no bar. The macro
-                        // progress lives in the flow's shared 3-dot header, and
-                        // the "which of five categories" is carried by the
-                        // Continue button's own fill (see [_ContinueButton]).
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: _BackChip(onTap: _back),
-                        ),
-                        const SizedBox(height: 8),
+                        // No back button — the flow's shared 3-dot header carries
+                        // the macro progress, and the "which of five categories"
+                        // is carried by the Continue button's own fill.
                         // Header: Revo (left) + question.
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,36 +339,6 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     final last = _index >= _sections.length - 1;
     if (_pickedInSection == 0) return last ? 'Finish' : 'None of these';
     return last ? 'Finish' : 'Continue';
-  }
-}
-
-/// A small circular back affordance — light enough to sit inside the content,
-/// not read as a page-level app bar.
-class _BackChip extends StatelessWidget {
-  const _BackChip({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.05),
-      shape: const CircleBorder(
-        side: BorderSide(color: AppColors.glassBorder),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: const SizedBox(
-          width: 34,
-          height: 34,
-          child: Icon(
-            Icons.arrow_back_rounded,
-            size: 18,
-            color: AppColors.inkSoft,
-          ),
-        ),
-      ),
-    );
   }
 }
 

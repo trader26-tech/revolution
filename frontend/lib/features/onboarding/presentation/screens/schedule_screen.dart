@@ -30,12 +30,12 @@ String _questionFor(OnboardingChipSection s) => switch (s.key) {
 /// are your family's special days?"). No separate category label or sub-copy;
 /// the question carries the context.
 ///
-/// Each picked item is a card with exactly THREE things: the event NAME, the
-/// DAY of the month, and HOW OFTEN each year (a friendly presets dial — 1× · 2×
-/// · 4× · 6× · 12× — instead of monthly/yearly/weekly). Everything arrives
-/// pre-filled from the catalog's smart defaults, so the user usually just
-/// glances, tweaks the odd date, and taps Continue. Above the button, a
-/// momentum line ("3 more to go" …
+/// Each picked item is a compact one-line card that reads like a form field:
+/// the NAME on the left, and on the SAME line two small settable buttons — the
+/// DAY ("15th") and HOW OFTEN ("Monthly"). Tapping the day opens a calendar
+/// grid; tapping the frequency opens a preset list. Both arrive pre-filled from
+/// the catalog's smart defaults, so the user usually just glances, taps the odd
+/// value, and continues. Above the button, a momentum line ("3 more to go" …
 /// "Last one") mirrors the wizard; the button fills as they advance the
 /// categories, reading "Finish" on the last one and firing [onFinish] with a
 /// ready-to-save draft per picked item.

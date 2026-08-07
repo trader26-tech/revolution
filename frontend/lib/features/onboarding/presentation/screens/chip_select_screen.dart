@@ -12,14 +12,14 @@ import '../widgets/reminder_confirm_sheet.dart';
 /// Onboarding page 2: "Which … should we remember?"
 ///
 /// A one-category-per-screen wizard. The flow's shared 3-dot header (common to
-/// every onboarding screen) carries the macro progress; the "which of five
-/// categories" is spoken by Revo's own tagline as forward momentum — "3 more to
-/// go · Tap all that apply", then "Last one" on the final screen — so there's
-/// no separate progress element and the Continue button stays plain. Just a
-/// back-arrow sits at the top. Revo greets from the top-left, and each category
-/// is a clean LIST of rows (icon + name + radio) — the commonest ones arrive
-/// already selected. A bottom line reassures ("not here? add more in the app")
-/// above the Continue button, which walks to the next category.
+/// every onboarding screen) carries the macro progress. Two lines of copy do
+/// the rest: the tagline under the question pairs the instruction with the
+/// reassurance — "Tap all that apply · Not here? Add more in the app" — while
+/// the line just above the Continue button carries forward momentum — "3 more
+/// to go", then "Last one" on the final screen. No separate progress element;
+/// the Continue button stays plain. Just a back-arrow sits at the top. Revo
+/// greets from the top-left, and each category is a clean LIST of rows (icon +
+/// name + radio) — the commonest ones arrive already selected.
 ///
 /// [ChipSelectWizard] is the full self-driving flow used as page 2 of the
 /// onboarding PageView; it fires [onComplete] with a draft per picked item
@@ -235,10 +235,10 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                           ],
                         ),
                         const SizedBox(height: 6),
-                        // Revo's tagline leads with FORWARD momentum — "3 more
-                        // to go" (or "Last one") in accent — then "Tap all that
-                        // apply". The progress sits in the copy first, so it
-                        // reads as a path ahead, not a bare position count.
+                        // Tagline under the question: the instruction plus the
+                        // "not here?" reassurance, together — "Tap all that
+                        // apply · Not here? Add more in the app". The forward
+                        // progress ("N more to go") now lives down by the button.
                         _reveal(
                           taglineStart,
                           Padding(
@@ -246,14 +246,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                             child: Text.rich(
                               TextSpan(
                                 children: [
-                                  TextSpan(
-                                    text: _remainingPhrase(),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.accent
-                                          .withValues(alpha: 0.9),
-                                    ),
-                                  ),
+                                  const TextSpan(text: 'Tap all that apply'),
                                   TextSpan(
                                     text: '   ·   ',
                                     style: TextStyle(
@@ -261,7 +254,15 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                                           .withValues(alpha: 0.6),
                                     ),
                                   ),
-                                  const TextSpan(text: 'Tap all that apply'),
+                                  const TextSpan(text: 'Not here? Add more '),
+                                  TextSpan(
+                                    text: 'in the app',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.accent
+                                          .withValues(alpha: 0.95),
+                                    ),
+                                  ),
                                 ],
                               ),
                               style: const TextStyle(
@@ -312,27 +313,18 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // The promise — short. Meaning: whatever isn't in
-                          // this shortlist is still available to add once you're
-                          // inside the app, so the accent lands on "in the app".
-                          Text.rich(
-                            TextSpan(
-                              children: [
-                                const TextSpan(text: 'Not here? Add more '),
-                                TextSpan(
-                                  text: 'in the app.',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.accent
-                                        .withValues(alpha: 0.95),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          // Forward momentum, right above the button: "3 more to
+                          // go" (or "Last one" on the final category) — the push
+                          // to keep going. The "not here? add more in the app"
+                          // reassurance now lives up in the tagline.
+                          Text(
+                            _remainingPhrase(),
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.inkFaint,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                              color: AppColors.accent.withValues(alpha: 0.9),
                             ),
                           ),
                           const SizedBox(height: 12),

@@ -398,7 +398,8 @@ class _PayoffScreenState extends State<PayoffScreen>
           onPressed: widget.onDone,
           child: const Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
-            child: Text('Get started'),
+            // Leads into the schedule step (day + how often), not the app yet.
+            child: Text('Set my reminders'),
           ),
         ),
       ),

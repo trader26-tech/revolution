@@ -5,12 +5,11 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/mascot.dart';
-import '../../../tasks/domain/task.dart';
 import '../../domain/onboarding_chip_catalog.dart';
 import '../widgets/day_knob.dart';
-import '../widgets/frequency_picker.dart';
 import '../widgets/magic_text.dart';
 import '../widgets/reminder_confirm_sheet.dart';
+import '../widgets/year_frequency_picker.dart';
 
 /// Revo's per-category question — the category is baked into the ask, so he
 /// speaks it directly ("When should we remind you about your subscriptions?")
@@ -33,11 +32,12 @@ String _questionFor(OnboardingChipSection s) => switch (s.key) {
 /// are your family's special days?"). No separate category label or sub-copy;
 /// the question carries the context.
 ///
-/// Each picked item is a card with the three knobs that matter: the
-/// day-of-month, how often it repeats, and — for repeating ones — the "every N"
-/// interval (every 2 months, etc.). Everything arrives pre-filled from the
-/// catalog's smart defaults, so the user usually just glances, tweaks the odd
-/// date, and taps Continue. Above the button, a momentum line ("3 more to go" …
+/// Each picked item is a card with exactly THREE things: the event NAME, the
+/// DAY of the month, and HOW OFTEN each year (a friendly presets dial — 1× · 2×
+/// · 4× · 6× · 12× — instead of monthly/yearly/weekly). Everything arrives
+/// pre-filled from the catalog's smart defaults, so the user usually just
+/// glances, tweaks the odd date, and taps Continue. Above the button, a
+/// momentum line ("3 more to go" …
 /// "Last one") mirrors the wizard; the button fills as they advance the
 /// categories, reading "Finish" on the last one and firing [onFinish] with a
 /// ready-to-save draft per picked item.
@@ -437,100 +437,6 @@ class _DayPill extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A −/N/+ stepper for the "every N …" interval. Clamps to 1..12.
-class _EveryStepper extends StatelessWidget {
-  const _EveryStepper({
-    required this.value,
-    required this.unit,
-    required this.onChanged,
-  });
-
-  final int value;
-  final String unit;
-  final ValueChanged<int> onChanged;
-
-  static const _min = 1;
-  static const _max = 12;
-
-  void _bump(int delta) {
-    final next = (value + delta).clamp(_min, _max);
-    if (next != value) {
-      HapticFeedback.selectionClick();
-      onChanged(next);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Text(
-          'Every',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.inkSoft,
-          ),
-        ),
-        const Spacer(),
-        _RoundBtn(
-          icon: Icons.remove_rounded,
-          enabled: value > _min,
-          onTap: () => _bump(-1),
-        ),
-        SizedBox(
-          width: 78,
-          child: Text(
-            value == 1 ? unit : '$value $unit',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
-          ),
-        ),
-        _RoundBtn(
-          icon: Icons.add_rounded,
-          enabled: value < _max,
-          onTap: () => _bump(1),
-        ),
-      ],
-    );
-  }
-}
-
-class _RoundBtn extends StatelessWidget {
-  const _RoundBtn({
-    required this.icon,
-    required this.enabled,
-    required this.onTap,
-  });
-  final IconData icon;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.35,
-      child: Material(
-        color: AppColors.accent.withValues(alpha: 0.16),
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          child: SizedBox(
-            width: 34,
-            height: 34,
-            child: Icon(icon, size: 18, color: AppColors.ink),
           ),
         ),
       ),

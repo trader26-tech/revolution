@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -65,8 +64,12 @@ class ReminderScheduler {
   Timer? _debounce;
   bool _canExact = false;
 
+  // defaultTargetPlatform (not dart:io Platform) so this file also compiles
+  // for the web preview build, where the scheduler simply no-ops.
   static bool get _supported =>
-      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   /// Initialize the plugin + timezone database. Call once at startup, before
   /// any store starts notifying. No-op on web/desktop.
@@ -116,7 +119,7 @@ class ReminderScheduler {
   /// iOS alert/badge/sound). Call once the user is inside the app.
   Future<void> ensurePermissions() async {
     if (!_supported || !_ready) return;
-    if (Platform.isAndroid) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       await android?.requestNotificationsPermission();

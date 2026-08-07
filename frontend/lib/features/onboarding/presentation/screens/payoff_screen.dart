@@ -49,11 +49,13 @@ class _PayoffScreenState extends State<PayoffScreen>
   // Story beats (fractions of [_c]). The gap between the count settling and
   // bubble 2 is deliberate — the pause IS the "uh oh…" beat.
   static const _revoStart = 0.00;
-  static const _bubble1Start = 0.18;
-  static const _countStart = 0.28;
-  static const _countEnd = 0.58;
+  static const _bubble1Start = 0.16;
+  static const _countStart = 0.24;
+  static const _countEnd = 0.50;
+  // A long, deliberate pause here — 0.50 → 0.66 — is the beat that lets the
+  // number sink in before the reassurance turns the story.
   static const _bubble2Start = 0.66;
-  static const _bubble2Window = 0.30;
+  static const _bubble2Window = 0.28;
   static const _hopStart = 0.66;
   static const _hopEnd = 0.86;
   static const _promiseStart = 0.96;
@@ -90,9 +92,10 @@ class _PayoffScreenState extends State<PayoffScreen>
   }
 
   /// A touch more time for bigger years, so the climb stays readable, and a
-  /// longer tail overall so the reassurance fades in slow and deliberate.
+  /// long, unhurried tail so the whole story sinks in — the count climbs
+  /// slowly, then a real pause, then the reassurance fades in gently.
   Duration get _duration =>
-      Duration(milliseconds: (3400 + _total * 5).clamp(3400, 4800));
+      Duration(milliseconds: (5200 + _total * 6).clamp(5200, 7000));
 
   /// How many times a year one picked chip fires.
   static int _firesPerYear(RepeatCadence f) => switch (f) {
@@ -220,7 +223,7 @@ class _PayoffScreenState extends State<PayoffScreen>
               child: Text(
                 '$_running',
                 style: const TextStyle(
-                  fontSize: 34,
+                  fontSize: 30,
                   height: 1.2,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.6,

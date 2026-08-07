@@ -45,36 +45,21 @@ class CategoryGalleryScreenState extends State<CategoryGalleryScreen> {
 
   bool _isSelected(OnboardingCategory c) => _drafts.containsKey(c.key);
 
-  Future<void> _tap(OnboardingCategory c) async {
+  /// Tapping a tile only SELECTS/DESELECTS — the details (name/date/frequency)
+  /// are entered on the next screen, not here.
+  void _toggle(OnboardingCategory c) {
     HapticFeedback.lightImpact();
-    if (_isSelected(c)) {
-      // Selected → open the confirm sheet to tweak (or toggle off from there is
-      // not offered; a second tap on the tick toggles off — see the tile).
-      final edited = await showReminderConfirmSheet(
-        context,
-        category: c,
-        initial: _drafts[c.key],
-      );
-      if (edited != null) {
-        setState(() => _drafts[c.key] = edited);
-        widget.onChanged?.call(_drafts);
-      }
-    } else {
-      // Not selected → stage it with defaults immediately (magic), no sheet.
-      setState(() {
+    setState(() {
+      if (_isSelected(c)) {
+        _drafts.remove(c.key);
+      } else {
         _drafts[c.key] = ReminderDraft(
           name: c.defaultName,
           day: c.defaultDay,
           frequency: c.defaultFrequency,
         );
-      });
-      widget.onChanged?.call(_drafts);
-    }
-  }
-
-  void _toggleOff(OnboardingCategory c) {
-    HapticFeedback.lightImpact();
-    setState(() => _drafts.remove(c.key));
+      }
+    });
     widget.onChanged?.call(_drafts);
   }
 

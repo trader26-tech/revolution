@@ -6,13 +6,24 @@ import '../../domain/onboarding_category.dart';
 import 'day_knob.dart';
 import 'frequency_picker.dart';
 
-/// The three things a reminder needs, captured in onboarding.
+/// The things a reminder needs, captured in onboarding.
 class ReminderDraft {
-  ReminderDraft({required this.name, required this.day, required this.frequency});
+  ReminderDraft({
+    required this.name,
+    required this.day,
+    required this.frequency,
+    this.every = 1,
+  });
 
   String name;
   int day; // day-of-month 1–31
   RepeatCadence frequency;
+
+  /// The interval multiplier for [frequency] — "every N weeks/months/…". 1 is
+  /// the plain cadence (every month); 2 is "every 2 months", etc. UI-ONLY for
+  /// now: the server task model doesn't carry an interval yet, so this is
+  /// captured and shown but not persisted. See onboarding schedule screen.
+  int every;
 }
 
 /// A premium sheet to confirm/adjust one reminder — name, the semicircular

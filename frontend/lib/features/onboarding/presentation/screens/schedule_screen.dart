@@ -151,8 +151,15 @@ class _ScheduleScreenState extends State<ScheduleScreen>
       builder: (context, _) {
         final section = _section;
         final items = _pickedItems;
+        // Rows cascade across [rowsStart .. lastRowStart]; the last row STARTS
+        // at lastRowStart and, with its reveal window, completes by 1.0 — so no
+        // card is left stuck at partial opacity.
         const rowsStart = 0.46;
-        final perRow = (0.98 - rowsStart) / math.max(1, items.length);
+        const rowWindow = 0.26;
+        const lastRowStart = 1.0 - rowWindow; // 0.74
+        final perRow = items.length > 1
+            ? (lastRowStart - rowsStart) / (items.length - 1)
+            : 0.0;
 
         return Column(
           children: [
@@ -230,6 +237,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                   for (var i = 0; i < items.length; i++)
                     _reveal(
                       rowsStart + perRow * i,
+                      window: rowWindow,
                       _ItemScheduleCard(
                         key: ValueKey('${section.key}:${items[i].key}'),
                         item: items[i],
@@ -240,9 +248,12 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                 ],
               ),
             ),
-            // Bottom: reassurance + the filling Continue/Finish button.
+            // Bottom: reassurance + the filling Continue/Finish button. Its
+            // reveal must COMPLETE within the 0..1 timeline (start + window <=
+            // 1.0), or the button caps at a fraction of full opacity and reads
+            // as missing. 0.72 + 0.28 == 1.0.
             _reveal(
-              0.9,
+              0.72,
               Container(
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 18),
                 decoration: BoxDecoration(

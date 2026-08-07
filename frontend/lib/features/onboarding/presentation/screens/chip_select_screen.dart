@@ -236,35 +236,16 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                         ),
                         const SizedBox(height: 6),
                         // Tagline under the question — one clean, unpunctuated
-                        // line: the instruction, then the reassurance, joined by
-                        // a soft dot. Accent on "add more in the app". Forward
+                        // line in a single light tone: instruction, soft dot,
+                        // reassurance. No accent, no second weight. Forward
                         // progress ("N more to go") lives down by the button.
                         _reveal(
                           taglineStart,
-                          Padding(
-                            padding: const EdgeInsets.only(left: 2),
-                            child: Text.rich(
-                              TextSpan(
-                                children: [
-                                  const TextSpan(text: 'Tap all that apply'),
-                                  TextSpan(
-                                    text: '   ·   ',
-                                    style: TextStyle(
-                                      color: AppColors.inkFaint
-                                          .withValues(alpha: 0.6),
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'add more in the app',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.accent
-                                          .withValues(alpha: 0.95),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              style: const TextStyle(
+                          const Padding(
+                            padding: EdgeInsets.only(left: 2),
+                            child: Text(
+                              'Tap all that apply   ·   add more in the app',
+                              style: TextStyle(
                                 fontSize: 14.5,
                                 color: AppColors.inkSoft,
                               ),

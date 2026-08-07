@@ -72,12 +72,15 @@ class _PayoffScreenState extends State<PayoffScreen>
   // own pause after the story, rather than being crammed into this timeline.
 
   // ── Aftermath beats (fractions of [_tail], which runs after the story) ──────
-  // Each is preceded by a real pause so the two elements land one at a time.
-  static const _tailDuration = Duration(milliseconds: 2600);
-  static const _promiseTailStart = 0.12; // pause, then the closing line
-  static const _promiseTailWindow = 0.24;
-  static const _ctaTailStart = 0.62; // longer pause, then the CTA
-  static const _ctaTailWindow = 0.24;
+  // The two elements land one at a time with the SAME short interval between
+  // them: story → (gap) → closing line → (same gap) → CTA. The gap equals
+  // [_tailStep]; each reveal starts one step later than the last.
+  static const _tailDuration = Duration(milliseconds: 2000);
+  static const _tailLeadIn = 0.16; // the gap the story rests before beat 1
+  static const _tailStep = 0.34; // the single, consistent interval thereafter
+  static const _promiseTailStart = _tailLeadIn; //              0.16 — line
+  static const _ctaTailStart = _tailLeadIn + _tailStep; //      0.50 — CTA
+  static const _tailWindow = 0.22;
 
   int _total = 0;
 
@@ -356,7 +359,7 @@ class _PayoffScreenState extends State<PayoffScreen>
   Widget _promise() {
     return _tailReveal(
       _promiseTailStart,
-      _promiseTailWindow,
+      _tailWindow,
       Text.rich(
         const TextSpan(
           children: [
@@ -388,7 +391,7 @@ class _PayoffScreenState extends State<PayoffScreen>
   Widget _getStarted() {
     return _tailReveal(
       _ctaTailStart,
-      _ctaTailWindow,
+      _tailWindow,
       SizedBox(
         width: double.infinity,
         child: FilledButton(

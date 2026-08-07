@@ -312,17 +312,17 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                             ),
                           ),
                           const SizedBox(height: 12),
-                          // The Continue button IS the progress indicator: a
-                          // fill sweeps across it as you move through the five
-                          // categories, so the one control the user already
-                          // watches tells them how far along they are — no
-                          // separate bar or counter needed.
+                          // The Continue button carries the count itself: label
+                          // on the left, a soft "N of 5" badge on the right that
+                          // pops up on each press. The badge is the "how many
+                          // more" read — a number, not a bar or a line.
                           _ContinueButton(
                             label: _buttonLabel(),
-                            // Progress AFTER this step completes: category 0 of
-                            // 5 → 1/5 filled, … last → full. Reads as "press
-                            // this and you'll be here".
-                            progress: (_index + 1) / _sections.length,
+                            step: _index + 1,
+                            total: _sections.length,
+                            // The last category finishes rather than steps on,
+                            // so its badge would read "5 of 5" — hide it there.
+                            showBadge: _index < _sections.length - 1,
                             onPressed: _next,
                           ),
                         ],

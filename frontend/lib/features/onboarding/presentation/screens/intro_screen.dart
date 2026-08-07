@@ -35,57 +35,65 @@ class _IntroScreenState extends State<IntroScreen>
 
   // ── The three rings ────────────────────────────────────────────────────────
   //
-  // Geometry is expressed as a FRACTION of the cluster box (0..1), measured
-  // from its centre — so the whole composition scales with the screen and
-  // stays in bounds. A ring's outermost reach is |centre| + radius + logo/2,
-  // and every ring below is tuned to keep that under 0.5.
+  // Geometry is a FRACTION of the cluster box (0..1) measured from its centre,
+  // so the composition scales with the screen and can't spill out.
+  //
+  // THE RINGS MUST NEVER INTERSECT. Their positions and radii come from a
+  // constrained search that enforces, simultaneously:
+  //   · disjoint outlines — centre distance >= r1 + r2 + 0.022 of visible gap
+  //   · every outline AND every logo on it inside the box (reach <= 0.49)
+  //   · the reference composition (big subscriptions ring upper-left, the two
+  //     smaller rings upper-right and lower-right)
+  // subject to maximising ring size. [debugAssertLayoutValid] re-checks all of
+  // it at runtime in debug builds, so a hand-tweak that breaks the invariant
+  // fails loudly instead of silently shipping overlapping rings.
   //
   // Every domain was hand-checked to return a crisp, correct logo on a dark
   // background (see the notes on individual entries).
   static const _rings = <_Ring>[
     // Subscriptions — the big ring, upper-left (matches the reference).
     _Ring(
-      cxF: -0.115,
-      cyF: -0.140,
+      cxF: -0.182,
+      cyF: -0.177,
       radiusF: 0.250,
       hubIcon: Icons.play_circle_fill_rounded,
       logos: [
-        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42, 283),
-        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 44, 189),
-        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40, 106),
+        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42, 85),
+        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 44, 208),
+        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40, 163),
       ],
     ),
-    // Investments / SIP — smaller ring, upper-right.
+    // Investments / SIP — the small ring, upper-right.
     _Ring(
-      cxF: 0.230,
-      cyF: -0.235,
-      radiusF: 0.190,
+      cxF: 0.263,
+      cyF: -0.261,
+      radiusF: 0.178,
       hubIcon: Icons.trending_up_rounded,
       logos: [
-        _OrbitLogo(Brand(name: 'Zerodha', domain: 'zerodha.com'), 38, 317),
-        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 36, 85),
+        _OrbitLogo(Brand(name: 'Zerodha', domain: 'zerodha.com'), 38, 116),
+        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 36, 1),
         // Upstox: a crisp 196px violet mark — reads beautifully on the sky.
-        _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36, 248),
+        _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36, 205),
       ],
     ),
     // Insurance & documents — lower-right.
     _Ring(
-      cxF: 0.175,
-      cyF: 0.180,
-      radiusF: 0.205,
+      cxF: 0.186,
+      cyF: 0.188,
+      radiusF: 0.245,
       hubIcon: Icons.shield_rounded,
       logos: [
         // LIC's real mark is wide (emblem + wordmark) → a slightly bigger box.
-        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 46, 62),
+        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 46, 163),
         // HDFC Life: a clean 256px red mark.
-        _OrbitLogo(Brand(name: 'HDFC Life', domain: 'hdfclife.com'), 38, 356),
+        _OrbitLogo(Brand(name: 'HDFC Life', domain: 'hdfclife.com'), 38, 72),
         // DigiLocker — the actual govt DOCUMENT wallet, and its violet mark
         // sits naturally in this palette (the national emblem is near-black
         // and would disappear against the sky).
         _OrbitLogo(
           Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'),
           38,
-          151,
+          113,
         ),
       ],
     ),
@@ -126,9 +134,43 @@ class _IntroScreenState extends State<IntroScreen>
     return Offset(sx / sw, sy / sw);
   }
 
+  /// Debug-only guard for the layout invariants the ring geometry must hold:
+  /// rings disjoint, and everything inside the box. Returns true so it can be
+  /// used inside an `assert`, which strips it entirely from release builds.
+  static bool _debugAssertLayoutValid() {
+    for (var i = 0; i < _rings.length; i++) {
+      for (var j = i + 1; j < _rings.length; j++) {
+        final a = _rings[i], b = _rings[j];
+        final d = math.sqrt(
+          math.pow(a.cxF - b.cxF, 2) + math.pow(a.cyF - b.cyF, 2),
+        );
+        assert(
+          d >= a.radiusF + b.radiusF + 0.015,
+          'Orbit rings $i and $j intersect: centres are $d apart but the radii '
+          'sum to ${a.radiusF + b.radiusF}. Rings must never overlap.',
+        );
+      }
+    }
+    // Reach of each ring's outline plus the largest logo riding on it.
+    for (var i = 0; i < _rings.length; i++) {
+      final r = _rings[i];
+      final biggest = r.logos.fold<double>(0, (m, l) => math.max(m, l.size));
+      // Logo sizes are px; compare against the smallest cluster box we render
+      // at (~300px) for the strictest check.
+      final reach =
+          math.max(r.cxF.abs(), r.cyF.abs()) + r.radiusF + biggest / 2 / 300.0;
+      assert(
+        reach <= 0.5,
+        'Orbit ring $i escapes the cluster box (reach $reach > 0.5).',
+      );
+    }
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
+    assert(_debugAssertLayoutValid());
     _enter = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),

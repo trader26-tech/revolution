@@ -1,5 +1,12 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze *)",
+      "Bash(ls -la /Users/ranjeev/Documents/projects/revolution/.claude/ 2>/dev/null; echo \"--- project settings ---\"; cat /Users/ranjeev/Documents/projects/revolution/.claude/settings.json 2>/dev/null; echo \"--- project local ---\"; cat /Users/ranjeev/Documents/projects/revolution/.claude/settings.local.json 2>/dev/null; echo \"--- user settings ---\"; cat /Users/ranjeev/.claude/settings.json 2>/dev/null)",
+      "Read(//Users/ranjeev/.claude/**)"
+    ]
+  },
   "model": "claude-opus-4-8",
   "hooks": {
     "Stop": [
@@ -11,11 +18,6 @@
           }
         ]
       }
-    ]
-  },
-  "permissions": {
-    "allow": [
-      "Bash(flutter analyze *)"
     ]
   }
 }

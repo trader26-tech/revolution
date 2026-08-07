@@ -204,12 +204,8 @@ class _PayoffScreenState extends State<PayoffScreen>
     // arrives in one calm go. The wide window (0.55 of the timeline) is what
     // keeps it unhurried.
     final reveal = Curves.easeOutCubic.transform(_lin(_bubble2Start, _bubble2Window));
-    final ink = AppColors.inkSoft.withValues(alpha: reveal);
+    final ink = AppColors.ink.withValues(alpha: reveal);
     final accent = AppColors.accent.withValues(alpha: reveal);
-
-    // The reassurance clause sits a notch smaller than the count sentence, so
-    // "That's [91] things to remember this year…" clearly leads.
-    const reassureSize = 17.0;
 
     return Text.rich(
       TextSpan(
@@ -235,19 +231,15 @@ class _PayoffScreenState extends State<PayoffScreen>
             ),
           ),
           const TextSpan(text: ' things to remember this year…'),
-          // The turn of the story — same paragraph, one notch smaller, fading
-          // in slowly on its own beat.
+          // The turn of the story — same paragraph, same size, fading in
+          // slowly on its own beat.
           TextSpan(
             text: "\nBut don't worry — ",
-            style: TextStyle(fontSize: reassureSize, color: ink),
+            style: TextStyle(color: ink),
           ),
           TextSpan(
             text: "Revo's got you.",
-            style: TextStyle(
-              fontSize: reassureSize,
-              fontWeight: FontWeight.w900,
-              color: accent,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w900, color: accent),
           ),
         ],
       ),

@@ -13,6 +13,7 @@ class BrandLogo extends StatelessWidget {
     this.size = 44,
     this.radius = 12,
     this.bare = false,
+    this.circular = false,
   });
 
   final Brand brand;
@@ -23,6 +24,18 @@ class BrandLogo extends StatelessWidget {
   /// the (rounded) logo image itself. For hero/marketing surfaces where the
   /// logos float freely rather than sit in list rows.
   final bool bare;
+
+  /// Crop the logo to a circle instead of a rounded square.
+  ///
+  /// Some brands' favicons ship a fully OPAQUE white background (SBI's, for
+  /// one) rather than a transparent one. On a dark surface that renders as a
+  /// glaring white patch around the mark. Cropping to a circle turns that
+  /// leftover background into a deliberate circular badge — the shape reads as
+  /// intentional, and no square white corners survive.
+  ///
+  /// Logos that are already transparent are unaffected: a circular crop of a
+  /// centred mark looks the same as an uncropped one.
+  final bool circular;
 
   @override
   Widget build(BuildContext context) {
@@ -37,13 +50,18 @@ class BrandLogo extends StatelessWidget {
     if (urls.isEmpty) return fallback;
 
     if (bare) {
+      final image = SizedBox(
+        width: size,
+        height: size,
+        child: _chain(urls, 0, fallback),
+      );
+      // `cover` on the circular path: the mark fills the circle edge-to-edge,
+      // so a white-backed favicon becomes a clean filled badge with no pale
+      // rim left showing at the corners.
+      if (circular) return ClipOval(child: image);
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: _chain(urls, 0, fallback),
-        ),
+        child: image,
       );
     }
 
@@ -66,7 +84,9 @@ class BrandLogo extends StatelessWidget {
     if (i >= urls.length) return fallback;
     return Image.network(
       urls[i],
-      fit: BoxFit.contain,
+      // Circular crop fills the circle (`cover`) so no pale rim survives at the
+      // edge; everywhere else `contain` keeps the whole mark visible.
+      fit: circular ? BoxFit.cover : BoxFit.contain,
       filterQuality: FilterQuality.high,
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;

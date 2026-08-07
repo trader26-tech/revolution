@@ -109,6 +109,11 @@ class _IntroScreenState extends State<IntroScreen>
         // returns a decodable PNG of the keyhole mark (icon.horse serves .ico,
         // which Flutter can't decode, and sbilife.co.in's is an unreadable
         // 17px JPEG).
+        //
+        // circular: SBI's favicon ships an OPAQUE white background, which on
+        // this dark sky renders as a white square around the mark. Every other
+        // logo here is transparent; this is the one that needs the circular
+        // crop to turn that background into a clean round badge.
         _OrbitLogo(
           Brand(
             name: 'SBI',
@@ -116,6 +121,7 @@ class _IntroScreenState extends State<IntroScreen>
             source: LogoSource.googleFavicon,
           ),
           38,
+          circular: true,
         ),
       ],
     ),
@@ -497,6 +503,7 @@ class _IntroScreenState extends State<IntroScreen>
             size: logo.size,
             radius: logo.size * 0.26,
             bare: true,
+            circular: logo.circular,
           ),
         ),
       ),
@@ -585,8 +592,12 @@ class _Ring {
 /// A logo resting on a ring: the brand and its box size (px). Its angle comes
 /// from the ring's even spacing, so it can't be set — or mis-set — per logo.
 class _OrbitLogo {
-  const _OrbitLogo(this.brand, this.size);
+  const _OrbitLogo(this.brand, this.size, {this.circular = false});
 
   final Brand brand;
   final double size;
+
+  /// Crop this logo to a circle — for brands whose favicon has an opaque white
+  /// background that would otherwise show as a square patch on the dark sky.
+  final bool circular;
 }

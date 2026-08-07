@@ -191,17 +191,15 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                       controller: _scroll,
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                       children: [
-                        // Category counter: back-arrow + "Subscriptions · 1 of 5".
-                        // The flow's 3-dot header carries the macro progress now,
-                        // so this is a light, in-content label — NOT a second
-                        // progress bar competing with the dots above.
-                        _CategoryCounter(
-                          title: section.title,
-                          index: _index,
-                          count: _sections.length,
-                          onBack: _back,
+                        // Just a back-arrow — no counter, no bar. The macro
+                        // progress lives in the flow's shared 3-dot header, and
+                        // the "which of five categories" is carried by the
+                        // Continue button's own fill (see [_ContinueButton]).
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: _BackChip(onTap: _back),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         // Header: Revo (left) + question.
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,19 +327,18 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                             ),
                           ),
                           const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 54,
-                            child: FilledButton(
-                              onPressed: _next,
-                              child: Text(
-                                _buttonLabel(),
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
+                          // The Continue button IS the progress indicator: a
+                          // fill sweeps across it as you move through the five
+                          // categories, so the one control the user already
+                          // watches tells them how far along they are — no
+                          // separate bar or counter needed.
+                          _ContinueButton(
+                            label: _buttonLabel(),
+                            // Progress AFTER this step completes: category 0 of
+                            // 5 → 1/5 filled, … last → full. Reads as "press
+                            // this and you'll be here".
+                            progress: (_index + 1) / _sections.length,
+                            onPressed: _next,
                           ),
                         ],
                       ),
@@ -357,69 +354,6 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     final last = _index >= _sections.length - 1;
     if (_pickedInSection == 0) return last ? 'Finish' : 'None of these';
     return last ? 'Finish' : 'Continue';
-  }
-}
-
-/// The in-content category counter: a back-arrow beside a soft pill reading
-/// "Subscriptions · 1 of 5". This tells you WHICH category of five you're on
-/// without a second progress bar — the flow's 3-dot header owns the macro
-/// progress, so this stays deliberately light and textual.
-class _CategoryCounter extends StatelessWidget {
-  const _CategoryCounter({
-    required this.title,
-    required this.index,
-    required this.count,
-    required this.onBack,
-  });
-
-  final String title;
-  final int index;
-  final int count;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // Back — tucked left, small, so it reads as a step-back not a top bar.
-        _BackChip(onTap: onBack),
-        const SizedBox(width: 10),
-        // The pill: category name, a dot, then "N of 5".
-        Flexible(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.glassBorder),
-            ),
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: title,
-                    style: TextStyle(
-                      color: AppColors.accent.withValues(alpha: 0.95),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const TextSpan(text: '  ·  '),
-                  TextSpan(text: '${index + 1} of $count'),
-                ],
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
-                color: AppColors.inkFaint,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }
 

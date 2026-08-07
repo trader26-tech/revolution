@@ -17,7 +17,9 @@ import 'chip_select_screen.dart';
 ///   3. A beat. Then, inside the SAME bubble, the turn fades in: "But don't
 ///      worry — Revo's got you." and Revo does a happy double-hop, gaze
 ///      dropping from the number to YOU.
-///   4. One muted closing line fades in under it all.
+///   4. The story rests. Then, in the quiet aftermath, one muted closing line
+///      fades in — a pause — and only then does the "Get started" CTA arrive,
+///      each beat given room to breathe.
 ///
 /// A single chat-style bubble (no comic tail) keeps it modern; the story
 /// structure — problem, beat, hero — is carried purely by timing and Revo's
@@ -46,6 +48,12 @@ class _PayoffScreenState extends State<PayoffScreen>
   /// Endless idle loop — breathing bob, wandering gaze, occasional blinks.
   late final AnimationController _idle;
 
+  /// The quiet aftermath, played only AFTER the story finishes: a pause, then
+  /// the closing line fades in, another pause, then the "Get started" CTA. This
+  /// lives on its own controller so each beat can breathe — the story sinks in
+  /// first, then the proof, then the invitation to begin.
+  late final AnimationController _tail;
+
   // Story beats (fractions of [_c]). The gap between the count settling and
   // bubble 2 is deliberate — the pause IS the "uh oh…" beat.
   static const _revoStart = 0.00;
@@ -58,13 +66,17 @@ class _PayoffScreenState extends State<PayoffScreen>
   static const _bubble2Window = 0.28;
   static const _hopStart = 0.66;
   static const _hopEnd = 0.86;
-  // The closing line and the CTA reveal near the end — but their reveal windows
-  // must COMPLETE within the 0..1 timeline. The button starts at
-  // [_promiseStart] + 0.04 == 0.92 with a 0.06 window, finishing at 0.98, so it
-  // always reaches full opacity. (Previously _promiseStart was 0.96 and the
-  // button revealed at 1.02 — entirely past the animation's end — so its opacity
-  // stayed frozen at 0 and the "Get started" button never appeared.)
-  static const _promiseStart = 0.88;
+  // The story controller ends here; the closing line and CTA are handled
+  // separately by the aftermath controller [_tail] (see below) so each gets its
+  // own pause after the story, rather than being crammed into this timeline.
+
+  // ── Aftermath beats (fractions of [_tail], which runs after the story) ──────
+  // Each is preceded by a real pause so the two elements land one at a time.
+  static const _tailDuration = Duration(milliseconds: 2600);
+  static const _promiseTailStart = 0.12; // pause, then the closing line
+  static const _promiseTailWindow = 0.24;
+  static const _ctaTailStart = 0.62; // longer pause, then the CTA
+  static const _ctaTailWindow = 0.24;
 
   int _total = 0;
 
@@ -72,11 +84,19 @@ class _PayoffScreenState extends State<PayoffScreen>
   void initState() {
     super.initState();
     _total = _countReminders();
-    _c = AnimationController(vsync: this, duration: _duration)..forward();
+    _tail = AnimationController(vsync: this, duration: _tailDuration);
+    _c = AnimationController(vsync: this, duration: _duration)
+      ..addStatusListener(_onStoryStatus)
+      ..forward();
     _idle = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 5200),
     )..repeat();
+  }
+
+  /// When the story finishes, kick off the aftermath from the top.
+  void _onStoryStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) _tail.forward(from: 0);
   }
 
   @override
@@ -85,6 +105,7 @@ class _PayoffScreenState extends State<PayoffScreen>
     // The parent rebuilds when the user lands here (and when picks change) —
     // recompute and replay so arriving always plays the story from the top.
     _total = _countReminders();
+    _tail.reset();
     _c
       ..duration = _duration
       ..forward(from: 0);
@@ -92,8 +113,10 @@ class _PayoffScreenState extends State<PayoffScreen>
 
   @override
   void dispose() {
+    _c.removeStatusListener(_onStoryStatus);
     _c.dispose();
     _idle.dispose();
+    _tail.dispose();
     super.dispose();
   }
 
@@ -138,9 +161,11 @@ class _PayoffScreenState extends State<PayoffScreen>
   double _lin(double start, [double window = 0.22]) =>
       ((_c.value - start) / window).clamp(0.0, 1.0);
 
-  /// Fade + slide-up reveal for a slice of the timeline.
-  Widget _reveal(double start, Widget child, {double window = 0.22}) {
-    final t = Curves.easeOutCubic.transform(_lin(start, window));
+  /// Fade + slide-up reveal, driven by the aftermath controller [_tail] so the
+  /// closing line and CTA each get their own unhurried beat once the story ends.
+  Widget _tailReveal(double start, double window, Widget child) {
+    final raw = ((_tail.value - start) / window).clamp(0.0, 1.0);
+    final t = Curves.easeOutCubic.transform(raw);
     return Opacity(
       opacity: t,
       child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
@@ -150,7 +175,7 @@ class _PayoffScreenState extends State<PayoffScreen>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_c, _idle]),
+      animation: Listenable.merge([_c, _idle, _tail]),
       builder: (context, _) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -328,8 +353,9 @@ class _PayoffScreenState extends State<PayoffScreen>
   // ── The closing line — quiet proof under the story ──────────────────────────
 
   Widget _promise() {
-    return _reveal(
-      _promiseStart,
+    return _tailReveal(
+      _promiseTailStart,
+      _promiseTailWindow,
       Text.rich(
         const TextSpan(
           children: [
@@ -352,16 +378,16 @@ class _PayoffScreenState extends State<PayoffScreen>
           color: AppColors.inkSoft,
         ),
       ),
-      window: 0.10,
     );
   }
 
-  /// The "Get started" CTA — the last beat of the story, landing just after the
-  /// closing line. Full-width to match the app's primary buttons. Its reveal
-  /// (start 0.92, window 0.06) completes at 1.0, so it always ends fully opaque.
+  /// The "Get started" CTA — the final beat, landing after its own pause once
+  /// the closing line has settled. Full-width to match the app's primary
+  /// buttons.
   Widget _getStarted() {
-    return _reveal(
-      _promiseStart + 0.04,
+    return _tailReveal(
+      _ctaTailStart,
+      _ctaTailWindow,
       SizedBox(
         width: double.infinity,
         child: FilledButton(
@@ -372,7 +398,6 @@ class _PayoffScreenState extends State<PayoffScreen>
           ),
         ),
       ),
-      window: 0.06,
     );
   }
 }

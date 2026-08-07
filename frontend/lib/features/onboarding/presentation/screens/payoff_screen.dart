@@ -150,20 +150,55 @@ class _PayoffScreenState extends State<PayoffScreen>
             _reveal(
               0.04,
               Text(
-                'reminders a year.',
+                'deadlines a year,',
                 style: text.headlineMedium?.copyWith(color: AppColors.ink),
               ),
             ),
+            _reveal(
+              0.08,
+              const Text(
+                'living rent-free in your head.',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+            ),
             const SizedBox(height: 14),
+            // The sting: what forgetting actually costs — lands on settle.
             _reveal(
               _countEnd,
-              const Text(
-                'Each dot is one thing you’d have to remember.',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.inkFaint,
-                ),
+              Column(
+                children: [
+                  Text.rich(
+                    const TextSpan(
+                      children: [
+                        TextSpan(text: 'Forgetting them costs people '),
+                        TextSpan(
+                          text: '₹1,20,000',
+                          style: TextStyle(color: AppColors.accentDeep),
+                        ),
+                        TextSpan(text: ' a year —'),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'and Mom never forgets that you forgot.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkFaint,
+                    ),
+                  ),
+                ],
               ),
             ),
             // The sky: one dot per reminder, blooming as the number climbs.

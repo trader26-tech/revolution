@@ -157,12 +157,21 @@ class _ChipSelectScreenState extends State<ChipSelectScreen> {
                   }),
                 ),
               ),
-              // Bottom action.
+              // Bottom action — the sky fades up into it so the button
+              // floats rather than sitting on an opaque bar.
               Container(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
-                decoration: const BoxDecoration(
-                  color: AppColors.bg,
-                  border: Border(top: BorderSide(color: AppColors.hairline)),
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppColors.bg.withValues(alpha: 0.0),
+                      AppColors.bg.withValues(alpha: 0.85),
+                      AppColors.bg,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
                 ),
                 child: SizedBox(
                   width: double.infinity,
@@ -170,11 +179,6 @@ class _ChipSelectScreenState extends State<ChipSelectScreen> {
                   child: FilledButton(
                     onPressed: () =>
                         widget.onContinue(chipDraftsFor(_selected)),
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
                     child: Text(
                       n == 0 ? 'Skip for now' : 'Continue with $n',
                       style: const TextStyle(
@@ -203,8 +207,25 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Row(
         children: [
-          Icon(section.icon, size: 18, color: section.color),
-          const SizedBox(width: 8),
+          // A little glowing "planet" — the section colour as a soft orb.
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: section.color.withValues(alpha: 0.16),
+              boxShadow: [
+                BoxShadow(
+                  color: section.color.withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  spreadRadius: -3,
+                ),
+              ],
+            ),
+            child: Icon(section.icon, size: 15, color: section.color),
+          ),
+          const SizedBox(width: 10),
           Text(
             section.title,
             style: const TextStyle(
@@ -219,8 +240,12 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// One pill chip. Unselected it's a quiet white pill; selected it tints with
-/// the section colour and its icon morphs into a check.
+/// One pill chip, styled for deep space.
+///
+/// Unselected it's a faint glass pill floating on the sky — barely-there fill,
+/// hairline edge. Selected it lights up like a star coming on: the section
+/// colour fills in, a soft outer glow blooms behind it, and its icon morphs
+/// into a check.
 class _Chip extends StatelessWidget {
   const _Chip({
     required this.item,
@@ -237,37 +262,61 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
+      duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: selected ? color.withValues(alpha: 0.10) : AppColors.card,
+        // Selected: a soft violet-tinted fill that reads lit. Unselected: a
+        // near-transparent glass pane so the stars show through faintly.
+        gradient: selected
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withValues(alpha: 0.30),
+                  color.withValues(alpha: 0.16),
+                ],
+              )
+            : null,
+        color: selected ? null : Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(100),
         border: Border.all(
           color: selected
-              ? color.withValues(alpha: 0.55)
-              : AppColors.cardBorder,
-          width: 1.5,
+              ? color.withValues(alpha: 0.85)
+              : AppColors.glassBorder,
+          width: 1.4,
         ),
+        // The star turning on: a coloured glow blooms behind a selected chip.
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.45),
+                  blurRadius: 16,
+                  spreadRadius: -2,
+                ),
+              ]
+            : null,
       ),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(100),
+          splashColor: color.withValues(alpha: 0.18),
+          highlightColor: color.withValues(alpha: 0.08),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 150),
+                  duration: const Duration(milliseconds: 160),
                   transitionBuilder: (child, anim) =>
                       ScaleTransition(scale: anim, child: child),
                   child: Icon(
                     selected ? Icons.check_rounded : item.icon,
                     key: ValueKey(selected),
                     size: 16,
-                    color: selected ? color : AppColors.inkFaint,
+                    color: selected ? Colors.white : AppColors.inkSoft,
                   ),
                 ),
                 const SizedBox(width: 6),

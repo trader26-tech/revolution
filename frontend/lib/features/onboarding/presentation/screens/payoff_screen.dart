@@ -12,8 +12,9 @@ import 'chip_select_screen.dart';
 ///
 /// The sequence is a little conversation with Revo, in order:
 ///   1. Revo floats in, alone in the sky.
-///   2. A speech bubble pops above it: "That's [31] things to remember this
-///      year…" — the number climbing live while Revo watches it stack up.
+///   2. A speech bubble pops above it: "That's [31] things to remember
+///      already…" — the number climbing live while Revo watches it stack up.
+///      "already" is deliberate: it implies the count is only going to grow.
 ///   3. A beat. Then, inside the SAME bubble, the turn fades in: "But don't
 ///      worry — Revo's got you." and Revo does a happy double-hop, gaze
 ///      dropping from the number to YOU.
@@ -264,7 +265,7 @@ class _PayoffScreenState extends State<PayoffScreen>
               ),
             ),
           ),
-          const TextSpan(text: ' things to remember this year…'),
+          const TextSpan(text: ' things to remember already…'),
           // The turn of the story — same paragraph, same size, fading in
           // slowly on its own beat.
           TextSpan(

@@ -24,6 +24,35 @@ class ReminderDraft {
   /// now: the server task model doesn't carry an interval yet, so this is
   /// captured and shown but not persisted. See onboarding schedule screen.
   int every;
+
+  /// How many times a year this reminder fires — the single dial the onboarding
+  /// schedule screen exposes. Reading it collapses (frequency, every) back to a
+  /// count; writing it picks the cleanest (frequency, every) that yields that
+  /// count. The supported values are the presets 1, 2, 4, 6, 12 (yearly →
+  /// monthly), so any stored pair maps to one of them.
+  int get timesPerYear {
+    final perYear = switch (frequency) {
+      RepeatCadence.yearly => 1,
+      RepeatCadence.monthly => 12,
+      RepeatCadence.weekly => 52,
+      RepeatCadence.daily => 365,
+      RepeatCadence.none => 1,
+    };
+    final n = (perYear / (every < 1 ? 1 : every)).round();
+    return n < 1 ? 1 : n;
+  }
+
+  set timesPerYear(int times) {
+    // 1/yr is a clean yearly; everything else is monthly-with-an-interval so the
+    // day-of-month stays meaningful (every N months on the chosen day).
+    if (times <= 1) {
+      frequency = RepeatCadence.yearly;
+      every = 1;
+    } else {
+      frequency = RepeatCadence.monthly;
+      every = (12 / times).round().clamp(1, 12);
+    }
+  }
 }
 
 /// A premium sheet to confirm/adjust one reminder — name, the semicircular

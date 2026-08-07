@@ -9,21 +9,38 @@ import '../../../tasks/domain/task.dart';
 import '../../domain/onboarding_chip_catalog.dart';
 import '../widgets/day_knob.dart';
 import '../widgets/frequency_picker.dart';
+import '../widgets/magic_text.dart';
 import '../widgets/reminder_confirm_sheet.dart';
 
-/// Onboarding page 4 — the SCHEDULE step: "Now, when should we remind you?"
+/// Revo's per-category question — the category is baked into the ask, so he
+/// speaks it directly ("When should we remind you about your subscriptions?")
+/// rather than showing a separate category label.
+String _questionFor(OnboardingChipSection s) => switch (s.key) {
+  'subs' => 'When should we remind\nyou about your subscriptions?',
+  'docs' => 'When should we remind\nyou about these documents?',
+  'family' => "When are your\nfamily's special days?",
+  'insure' => 'When are these\nrenewals due?',
+  'invest' => 'When should we remind\nyou about these investments?',
+  _ => 'When should we\nremind you?',
+};
+
+/// Onboarding page 4 — the SCHEDULE step: when to remind you.
 ///
-/// The user has said WHAT to remember (page 2); here they say WHEN. We walk
-/// them through it one category at a time (only the categories they actually
-/// picked), each showing its picked items as a card carrying the three knobs
-/// that matter: the day-of-month, how often it repeats, and — for repeating
-/// ones — the "every N" interval (every 2 months, etc.).
+/// The user has said WHAT to remember (page 2); here they say WHEN. We walk them
+/// through it one category at a time (only the categories they actually picked).
+/// Revo greets from the top-left and ASKS the category's question directly — it
+/// materialises word by word, the same bubble effect as the chip wizard ("When
+/// are your family's special days?"). No separate category label or sub-copy;
+/// the question carries the context.
 ///
-/// Everything arrives pre-filled from the catalog's smart defaults, so the user
-/// usually just glances, tweaks the odd date, and taps Continue. The button
-/// fills as they advance the categories (same language as the chip wizard); on
-/// the last one it reads "Finish" and fires [onFinish] with a ready-to-save
-/// draft per picked item.
+/// Each picked item is a card with the three knobs that matter: the
+/// day-of-month, how often it repeats, and — for repeating ones — the "every N"
+/// interval (every 2 months, etc.). Everything arrives pre-filled from the
+/// catalog's smart defaults, so the user usually just glances, tweaks the odd
+/// date, and taps Continue. Above the button, a momentum line ("3 more to go" …
+/// "Last one") mirrors the wizard; the button fills as they advance the
+/// categories, reading "Finish" on the last one and firing [onFinish] with a
+/// ready-to-save draft per picked item.
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({
     super.key,
@@ -101,6 +118,15 @@ class _ScheduleScreenState extends State<ScheduleScreen>
 
   bool get _isLast => _index >= _sections.length - 1;
 
+  /// Forward momentum above the button — how many categories are still ahead
+  /// AFTER this one: "3 more to go" … "1 more to go" … then "Last one". Mirrors
+  /// the chip wizard's language so the two steps read as one journey.
+  String _remainingPhrase() {
+    final remaining = _sections.length - 1 - _index;
+    if (remaining <= 0) return 'Last one';
+    return '$remaining more to go';
+  }
+
   void _next() {
     HapticFeedback.lightImpact();
     if (_isLast) {
@@ -151,10 +177,15 @@ class _ScheduleScreenState extends State<ScheduleScreen>
       builder: (context, _) {
         final section = _section;
         final items = _pickedItems;
+        // Timeline (0..1): Revo pops (0..0.24), his question MATERIALISES word
+        // by word (0.24..0.6, the same bubble effect as the chip wizard), then
+        // the cards cascade in. No sub-copy — Revo's question carries the ask.
+        const questionStart = 0.24;
+        const questionEnd = 0.60;
         // Rows cascade across [rowsStart .. lastRowStart]; the last row STARTS
         // at lastRowStart and, with its reveal window, completes by 1.0 — so no
         // card is left stuck at partial opacity.
-        const rowsStart = 0.46;
+        const rowsStart = 0.60;
         const rowWindow = 0.26;
         const lastRowStart = 1.0 - rowWindow; // 0.74
         final perRow = items.length > 1
@@ -168,69 +199,40 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                 controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                 children: [
-                  // Header: Revo (tail-left) + the question.
+                  // Header: Revo (tail-left) + his question, which materialises
+                  // word by word (the same bubble effect as the chip wizard).
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(right: 6, top: 2),
-                        child: Opacity(
-                          opacity: Curves.easeOut.transform(_p(0.0, 0.22)),
-                          child: Transform.scale(
-                            scale: 0.4 +
-                                0.6 *
-                                    Curves.easeOutBack.transform(_p(0.0, 0.24)),
-                            // Tail points left to lean into the content.
-                            child: Transform.flip(
-                              flipX: true,
-                              child: const AnimatedMascot(size: 56, glow: false),
-                            ),
+                        // Tail points left to lean into the content.
+                        child: RevoEntrance(
+                          t: _p(0.0, 0.24),
+                          child: Transform.flip(
+                            flipX: true,
+                            child: const AnimatedMascot(size: 56, glow: false),
                           ),
                         ),
                       ),
                       Expanded(
-                        child: _reveal(
-                          0.14,
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'When should we\nremind you?',
-                                  style: const TextStyle(
-                                    fontSize: 26,
-                                    height: 1.14,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _section.title,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.accent,
-                                  ),
-                                ),
-                              ],
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: MagicText(
+                            // Keyed by category so it restarts on each change.
+                            key: ValueKey(section.key),
+                            text: _questionFor(section),
+                            progress: _p(questionStart, questionEnd),
+                            style: const TextStyle(
+                              fontSize: 25,
+                              height: 1.16,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
                             ),
                           ),
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 6),
-                  _reveal(
-                    0.30,
-                    const Padding(
-                      padding: EdgeInsets.only(left: 2),
-                      child: Text(
-                        "Pick the day and how often — we'll do the rest.",
-                        style: TextStyle(fontSize: 14.5, color: AppColors.inkSoft),
-                      ),
-                    ),
                   ),
                   const SizedBox(height: 18),
                   // One card per picked item in this category, cascading in.
@@ -271,22 +273,14 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          const TextSpan(text: 'Change any of this '),
-                          TextSpan(
-                            text: 'anytime in the app.',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.accent.withValues(alpha: 0.95),
-                            ),
-                          ),
-                        ],
-                      ),
+                    // Forward momentum — how many categories are left to set up,
+                    // matching the chip wizard's "N more to go" language.
+                    Text(
+                      _remainingPhrase(),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 13,
+                        fontWeight: FontWeight.w700,
                         color: AppColors.inkFaint,
                       ),
                     ),
@@ -308,9 +302,10 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   }
 }
 
-/// One picked item's schedule card: name + icon, a day-of-month pill (opens the
-/// DayKnob sheet), the frequency picker, and — for repeating cadences — an
-/// "every N" interval stepper.
+/// One picked item's schedule card — exactly THREE things and no more: the
+/// event NAME (icon + label), the DAY of the month (a pill opening the day
+/// knob), and HOW OFTEN each year (the friendly [YearFrequencyPicker]). No
+/// abstract monthly/yearly/weekly segments, no "every N" stepper.
 class _ItemScheduleCard extends StatelessWidget {
   const _ItemScheduleCard({
     super.key,
@@ -322,21 +317,6 @@ class _ItemScheduleCard extends StatelessWidget {
   final OnboardingChipItem item;
   final ReminderDraft draft;
   final VoidCallback onChanged;
-
-  /// Cadences that a "every N" interval makes sense for.
-  static const _intervalCadences = {
-    RepeatCadence.weekly,
-    RepeatCadence.monthly,
-    RepeatCadence.yearly,
-  };
-
-  String _unitFor(RepeatCadence f, int n) => switch (f) {
-        RepeatCadence.weekly => n == 1 ? 'week' : 'weeks',
-        RepeatCadence.monthly => n == 1 ? 'month' : 'months',
-        RepeatCadence.yearly => n == 1 ? 'year' : 'years',
-        RepeatCadence.daily => n == 1 ? 'day' : 'days',
-        RepeatCadence.none => '',
-      };
 
   Future<void> _editDay(BuildContext context) async {
     HapticFeedback.selectionClick();
@@ -357,8 +337,6 @@ class _ItemScheduleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final repeats = _intervalCadences.contains(draft.frequency);
-
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -370,7 +348,8 @@ class _ItemScheduleCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: icon + name + the day pill.
+          // 1 (name) + 2 (day-of-month): icon + label on the left, the day pill
+          // on the right.
           Row(
             children: [
               Container(
@@ -398,34 +377,14 @@ class _ItemScheduleCard extends StatelessWidget {
               _DayPill(day: draft.day, onTap: () => _editDay(context)),
             ],
           ),
-          const SizedBox(height: 12),
-          // Row 2: frequency.
-          FrequencyPicker(
-            value: draft.frequency,
-            onChanged: (f) {
-              draft.frequency = f;
-              // "every N" only applies to repeating cadences; reset otherwise.
-              if (!_intervalCadences.contains(f)) draft.every = 1;
+          const SizedBox(height: 14),
+          // 3 (how often each year): the friendly presets dial.
+          YearFrequencyPicker(
+            timesPerYear: draft.timesPerYear,
+            onChanged: (n) {
+              draft.timesPerYear = n;
               onChanged();
             },
-          ),
-          // Row 3: the "every N" interval, only for repeating cadences.
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            child: repeats
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: _EveryStepper(
-                      value: draft.every,
-                      unit: _unitFor(draft.frequency, draft.every),
-                      onChanged: (n) {
-                        draft.every = n;
-                        onChanged();
-                      },
-                    ),
-                  )
-                : const SizedBox(width: double.infinity),
           ),
         ],
       ),

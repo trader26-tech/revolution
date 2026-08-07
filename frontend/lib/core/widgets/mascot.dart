@@ -2,9 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Revo — the app's mascot. A soft white blob with big black eyes and an
-/// iridescent pastel wash (pink → mint → periwinkle) across its lower body,
-/// wrapped in a gentle lavender glow.
+/// Revo — the app's mascot. A perfect white circle with one small triangular
+/// point on the right, big black eyes, and an iridescent pastel wash (pink →
+/// mint → periwinkle) across its lower body, wrapped in a gentle lavender glow.
 ///
 /// Drawn entirely in code (no image asset), so every part of it is a live
 /// animation handle:
@@ -148,6 +148,47 @@ class _MascotPainter extends CustomPainter {
   static const _lavender = Color(0xFFC4B5FD);
   static const _eye = Color(0xFF16181C);
 
+  /// A perfect circle with one small triangular point on the right.
+  ///
+  /// We trace the full circle as an arc, but interrupt it over a short span on
+  /// the right side: instead of following the arc between two tangent angles,
+  /// we run a straight line out to a (slightly rounded) tip and back. Because
+  /// the break points sit on the circle and the tip is centred on the axis, the
+  /// point reads as a natural beak growing out of an otherwise flawless round
+  /// body.
+  static Path _buildBody(double s) {
+    final r = s * 0.40; // the head's radius — a true circle
+
+    // The triangle spans a small arc on the right, symmetric about the x-axis.
+    const half = 0.34; // half-angle of the notch (radians) → base height
+    final tip = Offset(r + s * 0.11, 0); // how far the point juts out
+
+    // The two points where the point meets the circle (upper & lower).
+    final top = Offset(r * math.cos(-half), r * math.sin(-half));
+    final bot = Offset(r * math.cos(half), r * math.sin(half));
+
+    // A short control point just shy of the tip on each side rounds the apex,
+    // so it's a soft point rather than a needle.
+    final tipUp = Offset(tip.dx - s * 0.02, -s * 0.03);
+    final tipDn = Offset(tip.dx - s * 0.02, s * 0.03);
+
+    return Path()
+      // Start at the top break point and sweep the long way around the circle
+      // (clockwise, through the left) back to the bottom break point.
+      ..moveTo(top.dx, top.dy)
+      ..arcToPoint(
+        bot,
+        radius: Radius.circular(r),
+        clockwise: false,
+        largeArc: true,
+      )
+      // Now the point: bottom break → rounded tip → top break.
+      ..lineTo(tipDn.dx, tipDn.dy)
+      ..quadraticBezierTo(tip.dx, tip.dy, tipUp.dx, tipUp.dy)
+      ..lineTo(top.dx, top.dy)
+      ..close();
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.shortestSide;
@@ -158,8 +199,8 @@ class _MascotPainter extends CustomPainter {
     // Grounding contact shadow, so it floats over any surface.
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(0, s * 0.48),
-        width: s * 0.42,
+        center: Offset(0, s * 0.46),
+        width: s * 0.44,
         height: s * 0.08,
       ),
       Paint()
@@ -167,18 +208,12 @@ class _MascotPainter extends CustomPainter {
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.03),
     );
 
-    // The body: a ghost — round head, tapering down, with two rounded bumps
-    // at the base like a classic sheet ghost, all soft and friendly.
-    final body = Path()
-      ..moveTo(0, -s * 0.42)
-      ..quadraticBezierTo(s * 0.36, -s * 0.32, s * 0.36, s * 0.04)
-      ..lineTo(s * 0.28, s * 0.28)
-      ..quadraticBezierTo(s * 0.20, s * 0.36, s * 0.08, s * 0.38)
-      ..quadraticBezierTo(-s * 0.06, s * 0.38, -s * 0.08, s * 0.38)
-      ..quadraticBezierTo(-s * 0.20, s * 0.36, -s * 0.28, s * 0.28)
-      ..lineTo(-s * 0.36, s * 0.04)
-      ..quadraticBezierTo(-s * 0.36, -s * 0.32, 0, -s * 0.42)
-      ..close();
+    // The body: a PERFECT circle with one small, crisp triangular point on the
+    // right — a clean, deliberate shape, not a wobbly cutout. The triangle is
+    // spliced tangentially into the circle so the outline flows smoothly into
+    // it and back out; its tip is softened by a hair so it reads as friendly,
+    // not a sharp spike.
+    final body = _buildBody(s);
 
     if (glow) {
       canvas.drawPath(
@@ -199,15 +234,18 @@ class _MascotPainter extends CustomPainter {
     canvas.clipPath(body);
     final wash = Paint()
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.11);
+    // Colour pools sit across the LOWER half of the circle (centre at origin,
+    // radius ~0.40s) so the iridescent wash fills the bottom and the crown
+    // stays white — matching the reference.
     wash.color = _pink.withValues(alpha: 0.85);
-    canvas.drawCircle(Offset(-s * 0.24, s * 0.26), s * 0.30, wash);
+    canvas.drawCircle(Offset(-s * 0.20, s * 0.20), s * 0.28, wash);
     wash.color = _mint.withValues(alpha: 0.85);
-    canvas.drawCircle(Offset(s * 0.02, s * 0.34), s * 0.30, wash);
+    canvas.drawCircle(Offset(s * 0.03, s * 0.28), s * 0.28, wash);
     wash.color = _periwinkle.withValues(alpha: 0.80);
-    canvas.drawCircle(Offset(s * 0.28, s * 0.16), s * 0.28, wash);
+    canvas.drawCircle(Offset(s * 0.26, s * 0.12), s * 0.26, wash);
     // A whisper of lavender along the crown keeps the white from going flat.
     wash.color = _lavender.withValues(alpha: 0.30);
-    canvas.drawCircle(Offset(s * 0.18, -s * 0.28), s * 0.22, wash);
+    canvas.drawCircle(Offset(s * 0.16, -s * 0.26), s * 0.20, wash);
     canvas.restore();
 
     // The eyes: two big black ovals. They travel with [look] and shut to a

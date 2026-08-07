@@ -71,8 +71,20 @@ class _AuthGateState extends State<AuthGate> {
     );
 
     // Let PhoneLoginPage's spinner keep turning until the SMS is actually on
-    // its way (or it failed), so "Continue" doesn't resolve prematurely.
-    await completer.future;
+    // its way (or it failed) — but never forever. If nothing resolves within
+    // the window (e.g. the SDK is silently waiting on reCAPTCHA/SMS that will
+    // never arrive on this device), stop the spinner and say so, instead of
+    // hanging indefinitely.
+    try {
+      await completer.future.timeout(const Duration(seconds: 20));
+    } on TimeoutException {
+      if (mounted) {
+        _showError(
+          'Verification is taking too long. On an emulator, use a registered '
+          'test number; on a real phone, check your signal and try again.',
+        );
+      }
+    }
   }
 
   void _openOtpScreen(String phoneE164, String verificationId) {

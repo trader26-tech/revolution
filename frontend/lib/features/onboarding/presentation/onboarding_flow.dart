@@ -77,8 +77,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   @override
   Widget build(BuildContext context) {
-    // Page 1 is the category wizard, which owns its own progress bar + bottom
-    // button, so the flow's shared top dots and bottom CTA hide on that page.
+    // Page 1 is the category wizard. It no longer owns a top bar — the flow's
+    // 3-dot header + Skip is now COMMON to all three screens, so the macro
+    // progress (intro → categories → payoff) reads the same everywhere. The
+    // wizard shows its own "which category of five" as a small inline counter
+    // in its content, not a rival progress bar.
     final wizardPage = _page == 1;
 
     return Scaffold(
@@ -90,25 +93,25 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         child: SafeArea(
           child: Column(
             children: [
-              // Top: progress dots (left) + Skip (right). Hidden on the wizard.
-              if (!wizardPage)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
-                  child: Row(
-                    children: [
-                      _ProgressDots(page: _page, count: _pageCount),
-                      const Spacer(),
-                      if (_page < _pageCount - 1)
-                        TextButton(
-                          onPressed: _finish,
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.inkFaint,
-                          ),
-                          child: const Text('Skip'),
+              // Top: progress dots (left) + Skip (right). COMMON to every
+              // onboarding screen, the wizard included — one consistent header.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
+                child: Row(
+                  children: [
+                    _ProgressDots(page: _page, count: _pageCount),
+                    const Spacer(),
+                    if (_page < _pageCount - 1)
+                      TextButton(
+                        onPressed: _finish,
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.inkFaint,
                         ),
-                    ],
-                  ),
+                        child: const Text('Skip'),
+                      ),
+                  ],
                 ),
+              ),
               Expanded(
                 child: PageView(
                   controller: _controller,

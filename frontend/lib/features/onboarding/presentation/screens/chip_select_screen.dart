@@ -11,11 +11,13 @@ import '../widgets/reminder_confirm_sheet.dart';
 
 /// Onboarding page 2: "Which … should we remember?"
 ///
-/// A one-category-per-screen wizard. Revo greets from the top-left, a progress
-/// bar shows how far along the five categories you are, and each category is a
-/// clean LIST of rows (icon + name + radio) — the commonest ones arrive
-/// already selected. A bottom line reassures ("even if it's not here, we've
-/// got it") above the Continue button, which walks to the next category.
+/// A one-category-per-screen wizard. The flow's shared 3-dot header (common to
+/// every onboarding screen) carries the macro progress; this screen shows only
+/// a light in-content counter — "Subscriptions · 1 of 5" with a back-arrow —
+/// so there's no rival progress bar. Revo greets from the top-left, and each
+/// category is a clean LIST of rows (icon + name + radio) — the commonest ones
+/// arrive already selected. A bottom line reassures ("not here? add more in the
+/// app") above the Continue button, which walks to the next category.
 ///
 /// [ChipSelectWizard] is the full self-driving flow used as page 2 of the
 /// onboarding PageView; it fires [onComplete] with a draft per picked item
@@ -184,39 +186,22 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
       builder: (context, _) {
         return Column(
           children: [
-                  // Top bar: back + a five-segment progress bar.
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 20, 4),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          onPressed: _back,
-                          icon: const Icon(Icons.arrow_back_rounded),
-                          color: AppColors.inkSoft,
-                        ),
-                        Expanded(
-                          child: _ProgressBar(
-                            count: _sections.length,
-                            index: _index,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${_index + 1}/${_sections.length}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.inkFaint,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   Expanded(
                     child: ListView(
                       controller: _scroll,
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                       children: [
+                        // Category counter: back-arrow + "Subscriptions · 1 of 5".
+                        // The flow's 3-dot header carries the macro progress now,
+                        // so this is a light, in-content label — NOT a second
+                        // progress bar competing with the dots above.
+                        _CategoryCounter(
+                          title: section.title,
+                          index: _index,
+                          count: _sections.length,
+                          onBack: _back,
+                        ),
+                        const SizedBox(height: 12),
                         // Header: Revo (left) + question.
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -375,43 +360,95 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
   }
 }
 
-/// The five-segment fill bar: past + current segments are lit violet, upcoming
-/// ones are dim; the current one animates its fill in.
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.count, required this.index});
-  final int count;
+/// The in-content category counter: a back-arrow beside a soft pill reading
+/// "Subscriptions · 1 of 5". This tells you WHICH category of five you're on
+/// without a second progress bar — the flow's 3-dot header owns the macro
+/// progress, so this stays deliberately light and textual.
+class _CategoryCounter extends StatelessWidget {
+  const _CategoryCounter({
+    required this.title,
+    required this.index,
+    required this.count,
+    required this.onBack,
+  });
+
+  final String title;
   final int index;
+  final int count;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        for (var i = 0; i < count; i++) ...[
-          Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              height: 5,
-              decoration: BoxDecoration(
-                color: i <= index
-                    ? AppColors.accent
-                    : Colors.white.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(3),
-                boxShadow: i <= index
-                    ? [
-                        BoxShadow(
-                          color: AppColors.accent.withValues(alpha: 0.4),
-                          blurRadius: 6,
-                          spreadRadius: -2,
-                        ),
-                      ]
-                    : null,
+        // Back — tucked left, small, so it reads as a step-back not a top bar.
+        _BackChip(onTap: onBack),
+        const SizedBox(width: 10),
+        // The pill: category name, a dot, then "N of 5".
+        Flexible(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.glassBorder),
+            ),
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: title,
+                    style: TextStyle(
+                      color: AppColors.accent.withValues(alpha: 0.95),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const TextSpan(text: '  ·  '),
+                  TextSpan(text: '${index + 1} of $count'),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+                color: AppColors.inkFaint,
               ),
             ),
           ),
-          if (i < count - 1) const SizedBox(width: 6),
-        ],
+        ),
       ],
+    );
+  }
+}
+
+/// A small circular back affordance — light enough to sit inside the content,
+/// not read as a page-level app bar.
+class _BackChip extends StatelessWidget {
+  const _BackChip({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.05),
+      shape: const CircleBorder(
+        side: BorderSide(color: AppColors.glassBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: const SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(
+            Icons.arrow_back_rounded,
+            size: 18,
+            color: AppColors.inkSoft,
+          ),
+        ),
+      ),
     );
   }
 }

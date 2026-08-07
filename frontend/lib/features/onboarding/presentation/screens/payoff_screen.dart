@@ -151,55 +151,8 @@ class _PayoffScreenState extends State<PayoffScreen>
             _reveal(
               0.04,
               Text(
-                'deadlines a year,',
+                'things to remember this year.',
                 style: text.headlineMedium?.copyWith(color: AppColors.ink),
-              ),
-            ),
-            _reveal(
-              0.08,
-              const Text(
-                'living rent-free in your head.',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.inkSoft,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            // The sting: what forgetting actually costs — lands on settle.
-            _reveal(
-              _countEnd,
-              Column(
-                children: [
-                  Text.rich(
-                    const TextSpan(
-                      children: [
-                        TextSpan(text: 'Forgetting them costs people '),
-                        TextSpan(
-                          text: '₹1,20,000',
-                          style: TextStyle(color: AppColors.accentDeep),
-                        ),
-                        TextSpan(text: ' a year —'),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'and Mom never forgets that you forgot.',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.inkFaint,
-                    ),
-                  ),
-                ],
               ),
             ),
             // The sky: one dot per reminder, blooming as the number climbs.
@@ -298,31 +251,25 @@ class _PayoffScreenState extends State<PayoffScreen>
               child: const AnimatedMascot(size: 96),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Don’t worry.',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-                color: AppColors.ink,
-              ),
-            ),
-            const SizedBox(height: 4),
             Text.rich(
-              TextSpan(
+              const TextSpan(
                 children: [
+                  TextSpan(text: 'Revolution remembers '),
                   TextSpan(
-                    text: 'Revolution',
-                    style: TextStyle(color: AppColors.accentDeep),
+                    text: 'every single one.',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.accentDeep,
+                    ),
                   ),
-                  TextSpan(text: ' remembers every single one for you.'),
                 ],
               ),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: AppColors.inkSoft,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+                color: AppColors.ink,
               ),
             ),
           ],

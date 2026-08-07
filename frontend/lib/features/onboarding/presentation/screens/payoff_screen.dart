@@ -52,10 +52,11 @@ class _PayoffScreenState extends State<PayoffScreen>
   static const _bubble1Start = 0.18;
   static const _countStart = 0.28;
   static const _countEnd = 0.58;
-  static const _bubble2Start = 0.72;
-  static const _hopStart = 0.72;
-  static const _hopEnd = 0.90;
-  static const _promiseStart = 0.90;
+  static const _bubble2Start = 0.66;
+  static const _bubble2Window = 0.30;
+  static const _hopStart = 0.66;
+  static const _hopEnd = 0.86;
+  static const _promiseStart = 0.96;
 
   int _total = 0;
 
@@ -88,9 +89,10 @@ class _PayoffScreenState extends State<PayoffScreen>
     super.dispose();
   }
 
-  /// A touch more time for bigger years, so the climb stays readable.
+  /// A touch more time for bigger years, so the climb stays readable, and a
+  /// longer tail overall so the reassurance fades in slow and deliberate.
   Duration get _duration =>
-      Duration(milliseconds: (2600 + _total * 5).clamp(2600, 4000));
+      Duration(milliseconds: (3400 + _total * 5).clamp(3400, 4800));
 
   /// How many times a year one picked chip fires.
   static int _firesPerYear(RepeatCadence f) => switch (f) {
@@ -198,10 +200,16 @@ class _PayoffScreenState extends State<PayoffScreen>
     final settle = _lin(_countEnd, 0.10);
     final pop = math.sin(settle * math.pi) * 0.06;
 
-    // Reassurance clause reveal — 0 → 1 across its beat, easing in.
-    final reveal = Curves.easeOutCubic.transform(_lin(_bubble2Start, 0.16));
-    final ink = AppColors.ink.withValues(alpha: reveal);
+    // Reassurance clause reveal — a slow, deliberate fade so the reassurance
+    // arrives in one calm go. The wide window (0.55 of the timeline) is what
+    // keeps it unhurried.
+    final reveal = Curves.easeOutCubic.transform(_lin(_bubble2Start, _bubble2Window));
+    final ink = AppColors.inkSoft.withValues(alpha: reveal);
     final accent = AppColors.accent.withValues(alpha: reveal);
+
+    // The reassurance clause sits a notch smaller than the count sentence, so
+    // "That's [91] things to remember this year…" clearly leads.
+    const reassureSize = 17.0;
 
     return Text.rich(
       TextSpan(
@@ -216,7 +224,7 @@ class _PayoffScreenState extends State<PayoffScreen>
               child: Text(
                 '$_running',
                 style: const TextStyle(
-                  fontSize: 30,
+                  fontSize: 34,
                   height: 1.2,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.6,
@@ -226,18 +234,26 @@ class _PayoffScreenState extends State<PayoffScreen>
               ),
             ),
           ),
-          const TextSpan(text: ' things to remember this year… '),
-          // The turn of the story — same paragraph, fading in on its own beat.
-          TextSpan(text: "But don't worry — ", style: TextStyle(color: ink)),
+          const TextSpan(text: ' things to remember this year…'),
+          // The turn of the story — same paragraph, one notch smaller, fading
+          // in slowly on its own beat.
+          TextSpan(
+            text: "\nBut don't worry — ",
+            style: TextStyle(fontSize: reassureSize, color: ink),
+          ),
           TextSpan(
             text: "Revo's got you.",
-            style: TextStyle(fontWeight: FontWeight.w900, color: accent),
+            style: TextStyle(
+              fontSize: reassureSize,
+              fontWeight: FontWeight.w900,
+              color: accent,
+            ),
           ),
         ],
       ),
       textAlign: TextAlign.left,
       style: const TextStyle(
-        fontSize: 21,
+        fontSize: 24,
         height: 1.4,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.3,

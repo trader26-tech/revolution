@@ -37,10 +37,13 @@ class CountryCode {
   }
 }
 
-/// A compact, common set — India first (the default). Extend as needed.
+/// A compact, common set — the three used most (India, USA, Kuwait) first, so
+/// they're the first options in the picker; India stays the default. Extend as
+/// needed.
 const List<CountryCode> kCountryCodes = [
   CountryCode(iso: 'IN', dial: '+91', flag: '🇮🇳', name: 'India', maxLen: 10, groups: [5, 5]),
   CountryCode(iso: 'US', dial: '+1', flag: '🇺🇸', name: 'United States', maxLen: 10, groups: [3, 3, 4]),
+  CountryCode(iso: 'KW', dial: '+965', flag: '🇰🇼', name: 'Kuwait', maxLen: 8, groups: [4, 4]),
   CountryCode(iso: 'GB', dial: '+44', flag: '🇬🇧', name: 'United Kingdom', groups: [4, 6]),
   CountryCode(iso: 'AE', dial: '+971', flag: '🇦🇪', name: 'UAE', groups: [2, 3, 4]),
   CountryCode(iso: 'SG', dial: '+65', flag: '🇸🇬', name: 'Singapore', groups: [4, 4]),

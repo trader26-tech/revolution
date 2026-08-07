@@ -302,19 +302,22 @@ class _IntroScreenState extends State<IntroScreen>
           ),
           Column(
             children: [
-              // The orbits get the stage: they claim the whole upper area and
-              // size themselves to it, so short screens shrink the cluster
-              // instead of clipping it. Everything below is deliberately
-              // compact and pushed down so nothing competes with the rings.
-              Expanded(flex: 72, child: _orbits()),
+              // The orbits get the stage, but they no longer claim ALL the
+              // upper area: a deliberate breathing gap sits between the cluster
+              // and the app logo below, so the two read as separate acts rather
+              // than the copy crowding the rings.
+              Expanded(flex: 58, child: _orbits()),
+              // The empty lane between the orbit and the brand block — the space
+              // the user asked to open up so the composition can breathe.
+              const Spacer(flex: 14),
               _appLogo(),
               const SizedBox(height: 20),
               // Headline + subtitle share ONE width, so the two blocks line up
               // edge to edge instead of each finding its own natural width.
-              // The headline scales down to fit that width (never wraps); the
-              // subtitle wraps inside it — so both read as one tidy column.
+              // Both scale down to stay on a single line — the subtitle lives in
+              // one lane rather than wrapping.
               _textBlock(context, text),
-              const Spacer(flex: 8),
+              const Spacer(flex: 14),
             ],
           ),
         ],
@@ -361,15 +364,20 @@ class _IntroScreenState extends State<IntroScreen>
           const SizedBox(height: 12),
           _reveal(
             start: 0.60,
-            // No hard line break — it wraps to the shared width on its own, so
-            // the balance holds if the copy or the font ever changes.
-            child: Text(
-              'Track your subscriptions, investments and insurance — '
-              'never miss a date',
-              textAlign: TextAlign.center,
-              style: text.bodyLarge?.copyWith(
-                color: AppColors.inkSoft,
-                fontSize: 15,
+            // ONE lane: the subtitle never wraps. FittedBox scales it down to
+            // sit on a single line within the shared width, so the whole line
+            // reads as one continuous thought instead of breaking in two.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'Track your subscriptions, investments and insurance — '
+                'never miss a date',
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: text.bodyLarge?.copyWith(
+                  color: AppColors.inkSoft,
+                  fontSize: 15,
+                ),
               ),
             ),
           ),

@@ -23,5 +23,17 @@ class Settings(BaseSettings):
     apk_url: str = ""
     update_notes: str = ""
 
+    # --- WhatsApp reminders (Twilio) ---------------------------------------
+    # Twilio credentials + the WhatsApp sender number. For the sandbox, the
+    # "from" number is Twilio's shared sandbox number (e.g. +14155238886) and
+    # recipients must have joined the sandbox. Swap these for a production
+    # WhatsApp sender later — no code change needed.
+    #   twilio_account_sid   — starts with "AC..."
+    #   twilio_auth_token     — the secret token (KEEP IN .env, never commit)
+    #   twilio_whatsapp_from  — the sender, e.g. "whatsapp:+14155238886"
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_whatsapp_from: str = ""
+
 
 settings = Settings()

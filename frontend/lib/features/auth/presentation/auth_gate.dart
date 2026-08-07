@@ -51,50 +51,44 @@ class _AuthGateState extends State<AuthGate> {
   bool _otpScreenOpen = false;
   bool _signingIn = false;
 
-  /// Kick off verification for [phoneE164]: send the OTP, then push the OTP
-  /// screen. If Android auto-retrieves the code, we sign in straight away.
+  /// Bridges the code arriving to whichever OTP screen is currently mounted.
+  /// Set the instant we open the OTP screen; the screen registers its handler so
+  /// that when Firebase's [onCodeSent] lands (a beat later, after Play
+  /// Integrity/reCAPTCHA), the screen flips from "sending…" to ready.
+  void Function(String verificationId)? _onCodeArrived;
+
+  /// Kick off verification for [phoneE164]. We open the OTP screen IMMEDIATELY
+  /// (in a "sending…" state) so the tap feels instant, then let Firebase resolve
+  /// in the background — its callbacks flow to the already-open screen. If
+  /// Android auto-retrieves the SMS, we sign in without any typing.
   Future<void> _startVerification(String phoneE164) async {
     // Fresh attempt — reset the per-attempt latches.
     _otpScreenOpen = false;
     _signingIn = false;
-    final completer = _CodeSentGate();
+    _onCodeArrived = null;
 
-    await _phoneAuth.sendCode(
+    // Show the OTP screen right away — no waiting on a spinner on the number
+    // screen. It starts in "sending…" mode until the real code id arrives.
+    _openOtpScreen(phoneE164);
+
+    _phoneAuth.sendCode(
       phoneE164: phoneE164,
-      onCodeSent: (verificationId) {
-        completer.complete();
-        _openOtpScreen(phoneE164, verificationId);
-      },
-      onAutoVerified: (credential) async {
-        completer.complete();
-        // Android read the SMS itself — sign in and dismiss the OTP screen if
-        // it's already showing. If this fails, the OTP screen still lets the
-        // user type the code by hand.
-        await _finishSignIn(() => _phoneAuth.signInWithCredential(credential));
-      },
+      onCodeSent: (verificationId) => _onCodeArrived?.call(verificationId),
+      onAutoVerified: (credential) =>
+          _finishSignIn(() => _phoneAuth.signInWithCredential(credential)),
       onFailed: (message) {
-        completer.complete();
+        // Verification couldn't even start — back out of the OTP screen and
+        // tell the user on the number screen.
+        if (mounted && _otpScreenOpen) {
+          Navigator.of(context).popUntil((r) => r.isFirst);
+          _otpScreenOpen = false;
+        }
         if (mounted) _showError(message);
       },
     );
-
-    // Let PhoneLoginPage's spinner keep turning until the SMS is actually on
-    // its way (or it failed) — but never forever. If nothing resolves within
-    // the window (e.g. the SDK is silently waiting on reCAPTCHA/SMS that will
-    // never arrive on this device), stop the spinner and say so, instead of
-    // hanging indefinitely.
-    try {
-      await completer.future.timeout(const Duration(seconds: 45));
-    } on TimeoutException {
-      if (mounted && !_otpScreenOpen) {
-        _showError(
-          'Verification is taking too long. Check your signal and try again.',
-        );
-      }
-    }
   }
 
-  void _openOtpScreen(String phoneE164, String verificationId) {
+  void _openOtpScreen(String phoneE164) {
     if (!mounted || _otpScreenOpen) return; // never push twice
     _otpScreenOpen = true;
     Navigator.of(context)
@@ -102,9 +96,10 @@ class _AuthGateState extends State<AuthGate> {
       MaterialPageRoute(
         builder: (_) => _OtpFlow(
           phoneE164: phoneE164,
-          verificationId: verificationId,
           phoneAuth: _phoneAuth,
           onVerified: (signIn) => _finishSignIn(signIn),
+          // Hand the screen a way to receive the verificationId once it lands.
+          registerCodeSink: (sink) => _onCodeArrived = sink,
         ),
       ),
     )
@@ -112,6 +107,7 @@ class _AuthGateState extends State<AuthGate> {
       // The OTP route was popped (verified, or the user backed out) — allow a
       // future attempt to open it again.
       _otpScreenOpen = false;
+      _onCodeArrived = null;
     });
   }
 
@@ -161,38 +157,51 @@ class _AuthGateState extends State<AuthGate> {
 class _OtpFlow extends StatefulWidget {
   const _OtpFlow({
     required this.phoneE164,
-    required this.verificationId,
     required this.phoneAuth,
     required this.onVerified,
+    required this.registerCodeSink,
   });
 
   final String phoneE164;
-  final String verificationId;
   final PhoneAuthService phoneAuth;
 
   /// Complete sign-in by running the given sign-in call through the gate's
   /// single choke point. Throws on failure so this screen can show it.
   final Future<void> Function(Future<String> Function() signIn) onVerified;
 
+  /// Give the gate a callback to push the verificationId here once Firebase's
+  /// codeSent lands — this is how the screen leaves "sending…" and becomes ready.
+  final void Function(void Function(String verificationId) sink)
+      registerCodeSink;
+
   @override
   State<_OtpFlow> createState() => _OtpFlowState();
 }
 
 class _OtpFlowState extends State<_OtpFlow> {
-  late String _verificationId = widget.verificationId;
+  /// Null until Firebase's codeSent arrives — while null, the screen shows a
+  /// "sending the code…" state so nothing ever feels frozen.
+  String? _verificationId;
   String? _error;
   bool _busy = false; // block double-submits of the same code
 
+  @override
+  void initState() {
+    super.initState();
+    // Route the gate's codeSent into our state.
+    widget.registerCodeSink((id) {
+      if (mounted) setState(() => _verificationId = id);
+    });
+  }
+
   Future<void> _confirm(String code) async {
-    if (_busy) return;
+    final id = _verificationId;
+    if (_busy || id == null) return; // not ready yet — ignore
     _busy = true;
     setState(() => _error = null);
     try {
       await widget.onVerified(
-        () => widget.phoneAuth.confirmCode(
-          verificationId: _verificationId,
-          smsCode: code,
-        ),
+        () => widget.phoneAuth.confirmCode(verificationId: id, smsCode: code),
       );
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -202,10 +211,15 @@ class _OtpFlowState extends State<_OtpFlow> {
   }
 
   Future<void> _resend() async {
-    setState(() => _error = null);
+    setState(() {
+      _error = null;
+      _verificationId = null; // back to "sending…" until the new code lands
+    });
     await widget.phoneAuth.sendCode(
       phoneE164: widget.phoneE164,
-      onCodeSent: (id) => setState(() => _verificationId = id),
+      onCodeSent: (id) {
+        if (mounted) setState(() => _verificationId = id);
+      },
       onAutoVerified: (credential) async {
         try {
           await widget.onVerified(
@@ -224,19 +238,10 @@ class _OtpFlowState extends State<_OtpFlow> {
     return OtpVerifyPage(
       phoneE164: widget.phoneE164,
       errorText: _error,
+      sending: _verificationId == null,
       onConfirm: _confirm,
       onResend: _resend,
     );
   }
 }
 
-/// A one-shot latch so [_startVerification] can await "the SMS attempt has
-/// resolved" (sent, auto-verified, or failed) exactly once, ignoring extra
-/// callback fires.
-class _CodeSentGate {
-  final _c = Completer<void>();
-  Future<void> get future => _c.future;
-  void complete() {
-    if (!_c.isCompleted) _c.complete();
-  }
-}

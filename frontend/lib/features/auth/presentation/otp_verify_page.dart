@@ -21,6 +21,7 @@ class OtpVerifyPage extends StatefulWidget {
     required this.onConfirm,
     required this.onResend,
     this.errorText,
+    this.sending = false,
   });
 
   /// The number we texted, shown so the user can confirm it's theirs.
@@ -35,6 +36,11 @@ class OtpVerifyPage extends StatefulWidget {
 
   /// A message from the parent (wrong code, expired, …) shown under the boxes.
   final String? errorText;
+
+  /// True while the code is still on its way (Firebase deciding Play
+  /// Integrity/reCAPTCHA, SMS in flight). The boxes show a gentle "sending the
+  /// code…" state and input waits, so the screen never feels frozen.
+  final bool sending;
 
   @override
   State<OtpVerifyPage> createState() => _OtpVerifyPageState();
@@ -143,7 +149,11 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                   Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: 'We texted a 6-digit code to '),
+                        TextSpan(
+                          text: widget.sending
+                              ? 'Sending a 6-digit code to '
+                              : 'We texted a 6-digit code to ',
+                        ),
                         TextSpan(
                           text: widget.phoneE164,
                           style: const TextStyle(
@@ -151,7 +161,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const TextSpan(text: '.'),
+                        TextSpan(text: widget.sending ? '…' : '.'),
                       ],
                     ),
                     style: const TextStyle(
@@ -164,8 +174,9 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                   _CodeBoxes(
                     length: _len,
                     code: _code,
-                    focused: _focus.hasFocus,
+                    focused: _focus.hasFocus && !widget.sending,
                     error: widget.errorText != null,
+                    sending: widget.sending,
                     onTap: () => _focus.requestFocus(),
                   ),
                   // The real (invisible) input driving the boxes.
@@ -231,6 +242,7 @@ class _CodeBoxes extends StatelessWidget {
     required this.focused,
     required this.error,
     required this.onTap,
+    this.sending = false,
   });
 
   final int length;
@@ -239,11 +251,17 @@ class _CodeBoxes extends StatelessWidget {
   final bool error;
   final VoidCallback onTap;
 
+  /// True while the SMS is still on its way — the boxes soften so the screen
+  /// reads as "waiting for the code" rather than idle.
+  final bool sending;
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Row(
+      child: Opacity(
+        opacity: sending ? 0.5 : 1.0,
+        child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(length, (i) {
           final filled = i < code.length;
@@ -285,6 +303,7 @@ class _CodeBoxes extends StatelessWidget {
             ),
           );
         }),
+        ),
       ),
     );
   }

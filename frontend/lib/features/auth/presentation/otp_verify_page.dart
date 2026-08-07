@@ -202,45 +202,18 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
                     ),
                   ),
                   const SizedBox(height: 28),
-                  // Tapping the boxes summons the keyboard. The boxes are driven
-                  // by the real (but visually hidden) field stacked behind them.
-                  Stack(
-                    children: [
-                      // The real input. Kept IN the tree (not Offstage) so it can
-                      // actually hold focus and raise the keyboard, but sized to
-                      // nothing and fully transparent so it's invisible. Offstage
-                      // fields can't reliably show the keyboard, which is why the
-                      // keypad wasn't coming back after the reCAPTCHA step.
-                      SizedBox(
-                        height: 1,
-                        width: 1,
-                        child: Opacity(
-                          opacity: 0,
-                          child: TextField(
-                            controller: _controller,
-                            focusNode: _focus,
-                            autofocus: true,
-                            showCursor: false,
-                            keyboardType: TextInputType.number,
-                            enableSuggestions: false,
-                            autofillHints: const [AutofillHints.oneTimeCode],
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(_len),
-                            ],
-                            onSubmitted: (_) => _submit(),
-                          ),
-                        ),
-                      ),
-                      _CodeBoxes(
-                        length: _len,
-                        code: _code,
-                        focused: _focus.hasFocus && !widget.sending,
-                        error: widget.errorText != null,
-                        sending: widget.sending,
-                        onTap: () => _focus.requestFocus(),
-                      ),
-                    ],
+                  // The six code boxes ARE the text field — a real, always-tappable
+                  // input with a visible caret. Tapping anywhere on the row opens
+                  // the keyboard, so a code that arrives on ANOTHER device can
+                  // always be typed by hand (no reliance on SMS auto-fill).
+                  _CodeInput(
+                    length: _len,
+                    controller: _controller,
+                    focusNode: _focus,
+                    code: _code,
+                    error: widget.errorText != null,
+                    sending: widget.sending,
+                    onSubmit: _submit,
                   ),
                   const SizedBox(height: 6),
                   // An explicit tap affordance — a guaranteed way to bring the

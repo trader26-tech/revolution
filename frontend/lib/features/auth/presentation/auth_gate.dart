@@ -7,6 +7,7 @@ import '../data/auth_store.dart';
 import '../data/phone_auth_service.dart';
 import 'otp_verify_page.dart';
 import 'phone_login_page.dart';
+import 'verified_success_page.dart';
 
 /// Decides the first screen based on sign-in state:
 ///   • logged in  → the app ([AppShell])
@@ -115,20 +116,31 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   /// The single choke point for completing sign-in, shared by the manual-code
-  /// and auto-retrieval paths. Runs the given sign-in, persists the session,
-  /// and closes the OTP screen — guaranteed to run its effect at most once per
+  /// and auto-retrieval paths. Runs the given sign-in, plays the celebration,
+  /// then persists the session — guaranteed to run its effect at most once per
   /// attempt so we never double-login or pop the wrong route.
   Future<void> _finishSignIn(Future<String> Function() signIn) async {
     if (_signingIn || _auth.isLoggedIn) return;
     _signingIn = true;
     try {
       final verifiedNumber = await signIn();
-      await _auth.login(verifiedNumber);
-      // Dismiss the OTP screen if it's open; the gate rebuilds into AppShell.
-      if (mounted && _otpScreenOpen) {
-        Navigator.of(context).popUntil((r) => r.isFirst);
-        _otpScreenOpen = false;
+      // Swap whatever's on top (OTP screen, or nothing on the auto path) for the
+      // celebration. It calls back when its animation settles, and only THEN do
+      // we flip AuthStore to logged-in — so the app appears exactly as the
+      // "You're in." beat finishes, with no flash of the login screen between.
+      if (!mounted) {
+        await _auth.login(verifiedNumber); // no UI to animate; just persist
+        return;
       }
+      _otpScreenOpen = false;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => VerifiedSuccessPage(
+            phoneE164: verifiedNumber,
+            onDone: () => _auth.login(verifiedNumber),
+          ),
+        ),
+      );
     } catch (e) {
       _signingIn = false; // let them retry
       rethrow; // surfaced by the caller (OTP screen shows it; auto-path ignores)

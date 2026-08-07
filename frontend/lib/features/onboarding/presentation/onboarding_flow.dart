@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/starfield.dart';
+import '../../auth/data/auth_store.dart';
 import '../../auth/presentation/auth_gate.dart';
 import '../data/onboarding_store.dart';
 import 'screens/chip_select_screen.dart';
@@ -91,11 +92,21 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   /// top-right "Skip" on the pre-schedule pages.
   ///
   /// Skip goes straight to the "What's your number?" phone login page. We push
-  /// [AuthGate] (which shows PhoneLoginPage while logged out, with its OTP
+  /// [AuthGate] (which shows PhoneLoginPage while logged OUT, with its OTP
   /// verification wired up) and REPLACE the onboarding route so Back can't return
   /// to it. Onboarding is also marked complete so it won't reappear next launch.
-  void _skip() {
+  ///
+  /// [AuthGate] only shows the phone login page when logged out — if a session
+  /// is already saved it jumps to the app. So when onboarding was opened WITHOUT
+  /// an [onDone] handler (the dev "spark" replay button on Home), we sign out
+  /// first, guaranteeing the phone login page every single time — the whole
+  /// point of that dev shortcut is to test login again and again.
+  Future<void> _skip() async {
     OnboardingStore.instance.markComplete();
+    if (widget.onDone == null) {
+      await AuthStore.instance.logout();
+    }
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const AuthGate()),
     );

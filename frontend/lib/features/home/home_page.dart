@@ -55,8 +55,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// DEV: replay the onboarding flow (intro → chips → payoff). Nothing is
-  /// reset; "Get started" pops straight back to Home.
+  /// DEV: replay the onboarding flow (intro → chips → payoff → schedule).
+  /// Opened WITHOUT an onDone handler, so its Skip/Finish signs out and drops
+  /// you on the phone login page every time — handy for testing login again and
+  /// again from Home.
   void _openOnboardingPreview() {
     Navigator.of(context).push(
       MaterialPageRoute(

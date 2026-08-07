@@ -91,6 +91,23 @@ class _IntroScreenState extends State<IntroScreen>
     ),
   ];
 
+  /// The centre of the rings' combined bounding box, in the same fractional
+  /// units as [_Ring]. Derived from [_rings], so re-tuning a ring keeps the
+  /// composition centred automatically.
+  static final Offset _clusterOffset = _computeClusterOffset();
+
+  static Offset _computeClusterOffset() {
+    var minX = double.infinity, maxX = -double.infinity;
+    var minY = double.infinity, maxY = -double.infinity;
+    for (final r in _rings) {
+      minX = math.min(minX, r.cxF - r.radiusF);
+      maxX = math.max(maxX, r.cxF + r.radiusF);
+      minY = math.min(minY, r.cyF - r.radiusF);
+      maxY = math.max(maxY, r.cyF + r.radiusF);
+    }
+    return Offset((minX + maxX) / 2, (minY + maxY) / 2);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -202,6 +219,11 @@ class _IntroScreenState extends State<IntroScreen>
 
   /// The cluster, laid out against whatever box it's given. Every offset is a
   /// fraction of [side] (the largest square that fits), so nothing can escape.
+  ///
+  /// The three rings aren't symmetric about the origin, so the whole group is
+  /// shifted by [_clusterOffset] — the centre of their bounding box. Without
+  /// that the composition reads as pushed up-and-left, however well the ring
+  /// fractions are chosen.
   Widget _orbits() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -224,7 +246,14 @@ class _IntroScreenState extends State<IntroScreen>
           child: SizedBox(
             width: side,
             height: side,
-            child: Stack(alignment: Alignment.center, children: children),
+            child: Transform.translate(
+              // Recentre the whole (asymmetric) group in its box.
+              offset: Offset(
+                -_clusterOffset.dx * side,
+                -_clusterOffset.dy * side,
+              ),
+              child: Stack(alignment: Alignment.center, children: children),
+            ),
           ),
         );
       },
@@ -233,12 +262,18 @@ class _IntroScreenState extends State<IntroScreen>
 
   /// The soft violet nebula behind the cluster — the glow the reference has,
   /// bleeding gently outward from the centre.
+  ///
+  /// It's counter-shifted by [_clusterOffset] so it stays centred on the SCREEN
+  /// (where the eye expects the light source) while the rings sit centred in
+  /// their own box.
   Widget _glow(double side) {
-    return Opacity(
+    return Transform.translate(
+      offset: Offset(_clusterOffset.dx * side, _clusterOffset.dy * side),
+      child: Opacity(
       opacity: _lin(0.0, 0.6),
       child: Container(
-        width: side * 1.05,
-        height: side * 1.05,
+        width: side * 1.30,
+        height: side * 1.30,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: RadialGradient(

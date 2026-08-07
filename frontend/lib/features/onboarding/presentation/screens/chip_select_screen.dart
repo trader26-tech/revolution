@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/mascot.dart';
 import '../../../../core/widgets/starfield.dart';
 import '../../domain/onboarding_chip_catalog.dart';
 import '../widgets/reminder_confirm_sheet.dart';
@@ -51,24 +52,62 @@ class ChipSelectBody extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Column(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'What should we\nremember?',
-                style: TextStyle(
-                  fontSize: 34,
-                  height: 1.1,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'What should we\nremember?',
+                      style: TextStyle(
+                        fontSize: 34,
+                        height: 1.1,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // Instruction + a two-word promise, side by side.
+                    Row(
+                      children: [
+                        const Text(
+                          'Tap all that apply.',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.inkSoft,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.inkFaint,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "We've got it.",
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.accent.withValues(alpha: 0.95),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: 8),
-              Text(
-                'Tap all that apply.',
-                style: TextStyle(fontSize: 15, color: AppColors.inkSoft),
+              // Revo, introduced here — glow off, the starfield is busy.
+              const Padding(
+                padding: EdgeInsets.only(left: 8, top: 2),
+                child: AnimatedMascot(size: 66, glow: false),
               ),
             ],
           ),

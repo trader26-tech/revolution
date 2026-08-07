@@ -166,19 +166,16 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     final section = _section;
     final items = section.items;
     // The staged entry timeline (0..1), slow and deliberate:
-    //   0.00..0.20  Revo makes his entrance — a slow bubbly bounce-in.
-    //   0.20..0.40  three dots gather and PULSE together (Revo "thinking").
-    //   0.40..0.48  the cluster BURSTS with a bright violet flash.
-    //   0.48..0.74  the question's words bloom out of the burst, one by one.
-    //   0.76..0.80  "Tap all that apply." drifts up.
-    //   0.80..0.99  the rows cascade in, one calm beat each.
-    const dotsStart = 0.20;
-    const dotsEnd = 0.48; // pulse (..0.40) then burst (0.40..0.48)
-    const questionStart = 0.42; // words begin as the burst flashes
-    const questionEnd = 0.74;
-    const taglineStart = 0.76;
-    const rowsStart = 0.80;
-    final perRow = (0.99 - rowsStart) / items.length;
+    //   0.00..0.26  Revo makes his entrance — a slow bubbly bounce-in.
+    //   0.26..0.66  the question's words MATERIALISE one by one (blur in, float
+    //               up, settle with a springy overshoot + a soft glow).
+    //   0.66..0.72  "Tap all that apply." drifts up.
+    //   0.72..0.98  the rows cascade in, one calm beat each.
+    const questionStart = 0.26;
+    const questionEnd = 0.66;
+    const taglineStart = 0.68;
+    const rowsStart = 0.74;
+    final perRow = (0.98 - rowsStart) / items.length;
 
     // No Scaffold/Starfield/SafeArea here — this renders as page 2 inside the
     // OnboardingFlow, which already provides the sky and safe area.
@@ -241,43 +238,21 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                             Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.only(top: 6),
-                                // The dots cluster and the words share this
-                                // slot: the dots pulse then burst, and the words
-                                // bloom out of the burst as the dots fade. They
-                                // overlap in a Stack, top-left aligned so the
-                                // burst sits right where the first word lands.
-                                // No clip, so the burst ring can bloom past the
-                                // text bounds without being cut off.
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    _MagicText(
-                                      // Keyed by category so it restarts cleanly
-                                      // when the question changes.
-                                      key: ValueKey(section.key),
-                                      text: _questionFor(section),
-                                      progress: _typeProgress(
-                                        questionStart,
-                                        questionEnd,
-                                      ),
-                                      style: const TextStyle(
-                                        fontSize: 27,
-                                        height: 1.12,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppColors.ink,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      left: 0,
-                                      top: 10,
-                                      child: _ThinkingDots(
-                                        progress: _typeProgress(
-                                          dotsStart,
-                                          dotsEnd,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                child: _MagicText(
+                                  // Keyed by category so it restarts cleanly
+                                  // when the question changes.
+                                  key: ValueKey(section.key),
+                                  text: _questionFor(section),
+                                  progress: _typeProgress(
+                                    questionStart,
+                                    questionEnd,
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 27,
+                                    height: 1.12,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.ink,
+                                  ),
                                 ),
                               ),
                             ),
@@ -459,137 +434,6 @@ class _RevoEntrance extends StatelessWidget {
   }
 }
 
-/// Revo "thinking", then the spark the words are born from. Across its 0->1
-/// life [progress] it runs two acts:
-///   pulse (0 .. 0.72):  three violet dots gather and breathe together, like a
-///                       typing indicator — Revo composing the question.
-///   burst (0.72 .. 1):  the cluster swells and pops in a bright violet flash
-///                       ring, then vanishes — the words bloom out of it.
-class _ThinkingDots extends StatelessWidget {
-  const _ThinkingDots({required this.progress});
-
-  final double progress;
-
-  static const _burstAt = 0.72;
-
-  @override
-  Widget build(BuildContext context) {
-    const accent = AppColors.accent;
-
-    if (progress >= 1.0) return const SizedBox.shrink();
-
-    if (progress < _burstAt) {
-      // ── Act 1: the three dots pulse together ──────────────────────────────
-      final p = (progress / _burstAt).clamp(0.0, 1.0);
-      final appear = Curves.easeOut.transform((p / 0.25).clamp(0.0, 1.0));
-      // A shared breathing pulse; each dot lags the last a touch so the cluster
-      // shimmers rather than throbbing as one solid block.
-      Widget dot(int i) {
-        final phase = p * math.pi * 4 - i * 0.7;
-        final pulse = 0.5 + 0.5 * math.sin(phase); // 0..1
-        final scale = 0.8 + pulse * 0.35;
-        return Opacity(
-          opacity: appear,
-          child: Transform.scale(
-            scale: scale,
-            child: Container(
-              width: 12,
-              height: 12,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accent.withValues(alpha: 0.5 + 0.5 * pulse),
-                boxShadow: [
-                  BoxShadow(
-                    color: accent.withValues(alpha: 0.6 * pulse),
-                    blurRadius: 12,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }
-
-      return Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [dot(0), dot(1), dot(2)],
-        ),
-      );
-    }
-
-    // ── Act 2: the burst ─────────────────────────────────────────────────────
-    final b = ((progress - _burstAt) / (1 - _burstAt)).clamp(0.0, 1.0);
-    // The flash ring swells outward and fades; a bright core blooms then dies.
-    final ring = Curves.easeOut.transform(b);
-    final ringSize = 16 + ring * 64; // expands past the cluster
-    final ringOpacity = (1 - b).clamp(0.0, 1.0);
-    final coreOpacity = math.sin(b * math.pi); // 0 -> 1 -> 0
-    final coreScale = 0.6 + Curves.easeOut.transform(b) * 1.2;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: SizedBox(
-        width: 80,
-        height: 24,
-        child: Stack(
-          alignment: Alignment.centerLeft,
-          clipBehavior: Clip.none,
-          children: [
-            // Expanding flash ring.
-            Transform.translate(
-              offset: const Offset(20, 0),
-              child: Container(
-                width: ringSize,
-                height: ringSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: accent.withValues(alpha: 0.7 * ringOpacity),
-                    width: 3,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.5 * ringOpacity),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Bright core that blooms and dies as the words take over.
-            Transform.translate(
-              offset: const Offset(20, 0),
-              child: Transform.scale(
-                scale: coreScale,
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: coreOpacity),
-                    boxShadow: [
-                      BoxShadow(
-                        color: accent.withValues(alpha: 0.8 * coreOpacity),
-                        blurRadius: 24,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// The question, revealed the way an AI would conjure it: each word
 /// MATERIALISES on its own — blurring in from a haze, floating up into place,
 /// and settling with a springy overshoot and a brief violet glow. Not typed.
@@ -617,10 +461,20 @@ class _MagicText extends StatelessWidget {
     // ("Which subscriptions\nshould we remember?") wrap where they're meant to.
     final lines = text.split(String.fromCharCode(10));
     final wordCount = lines.fold<int>(0, (n, l) => n + l.split(' ').length);
-    const overlap = 1.8;
-    final perWord = 1 / wordCount;
-    double localFor(int i) =>
-        ((progress - i * perWord) / (perWord * overlap)).clamp(0.0, 1.0);
+
+    // Stagger the word STARTS evenly across [0 .. 1 - wordWindow] and give every
+    // word the same window, so the FIRST starts at 0 and the LAST finishes
+    // exactly at progress == 1. This guarantees every word — including the last
+    // ("remember?") — reaches local t == 1 and fully settles (no glow/haze left
+    // stuck on it once the line is done). The window is wider than one slot so
+    // consecutive words overlap and the reveal flows like a cascade.
+    const wordWindow = 0.55; // each word's fade-in length, in timeline units
+    final lastStart = wordCount > 1 ? (1 - wordWindow) : 0.0;
+    final step = wordCount > 1 ? lastStart / (wordCount - 1) : 0.0;
+    double localFor(int i) {
+      final start = i * step;
+      return ((progress - start) / wordWindow).clamp(0.0, 1.0);
+    }
 
     var wordIndex = 0;
     final rows = <Widget>[];
@@ -670,7 +524,9 @@ class _MagicWord extends StatelessWidget {
     final blur = (1 - ease) * 8; // haze that resolves as it arrives
     final lift = (1 - ease) * 14; // floats up into place
     final scale = 0.7 + spring * 0.3; // small, overshoot, then settle
-    final glow = math.sin(t.clamp(0.0, 1.0) * math.pi); // 0 to 1 to 0
+    // Glow blooms mid-arrival then fades to nothing. Hard-zero once basically
+    // settled so no faint halo can linger on a word (esp. the last one).
+    final glow = t >= 0.999 ? 0.0 : math.sin(t.clamp(0.0, 1.0) * math.pi);
 
     Widget label = Text(
       word,

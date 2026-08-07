@@ -9,11 +9,15 @@ import '../../../brand/presentation/brand_logo.dart';
 
 /// Screen 1 — the "Orbit" welcome.
 ///
-/// A deep-space sky with twinkling stars. Three faint orbit rings hang in it —
-/// subscriptions, investments, insurance & documents — each with a category
-/// hub at its centre and real, crisp app logos slowly orbiting it. Below: the
-/// app logo as a floating planet, "Welcome to Revolution", one muted line.
-/// Minimal text, maximum motion — all of it slow and calm.
+/// A deep-space sky with twinkling stars and a soft violet nebula glow behind
+/// the cluster. Three faint orbit rings hang in it — subscriptions, investments,
+/// insurance & documents — each with a category hub at its centre and three
+/// real app logos resting on the ring. Below: the app logo, "Welcome to
+/// Revolution", one muted line.
+///
+/// The logos are STATIC (no revolution) — they sit at hand-picked angles that
+/// balance the composition. Everything is laid out in FRACTIONS of the
+/// available box, so no ring can ever spill outside the frame on any screen.
 class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});
 
@@ -23,64 +27,65 @@ class IntroScreen extends StatefulWidget {
 
 class _IntroScreenState extends State<IntroScreen>
     with TickerProviderStateMixin {
-  /// One-shot entrance: rings → hubs → logos → planet → text.
+  /// One-shot entrance: glow → rings → hubs → logos → app logo → text.
   late final AnimationController _enter;
 
-  /// The endless sky clock: orbital motion, star twinkle, planet bob.
-  /// One full revolution of the orbits per cycle — slow enough to feel like
-  /// space, alive enough to catch the eye.
+  /// The endless sky clock: star twinkle + the app logo's gentle bob.
   late final AnimationController _sky;
 
-  // The three rings. Every domain hand-checked to return a crisp, correct
-  // logo (web.whatsapp.com serves 194px where whatsapp.com serves 23px, etc.).
+  // ── The three rings ────────────────────────────────────────────────────────
+  //
+  // Geometry is expressed as a FRACTION of the cluster box (0..1), measured
+  // from its centre — so the whole composition scales with the screen and
+  // stays in bounds. A ring's outermost reach is |centre| + radius + logo/2,
+  // and every ring below is tuned to keep that under 0.5.
+  //
+  // Every domain was hand-checked to return a crisp, correct logo on a dark
+  // background (see the notes on individual entries).
   static const _rings = <_Ring>[
-    // Subscriptions — mid-left, the biggest ring (like the screenshot).
+    // Subscriptions — the big ring, upper-left (matches the reference).
     _Ring(
-      cx: -70,
-      cy: 10,
-      radius: 100,
-      hubSize: 74,
-      hubIcon: Icons.subscriptions_rounded,
-      dir: 1,
+      cxF: -0.115,
+      cyF: -0.140,
+      radiusF: 0.250,
+      hubIcon: Icons.play_circle_fill_rounded,
       logos: [
-        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 52, -10),
-        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 56, 128),
-        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 44, 243),
+        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42, 158),
+        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 44, 232),
+        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40, 22),
       ],
     ),
-    // Investments / SIP — top-right, bleeding off the edge like the original.
+    // Investments / SIP — smaller ring, upper-right.
     _Ring(
-      cx: 95,
-      cy: -125,
-      radius: 82,
-      hubSize: 68,
+      cxF: 0.230,
+      cyF: -0.235,
+      radiusF: 0.190,
       hubIcon: Icons.trending_up_rounded,
-      dir: -1,
       logos: [
-        _OrbitLogo(Brand(name: 'Zerodha', domain: 'zerodha.com'), 50, 195),
-        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 44, 20),
+        _OrbitLogo(Brand(name: 'Zerodha', domain: 'zerodha.com'), 38, 205),
+        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 36, 300),
+        // Upstox: a crisp 196px violet mark — reads beautifully on the sky.
+        _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36, 40),
       ],
     ),
-    // Insurance & documents — bottom-right.
+    // Insurance & documents — lower-right.
     _Ring(
-      cx: 85,
-      cy: 120,
-      radius: 84,
-      hubSize: 68,
-      hubIcon: Icons.verified_user_rounded,
-      dir: 1,
+      cxF: 0.175,
+      cyF: 0.180,
+      radiusF: 0.205,
+      hubIcon: Icons.shield_rounded,
       logos: [
-        // LIC's real mark is wide (emblem + wordmark) → bigger box.
-        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 62, 155),
+        // LIC's real mark is wide (emblem + wordmark) → a slightly bigger box.
+        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 46, 165),
+        // HDFC Life: a clean 256px red mark.
+        _OrbitLogo(Brand(name: 'HDFC Life', domain: 'hdfclife.com'), 38, 265),
+        // DigiLocker — the actual govt DOCUMENT wallet, and its violet mark
+        // sits naturally in this palette (the national emblem is near-black
+        // and would disappear against the sky).
         _OrbitLogo(
-          Brand(name: 'Policybazaar', domain: 'policybazaar.com'),
-          42,
-          -30,
-        ),
-        _OrbitLogo(
-          Brand(name: 'India', domain: 'services.india.gov.in'),
-          44,
-          75,
+          Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'),
+          38,
+          25,
         ),
       ],
     ),
@@ -91,7 +96,7 @@ class _IntroScreenState extends State<IntroScreen>
     super.initState();
     _enter = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 1500),
     )..forward();
     _sky = AnimationController(
       vsync: this,
@@ -136,15 +141,15 @@ class _IntroScreenState extends State<IntroScreen>
           ),
           Column(
             children: [
-              const Spacer(flex: 2),
-              SizedBox(height: 380, child: _orbits()),
-              const Spacer(flex: 1),
-              _planet(),
-              const SizedBox(height: 26),
+              // The cluster takes the top ~half; it sizes itself to whatever
+              // space is left, so short screens shrink it instead of clipping.
+              Expanded(flex: 62, child: _orbits()),
+              _appLogo(),
+              const SizedBox(height: 24),
               _reveal(
-                start: 0.48,
+                start: 0.52,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
@@ -152,8 +157,9 @@ class _IntroScreenState extends State<IntroScreen>
                       maxLines: 1,
                       style: text.headlineLarge?.copyWith(
                         color: AppColors.ink,
-                        fontSize: 34,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 33,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ),
@@ -161,18 +167,21 @@ class _IntroScreenState extends State<IntroScreen>
               ),
               const SizedBox(height: 12),
               _reveal(
-                start: 0.58,
-                child: Text(
-                  'Track your subscriptions, investments and\n'
-                  'insurance — and never miss a date',
-                  textAlign: TextAlign.center,
-                  style: text.bodyLarge?.copyWith(
-                    color: AppColors.inkSoft,
-                    fontSize: 16.5,
+                start: 0.60,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'Track your subscriptions, investments and\n'
+                    'insurance — and never miss a date',
+                    textAlign: TextAlign.center,
+                    style: text.bodyLarge?.copyWith(
+                      color: AppColors.inkSoft,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),
-              const Spacer(flex: 2),
+              const Spacer(flex: 12),
             ],
           ),
         ],
@@ -191,43 +200,77 @@ class _IntroScreenState extends State<IntroScreen>
 
   // ── The three orbit rings ──────────────────────────────────────────────────
 
+  /// The cluster, laid out against whatever box it's given. Every offset is a
+  /// fraction of [side] (the largest square that fits), so nothing can escape.
   Widget _orbits() {
-    // A global stagger index so hubs and logos cascade in one sweep.
-    var stagger = 0;
-    final children = <Widget>[];
-    for (final ring in _rings) {
-      children.add(_ringOutline(ring));
-      children.add(_hub(ring, 0.08 + (stagger++) * 0.06));
-      for (final logo in ring.logos) {
-        children.add(_orbitingLogo(ring, logo, 0.16 + (stagger++) * 0.06));
-      }
-    }
-    return Center(
-      child: SizedBox(
-        width: 340,
-        height: 380,
-        child: Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
-          children: children,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final side = math.min(constraints.maxWidth, constraints.maxHeight);
+
+        // A global stagger index so hubs and logos cascade in one sweep.
+        var stagger = 0;
+        final children = <Widget>[_glow(side)];
+        for (final ring in _rings) {
+          children.add(_ringOutline(ring, side));
+          children.add(_hub(ring, side, 0.06 + (stagger++) * 0.05));
+        }
+        for (final ring in _rings) {
+          for (final logo in ring.logos) {
+            children.add(_ringLogo(ring, logo, side, 0.14 + (stagger++) * 0.04));
+          }
+        }
+
+        return Center(
+          child: SizedBox(
+            width: side,
+            height: side,
+            child: Stack(alignment: Alignment.center, children: children),
+          ),
+        );
+      },
+    );
+  }
+
+  /// The soft violet nebula behind the cluster — the glow the reference has,
+  /// bleeding gently outward from the centre.
+  Widget _glow(double side) {
+    return Opacity(
+      opacity: _lin(0.0, 0.6),
+      child: Container(
+        width: side * 1.05,
+        height: side * 1.05,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            // A tight violet core that falls off well before the edge, so it
+            // reads as a glow rather than a flat disc.
+            colors: [
+              const Color(0xFF7C5CFC).withValues(alpha: 0.30),
+              const Color(0xFF6742EE).withValues(alpha: 0.14),
+              const Color(0xFF4C1D95).withValues(alpha: 0.05),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.32, 0.58, 1.0],
+          ),
         ),
       ),
     );
   }
 
-  /// The faint circular track a ring's logos travel on.
-  Widget _ringOutline(_Ring ring) {
+  /// The faint circular track the logos rest on.
+  Widget _ringOutline(_Ring ring, double side) {
+    final d = ring.radiusF * 2 * side;
     return Transform.translate(
-      offset: Offset(ring.cx, ring.cy),
+      offset: Offset(ring.cxF * side, ring.cyF * side),
       child: Opacity(
         opacity: _lin(0.0, 0.5),
         child: Container(
-          width: ring.radius * 2,
-          height: ring.radius * 2,
+          width: d,
+          height: d,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.07),
+              color: Colors.white.withValues(alpha: 0.08),
               width: 1,
             ),
           ),
@@ -237,33 +280,36 @@ class _IntroScreenState extends State<IntroScreen>
   }
 
   /// The dark category hub at a ring's centre.
-  Widget _hub(_Ring ring, double start) {
+  Widget _hub(_Ring ring, double side, double start) {
     final pop = _pop(start);
+    // Proportional to the ring, so the three hubs differ in size exactly as
+    // their rings do.
+    final hubSize = ring.radiusF * side * 0.62;
     return Transform.translate(
-      offset: Offset(ring.cx, ring.cy),
+      offset: Offset(ring.cxF * side, ring.cyF * side),
       child: Opacity(
         opacity: _lin(start),
         child: Transform.scale(
-          scale: 0.5 + 0.5 * pop,
+          scale: 0.6 + 0.4 * pop,
           child: Container(
-            width: ring.hubSize,
-            height: ring.hubSize,
+            width: hubSize,
+            height: hubSize,
             decoration: BoxDecoration(
-              color: const Color(0xFF221B3F),
+              color: const Color(0xFF241C42),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 22,
+                  blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
               ],
             ),
             child: Icon(
               ring.hubIcon,
-              color: AppColors.ink.withValues(alpha: 0.85),
-              size: ring.hubSize * 0.42,
+              color: AppColors.ink.withValues(alpha: 0.88),
+              size: hubSize * 0.44,
             ),
           ),
         ),
@@ -271,14 +317,12 @@ class _IntroScreenState extends State<IntroScreen>
     );
   }
 
-  /// One logo travelling its ring — bare, crisp, upright (the position orbits;
-  /// the logo itself never rotates).
-  Widget _orbitingLogo(_Ring ring, _OrbitLogo logo, double start) {
-    final angle =
-        logo.angleDeg * math.pi / 180 + _sky.value * 2 * math.pi * ring.dir;
+  /// One logo resting on its ring — bare, crisp and upright.
+  Widget _ringLogo(_Ring ring, _OrbitLogo logo, double side, double start) {
+    final angle = logo.angleDeg * math.pi / 180;
     final pos = Offset(
-      ring.cx + ring.radius * math.cos(angle),
-      ring.cy + ring.radius * math.sin(angle),
+      (ring.cxF + ring.radiusF * math.cos(angle)) * side,
+      (ring.cyF + ring.radiusF * math.sin(angle)) * side,
     );
     final pop = _pop(start);
     return Transform.translate(
@@ -290,7 +334,7 @@ class _IntroScreenState extends State<IntroScreen>
           child: BrandLogo(
             brand: logo.brand,
             size: logo.size,
-            radius: logo.size * 0.24,
+            radius: logo.size * 0.26,
             bare: true,
           ),
         ),
@@ -298,27 +342,28 @@ class _IntroScreenState extends State<IntroScreen>
     );
   }
 
-  // ── The planet: the app's own logo ─────────────────────────────────────────
+  // ── The app's own logo ─────────────────────────────────────────────────────
 
-  Widget _planet() {
-    final pop = _pop(0.30, 0.45);
+  Widget _appLogo() {
+    final pop = _pop(0.34, 0.45);
     final bob = math.sin(_sky.value * 2 * math.pi * 6) * 4;
     return Opacity(
-      opacity: _lin(0.30, 0.45),
+      opacity: _lin(0.34, 0.45),
       child: Transform.translate(
         offset: Offset(0, bob),
         child: Transform.scale(
           scale: 0.6 + 0.4 * pop,
           child: Container(
-            width: 118,
-            height: 118,
+            width: 108,
+            height: 108,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.accent.withValues(alpha: 0.45),
-                  blurRadius: 44,
-                  offset: const Offset(0, 10),
+                  color: AppColors.accent.withValues(alpha: 0.42),
+                  blurRadius: 46,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
@@ -338,30 +383,25 @@ class _IntroScreenState extends State<IntroScreen>
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
-/// One orbit ring: its centre (relative to the cluster centre), radius, the
-/// category hub at its middle, orbit direction, and the logos travelling it.
+/// One orbit ring. Centre and radius are FRACTIONS of the cluster box, measured
+/// from its centre — keeping the composition in bounds at any screen size.
 class _Ring {
   const _Ring({
-    required this.cx,
-    required this.cy,
-    required this.radius,
-    required this.hubSize,
+    required this.cxF,
+    required this.cyF,
+    required this.radiusF,
     required this.hubIcon,
-    required this.dir,
     required this.logos,
   });
 
-  final double cx, cy;
-  final double radius;
-  final double hubSize;
+  final double cxF, cyF;
+  final double radiusF;
   final IconData hubIcon;
-
-  /// 1 = clockwise, -1 = counter-clockwise — alternating keeps it organic.
-  final int dir;
   final List<_OrbitLogo> logos;
 }
 
-/// A logo on a ring: the brand, its box size, and its starting angle (deg).
+/// A logo resting on a ring: the brand, its box size (px), and the angle it
+/// sits at (degrees; 0 = right, 90 = down).
 class _OrbitLogo {
   const _OrbitLogo(this.brand, this.size, this.angleDeg);
 

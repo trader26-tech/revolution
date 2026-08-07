@@ -239,10 +239,10 @@ class _PayoffScreenState extends State<PayoffScreen>
       ),
       textAlign: TextAlign.center,
       style: const TextStyle(
-        fontSize: 24,
-        height: 1.3,
-        fontWeight: FontWeight.w900,
-        letterSpacing: -0.4,
+        fontSize: 21,
+        height: 1.35,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.3,
         color: AppColors.ink,
       ),
     );
@@ -257,7 +257,7 @@ class _PayoffScreenState extends State<PayoffScreen>
           TextSpan(
             text: "Revo's got you.",
             style: TextStyle(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
               color: AppColors.accent,
             ),
           ),
@@ -265,11 +265,11 @@ class _PayoffScreenState extends State<PayoffScreen>
       ),
       textAlign: TextAlign.center,
       style: const TextStyle(
-        fontSize: 16,
+        fontSize: 20,
         height: 1.35,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.2,
-        color: AppColors.inkSoft,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.3,
+        color: AppColors.ink,
       ),
     );
   }

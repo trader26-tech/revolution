@@ -47,7 +47,13 @@ dependencies:
   http: ^1.2.0
   flutter_sticky_header: ^0.8.0
   url_launcher: ^6.3.2
-  package_info_plus: ^10.2.1
+  # Pinned to 8.x deliberately. 10.x's android/build.gradle.kts uses the
+  # `kotlin { }` extension, which needs android.builtInKotlin=true — but
+  # shared_preferences_android still applies kotlin-android explicitly, which
+  # that same flag forbids under AGP 9. The two cannot both be satisfied, so
+  # the Android build fails whichever way the flag is set. 8.x uses the older
+  # Groovy script and works alongside the rest. Same PackageInfo API.
+  package_info_plus: ^8.0.0
 
 dev_dependencies:
   flutter_test:

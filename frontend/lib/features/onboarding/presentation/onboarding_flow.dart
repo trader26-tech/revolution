@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/starfield.dart';
+import '../data/onboarding_store.dart';
 import 'screens/chip_select_screen.dart';
 import 'screens/intro_screen.dart';
 import 'screens/payoff_screen.dart';

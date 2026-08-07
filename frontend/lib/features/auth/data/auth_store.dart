@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,8 +8,9 @@ import '../../../core/api/api_client.dart';
 /// it as the API owner id, so every request is scoped to that number, and we
 /// remember it across launches until sign-out.
 ///
-/// There's no real verification yet (no OTP/backend auth) — logging in simply
-/// takes the number at face value and drops the user into the app.
+/// The number is proven by Firebase phone (OTP) verification before [login] is
+/// called, so being logged-in is intentionally decoupled from persistence — see
+/// [login] and the Firebase reconciliation in [load].
 class AuthStore extends ChangeNotifier {
   AuthStore({ApiClient? api}) : _api = api ?? ApiClient.instance;
 
@@ -24,23 +26,61 @@ class AuthStore extends ChangeNotifier {
   bool get isLoggedIn => _phone != null && _phone!.isNotEmpty;
 
   /// Restore a saved session and re-scope the API to it. Call at startup.
+  ///
+  /// Also RECONCILES with Firebase: verification can complete on Firebase's side
+  /// while the app fails to finish persisting (e.g. killed on the reCAPTCHA
+  /// return). Without reconciliation the app would think you're logged out while
+  /// Firebase thinks you're in — the mismatch that showed an "internal error" on
+  /// reopen. So if there's no saved session but Firebase still holds a verified
+  /// phone, we adopt it and finish the login the app never got to.
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_phoneKey);
-    if (saved != null && saved.isNotEmpty) {
-      _phone = saved;
-      await _api.setOwnerId(saved);
+    String? phone;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      phone = prefs.getString(_phoneKey);
+    } catch (_) {}
+
+    // No app session? Fall back to Firebase's verified user, if any.
+    if (phone == null || phone.isEmpty) {
+      try {
+        final fbPhone = FirebaseAuth.instance.currentUser?.phoneNumber;
+        if (fbPhone != null && fbPhone.isNotEmpty) {
+          // Adopt it AND persist so future launches are consistent.
+          await login(fbPhone);
+          return;
+        }
+      } catch (_) {
+        // Firebase not ready / no user — just stay logged out.
+      }
+    }
+
+    if (phone != null && phone.isNotEmpty) {
+      _phone = phone;
+      try {
+        await _api.setOwnerId(phone);
+      } catch (_) {}
     }
     notifyListeners();
   }
 
   /// Log in with a phone number: make it the account identity, persist it.
+  ///
+  /// The number is already Firebase-verified by the time we get here, so being
+  /// logged-in must NOT hinge on any persistence/network call succeeding. We set
+  /// the identity and notify FIRST (so the gate rebuilds into the app), then do
+  /// every side effect best-effort — a flaky disk or network write can never
+  /// throw out of here or leave the UI stuck between login and app.
   Future<void> login(String phoneE164) async {
     _phone = phoneE164;
-    await _api.setOwnerId(phoneE164);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_phoneKey, phoneE164);
-    notifyListeners();
+    notifyListeners(); // flip to logged-in immediately
+
+    try {
+      await _api.setOwnerId(phoneE164);
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_phoneKey, phoneE164);
+    } catch (_) {}
     // Register the user's phone + default "call me to remind" (on) on the
     // server, so the weekly digest can reach them. Best-effort.
     try {

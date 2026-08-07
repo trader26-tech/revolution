@@ -120,26 +120,54 @@ class _AuthGateState extends State<AuthGate> {
     _signingIn = true;
     try {
       final verifiedNumber = await signIn();
-      // Swap whatever's on top (OTP screen, or nothing on the auto path) for the
-      // celebration. It calls back when its animation settles, and only THEN do
-      // we flip AuthStore to logged-in — so the app appears exactly as the
-      // "You're in." beat finishes, with no flash of the login screen between.
       if (!mounted) {
-        await _auth.login(verifiedNumber); // no UI to animate; just persist
+        await _safeLogin(verifiedNumber); // no UI to animate; just persist
         return;
       }
       _otpScreenOpen = false;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => VerifiedSuccessPage(
-            phoneE164: verifiedNumber,
-            onDone: () => _auth.login(verifiedNumber),
+      _onCodeArrived = null;
+
+      // Tear down the ENTIRE auth route stack before showing success — the OTP
+      // screen AND any lingering reCAPTCHA / SMS-consent route the OS left on
+      // top. `pushReplacement` alone only swaps the topmost route, which is why
+      // the captcha screen could stay stuck behind the app. Do it after the
+      // current frame so we never navigate mid-callback (a source of the
+      // "internal error" on the way back).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          _safeLogin(verifiedNumber);
+          return;
+        }
+        final navigator = Navigator.of(context);
+        // Drop everything back to the first (gate) route, then put the
+        // celebration in its place — a clean stack with nothing lingering.
+        navigator.popUntil((r) => r.isFirst);
+        navigator.pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => VerifiedSuccessPage(
+              phoneE164: verifiedNumber,
+              onDone: () => _safeLogin(verifiedNumber),
+            ),
           ),
-        ),
-      );
+        );
+      });
     } catch (e) {
       _signingIn = false; // let them retry
       rethrow; // surfaced by the caller (OTP screen shows it; auto-path ignores)
+    }
+  }
+
+  /// Persist the session, swallowing any post-verification failure. The user is
+  /// already verified by Firebase at this point, so a flaky prefs/network write
+  /// must NOT throw an unhandled async error (which surfaced as an "internal
+  /// error" when the app was reopened). Login itself is best-effort internally;
+  /// this is a belt-and-braces guard around the whole call.
+  Future<void> _safeLogin(String verifiedNumber) async {
+    try {
+      await _auth.login(verifiedNumber);
+    } catch (_) {
+      // Verified but couldn't fully persist — the gate still flips to
+      // logged-in via AuthStore, and prefs sync will retry later. Never crash.
     }
   }
 

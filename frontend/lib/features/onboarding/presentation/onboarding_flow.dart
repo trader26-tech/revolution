@@ -79,6 +79,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   @override
   Widget build(BuildContext context) {
+    // Page 1 is the category wizard, which owns its own progress bar + bottom
+    // button, so the flow's shared top dots and bottom CTA hide on that page.
+    final wizardPage = _page == 1;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       // ONE sky behind all three pages — swiping moves through the same space
@@ -88,49 +92,67 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         child: SafeArea(
           child: Column(
             children: [
-              // Top: progress dots (left) + Skip (right).
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
-                child: Row(
-                  children: [
-                    _ProgressDots(page: _page, count: _pageCount),
-                    const Spacer(),
-                    if (_page < _pageCount - 1)
-                      TextButton(
-                        onPressed: _finish,
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.inkFaint,
+              // Top: progress dots (left) + Skip (right). Hidden on the wizard.
+              if (!wizardPage)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
+                  child: Row(
+                    children: [
+                      _ProgressDots(page: _page, count: _pageCount),
+                      const Spacer(),
+                      if (_page < _pageCount - 1)
+                        TextButton(
+                          onPressed: _finish,
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.inkFaint,
+                          ),
+                          child: const Text('Skip'),
                         ),
-                        child: const Text('Skip'),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               Expanded(
                 child: PageView(
                   controller: _controller,
+                  // The wizard drives its own paging; block manual swipes on it
+                  // so the category flow stays in charge.
+                  physics: wizardPage
+                      ? const NeverScrollableScrollPhysics()
+                      : null,
                   onPageChanged: (i) => setState(() => _page = i),
                   children: [
                     const IntroScreen(),
-                    ChipSelectBody(picked: _picked, onToggle: _toggle),
+                    ChipSelectWizard(
+                      picked: _picked,
+                      onToggle: _toggle,
+                      onComplete: (_) => _goToPage(2),
+                      onExit: () => _goToPage(0),
+                    ),
                     PayoffScreen(picked: _picked),
                   ],
                 ),
               ),
-              // Bottom CTA.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(onPressed: _next, child: Text(_cta)),
+              // Bottom CTA. Hidden on the wizard (it has its own).
+              if (!wizardPage)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(onPressed: _next, child: Text(_cta)),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
       ),
     );
   }
+
+  void _goToPage(int i) => _controller.animateToPage(
+    i,
+    duration: const Duration(milliseconds: 360),
+    curve: Curves.easeInOutCubic,
+  );
 }
 
 /// The wide-pill progress indicator: the current page is a long accent bar.

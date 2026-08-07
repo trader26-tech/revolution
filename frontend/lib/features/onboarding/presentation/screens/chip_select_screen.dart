@@ -84,7 +84,6 @@ class ChipSelectBody extends StatelessWidget {
               for (final i in s.items)
                 _Chip(
                   item: i,
-                  color: s.color,
                   selected: picked.contains(i.key),
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -207,23 +206,24 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Row(
         children: [
-          // A little glowing "planet" — the section colour as a soft orb.
+          // A little glowing "planet" — a soft violet orb, same for every
+          // section so the page stays one calm space, not a rainbow.
           Container(
             width: 28,
             height: 28,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: section.color.withValues(alpha: 0.16),
+              color: AppColors.accent.withValues(alpha: 0.16),
               boxShadow: [
                 BoxShadow(
-                  color: section.color.withValues(alpha: 0.35),
+                  color: AppColors.accent.withValues(alpha: 0.30),
                   blurRadius: 12,
                   spreadRadius: -3,
                 ),
               ],
             ),
-            child: Icon(section.icon, size: 15, color: section.color),
+            child: Icon(section.icon, size: 15, color: AppColors.accent),
           ),
           const SizedBox(width: 10),
           Text(

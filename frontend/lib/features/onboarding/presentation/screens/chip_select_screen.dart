@@ -13,10 +13,10 @@ import '../widgets/reminder_confirm_sheet.dart';
 ///
 /// A one-category-per-screen wizard. The flow's shared 3-dot header (common to
 /// every onboarding screen) carries the macro progress. Two lines of copy do
-/// the rest: the tagline under the question — "Tap all that apply · add more in
-/// the app" — while the line just above the Continue button carries forward
-/// momentum — "3 more to go", then "Last one" on the final screen. No separate
-/// progress element;
+/// the rest: the tagline under the question — "Choose a few, add more later" —
+/// while the line just above the Continue button carries forward momentum —
+/// "3 more to go", then "Last one" on the final screen. No separate progress
+/// element;
 /// the Continue button stays plain. Just a back-arrow sits at the top. Revo
 /// greets from the top-left, and each category is a clean LIST of rows (icon +
 /// name + radio) — the commonest ones arrive already selected.
@@ -235,16 +235,15 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                           ],
                         ),
                         const SizedBox(height: 6),
-                        // Tagline under the question — one clean, unpunctuated
-                        // line in a single light tone: instruction, soft dot,
-                        // reassurance. No accent, no second weight. Forward
-                        // progress ("N more to go") lives down by the button.
+                        // Tagline under the question — one short line in a
+                        // single light tone. Forward progress ("N more to go")
+                        // lives down by the button.
                         _reveal(
                           taglineStart,
                           const Padding(
                             padding: EdgeInsets.only(left: 2),
                             child: Text(
-                              'Tap all that apply   ·   add more in the app',
+                              'Choose a few, add more later',
                               style: TextStyle(
                                 fontSize: 14.5,
                                 color: AppColors.inkSoft,

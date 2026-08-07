@@ -103,9 +103,7 @@ class CategoryGalleryScreenState extends State<CategoryGalleryScreen> {
               return _CategoryTile(
                 category: c,
                 selected: _isSelected(c),
-                draft: _drafts[c.key],
-                onTap: () => _tap(c),
-                onRemove: () => _toggleOff(c),
+                onTap: () => _toggle(c),
               );
             },
           ),
@@ -119,16 +117,12 @@ class _CategoryTile extends StatelessWidget {
   const _CategoryTile({
     required this.category,
     required this.selected,
-    required this.draft,
     required this.onTap,
-    required this.onRemove,
   });
 
   final OnboardingCategory category;
   final bool selected;
-  final ReminderDraft? draft;
   final VoidCallback onTap;
-  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -174,42 +168,25 @@ class _CategoryTile extends StatelessWidget {
                       color: selected ? AppColors.ink : AppColors.inkSoft,
                     ),
                   ),
-                  // When selected, show the chosen day as a tiny hint.
-                  if (selected && draft != null)
-                    Text(
-                      'the ${draft!.day}${_suffix(draft!.day)}',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: c.color,
-                      ),
-                    ),
                 ],
               ),
             ),
-            // Tick / remove badge, top-right.
+            // Selected tick badge (whole tile toggles).
             if (selected)
               Positioned(
                 top: 6,
                 right: 6,
-                child: GestureDetector(
-                  onTap: onRemove,
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(color: c.color, shape: BoxShape.circle),
-                    child: const Icon(Icons.check, size: 14, color: Colors.white),
-                  ),
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration:
+                      BoxDecoration(color: c.color, shape: BoxShape.circle),
+                  child: const Icon(Icons.check, size: 14, color: Colors.white),
                 ),
               ),
           ],
         ),
       ),
     );
-  }
-
-  static String _suffix(int d) {
-    if (d % 100 >= 11 && d % 100 <= 13) return 'th';
-    return switch (d % 10) { 1 => 'st', 2 => 'nd', 3 => 'rd', _ => 'th' };
   }
 }

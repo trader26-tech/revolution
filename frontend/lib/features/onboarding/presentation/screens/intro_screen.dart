@@ -15,9 +15,10 @@ import '../../../brand/presentation/brand_logo.dart';
 /// real app logos resting on the ring. Below: the app logo, "Welcome to
 /// Revolution", one muted line.
 ///
-/// The logos are STATIC (no revolution) — they sit at hand-picked angles that
-/// balance the composition. Everything is laid out in FRACTIONS of the
-/// available box, so no ring can ever spill outside the frame on any screen.
+/// The logos are STATIC (no revolution) and evenly spaced — three per ring at
+/// exactly 120° apart, derived from the ring rather than set per logo.
+/// Everything is laid out in FRACTIONS of the available box, so no ring can
+/// ever spill outside the frame on any screen.
 class IntroScreen extends StatefulWidget {
   const IntroScreen({super.key});
 

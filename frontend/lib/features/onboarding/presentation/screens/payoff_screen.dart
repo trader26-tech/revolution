@@ -14,14 +14,14 @@ import 'chip_select_screen.dart';
 ///   1. Revo floats in, alone in the sky.
 ///   2. A speech bubble pops above it: "That's [31] things to remember this
 ///      year…" — the number climbing live while Revo watches it stack up.
-///   3. A beat. Then the second bubble lands: "But don't worry — Revo's got
-///      you." and Revo does a happy double-hop, gaze dropping from the number
-///      to YOU.
+///   3. A beat. Then, inside the SAME bubble, the turn fades in: "But don't
+///      worry — Revo's got you." and Revo does a happy double-hop, gaze
+///      dropping from the number to YOU.
 ///   4. One muted closing line fades in under it all.
 ///
-/// Chat-style bubbles (grouped messages, no comic tails) keep it modern; the
-/// story structure — problem, beat, hero — is carried purely by timing and
-/// Revo's body language.
+/// A single chat-style bubble (no comic tail) keeps it modern; the story
+/// structure — problem, beat, hero — is carried purely by timing and Revo's
+/// body language.
 class PayoffScreen extends StatefulWidget {
   const PayoffScreen({super.key, required this.picked, this.onDone});
 
@@ -148,12 +148,23 @@ class _PayoffScreenState extends State<PayoffScreen>
               const Spacer(flex: 5),
               _bubble(
                 start: _bubble1Start,
-                child: _countLine(),
-              ),
-              const SizedBox(height: 10),
-              _bubble(
-                start: _bubble2Start,
-                child: _reassuranceLine(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _countLine(),
+                    // The turn of the story fades in inside the SAME bubble,
+                    // on its own beat — the box was already sized for both, so
+                    // nothing below jumps when the second line lands.
+                    _reveal(
+                      _bubble2Start,
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: _reassuranceLine(),
+                      ),
+                      window: 0.14,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 22),
               _revo(),

@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -404,12 +407,6 @@ class _ProgressBar extends StatelessWidget {
   }
 }
 
-/// The question, revealed word-by-word like it's being typed. [progress] is a
-/// 0→1 fraction of how much of the text is shown; the last visible word carries
-/// a soft violet caret while typing, which vanishes once the line is complete.
-///
-/// The full text is laid out invisibly underneath so the box reserves its final
-/// height from frame one — the rows below never jump as words land.
 /// Revo's entrance: fades in while scaling up past full size and settling back
 /// with a springy overshoot, rising a touch as he arrives — a bubbly bounce,
 /// not a snap. [t] runs 0->1 across his slice of the timeline.
@@ -453,7 +450,6 @@ class _MagicText extends StatelessWidget {
 
   final String text;
 
-  /// 0 → nothing shown, 1 → whole line shown.
   final double progress;
   final TextStyle style;
 
@@ -463,7 +459,7 @@ class _MagicText extends StatelessWidget {
     // ("Which subscriptions\nshould we remember?") wrap where they're meant to.
     final words = text.split(' ');
     final shown = (words.length * progress).ceil().clamp(0, words.length);
-    final done = shown >= words.length;
+    final done = shown >= words.length; // STALE_MARKER
     final visible = words.take(shown).join(' ');
 
     final caretColor = AppColors.accent.withValues(alpha: done ? 0.0 : 0.9);

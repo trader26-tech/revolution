@@ -108,6 +108,24 @@ class _IntroScreenState extends State<IntroScreen>
     return Offset((minX + maxX) / 2, (minY + maxY) / 2);
   }
 
+  /// Where the rings actually crowd — the mean of their centres, weighted by
+  /// area so the big subscriptions ring pulls the light toward itself. Used to
+  /// place the nebula glow.
+  static final Offset _ringCentroid = _computeRingCentroid();
+
+  static Offset _computeRingCentroid() {
+    var sx = 0.0, sy = 0.0, sw = 0.0;
+    for (final r in _rings) {
+      final w = r.radiusF * r.radiusF; // ∝ area
+      sx += r.cxF * w;
+      sy += r.cyF * w;
+      sw += w;
+    }
+    // Expressed relative to the recentred group, so it composes with the
+    // -_clusterOffset translation applied to the whole Stack.
+    return Offset(sx / sw, sy / sw);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -238,7 +256,9 @@ class _IntroScreenState extends State<IntroScreen>
         }
         for (final ring in _rings) {
           for (final logo in ring.logos) {
-            children.add(_ringLogo(ring, logo, side, 0.14 + (stagger++) * 0.04));
+            children.add(
+              _ringLogo(ring, logo, side, 0.14 + (stagger++) * 0.04),
+            );
           }
         }
 
@@ -263,29 +283,31 @@ class _IntroScreenState extends State<IntroScreen>
   /// The soft violet nebula behind the cluster — the glow the reference has,
   /// bleeding gently outward from the centre.
   ///
-  /// It's counter-shifted by [_clusterOffset] so it stays centred on the SCREEN
-  /// (where the eye expects the light source) while the rings sit centred in
-  /// their own box.
+  /// The glow sits at the rings' own centroid (the average of their centres,
+  /// NOT the bounding-box middle) so the light reads as coming from behind the
+  /// cluster's visual mass. Anchoring it to the box centre instead leaves the
+  /// bright core visibly low and left of where the rings actually crowd.
   Widget _glow(double side) {
     return Transform.translate(
-      offset: Offset(_clusterOffset.dx * side, _clusterOffset.dy * side),
+      offset: Offset(_ringCentroid.dx * side, _ringCentroid.dy * side),
       child: Opacity(
-      opacity: _lin(0.0, 0.6),
-      child: Container(
-        width: side * 1.30,
-        height: side * 1.30,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            // A tight violet core that falls off well before the edge, so it
-            // reads as a glow rather than a flat disc.
-            colors: [
-              const Color(0xFF7C5CFC).withValues(alpha: 0.30),
-              const Color(0xFF6742EE).withValues(alpha: 0.14),
-              const Color(0xFF4C1D95).withValues(alpha: 0.05),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.32, 0.58, 1.0],
+        opacity: _lin(0.0, 0.6),
+        child: Container(
+          width: side * 1.30,
+          height: side * 1.30,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              // A tight violet core that falls off well before the edge, so it
+              // reads as a glow rather than a flat disc.
+              colors: [
+                const Color(0xFF7C5CFC).withValues(alpha: 0.30),
+                const Color(0xFF6742EE).withValues(alpha: 0.14),
+                const Color(0xFF4C1D95).withValues(alpha: 0.05),
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.32, 0.58, 1.0],
+            ),
           ),
         ),
       ),

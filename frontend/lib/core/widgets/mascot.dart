@@ -158,25 +158,27 @@ class _MascotPainter extends CustomPainter {
     // Grounding contact shadow, so it floats over any surface.
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(0, s * 0.44),
-        width: s * 0.56,
-        height: s * 0.10,
+        center: Offset(0, s * 0.48),
+        width: s * 0.42,
+        height: s * 0.08,
       ),
       Paint()
         ..color = const Color(0x14000000)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.03),
     );
 
-    // The body: a blob just off-circular — a touch wider than tall, fuller at
-    // the bottom, like a settled water drop.
+    // The body: a ghost — round head, tapering down, with two rounded bumps
+    // at the base like a classic sheet ghost, all soft and friendly.
     final body = Path()
-      ..addOval(
-        Rect.fromCenter(
-          center: Offset(0, s * 0.02),
-          width: s * 0.90,
-          height: s * 0.82,
-        ),
-      );
+      ..moveTo(0, -s * 0.42)
+      ..quadraticBezierTo(s * 0.36, -s * 0.32, s * 0.36, s * 0.04)
+      ..lineTo(s * 0.28, s * 0.28)
+      ..quadraticBezierTo(s * 0.20, s * 0.36, s * 0.08, s * 0.38)
+      ..quadraticBezierTo(-s * 0.06, s * 0.38, -s * 0.08, s * 0.38)
+      ..quadraticBezierTo(-s * 0.20, s * 0.36, -s * 0.28, s * 0.28)
+      ..lineTo(-s * 0.36, s * 0.04)
+      ..quadraticBezierTo(-s * 0.36, -s * 0.32, 0, -s * 0.42)
+      ..close();
 
     if (glow) {
       canvas.drawPath(
@@ -212,13 +214,13 @@ class _MascotPainter extends CustomPainter {
     // sliver as [blink] rises — everything a face needs, nothing more.
     final eyePaint = Paint()..color = _eye;
     final open = (1 - blink * 0.94).clamp(0.06, 1.0);
-    final eyeOffset = Offset(look.dx * s * 0.045, look.dy * s * 0.035);
-    for (final dx in [-s * 0.115, s * 0.115]) {
+    final eyeOffset = Offset(look.dx * s * 0.050, look.dy * s * 0.040);
+    for (final dx in [-s * 0.125, s * 0.125]) {
       canvas.drawOval(
         Rect.fromCenter(
-          center: Offset(dx, -s * 0.10 + blink * s * 0.02) + eyeOffset,
-          width: s * 0.105,
-          height: s * 0.185 * open,
+          center: Offset(dx, -s * 0.16 + blink * s * 0.02) + eyeOffset,
+          width: s * 0.110,
+          height: s * 0.195 * open,
         ),
         eyePaint,
       );

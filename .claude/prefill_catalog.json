@@ -1,0 +1,474 @@
+{
+  "$comment": "Prefill catalog for onboarding. Per category: the 3 most likely reminder items, each with most-likely name, most-likely date rule, and most-likely frequency. India-first defaults (INR). Field names match frontend/lib/features/tasks/domain/task.dart (repeat) and frontend/lib/features/details/domain/item_details.dart (cycle, notify, category). date_rule is evaluated at onboarding time to compute the first due_at.",
+  "version": 1,
+  "generated": "2026-08-07",
+  "groups": [
+    {
+      "category": "Finance",
+      "quiz_keys": ["bills", "loans", "investments"],
+      "items": [
+        {
+          "title": "Credit card bill",
+          "repeat": "monthly",
+          "cycle": "monthly",
+          "date_rule": { "day_of_month": 15, "time": "10:00" },
+          "notify": "three_days",
+          "icon_name": "HDFC Bank",
+          "icon_domain": "hdfcbank.com",
+          "amount": null,
+          "currency": "INR",
+          "why": "Statement early in the month, due mid-month is the most common cycle"
+        },
+        {
+          "title": "Loan EMI",
+          "repeat": "monthly",
+          "cycle": "monthly",
+          "date_rule": { "day_of_month": 5, "time": "09:00" },
+          "notify": "one_day",
+          "icon_name": "HDFC Bank",
+          "icon_domain": "hdfcbank.com",
+          "amount": null,
+          "currency": "INR",
+          "why": "EMIs are safest 5-10 days after salary credit (1st), so early-month dominates"
+        },
+        {
+          "title": "SIP investment",
+          "repeat": "monthly",
+          "cycle": "monthly",
+          "date_rule": { "day_of_month": 5, "time": "09:00" },
+          "notify": "same_day",
+          "icon_name": "Groww",
+          "icon_domain": "groww.in",
+          "amount": null,
+          "currency": "INR",
+          "why": "Most SIPs are set in the 3rd-10th window right after salary"
+        }
+      ]
+    },
+    {
+      "category": "Utilities",
+      "quiz_keys": ["bills"],
+      "items": [
+        {
+          "title": "Electricity bill",
+          "repeat": "monthly",
+          "cycle": "monthly",
+          "date_rule": { "day_of_month": 10, "time": "10:00" },
+          "notify": "three_days",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "State boards bill monthly; due ~10-15 days after generation"
+        },
+        {
+          "title": "Mobile recharge",
+          "repeat": "monthly",
+          "cycle": "monthly",
+          "date_rule": { "day_of_month": 1, "time": "10:00" },
+          "notify": "one_day",
+          "icon_name": "Jio",
+          "icon_domain": "jio.com",
+          "amount": null,
+          "currency": "INR",
+          "why": "28/30-day prepaid packs and postpaid cycles are the norm"
+        },
+        {
+          "title": "Broadband bill",
+          "repeat": "monthly",
+          "cycle": "monthly",
+          "date_rule": { "day_of_month": 8, "time": "10:00" },
+          "notify": "one_day",
+          "icon_name": "Airtel",
+          "icon_domain": "airtel.in",
+          "amount": null,
+          "currency": "INR",
+          "why": "Monthly cycle; early-month due dates most common"
+        }
+      ]
+    },
+    {
+      "category": "Insurance",
+      "quiz_keys": ["insurance", "renewals"],
+      "items": [
+        {
+          "title": "Health insurance premium",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "anchor": "policy_anniversary", "fallback_months_from_now": 6, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": "Star Health",
+          "icon_domain": "starhealth.in",
+          "amount": null,
+          "currency": "INR",
+          "why": "Annual renewal on policy anniversary is the dominant mode"
+        },
+        {
+          "title": "Life insurance premium",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "anchor": "policy_anniversary", "fallback_months_from_now": 6, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": "LIC",
+          "icon_domain": "licindia.in",
+          "amount": null,
+          "currency": "INR",
+          "why": "LIC/term premiums are most commonly annual"
+        },
+        {
+          "title": "Two-wheeler insurance renewal",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "anchor": "policy_anniversary", "fallback_months_from_now": 6, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Yearly renewal; frequently forgotten, high reminder value"
+        }
+      ]
+    },
+    {
+      "category": "Health",
+      "quiz_keys": ["health"],
+      "items": [
+        {
+          "title": "Daily medicine",
+          "repeat": "daily",
+          "cycle": null,
+          "date_rule": { "time": "08:00" },
+          "notify": "same_day",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Morning-after-breakfast is the most common medication slot"
+        },
+        {
+          "title": "Annual health checkup",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "anchor": "birthday_month", "fallback_months_from_now": 3, "time": "09:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Master health checkups are typically yearly"
+        },
+        {
+          "title": "Dentist visit",
+          "repeat": "none",
+          "cycle": "half_yearly",
+          "date_rule": { "fallback_months_from_now": 6, "time": "18:00" },
+          "notify": "three_days",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Standard advice is every 6 months; RepeatCadence lacks half-yearly, use cycle"
+        }
+      ]
+    },
+    {
+      "category": "Vehicle",
+      "quiz_keys": ["vehicle"],
+      "items": [
+        {
+          "title": "Car insurance renewal",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "anchor": "policy_anniversary", "fallback_months_from_now": 6, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Annual renewal; lapse means no-claim-bonus loss, high urgency"
+        },
+        {
+          "title": "Car service",
+          "repeat": "none",
+          "cycle": "half_yearly",
+          "date_rule": { "fallback_months_from_now": 6, "time": "09:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Every 6 months / 10,000 km is the standard service interval"
+        },
+        {
+          "title": "PUC certificate renewal",
+          "repeat": "none",
+          "cycle": "half_yearly",
+          "date_rule": { "fallback_months_from_now": 6, "time": "10:00" },
+          "notify": "three_days",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "PUC validity is 6 months for most vehicles (1 year for new BS6)"
+        }
+      ]
+    },
+    {
+      "category": "Documents",
+      "quiz_keys": ["documents", "renewals"],
+      "note": "Category 'Documents' is not in OptionKind.category defaults - add it or let onboarding append it as a custom option",
+      "items": [
+        {
+          "title": "Passport renewal",
+          "repeat": "none",
+          "cycle": null,
+          "date_rule": { "anchor": "expiry_minus_months", "months_before_expiry": 9, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": "Passport",
+          "icon_domain": "passportindia.gov.in",
+          "amount": null,
+          "currency": "INR",
+          "why": "10-year validity; many countries need 6+ months validity for travel, so remind 9 months out"
+        },
+        {
+          "title": "Driving licence renewal",
+          "repeat": "none",
+          "cycle": null,
+          "date_rule": { "anchor": "expiry_minus_months", "months_before_expiry": 1, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": "parivahan.gov.in",
+          "amount": null,
+          "currency": "INR",
+          "why": "Long validity (up to 20 years) so one-time reminder anchored to expiry"
+        },
+        {
+          "title": "Visa / residency renewal",
+          "repeat": "none",
+          "cycle": "yearly",
+          "date_rule": { "anchor": "expiry_minus_months", "months_before_expiry": 2, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "High-stakes for NRI/expat users (e.g. Gulf residency/civil ID renewals)"
+        }
+      ]
+    },
+    {
+      "category": "Home",
+      "quiz_keys": ["home"],
+      "note": "Category 'Home' is not in OptionKind.category defaults - add it",
+      "items": [
+        {
+          "title": "Rent",
+          "repeat": "monthly",
+          "cycle": "monthly",
+          "date_rule": { "day_of_month": 1, "time": "09:00" },
+          "notify": "one_day",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Rent is overwhelmingly due on the 1st (sometimes 5th)"
+        },
+        {
+          "title": "Society maintenance",
+          "repeat": "monthly",
+          "cycle": "monthly",
+          "date_rule": { "day_of_month": 5, "time": "10:00" },
+          "notify": "three_days",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Apartment maintenance is monthly early-month (some societies quarterly)"
+        },
+        {
+          "title": "AC service",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "month": 3, "day_of_month": 15, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Pre-summer (March) servicing is the standard pattern in India"
+        }
+      ]
+    },
+    {
+      "category": "Family",
+      "quiz_keys": ["birthdays"],
+      "note": "Category 'Family' exists as a List default, not a category default - add to categories or tag list=Family",
+      "items": [
+        {
+          "title": "Birthday",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "anchor": "user_entered_date", "time": "09:00" },
+          "notify": "one_day",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "The single most-set yearly personal reminder; date must come from the user"
+        },
+        {
+          "title": "Wedding anniversary",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "anchor": "user_entered_date", "time": "09:00" },
+          "notify": "one_day",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Second most common yearly family reminder"
+        },
+        {
+          "title": "School fees",
+          "repeat": "none",
+          "cycle": "quarterly",
+          "date_rule": { "months": [4, 7, 10, 1], "day_of_month": 10, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Indian schools mostly bill quarterly from the April academic year; RepeatCadence lacks quarterly, use cycle"
+        }
+      ]
+    },
+    {
+      "category": "Entertainment",
+      "quiz_keys": ["subscriptions"],
+      "items": [
+        {
+          "title": "Netflix",
+          "repeat": "monthly",
+          "cycle": "monthly",
+          "date_rule": { "anchor": "signup_day", "fallback_day_of_month": 1, "time": "10:00" },
+          "notify": "one_day",
+          "icon_name": "Netflix",
+          "icon_domain": "netflix.com",
+          "amount": 199,
+          "currency": "INR",
+          "why": "Monthly on signup anniversary day; 199 is the entry mobile+ plan"
+        },
+        {
+          "title": "Amazon Prime",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "anchor": "signup_day", "fallback_months_from_now": 6, "time": "10:00" },
+          "notify": "three_days",
+          "icon_name": "Amazon Prime",
+          "icon_domain": "amazon.in",
+          "amount": 1499,
+          "currency": "INR",
+          "why": "Annual plan dominates in India at 1499"
+        },
+        {
+          "title": "Disney+ Hotstar",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "anchor": "signup_day", "fallback_months_from_now": 6, "time": "10:00" },
+          "notify": "three_days",
+          "icon_name": "Hotstar",
+          "icon_domain": "hotstar.com",
+          "amount": 1499,
+          "currency": "INR",
+          "why": "Yearly plans dominate (cricket season sign-ups)"
+        }
+      ]
+    },
+    {
+      "category": "Finance",
+      "subgroup": "Taxes",
+      "quiz_keys": ["taxes"],
+      "items": [
+        {
+          "title": "Income tax return filing",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "month": 7, "day_of_month": 15, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": "incometax.gov.in",
+          "amount": null,
+          "currency": "INR",
+          "why": "ITR deadline is July 31; remind mid-July"
+        },
+        {
+          "title": "Advance tax installment",
+          "repeat": "none",
+          "cycle": "quarterly",
+          "date_rule": { "months": [6, 9, 12, 3], "day_of_month": 15, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": "incometax.gov.in",
+          "amount": null,
+          "currency": "INR",
+          "why": "Due 15 Jun / 15 Sep / 15 Dec / 15 Mar for those with non-TDS income"
+        },
+        {
+          "title": "Property tax",
+          "repeat": "yearly",
+          "cycle": "yearly",
+          "date_rule": { "month": 4, "day_of_month": 30, "time": "10:00" },
+          "notify": "one_week",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Most municipal bodies bill yearly with early-payment rebates in April"
+        }
+      ]
+    },
+    {
+      "category": "Other",
+      "subgroup": "Goals & habits",
+      "quiz_keys": [],
+      "items": [
+        {
+          "title": "Exercise / walk",
+          "repeat": "daily",
+          "cycle": null,
+          "date_rule": { "time": "18:00" },
+          "notify": "same_day",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Evening 6 PM is the most common workout/walk slot"
+        },
+        {
+          "title": "Drink water",
+          "repeat": "daily",
+          "cycle": null,
+          "date_rule": { "time": "11:00" },
+          "notify": "same_day",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Top habit-tracker entry; ideally multiple times a day (repeat model limitation)"
+        },
+        {
+          "title": "Meditation",
+          "repeat": "daily",
+          "cycle": null,
+          "date_rule": { "time": "21:00" },
+          "notify": "same_day",
+          "icon_name": null,
+          "icon_domain": null,
+          "amount": null,
+          "currency": "INR",
+          "why": "Night wind-down is the most common meditation slot"
+        }
+      ]
+    }
+  ]
+}

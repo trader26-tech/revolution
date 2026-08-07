@@ -240,27 +240,26 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// One pill chip, styled for deep space.
+/// One pill chip, styled for deep space — one calm violet world, no rainbow.
 ///
-/// Unselected it's a faint glass pill floating on the sky — barely-there fill,
-/// hairline edge. Selected it lights up like a star coming on: the section
-/// colour fills in, a soft outer glow blooms behind it, and its icon morphs
-/// into a check.
+/// Unselected it's a faint glass pill floating on the sky: barely-there fill,
+/// hairline edge, muted lavender ink. Selected it lights up like a star coming
+/// on — a soft violet fill, an outer violet glow, and its icon morphs into a
+/// check. The colour never changes per category; only lit vs. dim does.
 class _Chip extends StatelessWidget {
   const _Chip({
     required this.item,
-    required this.color,
     required this.selected,
     required this.onTap,
   });
 
   final OnboardingChipItem item;
-  final Color color;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    const accent = AppColors.accent;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
@@ -272,8 +271,8 @@ class _Chip extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  color.withValues(alpha: 0.30),
-                  color.withValues(alpha: 0.16),
+                  accent.withValues(alpha: 0.32),
+                  accent.withValues(alpha: 0.16),
                 ],
               )
             : null,
@@ -281,15 +280,15 @@ class _Chip extends StatelessWidget {
         borderRadius: BorderRadius.circular(100),
         border: Border.all(
           color: selected
-              ? color.withValues(alpha: 0.85)
+              ? accent.withValues(alpha: 0.85)
               : AppColors.glassBorder,
           width: 1.4,
         ),
-        // The star turning on: a coloured glow blooms behind a selected chip.
+        // The star turning on: a violet glow blooms behind a selected chip.
         boxShadow: selected
             ? [
                 BoxShadow(
-                  color: color.withValues(alpha: 0.45),
+                  color: accent.withValues(alpha: 0.45),
                   blurRadius: 16,
                   spreadRadius: -2,
                 ),
@@ -301,8 +300,8 @@ class _Chip extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(100),
-          splashColor: color.withValues(alpha: 0.18),
-          highlightColor: color.withValues(alpha: 0.08),
+          splashColor: accent.withValues(alpha: 0.18),
+          highlightColor: accent.withValues(alpha: 0.08),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(

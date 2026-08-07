@@ -12,12 +12,13 @@ import '../widgets/reminder_confirm_sheet.dart';
 /// Onboarding page 2: "Which … should we remember?"
 ///
 /// A one-category-per-screen wizard. The flow's shared 3-dot header (common to
-/// every onboarding screen) carries the macro progress; this screen shows only
-/// a light in-content counter — "Subscriptions · 1 of 5" with a back-arrow —
-/// so there's no rival progress bar. Revo greets from the top-left, and each
-/// category is a clean LIST of rows (icon + name + radio) — the commonest ones
-/// arrive already selected. A bottom line reassures ("not here? add more in the
-/// app") above the Continue button, which walks to the next category.
+/// every onboarding screen) carries the macro progress; the "which of five
+/// categories" is carried by the Continue button itself, which FILLS as you
+/// advance — no rival progress bar or counter. Just a back-arrow sits at the
+/// top. Revo greets from the top-left, and each category is a clean LIST of
+/// rows (icon + name + radio) — the commonest ones arrive already selected. A
+/// bottom line reassures ("not here? add more in the app") above the Continue
+/// button, which walks to the next category.
 ///
 /// [ChipSelectWizard] is the full self-driving flow used as page 2 of the
 /// onboarding PageView; it fires [onComplete] with a draft per picked item
@@ -381,6 +382,171 @@ class _BackChip extends StatelessWidget {
             size: 18,
             color: AppColors.inkSoft,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The Continue button, doubling as the wizard's progress indicator.
+///
+/// The button sits on the deep accent; a brighter accent fill sweeps in from
+/// the left to cover [progress] of its width — 1/5 after the first category,
+/// 2/5 after the second, full on the last. The fill ANIMATES between steps, so
+/// pressing Continue visibly advances the button itself. A hairline of the
+/// five segment ticks runs along the base as a second, quieter read of the same
+/// progress. No separate bar or counter — the control the user is already
+/// looking at carries the "how far along" on its own.
+class _ContinueButton extends StatefulWidget {
+  const _ContinueButton({
+    required this.label,
+    required this.progress,
+    required this.onPressed,
+  });
+
+  final String label;
+  final double progress;
+  final VoidCallback onPressed;
+
+  @override
+  State<_ContinueButton> createState() => _ContinueButtonState();
+}
+
+class _ContinueButtonState extends State<_ContinueButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  late Animation<double> _fill;
+  double _from = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    _fill = AlwaysStoppedAnimation(widget.progress);
+    // Fill in from empty on first appearance, so the very first category also
+    // shows the button "arriving" at 1/5 rather than starting pre-filled.
+    _animateTo(from: 0, to: widget.progress);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ContinueButton old) {
+    super.didUpdateWidget(old);
+    if (old.progress != widget.progress) {
+      _animateTo(from: _from, to: widget.progress);
+    }
+  }
+
+  void _animateTo({required double from, required double to}) {
+    _from = to;
+    _fill = Tween<double>(begin: from, end: to).animate(
+      CurvedAnimation(parent: _c, curve: Curves.easeOutCubic),
+    );
+    _c
+      ..reset()
+      ..forward();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const height = 54.0;
+    const radius = 16.0;
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(radius),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // The unfilled base — the deep accent.
+            const ColoredBox(color: AppColors.accentDeep),
+            // The brighter fill, its width tracking progress.
+            AnimatedBuilder(
+              animation: _fill,
+              builder: (context, _) {
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: _fill.value.clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.accent, Color(0xFF9A80FF)],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accent.withValues(alpha: 0.45),
+                            blurRadius: 18,
+                            spreadRadius: -4,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            // Five faint segment ticks along the bottom — the same progress,
+            // read a second, quieter way.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Align(
+                alignment: const Alignment(0, 0.86),
+                child: AnimatedBuilder(
+                  animation: _fill,
+                  builder: (context, _) => Row(
+                    children: [
+                      for (var i = 0; i < 5; i++) ...[
+                        Expanded(
+                          child: Container(
+                            height: 3,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(
+                                alpha: (i + 1) / 5 <= _fill.value + 0.001
+                                    ? 0.9
+                                    : 0.22,
+                              ),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        if (i < 4) const SizedBox(width: 5),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // The label + tap target on top of it all.
+            InkWell(
+              onTap: widget.onPressed,
+              child: Center(
+                child: Padding(
+                  // Lift the label a hair so it doesn't crowd the tick row.
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    widget.label,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show FontFeature, ImageFilter;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,12 +13,12 @@ import '../widgets/reminder_confirm_sheet.dart';
 ///
 /// A one-category-per-screen wizard. The flow's shared 3-dot header (common to
 /// every onboarding screen) carries the macro progress; the "which of five
-/// categories" rides in the Continue button's own label as an "N of 5" badge
-/// that ticks up on each press — no rival progress bar. Just a back-arrow sits
-/// at the top. Revo greets from the top-left, and each category is a clean LIST
-/// of rows (icon + name + radio) — the commonest ones arrive already selected.
-/// A bottom line reassures ("not here? add more in the app") above the Continue
-/// button, which walks to the next category.
+/// categories" is spoken by Revo's own tagline — "Tap all that apply · 4 of 5"
+/// — so there's no separate progress element and the Continue button stays
+/// plain. Just a back-arrow sits at the top. Revo greets from the top-left, and
+/// each category is a clean LIST of rows (icon + name + radio) — the commonest
+/// ones arrive already selected. A bottom line reassures ("not here? add more
+/// in the app") above the Continue button, which walks to the next category.
 ///
 /// [ChipSelectWizard] is the full self-driving flow used as page 2 of the
 /// onboarding PageView; it fires [onComplete] with a draft per picked item
@@ -234,13 +234,35 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                           ],
                         ),
                         const SizedBox(height: 6),
+                        // Revo's tagline, now also speaking the position: "Tap
+                        // all that apply · 4 of 5". The count sits in the copy,
+                        // so there's no separate progress element anywhere.
                         _reveal(
                           taglineStart,
-                          const Padding(
-                            padding: EdgeInsets.only(left: 2),
-                            child: Text(
-                              'Tap all that apply.',
-                              style: TextStyle(
+                          Padding(
+                            padding: const EdgeInsets.only(left: 2),
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  const TextSpan(text: 'Tap all that apply'),
+                                  TextSpan(
+                                    text: '   ·   ',
+                                    style: TextStyle(
+                                      color: AppColors.inkFaint
+                                          .withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '${_index + 1} of ${_sections.length}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.accent
+                                          .withValues(alpha: 0.9),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              style: const TextStyle(
                                 fontSize: 14.5,
                                 color: AppColors.inkSoft,
                               ),
@@ -312,18 +334,28 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                             ),
                           ),
                           const SizedBox(height: 12),
-                          // The Continue button carries the count itself: label
-                          // on the left, a soft "N of 5" badge on the right that
-                          // pops up on each press. The badge is the "how many
-                          // more" read — a number, not a bar or a line.
-                          _ContinueButton(
-                            label: _buttonLabel(),
-                            step: _index + 1,
-                            total: _sections.length,
-                            // The last category finishes rather than steps on,
-                            // so its badge would read "5 of 5" — hide it there.
-                            showBadge: _index < _sections.length - 1,
-                            onPressed: _next,
+                          // A plain, clean Continue — the "which of five" is
+                          // spoken by Revo's tagline above, not carried here.
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: FilledButton(
+                              onPressed: _next,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.accent,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: Text(
+                                _buttonLabel(),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -339,191 +371,6 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     final last = _index >= _sections.length - 1;
     if (_pickedInSection == 0) return last ? 'Finish' : 'None of these';
     return last ? 'Finish' : 'Continue';
-  }
-}
-
-/// The Continue button, carrying the "how many more" count in its own label.
-///
-/// The label sits centred; a soft "N of 5" badge rides on the right. When the
-/// step advances, the badge does a little count-up POP — the old number drops
-/// away and the new one springs in — so the user feels the counter tick without
-/// any bar or line. On the final category the badge is hidden (the button reads
-/// "Finish", which needs no count). A clean, solid accent button otherwise.
-class _ContinueButton extends StatefulWidget {
-  const _ContinueButton({
-    required this.label,
-    required this.step,
-    required this.total,
-    required this.showBadge,
-    required this.onPressed,
-  });
-
-  final String label;
-
-  /// 1-based position of the current category, and how many there are.
-  final int step;
-  final int total;
-
-  /// Hidden on the last step, where the button finishes rather than advances.
-  final bool showBadge;
-
-  final VoidCallback onPressed;
-
-  @override
-  State<_ContinueButton> createState() => _ContinueButtonState();
-}
-
-class _ContinueButtonState extends State<_ContinueButton>
-    with SingleTickerProviderStateMixin {
-  /// Drives the badge's count-up pop when [step] changes.
-  late final AnimationController _pop;
-
-  @override
-  void initState() {
-    super.initState();
-    _pop = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 420),
-    )..forward();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ContinueButton old) {
-    super.didUpdateWidget(old);
-    if (old.step != widget.step) {
-      _pop
-        ..reset()
-        ..forward();
-    }
-  }
-
-  @override
-  void dispose() {
-    _pop.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: FilledButton(
-        onPressed: widget.onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.accent,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        // A Stack, not a Row: the label is centred across the FULL width, and
-        // the badge is overlaid at the right edge. This keeps the label
-        // perfectly centred and can never overflow — the two never fight for
-        // width the way a Row's fixed gutters did.
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Reserve the badge's lane on both sides so a centred label doesn't
-            // slide under the badge — it ellipsizes before it reaches it.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 60),
-              child: Text(
-                widget.label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            if (widget.showBadge)
-              Positioned(
-                right: 0,
-                child: _CountBadge(
-                  step: widget.step,
-                  total: widget.total,
-                  pop: _pop,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The "N of 5" pill on the Continue button. On each [pop] the current number
-/// springs up from below and fades in (the previous one having dropped away),
-/// so the counter visibly ticks. The pill itself gives a soft, gentle pulse at
-/// the same moment to draw the eye.
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({
-    required this.step,
-    required this.total,
-    required this.pop,
-  });
-
-  final int step;
-  final int total;
-  final Animation<double> pop;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: pop,
-      builder: (context, _) {
-        final t = Curves.easeOutBack.transform(pop.value.clamp(0.0, 1.0));
-        // A soft one-shot pulse of the pill at the moment the number lands.
-        final pulse = 1 + 0.06 * math.sin(pop.value.clamp(0.0, 1.0) * math.pi);
-        return Transform.scale(
-          scale: pulse,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // The counting number — springs up + fades in on each tick.
-                ClipRect(
-                  child: Transform.translate(
-                    offset: Offset(0, 12 * (1 - t)),
-                    child: Opacity(
-                      opacity: t,
-                      child: Text(
-                        '$step',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.0,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          fontFeatures: [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Text(
-                  ' of $total',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.0,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white.withValues(alpha: 0.85),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 }
 

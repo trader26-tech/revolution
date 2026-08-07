@@ -37,7 +37,11 @@ Map<String, ReminderDraft> chipDraftsFor(Set<String> picked) => {
 };
 
 /// The scrolling chip-picker content, with state hoisted to the parent.
-class ChipSelectBody extends StatelessWidget {
+///
+/// On first build the page assembles itself in sequence: Revo pops in, then
+/// the question, then each section (header + its chips) rises up one after
+/// another — a calm cascade rather than everything landing at once.
+class ChipSelectBody extends StatefulWidget {
   const ChipSelectBody({
     super.key,
     required this.picked,
@@ -48,98 +52,174 @@ class ChipSelectBody extends StatelessWidget {
   final ValueChanged<String> onToggle;
 
   @override
+  State<ChipSelectBody> createState() => _ChipSelectBodyState();
+}
+
+class _ChipSelectBodyState extends State<ChipSelectBody>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _intro;
+
+  @override
+  void initState() {
+    super.initState();
+    // One timeline drives the whole cascade. Its length scales with the number
+    // of sections so each still gets a clear, unhurried beat.
+    _intro = AnimationController(
+      vsync: this,
+      duration: Duration(
+        milliseconds: 700 + 220 * kOnboardingChipSections.length,
+      ),
+    );
+    // A breath before it begins, so the star-swept page settles first.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _intro.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
+  }
+
+  /// Fade + slide-up for the slice of the timeline [start]..[start]+[window].
+  Widget _reveal(double start, Widget child, {double window = 0.28}) {
+    final t = Curves.easeOutCubic
+        .transform(((_intro.value - start) / window).clamp(0.0, 1.0));
+    return Opacity(
+      opacity: t,
+      child: Transform.translate(
+        offset: Offset(0, 18 * (1 - t)),
+        child: child,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'What should we\nremember?',
-                      style: TextStyle(
-                        fontSize: 34,
-                        height: 1.1,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // Instruction + a two-word promise, side by side.
-                    Row(
+    final sections = kOnboardingChipSections;
+    // Sections share the back half of the timeline, one staggered beat each.
+    const sectionsStart = 0.34;
+    final perSection = (1 - sectionsStart) / sections.length;
+
+    return AnimatedBuilder(
+      animation: _intro,
+      builder: (context, _) {
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Tap all that apply.',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: AppColors.inkSoft,
+                        // The question — second in, right after Revo.
+                        _reveal(
+                          0.12,
+                          const Text(
+                            'What should we\nremember?',
+                            style: TextStyle(
+                              fontSize: 34,
+                              height: 1.1,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 3,
-                          height: 3,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.inkFaint,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "We've got it.",
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.accent.withValues(alpha: 0.95),
+                        const SizedBox(height: 10),
+                        // Instruction + a two-word promise, side by side.
+                        _reveal(
+                          0.22,
+                          Row(
+                            children: [
+                              const Text(
+                                'Tap all that apply.',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: AppColors.inkSoft,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 3,
+                                height: 3,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.inkFaint,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "We've got it.",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color:
+                                      AppColors.accent.withValues(alpha: 0.95),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
+                  ),
+                  // Revo, first to arrive — a little scale-in pop.
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 2),
+                    child: Transform.scale(
+                      scale: Curves.easeOutBack
+                          .transform((_intro.value / 0.16).clamp(0.0, 1.0)),
+                      child: const AnimatedMascot(size: 66, glow: false),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            for (var i = 0; i < sections.length; i++)
+              _reveal(
+                sectionsStart + perSection * i,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SectionHeader(section: sections[i]),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 9,
+                      children: [
+                        for (final item in sections[i].items)
+                          _Chip(
+                            item: item,
+                            selected: widget.picked.contains(item.key),
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              widget.onToggle(item.key);
+                            },
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
                   ],
                 ),
               ),
-              // Revo, introduced here — glow off, the starfield is busy.
-              const Padding(
-                padding: EdgeInsets.only(left: 8, top: 2),
-                child: AnimatedMascot(size: 66, glow: false),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        for (final s in kOnboardingChipSections) ...[
-          _SectionHeader(section: s),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 9,
-            children: [
-              for (final i in s.items)
-                _Chip(
-                  item: i,
-                  selected: picked.contains(i.key),
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    onToggle(i.key);
-                  },
+            _reveal(
+              0.92,
+              const Center(
+                child: Text(
+                  "Don't see yours? Add more anytime.",
+                  style: TextStyle(fontSize: 12.5, color: AppColors.inkFaint),
                 ),
-            ],
-          ),
-          const SizedBox(height: 26),
-        ],
-        const Center(
-          child: Text(
-            "Don't see yours? Add more anytime.",
-            style: TextStyle(fontSize: 12.5, color: AppColors.inkFaint),
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

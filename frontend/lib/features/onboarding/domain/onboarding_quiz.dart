@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 /// One row on the onboarding quiz ("What do you juggle?").
 ///
-/// [label] is what the user sees; [benefit] is the short, pointed line shown on
-/// the benefits screen — what they'd lose by forgetting this. That's what makes
-/// the last screen say *why the app matters*, not just "you'll save money".
+/// [label] is what the user sees; [perYear] is how many reminders this area
+/// realistically generates in a year. Screen 3 multiplies picks × [perYear]
+/// and counts the total up into one big number — that's the payoff.
 class QuizOption {
   const QuizOption({
     required this.key,
@@ -12,7 +12,7 @@ class QuizOption {
     required this.label,
     required this.sub,
     required this.color,
-    required this.benefit,
+    required this.perYear,
   });
 
   final String key;
@@ -23,8 +23,9 @@ class QuizOption {
   final String sub;
   final Color color;
 
-  /// The consequence-of-forgetting benefit line for screen 3.
-  final String benefit;
+  /// Reminders per year this area typically generates. Deliberately
+  /// conservative — the total must feel honest, not inflated.
+  final int perYear;
 }
 
 /// The quiz options — a clean, ordered list of the areas the app tracks.
@@ -35,7 +36,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Bills',
     sub: 'Electricity, mobile, internet',
     color: Color(0xFFF59E0B),
-    benefit: 'Your power, phone and wifi never get cut.',
+    perYear: 36, // electricity + mobile + internet, each monthly
   ),
   QuizOption(
     key: 'insurance',
@@ -43,7 +44,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Insurance',
     sub: 'Life, health, vehicle',
     color: Color(0xFF10B981),
-    benefit: 'You stay covered the moment life goes wrong.',
+    perYear: 6, // life/health/vehicle premiums + renewal checks
   ),
   QuizOption(
     key: 'loans',
@@ -51,7 +52,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Loans & EMIs',
     sub: 'Home, car, credit card',
     color: Color(0xFF3B82F6),
-    benefit: 'Your credit score stays spotless — zero penalties.',
+    perYear: 24, // an EMI + a credit-card bill, monthly each
   ),
   QuizOption(
     key: 'renewals',
@@ -59,7 +60,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Renewals',
     sub: 'Licence, passport, RC',
     color: Color(0xFF6366F1),
-    benefit: 'Never stopped, fined, or stuck without valid ID.',
+    perYear: 4, // a handful of expiry dates spread over the year
   ),
   QuizOption(
     key: 'taxes',
@@ -67,7 +68,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Taxes & Filing',
     sub: 'ITR, GST, advance tax',
     color: Color(0xFF0EA5E9),
-    benefit: 'File on time — no notices, no last-minute panic.',
+    perYear: 9, // 4 advance-tax dates + ITR + GST-style filings
   ),
   QuizOption(
     key: 'investments',
@@ -75,7 +76,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Investments',
     sub: 'SIPs, FDs, maturities',
     color: Color(0xFF14B8A6),
-    benefit: 'Your money keeps growing — nothing sits idle.',
+    perYear: 12, // the monthly SIP date
   ),
   QuizOption(
     key: 'health',
@@ -83,7 +84,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Health & Meds',
     sub: 'Refills, check-ups, vaccines',
     color: Color(0xFFEF4444),
-    benefit: 'Never skip a dose, refill, or check-up again.',
+    perYear: 15, // monthly refills + a few check-ups / vaccines
   ),
   QuizOption(
     key: 'vehicle',
@@ -91,7 +92,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Vehicle',
     sub: 'PUC, service, insurance',
     color: Color(0xFF0891B2),
-    benefit: 'Always road-legal and serviced on time.',
+    perYear: 6, // 2 PUC + 2 services + insurance + road tax
   ),
   QuizOption(
     key: 'home',
@@ -99,7 +100,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Home',
     sub: 'Rent, maintenance, bills',
     color: Color(0xFF9333EA),
-    benefit: 'Your home runs smooth — nothing overdue.',
+    perYear: 16, // rent monthly + quarterly society maintenance
   ),
   QuizOption(
     key: 'warranties',
@@ -107,7 +108,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Warranties',
     sub: 'Appliances, gadgets, AMC',
     color: Color(0xFFF97316),
-    benefit: 'Claim free repairs before the cover runs out.',
+    perYear: 4, // covers and AMCs expiring through the year
   ),
   QuizOption(
     key: 'documents',
@@ -115,7 +116,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Documents',
     sub: 'Aadhaar, PAN, KYC',
     color: Color(0xFF64748B),
-    benefit: 'Every important paper, updated and ready.',
+    perYear: 3, // occasional KYC / re-verification nudges
   ),
   QuizOption(
     key: 'work',
@@ -123,7 +124,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Work & Deadlines',
     sub: 'Projects, invoices, renewals',
     color: Color(0xFF475569),
-    benefit: 'Deliverables and payments never slip.',
+    perYear: 24, // roughly two invoices / deadlines a month
   ),
   QuizOption(
     key: 'subscriptions',
@@ -131,7 +132,7 @@ const List<QuizOption> kQuizOptions = [
     label: 'Subscriptions',
     sub: 'Netflix, Spotify, Prime',
     color: Color(0xFF8B5CF6),
-    benefit: 'You stop paying for things you forgot you had.',
+    perYear: 36, // ~3 services, each renewing monthly
   ),
   QuizOption(
     key: 'birthdays',
@@ -139,6 +140,6 @@ const List<QuizOption> kQuizOptions = [
     label: 'Birthdays',
     sub: 'Family & friends',
     color: Color(0xFFEC4899),
-    benefit: 'You’re the one who always remembers.',
+    perYear: 12, // the people you can't afford to forget
   ),
 ];

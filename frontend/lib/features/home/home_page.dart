@@ -57,7 +57,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// DEV: replay the FULL onboarding from page 1 — the animated intro flow
-  /// (intro → quiz → benefits), then straight into the checklist + phone step.
+  /// (intro → quiz → payoff), then straight into the checklist + phone step.
   /// Nothing is reset; it's a pure walkthrough that pops back to Home.
   void _openOnboardingPreview() {
     final nav = Navigator.of(context);

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
-import 'screens/benefits_screen.dart';
 import 'screens/intro_screen.dart';
+import 'screens/payoff_screen.dart';
 import 'screens/quiz_screen.dart';
 
-/// The 3-screen onboarding: what it does → a quick quiz → the personalised
-/// money payoff. Minimal, stylised, visual. Call [showOnboarding] to present it.
+/// The 3-screen onboarding: what it does → a quick quiz → the big-number
+/// payoff. Minimal, stylised, visual. Call [showOnboarding] to present it.
 Future<void> showOnboarding(BuildContext context) {
   return Navigator.of(context).push(
     MaterialPageRoute(
@@ -67,7 +67,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case 0:
         return 'Show me how';
       case 1:
-        return _picked.isEmpty ? 'Skip' : 'Show me why it matters';
+        return _picked.isEmpty ? 'Skip' : 'Add it up for me';
       default:
         return 'Get started';
     }
@@ -105,7 +105,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 children: [
                   const IntroScreen(),
                   QuizScreen(picked: _picked, onToggle: _toggle),
-                  BenefitsScreen(picked: _picked),
+                  PayoffScreen(picked: _picked),
                 ],
               ),
             ),

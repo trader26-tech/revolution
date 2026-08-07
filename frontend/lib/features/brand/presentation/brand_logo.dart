@@ -46,6 +46,39 @@ class BrandLogo extends StatelessWidget {
       seed: brand.name,
     );
 
+    // A bundled logo wins over everything: it's already on device, so it
+    // renders instantly, works offline, and can't be a 16px favicon.
+    final asset = brand.assetPath;
+    if (asset != null && asset.isNotEmpty) {
+      final image = SizedBox(
+        width: size,
+        height: size,
+        child: Image.asset(
+          asset,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          errorBuilder: (_, _, _) => fallback,
+        ),
+      );
+      if (!bare) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: Container(
+            width: size,
+            height: size,
+            color: Colors.white,
+            padding: EdgeInsets.all(size * 0.12),
+            child: image,
+          ),
+        );
+      }
+      if (circular) return ClipOval(child: image);
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: image,
+      );
+    }
+
     final urls = brand.logoUrlCandidates;
     if (urls.isEmpty) return fallback;
 

@@ -39,73 +39,63 @@ class _IntroScreenState extends State<IntroScreen>
   // Geometry is a FRACTION of the cluster box (0..1) measured from its centre,
   // so the composition scales with the screen and can't spill out.
   //
-  // EVERY RING SPACES ITS LOGOS EVENLY — three logos sit exactly 120° apart,
+  // The rings are all the SAME (small) radius — [_ringRadiusF] — and sit in a
+  // near-equilateral triangle around the centre, so the trio reads as one
+  // balanced constellation rather than three unrelated circles.
+  //
+  // EVERY RING SPACES ITS LOGOS EVENLY — n logos at exactly 360/n apart,
   // computed from the ring's single [phaseDeg] rather than written out per
   // logo. Even spacing is therefore structural: it can't drift when a logo is
-  // swapped, and there are no per-logo angles to get wrong.
+  // swapped or when a ring's logo count changes, and there are no per-logo
+  // angles to get wrong.
   //
   // THE RINGS MUST NEVER INTERSECT, and no logo may sit on a neighbouring
-  // ring's track. Centres, radii and phases come from a joint search that
-  // enforces, simultaneously:
-  //   · disjoint outlines — centre distance >= r1 + r2 + 0.020 of visible gap
+  // ring's track. Centres and phases come from a joint search that enforces,
+  // simultaneously:
+  //   · disjoint outlines with a visible gap
   //   · every outline AND every logo inside the box
   //   · no logo within 5px of another ring's outline
-  //   · the size hierarchy and placement below — the rings are deliberately
-  //     DIFFERENT sizes, which gives the composition rhythm instead of three
-  //     interchangeable circles
-  // subject to maximising clearance and that size spread. The result keeps 12px
-  // of clearance between any two elements. [_debugAssertLayoutValid] re-checks all
-  // of it at startup in debug builds, so a hand-tweak that breaks an invariant
-  // fails loudly instead of silently shipping a broken layout.
+  //   · centres roughly equidistant, and pulled in towards the middle
+  // subject to maximising clearance. The result keeps 15px of clearance between
+  // any two elements. [_debugAssertLayoutValid] re-checks all of it at startup
+  // in debug builds, so a hand-tweak that breaks an invariant fails loudly
+  // instead of silently shipping a broken layout.
   //
   // Every domain was hand-checked to return a crisp, correct logo on a dark
   // background (see the notes on individual entries).
+
+  /// Shared radius for all three rings.
+  static const _ringRadiusF = 0.175;
+
   static const _rings = <_Ring>[
-    // Subscriptions — the SMALLEST ring, out on the left.
+    // Subscriptions — four of the services people actually forget to cancel.
     _Ring(
-      cxF: -0.306,
-      cyF: -0.126,
-      radiusF: 0.165,
-      phaseDeg: 131,
+      cxF: 0.160,
+      cyF: 0.265,
+      radiusF: _ringRadiusF,
+      phaseDeg: 31,
       hubIcon: Icons.play_circle_fill_rounded,
       logos: [
-        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42),
-        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 44),
-        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40),
+        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 38),
+        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 38),
+        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 36),
+        _OrbitLogo(Brand(name: 'Prime Video', domain: 'primevideo.com'), 36),
       ],
     ),
-    // Investments & documents — the BIGGEST ring, upper-right. Groww and
-    // Upstox carry "money", DigiLocker carries "documents"; all three are
-    // household names with crisp, high-res marks.
+    // Insurance — three of the biggest names in Indian insurance, so the ring
+    // reads as "insurance" without a label.
     _Ring(
-      cxF: 0.198,
-      cyF: -0.198,
-      radiusF: 0.274,
-      phaseDeg: 85,
-      hubIcon: Icons.trending_up_rounded,
-      logos: [
-        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 38),
-        // DigiLocker — the govt document wallet; its violet mark sits
-        // naturally in this palette.
-        _OrbitLogo(Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'), 36),
-        // Upstox: a crisp 196px violet mark — reads beautifully on the sky.
-        _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36),
-      ],
-    ),
-    // Insurance — the mid-sized ring, along the bottom. Three of the biggest
-    // names in Indian insurance, so the ring reads as "insurance" unlabelled.
-    _Ring(
-      cxF: -0.006,
-      cyF: 0.246,
-      radiusF: 0.194,
-      phaseDeg: 11,
+      cxF: -0.294,
+      cyF: -0.060,
+      radiusF: _ringRadiusF,
+      phaseDeg: 6,
       hubIcon: Icons.shield_rounded,
       logos: [
         // LIC's real mark is wide (emblem + wordmark) → a slightly bigger box.
-        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 46),
+        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 42),
         // HDFC — hdfclife.com serves the clean 256px mark; hdfcbank.com's own
         // favicon is a 16px blur and icon.horse returns a placeholder "H".
-        _OrbitLogo(Brand(name: 'HDFC', domain: 'hdfclife.com'), 38),
+        _OrbitLogo(Brand(name: 'HDFC', domain: 'hdfclife.com'), 36),
         // SBI: pinned to Google's favicon service — it's the only source that
         // returns a decodable PNG of the keyhole mark (icon.horse serves .ico,
         // which Flutter can't decode, and sbilife.co.in's is an unreadable
@@ -121,8 +111,32 @@ class _IntroScreenState extends State<IntroScreen>
             domain: 'onlinesbi.sbi',
             source: LogoSource.googleFavicon,
           ),
-          38,
+          36,
           circular: true,
+        ),
+      ],
+    ),
+    // Documents — the papers people have to keep current: DigiLocker (the govt
+    // document wallet) and Aadhaar.
+    _Ring(
+      cxF: 0.168,
+      cyF: -0.261,
+      radiusF: _ringRadiusF,
+      phaseDeg: 44,
+      hubIcon: Icons.badge_rounded,
+      logos: [
+        _OrbitLogo(Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'), 38),
+        // Aadhaar ships as a BUNDLED asset: uidai.gov.in's favicon is capped at
+        // 16px whatever size you request, and Wikimedia blocks hotlinking — so
+        // no network source can serve a usable mark. This one is rendered from
+        // UIDAI's own official SVG, cropped to the emblem and made transparent.
+        _OrbitLogo(
+          Brand(
+            name: 'Aadhaar',
+            domain: 'uidai.gov.in',
+            assetPath: 'assets/images/aadhaar.png',
+          ),
+          40,
         ),
       ],
     ),

@@ -42,6 +42,7 @@ class Brand {
     required this.domain,
     this.source,
     this.overrideLogoUrl,
+    this.assetPath,
   });
 
   final String name;
@@ -57,6 +58,14 @@ class Brand {
   /// A fixed logo URL (a manually-uploaded custom logo). When set, it's used
   /// directly and wins over any domain-based guessing.
   final String? overrideLogoUrl;
+
+  /// A logo BUNDLED with the app (e.g. 'assets/images/aadhaar.png').
+  ///
+  /// For brands where no network source serves a usable image — Aadhaar's
+  /// favicon is capped at 16px and Wikimedia blocks hotlinking, so the mark can
+  /// only be shipped locally. Wins over every network candidate, and renders
+  /// instantly and offline.
+  final String? assetPath;
 
   /// The logo URL, from [source] if chosen, else the default best source
   /// (Google's faviconV2 — reliable real PNGs for essentially any domain).

@@ -8,15 +8,17 @@ import '../../../tasks/domain/task.dart';
 import '../../domain/onboarding_chip_catalog.dart';
 import 'chip_select_screen.dart';
 
-/// Screen 3 — the payoff, as one unforgettable number and a sky of dots.
+/// Screen 3 — the payoff, as one calm, message-first statement.
 ///
-/// Every chip the user picked fires on its own clock (Netflix monthly, LIC
-/// yearly…). We add up how many times a year they ALL fire and count the
-/// total up live — and as the number climbs, a constellation blooms beneath
-/// it: one glowing dot per reminder, coloured by the life area it comes from.
-/// No pills, no math on screen — you just watch a year's worth of "don't
-/// forget" fill the page. Then the landing: don't worry — Revolution has got
-/// you covered.
+/// The reference: a big centred headline with the number highlighted inline
+/// ("That's **62** things to remember this year"), one softly glowing mascot
+/// floating below, generous space, and a single muted promise line above the
+/// CTA. No constellation, no clutter — the number is the whole point, so we let
+/// it breathe.
+///
+/// The count still animates once on arrival (a quick, dignified climb to the
+/// real total) so the number feels earned rather than printed, but the layout
+/// stays fixed and centred the entire time.
 class PayoffScreen extends StatefulWidget {
   const PayoffScreen({super.key, required this.picked});
 
@@ -28,36 +30,38 @@ class PayoffScreen extends StatefulWidget {
 
 class _PayoffScreenState extends State<PayoffScreen>
     with TickerProviderStateMixin {
-  /// One-shot timeline: headline → count-up + bloom → settle → promise.
+  /// One-shot entrance timeline: headline → count-up → mascot → promise.
   late final AnimationController _c;
 
-  /// Endless idle loop that keeps the constellation drifting.
-  late final AnimationController _float;
+  /// Endless idle loop — a whisper of breathing in the mascot's glow.
+  late final AnimationController _idle;
 
-  static const _countStart = 0.08;
+  // Timeline stops (fractions of [_c]).
+  static const _headlineStart = 0.00;
+  static const _countStart = 0.14;
   static const _countEnd = 0.66;
-  static const _promiseStart = 0.80;
+  static const _mascotStart = 0.62;
+  static const _promiseStart = 0.78;
 
   int _total = 0;
-  List<_Dot> _dots = const [];
 
   @override
   void initState() {
     super.initState();
-    _rebuildDots();
+    _total = _countReminders();
     _c = AnimationController(vsync: this, duration: _duration)..forward();
-    _float = AnimationController(
+    _idle = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 7),
+      duration: const Duration(seconds: 6),
     )..repeat();
   }
 
   @override
   void didUpdateWidget(covariant PayoffScreen old) {
     super.didUpdateWidget(old);
-    // The parent rebuilds when the user lands on this page (and when picks
-    // change) — recompute and replay so arriving always shows the reveal.
-    _rebuildDots();
+    // The parent rebuilds when the user lands here (and when picks change) —
+    // recompute and replay so arriving always shows the reveal.
+    _total = _countReminders();
     _c
       ..duration = _duration
       ..forward(from: 0);
@@ -66,13 +70,13 @@ class _PayoffScreenState extends State<PayoffScreen>
   @override
   void dispose() {
     _c.dispose();
-    _float.dispose();
+    _idle.dispose();
     super.dispose();
   }
 
   /// A touch more time for bigger years, so the climb stays readable.
   Duration get _duration =>
-      Duration(milliseconds: (1400 + _total * 6).clamp(1400, 3000));
+      Duration(milliseconds: (1500 + _total * 5).clamp(1500, 2800));
 
   /// How many times a year one picked chip fires.
   static int _firesPerYear(RepeatCadence f) => switch (f) {
@@ -83,288 +87,160 @@ class _PayoffScreenState extends State<PayoffScreen>
         RepeatCadence.none => 1,
       };
 
-  /// One dot per reminder-per-year, coloured by its section. Layout jitter is
-  /// seeded so the constellation is organic but stable across rebuilds.
-  void _rebuildDots() {
+  /// Total reminders a year across everything the user picked.
+  int _countReminders() {
     final picked =
         widget.picked.isNotEmpty ? widget.picked : preselectedChipKeys();
-    final rnd = math.Random(42);
-    final dots = <_Dot>[];
+    var total = 0;
     for (final s in kOnboardingChipSections) {
       for (final item in s.items) {
-        if (!picked.contains(item.key)) continue;
-        final fires = _firesPerYear(item.defaultFrequency);
-        for (var f = 0; f < fires; f++) {
-          dots.add(_Dot(
-            color: s.color,
-            radius: 2.4 + rnd.nextDouble() * 1.7,
-            glow: rnd.nextDouble() < 0.16,
-            phase: rnd.nextDouble() * 2 * math.pi,
-            amp: 1.2 + rnd.nextDouble() * 1.8,
-            jitterAngle: (rnd.nextDouble() - 0.5) * 0.9,
-            jitterRadius: (rnd.nextDouble() - 0.5) * 0.10,
-          ));
+        if (picked.contains(item.key)) {
+          total += _firesPerYear(item.defaultFrequency);
         }
       }
     }
-    // Shuffle (seeded) so colours mingle instead of arriving in blocks.
-    dots.shuffle(math.Random(7));
-    _total = dots.length;
-    _dots = dots;
+    return total;
   }
 
   /// The live running count, eased across the count window.
-  double get _running {
+  int get _running {
     final t = ((_c.value - _countStart) / (_countEnd - _countStart))
         .clamp(0.0, 1.0);
-    return _total * Curves.easeOutCubic.transform(t);
+    return (_total * Curves.easeOutCubic.transform(t)).round();
   }
 
   /// Fade + slide-up reveal for a slice of the timeline.
-  Widget _reveal(double start, Widget child, {double window = 0.20}) {
+  Widget _reveal(double start, Widget child, {double window = 0.22}) {
     final t = Curves.easeOutCubic
         .transform(((_c.value - start) / window).clamp(0.0, 1.0));
     return Opacity(
       opacity: t,
-      child: Transform.translate(offset: Offset(0, 10 * (1 - t)), child: child),
+      child: Transform.translate(offset: Offset(0, 12 * (1 - t)), child: child),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     return AnimatedBuilder(
-      animation: Listenable.merge([_c, _float]),
+      animation: Listenable.merge([_c, _idle]),
       builder: (context, _) {
-        final settle = ((_c.value - _countEnd) / 0.10).clamp(0.0, 1.0);
-        return Column(
-          children: [
-            const Spacer(flex: 2),
-            _reveal(
-              0.0,
-              Text(
-                "That's",
-                style: text.headlineSmall?.copyWith(color: AppColors.inkSoft),
-              ),
-            ),
-            _bigNumber(_running.round(), settle),
-            _reveal(
-              0.04,
-              Text(
-                'things to remember this year.',
-                style: text.headlineMedium?.copyWith(color: AppColors.ink),
-              ),
-            ),
-            // The sky: one dot per reminder, blooming as the number climbs.
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: CustomPaint(
-                  size: Size.infinite,
-                  painter: _DotSkyPainter(
-                    dots: _dots,
-                    running: _running,
-                    floatT: _float.value,
-                    settle: settle,
-                  ),
-                ),
-              ),
-            ),
-            _promise(),
-            const SizedBox(height: 12),
-          ],
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            children: [
+              const Spacer(flex: 5),
+              _headline(),
+              const Spacer(flex: 4),
+              _mascot(),
+              const Spacer(flex: 4),
+              _promise(),
+              const Spacer(flex: 2),
+            ],
+          ),
         );
       },
     );
   }
 
-  // ── The number — the whole point of the page ───────────────────────────────
+  // ── The headline — one sentence, the number carrying it ─────────────────────
 
-  Widget _bigNumber(int value, double settle) {
-    // A quick settle-pop the moment the count completes.
-    final pop = math.sin(settle * math.pi) * 0.05;
-    return SizedBox(
-      height: 126,
-      child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          // Soft accent halo so the number glows off the page.
-          Container(
-            width: 240,
-            height: 240,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  AppColors.accent.withValues(alpha: 0.12),
-                  AppColors.accent.withValues(alpha: 0.0),
-                ],
-              ),
-            ),
-          ),
-          Transform.scale(
-            scale: 1 + pop,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: ShaderMask(
-                shaderCallback: (r) => const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [AppColors.accent, AppColors.accentDeep],
-                ).createShader(r),
+  /// The big centred statement, with the running number highlighted in accent
+  /// violet inline — exactly the reference's shape. The number settles with a
+  /// tiny pop the instant the count completes.
+  Widget _headline() {
+    final settle = ((_c.value - _countEnd) / 0.10).clamp(0.0, 1.0);
+    final pop = math.sin(settle * math.pi) * 0.04;
+
+    return _reveal(
+      _headlineStart,
+      Text.rich(
+        TextSpan(
+          children: [
+            const TextSpan(text: "That's "),
+            // The number: accent violet, a hair heavier, tabular so the width
+            // doesn't jitter as it counts.
+            WidgetSpan(
+              alignment: PlaceholderAlignment.baseline,
+              baseline: TextBaseline.alphabetic,
+              child: Transform.scale(
+                scale: 1 + pop,
                 child: Text(
-                  '$value',
+                  '$_running',
                   style: const TextStyle(
-                    fontSize: 116,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -4,
-                    height: 1.0,
-                    color: Colors.white,
+                    fontSize: 40,
+                    height: 1.15,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -1,
+                    color: AppColors.accent,
                     fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── The landing: the mascot delivers the promise ───────────────────────────
-
-  Widget _promise() {
-    final raw =
-        ((_c.value - _promiseStart) / (1 - _promiseStart)).clamp(0.0, 1.0);
-    final t = Curves.easeOutCubic.transform(raw);
-    // The mascot pops in with a bounce just ahead of the words.
-    final pop = Curves.easeOutBack.transform(raw);
-    return Opacity(
-      opacity: t,
-      child: Transform.translate(
-        offset: Offset(0, 16 * (1 - t)),
-        child: Column(
-          children: [
-            Transform.scale(
-              scale: 0.5 + 0.5 * pop,
-              child: const AnimatedMascot(size: 96),
-            ),
-            const SizedBox(height: 8),
-            Text.rich(
-              const TextSpan(
-                children: [
-                  TextSpan(text: 'Revolution remembers '),
-                  TextSpan(
-                    text: 'every single one.',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.accentDeep,
-                    ),
-                  ),
-                ],
-              ),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-                color: AppColors.ink,
-              ),
-            ),
+            const TextSpan(text: ' things to remember this year'),
           ],
+        ),
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 34,
+          height: 1.22,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.6,
+          color: AppColors.ink,
         ),
       ),
     );
   }
-}
 
-/// One reminder in the sky: its colour, size, sparkle and idle-drift motion.
-class _Dot {
-  const _Dot({
-    required this.color,
-    required this.radius,
-    required this.glow,
-    required this.phase,
-    required this.amp,
-    required this.jitterAngle,
-    required this.jitterRadius,
-  });
+  // ── The mascot — one calm glow, floating ────────────────────────────────────
 
-  final Color color;
-  final double radius;
+  Widget _mascot() {
+    final raw =
+        ((_c.value - _mascotStart) / 0.24).clamp(0.0, 1.0);
+    final t = Curves.easeOutCubic.transform(raw);
+    final pop = Curves.easeOutBack.transform(raw);
+    // A slow breathing bob for the floating-in-space feel.
+    final bob = math.sin(_idle.value * 2 * math.pi) * 5;
 
-  /// A few dots get a soft halo, so the sky sparkles instead of tiling.
-  final bool glow;
-
-  final double phase;
-  final double amp;
-  final double jitterAngle;
-  final double jitterRadius;
-}
-
-/// Paints the constellation: dots laid out on a phyllotaxis spiral (sunflower
-/// packing — organic, even, no clumps), blooming centre-out as the count
-/// climbs, then breathing once on settle and drifting forever after.
-class _DotSkyPainter extends CustomPainter {
-  _DotSkyPainter({
-    required this.dots,
-    required this.running,
-    required this.floatT,
-    required this.settle,
-  });
-
-  final List<_Dot> dots;
-  final double running;
-  final double floatT;
-  final double settle;
-
-  static const _goldenAngle = 2.39996;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (dots.isEmpty || size.isEmpty) return;
-    final center = size.center(Offset.zero);
-    final rx = size.width * 0.46;
-    final ry = size.height * 0.46;
-    // One collective breath the moment the count lands.
-    final breathe = 1 + math.sin(settle * math.pi) * 0.04;
-    final paint = Paint();
-
-    for (var i = 0; i < dots.length; i++) {
-      // Dot i exists once the running count has passed it; it pops over the
-      // next ~3 counts so arrivals overlap into a continuous bloom.
-      final t = ((running - i) / 3).clamp(0.0, 1.0);
-      if (t <= 0) continue;
-      final d = dots[i];
-      final pop = Curves.easeOutBack.transform(t);
-
-      final f = math.sqrt((i + 0.5) / dots.length) + d.jitterRadius;
-      final angle = i * _goldenAngle + d.jitterAngle;
-      final bob = Offset(
-        math.sin(floatT * 2 * math.pi + d.phase) * d.amp,
-        math.cos(floatT * 2 * math.pi + d.phase * 1.3) * d.amp * 0.8,
-      );
-      final pos = center +
-          Offset(
-            rx * f * math.cos(angle) * breathe,
-            ry * f * math.sin(angle) * breathe,
-          ) +
-          bob;
-
-      if (d.glow) {
-        paint.color = d.color.withValues(alpha: 0.16 * t);
-        canvas.drawCircle(pos, d.radius * pop * 2.8, paint);
-      }
-      paint.color = d.color.withValues(alpha: 0.92 * t);
-      canvas.drawCircle(pos, d.radius * pop, paint);
-    }
+    return Opacity(
+      opacity: t,
+      child: Transform.translate(
+        offset: Offset(0, bob),
+        child: Transform.scale(
+          scale: 0.7 + 0.3 * pop,
+          child: const AnimatedMascot(size: 128),
+        ),
+      ),
+    );
   }
 
-  @override
-  bool shouldRepaint(_DotSkyPainter old) =>
-      old.running != running ||
-      old.floatT != floatT ||
-      old.settle != settle ||
-      old.dots != dots;
+  // ── The promise — one muted line above the CTA ──────────────────────────────
+
+  Widget _promise() {
+    return _reveal(
+      _promiseStart,
+      Text.rich(
+        const TextSpan(
+          children: [
+            TextSpan(text: 'Revolution remembers '),
+            TextSpan(
+              text: 'every single one.',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: AppColors.accent,
+              ),
+            ),
+          ],
+        ),
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 17,
+          height: 1.4,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
+          color: AppColors.inkSoft,
+        ),
+      ),
+    );
+  }
 }

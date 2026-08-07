@@ -20,7 +20,13 @@ import '../../../brand/presentation/brand_logo.dart';
 /// Everything is laid out in FRACTIONS of the available box, so no ring can
 /// ever spill outside the frame on any screen.
 class IntroScreen extends StatefulWidget {
-  const IntroScreen({super.key});
+  const IntroScreen({super.key, this.onStart});
+
+  /// Advance out of the intro — the flow's "go to the chip picker" callback.
+  /// The button lives on THIS screen (right under the copy) rather than in the
+  /// flow's shared bottom bar, so on the intro page there's a visible CTA
+  /// instead of a dead-end. Null in previews/tests → the button hides.
+  final VoidCallback? onStart;
 
   @override
   State<IntroScreen> createState() => _IntroScreenState();
@@ -302,22 +308,26 @@ class _IntroScreenState extends State<IntroScreen>
           ),
           Column(
             children: [
-              // The orbits get the stage, but they no longer claim ALL the
-              // upper area: a deliberate breathing gap sits between the cluster
-              // and the app logo below, so the two read as separate acts rather
-              // than the copy crowding the rings.
-              Expanded(flex: 58, child: _orbits()),
-              // The empty lane between the orbit and the brand block — the space
-              // the user asked to open up so the composition can breathe.
-              const Spacer(flex: 14),
+              // The orbits get the stage: they claim the whole upper area and
+              // size themselves to it, so short screens shrink the cluster
+              // instead of clipping it. Everything below is deliberately
+              // compact and pushed down so nothing competes with the rings.
+              Expanded(flex: 72, child: _orbits()),
               _appLogo(),
               const SizedBox(height: 20),
               // Headline + subtitle share ONE width, so the two blocks line up
               // edge to edge instead of each finding its own natural width.
-              // Both scale down to stay on a single line — the subtitle lives in
-              // one lane rather than wrapping.
+              // The headline scales down to fit that width (never wraps); the
+              // subtitle wraps inside it — so both read as one tidy column.
               _textBlock(context, text),
-              const Spacer(flex: 14),
+              // The CTA sits directly under the copy — a small, deliberate gap,
+              // no yawning space above it. The flow hands us [onStart]; when
+              // absent (previews/tests) the button simply hides.
+              if (widget.onStart != null) ...[
+                const SizedBox(height: 22),
+                _startButton(context),
+              ],
+              const Spacer(flex: 8),
             ],
           ),
         ],
@@ -364,24 +374,36 @@ class _IntroScreenState extends State<IntroScreen>
           const SizedBox(height: 12),
           _reveal(
             start: 0.60,
-            // ONE lane: the subtitle never wraps. FittedBox scales it down to
-            // sit on a single line within the shared width, so the whole line
-            // reads as one continuous thought instead of breaking in two.
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                'Track your subscriptions, investments and insurance — '
-                'never miss a date',
-                maxLines: 1,
-                textAlign: TextAlign.center,
-                style: text.bodyLarge?.copyWith(
-                  color: AppColors.inkSoft,
-                  fontSize: 15,
-                ),
+            // No hard line break — it wraps to the shared width on its own, so
+            // the balance holds if the copy or the font ever changes.
+            child: Text(
+              'Track your subscriptions, investments and insurance — '
+              'never miss a date',
+              textAlign: TextAlign.center,
+              style: text.bodyLarge?.copyWith(
+                color: AppColors.inkSoft,
+                fontSize: 15,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// The "Start tracking" CTA, sitting directly under the copy. Locked to the
+  /// same shared width as the text so its edges line up with the headline, and
+  /// revealed last in the entrance so it lands after the words it belongs to.
+  Widget _startButton(BuildContext context) {
+    final available = MediaQuery.sizeOf(context).width - 40;
+    return _reveal(
+      start: 0.68,
+      child: SizedBox(
+        width: math.min(_textWidth, available),
+        child: FilledButton(
+          onPressed: widget.onStart,
+          child: const Text('Start tracking'),
+        ),
       ),
     );
   }

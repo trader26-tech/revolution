@@ -82,6 +82,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     // Page 1 is the category wizard, which owns its own progress bar + bottom
     // button, so the flow's shared top dots and bottom CTA hide on that page.
     final wizardPage = _page == 1;
+    // Page 0 (the intro) now carries its OWN "Start tracking" button, sitting
+    // right under its copy — so the flow's shared bottom CTA only belongs to the
+    // final payoff page. Without this the intro showed a dead-end (no button in
+    // view) and the bar would double up.
+    final showBottomCta = _page == _pageCount - 1;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -121,7 +126,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                       : null,
                   onPageChanged: (i) => setState(() => _page = i),
                   children: [
-                    const IntroScreen(),
+                    IntroScreen(onStart: _next),
                     ChipSelectWizard(
                       picked: _picked,
                       onToggle: _toggle,
@@ -132,8 +137,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   ],
                 ),
               ),
-              // Bottom CTA. Hidden on the wizard (it has its own).
-              if (!wizardPage)
+              // Bottom CTA — only the payoff page uses the shared bar now; the
+              // intro carries its own button and the wizard has its own.
+              if (showBottomCta)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
                   child: SizedBox(

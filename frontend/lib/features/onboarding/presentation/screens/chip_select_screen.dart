@@ -252,8 +252,12 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                     ),
                   ),
                   // Bottom: reassurance + Continue, the sky fading up into it.
+                  // Reveal must COMPLETE within the 0..1 timeline, so start
+                  // early enough that start+window <= 1.0 — otherwise the
+                  // button caps at a faint fraction of full opacity and reads
+                  // as "no button".
                   _reveal(
-                    0.9,
+                    0.7,
                     Container(
                       padding: const EdgeInsets.fromLTRB(24, 18, 24, 18),
                       decoration: BoxDecoration(

@@ -224,10 +224,10 @@ class _PayoffScreenState extends State<PayoffScreen>
               child: Text(
                 '$_running',
                 style: const TextStyle(
-                  fontSize: 40,
+                  fontSize: 30,
                   height: 1.2,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: -1.0,
+                  letterSpacing: -0.6,
                   color: AppColors.accent,
                   fontFeatures: [FontFeature.tabularFigures()],
                 ),

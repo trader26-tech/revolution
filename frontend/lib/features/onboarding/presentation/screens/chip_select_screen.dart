@@ -246,7 +246,10 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                                 // bloom out of the burst as the dots fade. They
                                 // overlap in a Stack, top-left aligned so the
                                 // burst sits right where the first word lands.
+                                // No clip, so the burst ring can bloom past the
+                                // text bounds without being cut off.
                                 child: Stack(
+                                  clipBehavior: Clip.none,
                                   children: [
                                     _MagicText(
                                       // Keyed by category so it restarts cleanly

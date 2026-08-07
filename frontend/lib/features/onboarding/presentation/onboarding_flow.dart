@@ -63,8 +63,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _toggle(String key) => setState(() {
-        _picked.contains(key) ? _picked.remove(key) : _picked.add(key);
-      });
+    _picked.contains(key) ? _picked.remove(key) : _picked.add(key);
+  });
 
   String get _cta {
     switch (_page) {
@@ -86,50 +86,47 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       // orbit clock, so it sits on top of this without a seam.)
       body: Starfield(
         child: SafeArea(
-        child: Column(
-          children: [
-            // Top: progress dots (left) + Skip (right).
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
-              child: Row(
-                children: [
-                  _ProgressDots(page: _page, count: _pageCount),
-                  const Spacer(),
-                  if (_page < _pageCount - 1)
-                    TextButton(
-                      onPressed: _finish,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.inkFaint,
+          child: Column(
+            children: [
+              // Top: progress dots (left) + Skip (right).
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
+                child: Row(
+                  children: [
+                    _ProgressDots(page: _page, count: _pageCount),
+                    const Spacer(),
+                    if (_page < _pageCount - 1)
+                      TextButton(
+                        onPressed: _finish,
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.inkFaint,
+                        ),
+                        child: const Text('Skip'),
                       ),
-                      child: const Text('Skip'),
-                    ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _controller,
-                onPageChanged: (i) => setState(() => _page = i),
-                children: [
-                  const IntroScreen(),
-                  ChipSelectBody(picked: _picked, onToggle: _toggle),
-                  PayoffScreen(picked: _picked),
-                ],
-              ),
-            ),
-            // Bottom CTA.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _next,
-                  child: Text(_cta),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
+              Expanded(
+                child: PageView(
+                  controller: _controller,
+                  onPageChanged: (i) => setState(() => _page = i),
+                  children: [
+                    const IntroScreen(),
+                    ChipSelectBody(picked: _picked, onToggle: _toggle),
+                    PayoffScreen(picked: _picked),
+                  ],
+                ),
+              ),
+              // Bottom CTA.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(onPressed: _next, child: Text(_cta)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -34,7 +34,7 @@ void main() {
     };
 
     await tester.pumpWidget(MaterialApp(
-      theme: AppTheme.light,
+      theme: AppTheme.dark,
       home: Scaffold(body: CalendarPage(store: _FakeStore(tasks))),
     ));
     await tester.pump();

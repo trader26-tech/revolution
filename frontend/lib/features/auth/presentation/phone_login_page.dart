@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/starfield.dart';
 import '../domain/country_code.dart';
 import 'widgets/country_flag.dart';
 
@@ -91,60 +92,61 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
       body: Starfield(
         intensity: 0.7,
         child: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        behavior: HitTestBehavior.opaque,
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- content (no icon; short, concise copy) ---
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'What’s your number?',
-                        style: TextStyle(
-                          fontSize: 30,
-                          height: 1.1,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
-                          letterSpacing: -0.6,
+          onTap: () => FocusScope.of(context).unfocus(),
+          behavior: HitTestBehavior.opaque,
+          child: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- content (no icon; short, concise copy) ---
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'What’s your number?',
+                          style: TextStyle(
+                            fontSize: 30,
+                            height: 1.1,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                            letterSpacing: -0.6,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'We’ll keep your reminders synced and private.',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: AppColors.inkSoft,
-                          fontWeight: FontWeight.w500,
+                        const SizedBox(height: 10),
+                        const Text(
+                          'We’ll keep your reminders synced and private.',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.inkSoft,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 28),
-                      _PhoneField(
-                        country: _country,
-                        controller: _controller,
-                        focusNode: _focus,
-                        onPickCountry: _pickCountry,
-                        onSubmit: _submit,
-                      ),
-                    ],
+                        const SizedBox(height: 28),
+                        _PhoneField(
+                          country: _country,
+                          controller: _controller,
+                          focusNode: _focus,
+                          onPickCountry: _pickCountry,
+                          onSubmit: _submit,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              // --- Continue button, pinned at the bottom (matches onboarding) ---
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                child: _ContinueButton(
-                  enabled: _valid && !_submitting,
-                  loading: _submitting,
-                  onTap: _submit,
+                // --- Continue button, pinned at the bottom (matches onboarding) ---
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                  child: _ContinueButton(
+                    enabled: _valid && !_submitting,
+                    loading: _submitting,
+                    onTap: _submit,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -219,8 +221,9 @@ class _PhoneFieldState extends State<_PhoneField> {
           // Country selector.
           InkWell(
             onTap: widget.onPickCountry,
-            borderRadius:
-                const BorderRadius.horizontal(left: Radius.circular(20)),
+            borderRadius: const BorderRadius.horizontal(
+              left: Radius.circular(20),
+            ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 18, 12, 18),
               child: Row(
@@ -237,8 +240,11 @@ class _PhoneFieldState extends State<_PhoneField> {
                     ),
                   ),
                   const SizedBox(width: 2),
-                  const Icon(Icons.expand_more_rounded,
-                      size: 20, color: AppColors.inkSoft),
+                  const Icon(
+                    Icons.expand_more_rounded,
+                    size: 20,
+                    color: AppColors.inkSoft,
+                  ),
                 ],
               ),
             ),
@@ -269,8 +275,10 @@ class _PhoneFieldState extends State<_PhoneField> {
                   letterSpacing: 1.5,
                 ),
                 border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 18,
+                ),
               ),
             ),
           ),
@@ -345,7 +353,9 @@ class _ContinueButton extends StatelessWidget {
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2.6, color: Colors.white),
+                  strokeWidth: 2.6,
+                  color: Colors.white,
+                ),
               )
             : Text(
                 'Continue',
@@ -379,7 +389,9 @@ class _CountrySheetState extends State<_CountrySheet> {
         .toList();
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.75,
@@ -400,8 +412,10 @@ class _CountrySheetState extends State<_CountrySheet> {
               padding: EdgeInsets.fromLTRB(20, 14, 20, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Select country',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                child: Text(
+                  'Select country',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                ),
               ),
             ),
             Padding(
@@ -431,10 +445,13 @@ class _CountrySheetState extends State<_CountrySheet> {
                   return ListTile(
                     leading: CountryFlag(iso: c.iso, size: 24),
                     title: Text(c.name),
-                    trailing: Text(c.dial,
-                        style: const TextStyle(
-                            color: AppColors.inkSoft,
-                            fontWeight: FontWeight.w600)),
+                    trailing: Text(
+                      c.dial,
+                      style: const TextStyle(
+                        color: AppColors.inkSoft,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     selected: c.iso == widget.current.iso,
                     onTap: () => Navigator.pop(context, c),
                   );

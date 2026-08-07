@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/starfield.dart';
 import 'onboarding_list_screen.dart';
 import 'onboarding_login_step.dart';
 
@@ -35,15 +36,18 @@ class _PhoneStep extends StatelessWidget {
         elevation: 0,
         leading: const BackButton(color: AppColors.inkSoft),
       ),
-      body: SafeArea(
-        child: OnboardingLoginStep(
-          count: count,
-          onDone: () {
-            Navigator.of(context).popUntil((r) => r.isFirst);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Saved $count reminders 🎉')),
-            );
-          },
+      body: Starfield(
+        intensity: 0.7,
+        child: SafeArea(
+          child: OnboardingLoginStep(
+            count: count,
+            onDone: () {
+              Navigator.of(context).popUntil((r) => r.isFirst);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Saved $count reminders 🎉')),
+              );
+            },
+          ),
         ),
       ),
     );

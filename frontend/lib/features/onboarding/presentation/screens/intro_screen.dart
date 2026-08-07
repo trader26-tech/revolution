@@ -36,7 +36,10 @@ class _IntroScreenState extends State<IntroScreen>
   static const _rings = <_Ring>[
     // Subscriptions — mid-left, the biggest ring (like the screenshot).
     _Ring(
-      cx: -70, cy: 10, radius: 100, hubSize: 74,
+      cx: -70,
+      cy: 10,
+      radius: 100,
+      hubSize: 74,
       hubIcon: Icons.subscriptions_rounded,
       dir: 1,
       logos: [
@@ -47,7 +50,10 @@ class _IntroScreenState extends State<IntroScreen>
     ),
     // Investments / SIP — top-right, bleeding off the edge like the original.
     _Ring(
-      cx: 95, cy: -125, radius: 82, hubSize: 68,
+      cx: 95,
+      cy: -125,
+      radius: 82,
+      hubSize: 68,
       hubIcon: Icons.trending_up_rounded,
       dir: -1,
       logos: [
@@ -57,16 +63,25 @@ class _IntroScreenState extends State<IntroScreen>
     ),
     // Insurance & documents — bottom-right.
     _Ring(
-      cx: 85, cy: 120, radius: 84, hubSize: 68,
+      cx: 85,
+      cy: 120,
+      radius: 84,
+      hubSize: 68,
       hubIcon: Icons.verified_user_rounded,
       dir: 1,
       logos: [
         // LIC's real mark is wide (emblem + wordmark) → bigger box.
         _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 62, 155),
         _OrbitLogo(
-            Brand(name: 'Policybazaar', domain: 'policybazaar.com'), 42, -30),
+          Brand(name: 'Policybazaar', domain: 'policybazaar.com'),
+          42,
+          -30,
+        ),
         _OrbitLogo(
-            Brand(name: 'India', domain: 'services.india.gov.in'), 44, 75),
+          Brand(name: 'India', domain: 'services.india.gov.in'),
+          44,
+          75,
+        ),
       ],
     ),
   ];
@@ -259,8 +274,8 @@ class _IntroScreenState extends State<IntroScreen>
   /// One logo travelling its ring — bare, crisp, upright (the position orbits;
   /// the logo itself never rotates).
   Widget _orbitingLogo(_Ring ring, _OrbitLogo logo, double start) {
-    final angle = logo.angleDeg * math.pi / 180 +
-        _sky.value * 2 * math.pi * ring.dir;
+    final angle =
+        logo.angleDeg * math.pi / 180 + _sky.value * 2 * math.pi * ring.dir;
     final pos = Offset(
       ring.cx + ring.radius * math.cos(angle),
       ring.cy + ring.radius * math.sin(angle),
@@ -354,4 +369,3 @@ class _OrbitLogo {
   final double size;
   final double angleDeg;
 }
-

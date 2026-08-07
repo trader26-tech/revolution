@@ -18,22 +18,22 @@ import '../widgets/reminder_confirm_sheet.dart';
 
 /// The chips ticked on arrival — seed a picked-set with these.
 Set<String> preselectedChipKeys() => {
-      for (final s in kOnboardingChipSections)
-        for (final i in s.items)
-          if (i.preselected) i.key,
-    };
+  for (final s in kOnboardingChipSections)
+    for (final i in s.items)
+      if (i.preselected) i.key,
+};
 
 /// A ready-to-save draft for every picked chip.
 Map<String, ReminderDraft> chipDraftsFor(Set<String> picked) => {
-      for (final s in kOnboardingChipSections)
-        for (final i in s.items)
-          if (picked.contains(i.key))
-            i.key: ReminderDraft(
-              name: i.defaultName,
-              day: i.defaultDay,
-              frequency: i.defaultFrequency,
-            ),
-    };
+  for (final s in kOnboardingChipSections)
+    for (final i in s.items)
+      if (picked.contains(i.key))
+        i.key: ReminderDraft(
+          name: i.defaultName,
+          day: i.defaultDay,
+          frequency: i.defaultFrequency,
+        ),
+};
 
 /// The scrolling chip-picker content, with state hoisted to the parent.
 class ChipSelectBody extends StatelessWidget {
@@ -108,11 +108,7 @@ class ChipSelectBody extends StatelessWidget {
 
 /// The standalone version: header + body + its own continue button.
 class ChipSelectScreen extends StatefulWidget {
-  const ChipSelectScreen({
-    super.key,
-    required this.onContinue,
-    this.onBack,
-  });
+  const ChipSelectScreen({super.key, required this.onContinue, this.onBack});
 
   /// Fires with a draft per selected chip when the user taps Continue.
   final ValueChanged<Map<String, ReminderDraft>> onContinue;
@@ -133,60 +129,64 @@ class _ChipSelectScreenState extends State<ChipSelectScreen> {
       body: Starfield(
         intensity: 0.7,
         child: SafeArea(
-        child: Column(
-          children: [
-            // Header.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 24, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed:
-                        widget.onBack ?? () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    color: AppColors.inkSoft,
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ChipSelectBody(
-                picked: _selected,
-                onToggle: (key) => setState(() {
-                  _selected.contains(key)
-                      ? _selected.remove(key)
-                      : _selected.add(key);
-                }),
-              ),
-            ),
-            // Bottom action.
-            Container(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
-              decoration: const BoxDecoration(
-                color: AppColors.bg,
-                border: Border(top: BorderSide(color: AppColors.hairline)),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: FilledButton(
-                  onPressed: () => widget.onContinue(chipDraftsFor(_selected)),
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+          child: Column(
+            children: [
+              // Header.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 24, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed:
+                          widget.onBack ??
+                          () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      color: AppColors.inkSoft,
                     ),
-                  ),
-                  child: Text(
-                    n == 0 ? 'Skip for now' : 'Continue with $n',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w700),
+                    const Spacer(),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ChipSelectBody(
+                  picked: _selected,
+                  onToggle: (key) => setState(() {
+                    _selected.contains(key)
+                        ? _selected.remove(key)
+                        : _selected.add(key);
+                  }),
+                ),
+              ),
+              // Bottom action.
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+                decoration: const BoxDecoration(
+                  color: AppColors.bg,
+                  border: Border(top: BorderSide(color: AppColors.hairline)),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: FilledButton(
+                    onPressed: () =>
+                        widget.onContinue(chipDraftsFor(_selected)),
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      n == 0 ? 'Skip for now' : 'Continue with $n',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
@@ -243,7 +243,9 @@ class _Chip extends StatelessWidget {
         color: selected ? color.withValues(alpha: 0.10) : AppColors.card,
         borderRadius: BorderRadius.circular(100),
         border: Border.all(
-          color: selected ? color.withValues(alpha: 0.55) : AppColors.cardBorder,
+          color: selected
+              ? color.withValues(alpha: 0.55)
+              : AppColors.cardBorder,
           width: 1.5,
         ),
       ),

@@ -122,8 +122,7 @@ class StarfieldPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint();
     for (final s in stars) {
-      final twinkle =
-          0.5 + 0.5 * math.sin(t * 2 * math.pi * s.speed + s.phase);
+      final twinkle = 0.5 + 0.5 * math.sin(t * 2 * math.pi * s.speed + s.phase);
       final alpha = ((0.08 + 0.30 * twinkle) * intensity).clamp(0.0, 1.0);
       paint.color = (s.violet ? const Color(0xFF9F7BFF) : Colors.white)
           .withValues(alpha: alpha);

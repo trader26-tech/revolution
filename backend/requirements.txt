@@ -1,7 +1,9 @@
-# Pinned lower bounds are the versions verified in tests; upper caps keep a
-# future breaking major from silently failing the Railway build.
-fastapi>=0.128,<0.200
-uvicorn[standard]>=0.39,<0.40
-pydantic>=2.13,<3.0
-pydantic-settings>=2.11,<3.0
-supabase>=2.31,<3.0
+# Exact pins so the Railway build is deterministic — a rebuild triggered by an
+# unrelated push can never pick up a brand-new dep release and fail. Verified
+# on Python 3.11 (see .python-version). To upgrade: bump deliberately, boot the
+# app, then commit the new pins.
+fastapi==0.141.1
+uvicorn[standard]==0.39.0
+pydantic==2.13.4
+pydantic-settings==2.15.0
+supabase==2.31.0

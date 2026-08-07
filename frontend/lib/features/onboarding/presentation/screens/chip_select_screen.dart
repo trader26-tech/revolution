@@ -80,13 +80,13 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
   int _index = 0;
 
   /// Drives the per-category entry cascade; replays on each category change.
-  /// The timeline runs: Revo pops in → the question types in word-by-word →
-  /// "Tap all that apply." fades up → the rows cascade one-by-one → the bottom
-  /// CTA reveals. Longer than a plain fade so the typewriter has room to read.
+  /// The timeline runs: Revo makes a slow bubbly entrance, the question's words
+  /// materialise one by one, "Tap all that apply." drifts up, then the rows
+  /// cascade in. Long and deliberate so nothing feels rushed.
   late final AnimationController _intro;
 
   /// Resets to the top on every category change so each screen starts fresh
-  /// (Revo at the top, question typing in) rather than mid-scroll.
+  /// (Revo at the top, then the question materialising) rather than mid-scroll.
   final _scroll = ScrollController();
 
   List<OnboardingChipSection> get _sections => kOnboardingChipSections;
@@ -313,13 +313,15 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // The promise — short.
+                          // The promise — short. Meaning: whatever isn't in
+                          // this shortlist is still available to add once you're
+                          // inside the app, so the accent lands on "in the app".
                           Text.rich(
                             TextSpan(
                               children: [
-                                const TextSpan(text: 'Not here? '),
+                                const TextSpan(text: 'Not here? Add more '),
                                 TextSpan(
-                                  text: "We've got it.",
+                                  text: 'in the app.',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.accent
@@ -457,35 +459,97 @@ class _MagicText extends StatelessWidget {
   Widget build(BuildContext context) {
     // Split on spaces but keep newlines attached, so the two-line questions
     // ("Which subscriptions\nshould we remember?") wrap where they're meant to.
-    final words = text.split(' ');
-    final shown = (words.length * progress).ceil().clamp(0, words.length);
-    final done = shown >= words.length; // STALE_MARKER
-    final visible = words.take(shown).join(' ');
+    final lines = text.split(String.fromCharCode(10));
+    final wordCount = lines.fold<int>(0, (n, l) => n + l.split(' ').length);
+    const overlap = 1.8;
+    final perWord = 1 / wordCount;
+    double localFor(int i) =>
+        ((progress - i * perWord) / (perWord * overlap)).clamp(0.0, 1.0);
 
-    final caretColor = AppColors.accent.withValues(alpha: done ? 0.0 : 0.9);
+    var wordIndex = 0;
+    final rows = <Widget>[];
+    for (final line in lines) {
+      final children = <Widget>[
+        for (final w in line.split(' '))
+          _MagicWord(word: w, t: localFor(wordIndex++), style: style),
+      ];
+      rows.add(
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: children,
+        ),
+      );
+    }
 
-    // A Stack: the full text sizes the box (transparent), the typed slice sits
-    // on top. Both share the same style + wrapping, so no reflow.
+    // The invisible full text underneath reserves the final height/width so the
+    // materialising words never shift the layout as they land.
     return Stack(
       children: [
-        Opacity(
-          opacity: 0,
-          child: Text(text, style: style),
-        ),
-        Text.rich(
-          TextSpan(
-            style: style,
-            children: [
-              TextSpan(text: visible),
-              // A block caret riding just after the last typed word.
-              TextSpan(
-                text: done ? '' : ' |',
-                style: TextStyle(color: caretColor),
-              ),
-            ],
-          ),
+        Opacity(opacity: 0, child: Text(text, style: style)),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: rows,
         ),
       ],
+    );
+  }
+}
+
+/// One word of the magic reveal. Across its own 0-to-1 life [t] it fades in,
+/// un-blurs from a haze, floats up, scales from small with a springy overshoot,
+/// and flashes a soft violet glow that fades as it settles.
+class _MagicWord extends StatelessWidget {
+  const _MagicWord({required this.word, required this.t, required this.style});
+
+  final String word;
+  final double t;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final ease = Curves.easeOut.transform(t);
+    final spring = Curves.elasticOut.transform(t);
+
+    final blur = (1 - ease) * 8; // haze that resolves as it arrives
+    final lift = (1 - ease) * 14; // floats up into place
+    final scale = 0.7 + spring * 0.3; // small, overshoot, then settle
+    final glow = math.sin(t.clamp(0.0, 1.0) * math.pi); // 0 to 1 to 0
+
+    Widget label = Text(
+      word,
+      style: style.copyWith(
+        shadows: [
+          Shadow(
+            color: AppColors.accent.withValues(alpha: 0.55 * glow),
+            blurRadius: 18 * glow,
+          ),
+        ],
+      ),
+    );
+
+    // A cheap per-word blur while it's arriving, dropped once settled so
+    // finished text stays crisp.
+    if (blur > 0.05) {
+      label = ImageFiltered(
+        imageFilter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        child: label,
+      );
+    }
+
+    return Opacity(
+      opacity: ease,
+      child: Transform.translate(
+        offset: Offset(0, lift),
+        child: Transform.scale(
+          scale: scale,
+          alignment: Alignment.bottomLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: label,
+          ),
+        ),
+      ),
     );
   }
 }

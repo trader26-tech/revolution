@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import 'chip_select_screen.dart';
 import 'onboarding_list_screen.dart';
 import 'onboarding_login_step.dart';
 
-/// The onboarding flow: the bills list page, then the life-categories chip
-/// page, then a phone number step to finish. Opened from the home ✨ button
-/// for testing.
+/// The checklist + phone tail of onboarding. The life-categories chip page
+/// lives in the main OnboardingFlow (page 2), so this starts at the bills
+/// list. Opened from the home ✨ button for testing.
 class GalleryPreviewPage extends StatelessWidget {
   const GalleryPreviewPage({super.key});
 
@@ -16,16 +15,7 @@ class GalleryPreviewPage extends StatelessWidget {
     return OnboardingListScreen(
       onClose: () => Navigator.of(context).maybePop(),
       onContinue: (drafts) => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ChipSelectScreen(
-            onContinue: (chipDrafts) {
-              final total = drafts.length + chipDrafts.length;
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => _PhoneStep(count: total)),
-              );
-            },
-          ),
-        ),
+        MaterialPageRoute(builder: (_) => _PhoneStep(count: drafts.length)),
       ),
     );
   }

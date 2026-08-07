@@ -10,6 +10,102 @@ import '../widgets/reminder_confirm_sheet.dart';
 /// Five life categories, each a wrap of pill chips — tap all that apply. The
 /// commonest picks arrive already selected, so the page reads as "yes, that's
 /// me" rather than a form. One line of copy, one button, nothing else.
+///
+/// [ChipSelectBody] is the embeddable content (used as page 2 of the
+/// onboarding PageView); [ChipSelectScreen] wraps it as a standalone screen
+/// with its own header and continue button.
+
+/// The chips ticked on arrival — seed a picked-set with these.
+Set<String> preselectedChipKeys() => {
+      for (final s in kOnboardingChipSections)
+        for (final i in s.items)
+          if (i.preselected) i.key,
+    };
+
+/// A ready-to-save draft for every picked chip.
+Map<String, ReminderDraft> chipDraftsFor(Set<String> picked) => {
+      for (final s in kOnboardingChipSections)
+        for (final i in s.items)
+          if (picked.contains(i.key))
+            i.key: ReminderDraft(
+              name: i.defaultName,
+              day: i.defaultDay,
+              frequency: i.defaultFrequency,
+            ),
+    };
+
+/// The scrolling chip-picker content, with state hoisted to the parent.
+class ChipSelectBody extends StatelessWidget {
+  const ChipSelectBody({
+    super.key,
+    required this.picked,
+    required this.onToggle,
+  });
+
+  final Set<String> picked;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'What should we\nremember?',
+                style: TextStyle(
+                  fontSize: 34,
+                  height: 1.1,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Tap all that apply.',
+                style: TextStyle(fontSize: 15, color: AppColors.inkSoft),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        for (final s in kOnboardingChipSections) ...[
+          _SectionHeader(section: s),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 9,
+            children: [
+              for (final i in s.items)
+                _Chip(
+                  item: i,
+                  color: s.color,
+                  selected: picked.contains(i.key),
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    onToggle(i.key);
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 26),
+        ],
+        const Center(
+          child: Text(
+            "Don't see yours? Add more anytime.",
+            style: TextStyle(fontSize: 12.5, color: AppColors.inkFaint),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The standalone version: header + body + its own continue button.
 class ChipSelectScreen extends StatefulWidget {
   const ChipSelectScreen({
     super.key,
@@ -26,31 +122,7 @@ class ChipSelectScreen extends StatefulWidget {
 }
 
 class _ChipSelectScreenState extends State<ChipSelectScreen> {
-  final Set<String> _selected = {
-    for (final s in kOnboardingChipSections)
-      for (final i in s.items)
-        if (i.preselected) i.key,
-  };
-
-  void _toggle(OnboardingChipItem item) {
-    HapticFeedback.lightImpact();
-    setState(() {
-      _selected.contains(item.key)
-          ? _selected.remove(item.key)
-          : _selected.add(item.key);
-    });
-  }
-
-  Map<String, ReminderDraft> _drafts() => {
-        for (final s in kOnboardingChipSections)
-          for (final i in s.items)
-            if (_selected.contains(i.key))
-              i.key: ReminderDraft(
-                name: i.defaultName,
-                day: i.defaultDay,
-                frequency: i.defaultFrequency,
-              ),
-      };
+  final Set<String> _selected = preselectedChipKeys();
 
   @override
   Widget build(BuildContext context) {
@@ -76,57 +148,13 @@ class _ChipSelectScreenState extends State<ChipSelectScreen> {
               ),
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'What should we\nremember?',
-                          style: TextStyle(
-                            fontSize: 34,
-                            height: 1.1,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Tap all that apply.',
-                          style: TextStyle(fontSize: 15, color: AppColors.inkSoft),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  for (final s in kOnboardingChipSections) ...[
-                    _SectionHeader(section: s),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 9,
-                      children: [
-                        for (final i in s.items)
-                          _Chip(
-                            item: i,
-                            color: s.color,
-                            selected: _selected.contains(i.key),
-                            onTap: () => _toggle(i),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 26),
-                  ],
-                  const Center(
-                    child: Text(
-                      "Don't see yours? Add more anytime.",
-                      style: TextStyle(fontSize: 12.5, color: AppColors.inkFaint),
-                    ),
-                  ),
-                ],
+              child: ChipSelectBody(
+                picked: _selected,
+                onToggle: (key) => setState(() {
+                  _selected.contains(key)
+                      ? _selected.remove(key)
+                      : _selected.add(key);
+                }),
               ),
             ),
             // Bottom action.
@@ -140,7 +168,7 @@ class _ChipSelectScreenState extends State<ChipSelectScreen> {
                 width: double.infinity,
                 height: 54,
                 child: FilledButton(
-                  onPressed: () => widget.onContinue(_drafts()),
+                  onPressed: () => widget.onContinue(chipDraftsFor(_selected)),
                   style: FilledButton.styleFrom(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),

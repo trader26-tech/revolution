@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import 'screens/chip_select_screen.dart';
 import 'screens/intro_screen.dart';
 import 'screens/payoff_screen.dart';
-import 'screens/quiz_screen.dart';
 
-/// The 3-screen onboarding: what it does → a quick quiz → the big-number
-/// payoff. Minimal, stylised, visual. Call [showOnboarding] to present it.
+/// The 3-screen onboarding: what it does → the chip picker ("what should we
+/// remember?") → the big-number payoff. Minimal, stylised, visual. Call
+/// [showOnboarding] to present it.
 Future<void> showOnboarding(BuildContext context) {
   return Navigator.of(context).push(
     MaterialPageRoute(
@@ -28,7 +29,9 @@ class OnboardingFlow extends StatefulWidget {
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
   final _controller = PageController();
-  final Set<String> _picked = {};
+
+  /// Picked chip keys — the commonest ones arrive already selected.
+  final Set<String> _picked = preselectedChipKeys();
   int _page = 0;
 
   static const _pageCount = 3;
@@ -104,7 +107,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 onPageChanged: (i) => setState(() => _page = i),
                 children: [
                   const IntroScreen(),
-                  QuizScreen(picked: _picked, onToggle: _toggle),
+                  ChipSelectBody(picked: _picked, onToggle: _toggle),
                   PayoffScreen(picked: _picked),
                 ],
               ),

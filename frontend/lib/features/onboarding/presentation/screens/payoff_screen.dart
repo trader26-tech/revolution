@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../tasks/domain/task.dart';
+import '../../domain/onboarding_chip_catalog.dart';
 import '../../domain/onboarding_quiz.dart';
 
 /// Screen 3 — the payoff, as one unforgettable number.
@@ -53,10 +55,32 @@ class _PayoffScreenState extends State<PayoffScreen>
     super.dispose();
   }
 
+  /// How many times a year one picked chip fires.
+  static int _firesPerYear(RepeatCadence f) => switch (f) {
+        RepeatCadence.daily => 365,
+        RepeatCadence.weekly => 52,
+        RepeatCadence.monthly => 12,
+        RepeatCadence.yearly => 1,
+        RepeatCadence.none => 1,
+      };
+
+  /// The picked chips rolled up per section: "Subscriptions ×24" etc.
   List<QuizOption> get _selected {
-    final chosen =
-        kQuizOptions.where((o) => widget.picked.contains(o.key)).toList();
-    // Skipped the quiz → count just the near-universal basics.
+    final chosen = [
+      for (final s in kOnboardingChipSections)
+        if (s.items.any((i) => widget.picked.contains(i.key)))
+          QuizOption(
+            key: s.key,
+            icon: s.icon,
+            label: s.title,
+            sub: '',
+            color: s.color,
+            perYear: s.items
+                .where((i) => widget.picked.contains(i.key))
+                .fold(0, (sum, i) => sum + _firesPerYear(i.defaultFrequency)),
+          ),
+    ];
+    // Deselected everything → count just the near-universal basics.
     return chosen.isNotEmpty ? chosen : kQuizOptions.take(4).toList();
   }
 

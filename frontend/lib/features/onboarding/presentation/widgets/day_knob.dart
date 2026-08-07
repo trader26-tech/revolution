@@ -34,11 +34,6 @@ class _DayKnobState extends State<DayKnob> {
   static const _min = 1;
   static const _max = 31;
 
-  // The arc sweeps from 180° (left) to 360°/0° (right) across the TOP half —
-  // a wide, shallow semicircle the thumb can ride comfortably.
-  static const double _startAngle = math.pi; // 180°
-  static const double _sweep = math.pi; // 180°
-
   int get _day => widget.day.clamp(_min, _max);
 
   /// Fraction 0..1 of the current day along the arc.

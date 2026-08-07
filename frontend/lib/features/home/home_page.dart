@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
-import '../auth/data/auth_store.dart';
-import '../onboarding/data/onboarding_store.dart';
 import '../onboarding/presentation/screens/gallery_preview_page.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
@@ -60,11 +58,6 @@ class _HomePageState extends State<HomePage> {
   /// Replay the REAL first-run flow: reset onboarding + sign out, so the app
   /// returns to the top of the sequence — Onboarding → Phone number → Home.
   /// (The OnboardingGate/AuthGate at the app root react to these stores.)
-  Future<void> _replayFullFlow() async {
-    await OnboardingStore.instance.reset();
-    await AuthStore.instance.logout();
-  }
-
   /// DEV: open the new category gallery + knob date picker to test the feel.
   void _openGalleryPreview() {
     Navigator.of(context).push(

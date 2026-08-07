@@ -229,9 +229,16 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                               padding: const EdgeInsets.only(right: 6, top: 2),
                               child: _RevoEntrance(
                                 t: (_intro.value / 0.26).clamp(0.0, 1.0),
-                                child: const AnimatedMascot(
-                                  size: 60,
-                                  glow: false,
+                                // Sitting top-left, Revo reads better with his
+                                // tail pointing LEFT — mirror him horizontally.
+                                // (His gaze flips with him, so it now leans right,
+                                // still counterbalancing the tail.)
+                                child: Transform.flip(
+                                  flipX: true,
+                                  child: const AnimatedMascot(
+                                    size: 60,
+                                    glow: false,
+                                  ),
                                 ),
                               ),
                             ),

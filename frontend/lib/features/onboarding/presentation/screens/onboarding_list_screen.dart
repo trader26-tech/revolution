@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/starfield.dart';
 import '../../domain/onboarding_category.dart';
 import '../widgets/reminder_row.dart';
 import '../widgets/reminder_confirm_sheet.dart';
@@ -64,7 +65,10 @@ class _OnboardingListScreenState extends State<OnboardingListScreen> {
     final n = _drafts.length;
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: SafeArea(
+      body: Starfield(
+        // Dimmer behind a dense, scrolling list — present, never distracting.
+        intensity: 0.7,
+        child: SafeArea(
         child: Column(
           children: [
             // Header.
@@ -153,6 +157,7 @@ class _OnboardingListScreenState extends State<OnboardingListScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

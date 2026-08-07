@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/mascot.dart';
 import '../../../tasks/domain/task.dart';
 import '../../domain/onboarding_chip_catalog.dart';
 import 'chip_select_screen.dart';
@@ -278,17 +279,25 @@ class _PayoffScreenState extends State<PayoffScreen>
     );
   }
 
-  // ── The landing: the promise, as plain confident words ─────────────────────
+  // ── The landing: the mascot delivers the promise ───────────────────────────
 
   Widget _promise() {
-    final t = Curves.easeOutCubic.transform(
-        ((_c.value - _promiseStart) / (1 - _promiseStart)).clamp(0.0, 1.0));
+    final raw =
+        ((_c.value - _promiseStart) / (1 - _promiseStart)).clamp(0.0, 1.0);
+    final t = Curves.easeOutCubic.transform(raw);
+    // The mascot pops in with a bounce just ahead of the words.
+    final pop = Curves.easeOutBack.transform(raw);
     return Opacity(
       opacity: t,
       child: Transform.translate(
         offset: Offset(0, 16 * (1 - t)),
         child: Column(
           children: [
+            Transform.scale(
+              scale: 0.5 + 0.5 * pop,
+              child: const AnimatedMascot(size: 96),
+            ),
+            const SizedBox(height: 8),
             const Text(
               'Don’t worry.',
               style: TextStyle(

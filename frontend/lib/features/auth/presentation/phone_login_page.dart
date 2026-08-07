@@ -88,7 +88,9 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
     return Scaffold(
       backgroundColor: AppColors.bg,
       resizeToAvoidBottomInset: true,
-      body: GestureDetector(
+      body: Starfield(
+        intensity: 0.7,
+        child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.opaque,
         child: SafeArea(

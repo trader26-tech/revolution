@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/starfield.dart';
 import '../../domain/onboarding_chip_catalog.dart';
 import '../widgets/reminder_confirm_sheet.dart';
 
@@ -129,7 +130,9 @@ class _ChipSelectScreenState extends State<ChipSelectScreen> {
     final n = _selected.length;
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: SafeArea(
+      body: Starfield(
+        intensity: 0.7,
+        child: SafeArea(
         child: Column(
           children: [
             // Header.
@@ -183,6 +186,7 @@ class _ChipSelectScreenState extends State<ChipSelectScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

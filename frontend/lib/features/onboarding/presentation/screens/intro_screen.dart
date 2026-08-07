@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/starfield.dart';
 import '../../../brand/domain/brand.dart';
 import '../../../brand/presentation/brand_logo.dart';
 
@@ -108,8 +109,16 @@ class _IntroScreenState extends State<IntroScreen>
       builder: (context, _) => Stack(
         fit: StackFit.expand,
         children: [
-          // The twinkling starfield behind everything.
-          CustomPaint(painter: _Starfield(_sky.value)),
+          // The twinkling starfield behind everything — driven by this screen's
+          // own sky clock, so stars and orbits share one animation.
+          RepaintBoundary(
+            child: CustomPaint(
+              painter: StarfieldPainter(
+                t: _sky.value,
+                stars: StarfieldPainter.starsFor(90, 7),
+              ),
+            ),
+          ),
           Column(
             children: [
               const Spacer(flex: 2),
@@ -346,62 +355,3 @@ class _OrbitLogo {
   final double angleDeg;
 }
 
-// ── The starfield ────────────────────────────────────────────────────────────
-
-/// A fixed constellation of ~90 tiny stars (seeded, so it never jumps between
-/// frames), each twinkling on its own phase. White and faint-violet mix.
-class _Starfield extends CustomPainter {
-  _Starfield(this.t);
-
-  final double t;
-
-  static final List<_Star> _stars = _generate();
-
-  static List<_Star> _generate() {
-    final rnd = math.Random(7);
-    return List.generate(90, (_) {
-      return _Star(
-        x: rnd.nextDouble(),
-        y: rnd.nextDouble(),
-        r: 0.6 + rnd.nextDouble() * 1.4,
-        phase: rnd.nextDouble() * 2 * math.pi,
-        speed: 2 + rnd.nextDouble() * 6,
-        violet: rnd.nextDouble() < 0.4,
-      );
-    });
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint();
-    for (final s in _stars) {
-      final twinkle =
-          0.5 + 0.5 * math.sin(t * 2 * math.pi * s.speed + s.phase);
-      final alpha = 0.08 + 0.30 * twinkle;
-      paint.color = (s.violet ? const Color(0xFF9F7BFF) : Colors.white)
-          .withValues(alpha: alpha);
-      canvas.drawCircle(
-        Offset(s.x * size.width, s.y * size.height),
-        s.r,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_Starfield old) => old.t != t;
-}
-
-class _Star {
-  const _Star({
-    required this.x,
-    required this.y,
-    required this.r,
-    required this.phase,
-    required this.speed,
-    required this.violet,
-  });
-
-  final double x, y, r, phase, speed;
-  final bool violet;
-}

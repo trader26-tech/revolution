@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/starfield.dart';
 import 'screens/chip_select_screen.dart';
 import 'screens/intro_screen.dart';
 import 'screens/payoff_screen.dart';
@@ -80,7 +81,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: SafeArea(
+      // ONE sky behind all three pages — swiping moves through the same space
+      // instead of swapping backgrounds. (The intro paints its own stars on its
+      // orbit clock, so it sits on top of this without a seam.)
+      body: Starfield(
+        child: SafeArea(
         child: Column(
           children: [
             // Top: progress dots (left) + Skip (right).
@@ -124,6 +129,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

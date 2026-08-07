@@ -58,7 +58,13 @@ class _PayoffScreenState extends State<PayoffScreen>
   static const _bubble2Window = 0.28;
   static const _hopStart = 0.66;
   static const _hopEnd = 0.86;
-  static const _promiseStart = 0.96;
+  // The closing line and the CTA reveal near the end — but their reveal windows
+  // must COMPLETE within the 0..1 timeline. The button starts at
+  // [_promiseStart] + 0.04 == 0.92 with a 0.06 window, finishing at 0.98, so it
+  // always reaches full opacity. (Previously _promiseStart was 0.96 and the
+  // button revealed at 1.02 — entirely past the animation's end — so its opacity
+  // stayed frozen at 0 and the "Get started" button never appeared.)
+  static const _promiseStart = 0.88;
 
   int _total = 0;
 
@@ -351,10 +357,11 @@ class _PayoffScreenState extends State<PayoffScreen>
   }
 
   /// The "Get started" CTA — the last beat of the story, landing just after the
-  /// closing line. Full-width to match the app's primary buttons.
+  /// closing line. Full-width to match the app's primary buttons. Its reveal
+  /// (start 0.92, window 0.06) completes at 1.0, so it always ends fully opaque.
   Widget _getStarted() {
     return _reveal(
-      _promiseStart + 0.06,
+      _promiseStart + 0.04,
       SizedBox(
         width: double.infinity,
         child: FilledButton(
@@ -365,7 +372,7 @@ class _PayoffScreenState extends State<PayoffScreen>
           ),
         ),
       ),
-      window: 0.10,
+      window: 0.06,
     );
   }
 }

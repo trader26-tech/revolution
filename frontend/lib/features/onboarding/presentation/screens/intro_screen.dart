@@ -50,9 +50,9 @@ class _IntroScreenState extends State<IntroScreen>
       radiusF: 0.250,
       hubIcon: Icons.play_circle_fill_rounded,
       logos: [
-        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42, 158),
-        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 44, 232),
-        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40, 22),
+        _OrbitLogo(Brand(name: 'Netflix', domain: 'netflix.com'), 42, 283),
+        _OrbitLogo(Brand(name: 'Spotify', domain: 'spotify.com'), 44, 189),
+        _OrbitLogo(Brand(name: 'YouTube', domain: 'youtube.com'), 40, 106),
       ],
     ),
     // Investments / SIP — smaller ring, upper-right.
@@ -62,10 +62,10 @@ class _IntroScreenState extends State<IntroScreen>
       radiusF: 0.190,
       hubIcon: Icons.trending_up_rounded,
       logos: [
-        _OrbitLogo(Brand(name: 'Zerodha', domain: 'zerodha.com'), 38, 205),
-        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 36, 300),
+        _OrbitLogo(Brand(name: 'Zerodha', domain: 'zerodha.com'), 38, 317),
+        _OrbitLogo(Brand(name: 'Groww', domain: 'groww.in'), 36, 85),
         // Upstox: a crisp 196px violet mark — reads beautifully on the sky.
-        _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36, 40),
+        _OrbitLogo(Brand(name: 'Upstox', domain: 'upstox.com'), 36, 248),
       ],
     ),
     // Insurance & documents — lower-right.
@@ -76,16 +76,16 @@ class _IntroScreenState extends State<IntroScreen>
       hubIcon: Icons.shield_rounded,
       logos: [
         // LIC's real mark is wide (emblem + wordmark) → a slightly bigger box.
-        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 46, 165),
+        _OrbitLogo(Brand(name: 'LIC', domain: 'licindia.in'), 46, 62),
         // HDFC Life: a clean 256px red mark.
-        _OrbitLogo(Brand(name: 'HDFC Life', domain: 'hdfclife.com'), 38, 265),
+        _OrbitLogo(Brand(name: 'HDFC Life', domain: 'hdfclife.com'), 38, 356),
         // DigiLocker — the actual govt DOCUMENT wallet, and its violet mark
         // sits naturally in this palette (the national emblem is near-black
         // and would disappear against the sky).
         _OrbitLogo(
           Brand(name: 'DigiLocker', domain: 'digilocker.gov.in'),
           38,
-          25,
+          151,
         ),
       ],
     ),

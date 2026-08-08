@@ -135,6 +135,18 @@ class TaskStore extends ChangeNotifier {
     }
   }
 
+  /// Wipe the on-device task list and its cache — used by "Delete data & log
+  /// off" so nothing lingers on this device after the account is reset.
+  Future<void> clearAll() async {
+    _tasks.clear();
+    _hasLoaded = false;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cacheKey);
+    } catch (_) {}
+  }
+
   /// Create a task on the server and add the returned row (with its server id).
   ///
   /// ONE atomic request: the date, repeat, amount, category, and source all go

@@ -59,20 +59,22 @@ class _AuthGateState extends State<AuthGate> {
     return AnimatedBuilder(
       animation: _auth,
       builder: (context, _) {
+        // Verified → the real, fully-interactive app. Checked FIRST so that once
+        // login lands, the celebration state can't keep us on the success page
+        // (which would loop back to the preview). This is the escape.
+        if (_auth.isLoggedIn) {
+          return AuthGateController(
+            verify: _startVerification,
+            child: const AppShell(verified: true),
+          );
+        }
+
         // The celebration takes over the whole screen for its ~2s beat, then
         // logs in. Shown inline (not a pushed route) so it can never get stuck.
         if (_celebrating && _celebrateNumber != null) {
           return VerifiedSuccessPage(
             phoneE164: _celebrateNumber!,
             onDone: () => _safeLogin(_celebrateNumber!),
-          );
-        }
-
-        // Verified → the real, fully-interactive app.
-        if (_auth.isLoggedIn) {
-          return AuthGateController(
-            verify: _startVerification,
-            child: const AppShell(verified: true),
           );
         }
 
@@ -215,12 +217,15 @@ class _AuthGateState extends State<AuthGate> {
   /// error" when the app was reopened). Login itself is best-effort internally;
   /// this is a belt-and-braces guard around the whole call.
   Future<void> _safeLogin(String verifiedNumber) async {
+    debugPrint('[AuthGate] _safeLogin start: $verifiedNumber '
+        '(isLoggedIn before: ${_auth.isLoggedIn})');
     try {
       await _auth.login(verifiedNumber, name: _pendingName);
-    } catch (_) {
-      // Verified but couldn't fully persist — the gate still flips to
-      // logged-in via AuthStore, and prefs sync will retry later. Never crash.
+    } catch (e) {
+      debugPrint('[AuthGate] _safeLogin caught: $e');
     }
+    debugPrint('[AuthGate] _safeLogin done '
+        '(isLoggedIn after: ${_auth.isLoggedIn})');
   }
 
   void _showError(String message) {

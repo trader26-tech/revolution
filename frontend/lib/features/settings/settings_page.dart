@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../core/api/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_toast.dart';
 import '../auth/data/auth_store.dart';
@@ -71,6 +72,27 @@ class _SettingsPageState extends State<SettingsPage> {
     if (confirmed != true) return;
     await _auth.logout();
     if (mounted) Navigator.of(context).pop(); // AuthGate shows login
+  }
+
+  /// Delete this account's data on THIS device and start fresh: clear the local
+  /// task cache, reset to a brand-new anonymous session (so the old account's
+  /// data is no longer reachable here), and sign out. A clean slate.
+  Future<void> _deleteData() async {
+    final confirmed = await _confirm(
+      title: 'Delete data & log off?',
+      message:
+          'This clears everything on this device and starts you fresh — your '
+          'reminders here will be removed and you’ll be signed out. This can’t '
+          'be undone.',
+      confirmLabel: 'Delete & log off',
+      danger: true,
+    );
+    if (confirmed != true) return;
+    // Fresh anonymous account (old data no longer reachable here) + clear the
+    // signed-in session. Best-effort; never blocks the exit.
+    await ApiClient.instance.resetToAnonymous();
+    await _auth.logout();
+    if (mounted) Navigator.of(context).pop(); // AuthGate shows login/onboarding
   }
 
   /// "8:00 AM" from minutes-since-midnight.
@@ -234,7 +256,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 22),
 
-          // --- SIGN OUT ---
+          // --- SIGN OUT / DELETE DATA ---
           SettingsSection(
             children: [
               SettingsTile(
@@ -243,6 +265,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 danger: true,
                 showChevron: false,
                 onTap: _signOut,
+              ),
+              SettingsTile(
+                icon: Icons.delete_forever_rounded,
+                title: 'Delete data & log off',
+                danger: true,
+                showChevron: false,
+                onTap: _deleteData,
               ),
             ],
           ),

@@ -55,6 +55,29 @@ echo "▶ Target iPhone: $DEVICE   ($CONFIG)"
 
 BUNDLE_ID="com.revolution.revolution.dev"
 
+# ── Pre-flight: catch compile errors in ~2–5s instead of after a 60s Xcode
+#    build. Skip with SKIP_ANALYZE=1. ────────────────────────────────────────
+if [ "${SKIP_ANALYZE:-0}" != "1" ]; then
+  echo "▶ Analyzing (fast fail on errors)…"
+  ANALYZE_OUT="$(flutter analyze lib 2>&1 || true)"
+  if grep -qE "^\s*error •" <<<"$ANALYZE_OUT"; then
+    echo "✗ Analyze found errors — NOT building. Fix these:" >&2
+    grep -E "error •" <<<"$ANALYZE_OUT" | head -12 >&2
+    exit 2
+  fi
+  echo "  ✓ no analyzer errors"
+fi
+
+# ── Guard against concurrent/stale builds (peer Claude sessions lock the Xcode
+#    build DB). Only clear if OUR script isn't the one holding it. ────────────
+STALE="$(pgrep -f 'xcodebuild.*Runner' | grep -v $$ || true)"
+if [ -n "$STALE" ]; then
+  echo "▶ Clearing a stale/concurrent xcodebuild + build-DB lock…"
+  echo "$STALE" | xargs kill 2>/dev/null || true
+  sleep 1
+fi
+rm -rf ~/Library/Developer/Xcode/DerivedData/Runner-*/Build/Intermediates.noindex/XCBuildData 2>/dev/null || true
+
 echo "▶ flutter pub get"
 flutter pub get >/dev/null
 

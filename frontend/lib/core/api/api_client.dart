@@ -38,7 +38,7 @@ class ApiClient {
   String? get ownerId => _ownerId;
 
   /// Whether the current owner id is a per-install ANONYMOUS id (the
-  /// "dev-<timestamp>" created before login) rather than a verified phone. Used
+  /// `dev-<timestamp>` created before login) rather than a verified phone. Used
   /// to decide whether there's a session to claim on sign-in.
   bool get isAnonymousOwner => (_ownerId ?? '').startsWith('dev-');
 

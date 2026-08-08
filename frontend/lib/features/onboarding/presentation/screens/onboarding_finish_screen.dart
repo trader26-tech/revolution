@@ -1,41 +1,36 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/starfield.dart';
 import '../../../auth/domain/country_code.dart';
 import '../../../auth/presentation/auth_gate.dart';
 import '../../../auth/presentation/widgets/country_flag.dart';
-import '../../domain/onboarding_chip_catalog.dart';
-import '../widgets/reminder_confirm_sheet.dart';
+import '../../../home/home_page.dart';
+import '../../../tasks/data/task_store.dart';
 
 /// The make-or-break final screen of onboarding.
 ///
-/// The user's finished app — their real Home, showing every reminder they set —
-/// fills the whole screen behind, only LIGHTLY veiled (a soft blur + gentle dim)
-/// so they can still READ it: "this is your app, already built." A small prompt
+/// The user's finished app — the REAL [HomePage], already populated with the
+/// reminders they just set up (created on the server under the anonymous owner
+/// id) — fills the whole screen behind, only LIGHTLY veiled (a gentle dim) so
+/// they can still READ it: "this is your app, already built." A small prompt
 /// floats at the bottom — "Final step to unlock your reminders" + a compact
 /// "Verify to get in" button. Tapping it RISES a sheet (name + number → SMS
 /// verify) over the still-visible home. Once they see their own work waiting,
 /// verifying to claim it feels like unlocking, not starting over.
 ///
+/// On verify, [AuthStore.login] claims the anonymous session onto the phone, so
+/// the exact tasks shown here carry straight into the signed-in app.
+///
 /// Verification reuses the app's one OTP pipeline via [AuthGateController], so
 /// this screen is mounted as [AuthGate.child]: it shows while logged out and
 /// the gate flips to the app the instant the number is verified.
 class OnboardingFinishScreen extends StatefulWidget {
-  const OnboardingFinishScreen({
-    super.key,
-    required this.picked,
-    required this.drafts,
-  });
+  const OnboardingFinishScreen({super.key, required this.store});
 
-  /// The chip keys the user picked across onboarding.
-  final Set<String> picked;
-
-  /// The per-item schedule drafts (name / day / frequency), keyed by chip key.
-  final Map<String, ReminderDraft> drafts;
+  /// The task store, already holding the freshly-created onboarding reminders,
+  /// used to render the real Home behind the sheet.
+  final TaskStore store;
 
   @override
   State<OnboardingFinishScreen> createState() => _OnboardingFinishScreenState();
@@ -59,23 +54,20 @@ class _OnboardingFinishScreenState extends State<OnboardingFinishScreen> {
     return Scaffold(
       backgroundColor: AppColors.bg,
       resizeToAvoidBottomInset: false,
-      body: Starfield(
-        intensity: 0.6,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // ── The finished app (their reminders), full-screen, lightly veiled
-            //    but still readable ──
-            Positioned.fill(
-              child: _HomePreview(picked: widget.picked, drafts: widget.drafts),
-            ),
-            // ── A small floating prompt + compact button at the bottom ──
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: _FinalStepPrompt(onTap: _openClaim),
-            ),
-          ],
-        ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ── The finished app (their REAL home), full-screen, lightly veiled
+          //    but still readable ──
+          Positioned.fill(
+            child: _HomePreview(store: widget.store),
+          ),
+          // ── A small floating prompt + compact button at the bottom ──
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _FinalStepPrompt(onTap: _openClaim),
+          ),
+        ],
       ),
     );
   }
@@ -154,238 +146,61 @@ class _FinalStepPrompt extends StatelessWidget {
   }
 }
 
-/// The user's finished app — their real reminders in the Home layout — filling
-/// the screen. Only LIGHTLY veiled: a gentle blur + a soft dim, tuned so the
-/// content stays READABLE (you can see your own reminders), while still reading
-/// as "behind glass" so the prompt/sheet on top is clearly the focus.
+/// The user's finished app — the REAL [HomePage], driven by the store already
+/// holding their freshly-created reminders — filling the screen. Only LIGHTLY
+/// veiled: a soft dim (so the bottom prompt reads clearly) rather than a heavy
+/// one, and non-interactive (this is a preview). What they see here is exactly
+/// what the signed-in app shows, because it IS that widget.
 class _HomePreview extends StatelessWidget {
-  const _HomePreview({required this.picked, required this.drafts});
+  const _HomePreview({required this.store});
 
-  final Set<String> picked;
-  final Map<String, ReminderDraft> drafts;
-
-  List<OnboardingChipSection> get _sections => [
-        for (final s in kOnboardingChipSections)
-          if (s.items.any((i) => picked.contains(i.key))) s,
-      ];
-
-  List<OnboardingChipItem> _pickedItems(OnboardingChipSection s) =>
-      s.items.where((i) => picked.contains(i.key)).toList();
+  final TaskStore store;
 
   @override
   Widget build(BuildContext context) {
-    final sections = _sections;
-    // Light veil: a small blur so it's clearly "behind glass" but every word is
-    // still readable, plus a slight dim (opacity) rather than a heavy one.
-    return ClipRect(
-      child: ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(sigmaX: 2.4, sigmaY: 2.4),
-        child: Opacity(
-          opacity: 0.82,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // A Home-style header (greeting + count), matching the app.
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Your reminders',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.ink,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${_total(sections)} set up and ready',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.inkSoft,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // A faux profile chip, like the real home's top-right.
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.accent.withValues(alpha: 0.16),
-                          border:
-                              Border.all(color: AppColors.glassBorder),
-                        ),
-                        child: const Icon(Icons.person_rounded,
-                            size: 20, color: AppColors.inkSoft),
-                      ),
+    return IgnorePointer(
+      child: Container(
+        // Match the app shell's background gradient so it's seamless.
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.bgTop, AppColors.bg],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // The real Home, softened just enough to sit behind the prompt.
+            Positioned.fill(
+              child: Opacity(
+                opacity: 0.9,
+                child: HomePage(store: store),
+              ),
+            ),
+            // A gentle dim so the floating prompt has a calm ground — light at
+            // the top (home stays readable), deeper toward the bottom.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppColors.bg.withValues(alpha: 0.12),
+                      AppColors.bg.withValues(alpha: 0.28),
+                      AppColors.bg.withValues(alpha: 0.55),
                     ],
+                    stops: const [0.0, 0.55, 1.0],
                   ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: ListView(
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: EdgeInsets.zero,
-                      children: [
-                        for (final s in sections)
-                          _SummarySection(
-                            section: s,
-                            items: _pickedItems(s),
-                            drafts: drafts,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
-
-  int _total(List<OnboardingChipSection> sections) =>
-      sections.fold(0, (n, s) => n + _pickedItems(s).length);
 }
-
-/// One category block in the blurred summary — a quiet all-caps header and its
-/// picked items as compact rows.
-class _SummarySection extends StatelessWidget {
-  const _SummarySection({
-    required this.section,
-    required this.items,
-    required this.drafts,
-  });
-
-  final OnboardingChipSection section;
-  final List<OnboardingChipItem> items;
-  final Map<String, ReminderDraft> drafts;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(
-            children: [
-              Icon(section.icon, size: 15, color: AppColors.accent),
-              const SizedBox(width: 8),
-              Text(
-                section.title.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                  color: AppColors.inkSoft,
-                ),
-              ),
-            ],
-          ),
-        ),
-        for (final item in items) _SummaryRow(item: item, draft: drafts[item.key]),
-        const SizedBox(height: 18),
-      ],
-    );
-  }
-}
-
-/// A single reminder row — icon, name, and its schedule sentence.
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.item, this.draft});
-
-  final OnboardingChipItem item;
-  final ReminderDraft? draft;
-
-  @override
-  Widget build(BuildContext context) {
-    final d = draft;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.glassBorder),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(item.icon, size: 18, color: AppColors.ink),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  d?.name ?? item.defaultName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.ink,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  d == null
-                      ? 'Reminder set'
-                      : '${_freqLabel(d.timesPerYear)} · ${_dateLabel(d.month, d.day)}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkSoft,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.check_circle_rounded,
-              size: 18, color: AppColors.accent),
-        ],
-      ),
-    );
-  }
-}
-
-/// Plain-English cadence for the summary, matching the schedule screen's words.
-String _freqLabel(int timesPerYear) => switch (timesPerYear) {
-      1 => 'Once a year',
-      2 => 'Every 6 months',
-      4 => 'Every 3 months',
-      6 => 'Every 2 months',
-      _ => 'Every month',
-    };
-
-const _monthNames = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
-String _dateLabel(int month, int day) =>
-    '$day ${_monthNames[(month - 1).clamp(0, 11)]}';
 
 /// The bottom sheet that turns the finished setup into an account — name +
 /// number, then SMS verify. Small and calm: the heavy lifting (the reminders)

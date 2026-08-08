@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#100B20</color>
+    <!-- The dark-purple splash background (AppColors.bg), so launch never
+         flashes white before Flutter draws its first frame. -->
+    <color name="launch_background">#100B20</color>
 </resources>

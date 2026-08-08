@@ -123,21 +123,26 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
   }
 
-  /// The real finish — fired from the schedule step's "Finish". Hand the drafts
-  /// to the host (which creates the tasks), light the fifth "app" dot for a
-  /// beat, then land on the make-or-break finish screen: the completed setup
-  /// shown behind a name/number claim sheet, verified via SMS into the app.
+  /// The real finish — fired from the schedule step's "Finish". Create the
+  /// tasks on the server NOW (under the anonymous owner id) so the finish
+  /// screen's live Home preview shows genuine saved data, light the fifth "app"
+  /// dot for a beat, then land on the make-or-break finish screen: the real Home
+  /// behind a name/number claim sheet, verified via SMS into the app.
   Future<void> _complete(Map<String, ReminderDraft> drafts) async {
     widget.onFinish?.call(drafts);
     // Light the fifth dot — "arriving at the app" — before we go.
     if (mounted) setState(() => _page = _pageCount);
-    await Future<void>.delayed(const Duration(milliseconds: 260));
+
+    // Build the store the finish screen (and, after claim, the app) will use.
+    // Commit the drafts to the server, then load — so the Home behind the sheet
+    // is the user's real, saved reminders, not a mock.
+    final store = TaskStore();
+    await commitOnboardingDrafts(store, drafts);
+    await store.load();
+
     if (!mounted) return;
     await _leaveToAuth(
-      child: OnboardingFinishScreen(
-        picked: Set<String>.from(_picked),
-        drafts: Map<String, ReminderDraft>.from(_drafts),
-      ),
+      child: OnboardingFinishScreen(store: store),
     );
   }
 

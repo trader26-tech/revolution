@@ -18,10 +18,16 @@ import 'verified_success_page.dart';
 /// number reaches [AuthStore.login]. Logging in remembers the number, so future
 /// launches skip straight to the app until sign-out.
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key, this.store, this.phoneAuth});
+  const AuthGate({super.key, this.store, this.phoneAuth, this.child});
 
   final AuthStore? store;
   final PhoneAuthService? phoneAuth;
+
+  /// The logged-OUT screen to show. Defaults to the plain [PhoneLoginPage]. The
+  /// onboarding finish screen passes its own richer screen here (the completed
+  /// summary + a name/number sheet) but reuses this gate's verification flow via
+  /// [AuthGateController], so there's ONE OTP/sign-in pipeline for both entries.
+  final Widget? child;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -32,13 +38,25 @@ class _AuthGateState extends State<AuthGate> {
   late final PhoneAuthService _phoneAuth =
       widget.phoneAuth ?? PhoneAuthService();
 
+  /// The display name to attach to the session, set by whoever kicks off
+  /// verification (the onboarding finish sheet). Read at [_safeLogin] time so it
+  /// lands on the verified account. Null on the plain login path.
+  String? _pendingName;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _auth,
       builder: (context, _) {
         if (_auth.isLoggedIn) return const AppShell();
-        return PhoneLoginPage(onSubmit: _startVerification);
+        // Expose the verification trigger to the logged-out subtree, so a custom
+        // [child] (the onboarding finish sheet) can start OTP with a name via
+        // AuthGateController.of(context).verify(...).
+        return AuthGateController(
+          verify: _startVerification,
+          child: widget.child ??
+              PhoneLoginPage(onSubmit: (e164) => _startVerification(e164)),
+        );
       },
     );
   }
@@ -61,11 +79,12 @@ class _AuthGateState extends State<AuthGate> {
   /// (in a "sending…" state) so the tap feels instant, then let Firebase resolve
   /// in the background — its callbacks flow to the already-open screen. If
   /// Android auto-retrieves the SMS, we sign in without any typing.
-  Future<void> _startVerification(String phoneE164) async {
+  Future<void> _startVerification(String phoneE164, {String? name}) async {
     // Fresh attempt — reset the per-attempt latches.
     _otpScreenOpen = false;
     _signingIn = false;
     _onCodeArrived = null;
+    _pendingName = name;
 
     // Show the OTP screen right away — no waiting on a spinner on the number
     // screen. It starts in "sending…" mode until the real code id arrives.
@@ -164,7 +183,7 @@ class _AuthGateState extends State<AuthGate> {
   /// this is a belt-and-braces guard around the whole call.
   Future<void> _safeLogin(String verifiedNumber) async {
     try {
-      await _auth.login(verifiedNumber);
+      await _auth.login(verifiedNumber, name: _pendingName);
     } catch (_) {
       // Verified but couldn't fully persist — the gate still flips to
       // logged-in via AuthStore, and prefs sync will retry later. Never crash.
@@ -177,6 +196,32 @@ class _AuthGateState extends State<AuthGate> {
       SnackBar(content: Text(message)),
     );
   }
+}
+
+/// Hands the logged-out subtree a way to start phone verification through the
+/// gate's single pipeline. The onboarding finish screen (mounted as the gate's
+/// [AuthGate.child]) reads this to fire the OTP flow with the collected name,
+/// so both entries — plain login and onboarding — share one OTP/sign-in path.
+class AuthGateController extends InheritedWidget {
+  const AuthGateController({
+    super.key,
+    required this.verify,
+    required super.child,
+  });
+
+  /// Kick off verification for [phoneE164], attaching an optional display
+  /// [name] to the session once the number is verified.
+  final Future<void> Function(String phoneE164, {String? name}) verify;
+
+  static AuthGateController of(BuildContext context) {
+    final c =
+        context.dependOnInheritedWidgetOfExactType<AuthGateController>();
+    assert(c != null, 'No AuthGateController above this widget');
+    return c!;
+  }
+
+  @override
+  bool updateShouldNotify(AuthGateController old) => verify != old.verify;
 }
 
 /// Owns the OTP screen's mutable state (current verificationId, error text) and

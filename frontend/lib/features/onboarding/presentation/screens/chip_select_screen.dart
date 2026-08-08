@@ -73,7 +73,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3200),
+      duration: const Duration(milliseconds: 3800),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _intro.forward();
@@ -123,20 +123,24 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
 
   @override
   Widget build(BuildContext context) {
-    // Timeline (0..1):
-    //   0.00..0.20  Revo makes his bubbly entrance.
-    //   0.14..0.50  the question MATERIALISES word by word (the shimmer).
-    //   0.46..1.00  the section headers + chips CASCADE in, one after another.
-    const questionStart = 0.14;
-    const questionEnd = 0.50;
-    const cascadeStart = 0.48;
+    // Timeline (0..1), with DELIBERATE PAUSES between the acts so the user reads
+    // each thing before the next arrives:
+    //   0.00..0.12  Revo makes his bubbly entrance.
+    //   —— pause ——  (settle before the words begin)
+    //   0.20..0.44  the question MATERIALISES word by word (the shimmer).
+    //   —— pause ——  (the KEY beat: time to READ the question)
+    //   0.56..1.00  the tagline, then the chips CASCADE in one after another.
+    const questionStart = 0.20;
+    const questionEnd = 0.44;
+    const taglineStart = 0.50;
+    const cascadeStart = 0.58;
     // Each header and each chip is one "beat" in the cascade. Space the beats so
     // the LAST one still finishes inside the timeline (start + window <= 1.0).
     final totalBeats = _sections.fold<int>(
       0,
       (n, s) => n + 1 + s.items.length, // header + its chips
     );
-    const chipWindow = 0.22;
+    const chipWindow = 0.18;
     final beatStep = totalBeats > 1
         ? (1.0 - cascadeStart - chipWindow) / (totalBeats - 1)
         : 0.0;
@@ -166,7 +170,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                       Padding(
                         padding: const EdgeInsets.only(right: 6, top: 2),
                         child: RevoEntrance(
-                          t: (_intro.value / 0.20).clamp(0.0, 1.0),
+                          t: (_intro.value / 0.12).clamp(0.0, 1.0),
                           child: Transform.flip(
                             flipX: true,
                             child: const AnimatedMascot(size: 60, glow: false),
@@ -192,7 +196,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                   ),
                   const SizedBox(height: 6),
                   _reveal(
-                    0.40,
+                    taglineStart,
                     const Padding(
                       padding: EdgeInsets.only(left: 2),
                       child: Text(

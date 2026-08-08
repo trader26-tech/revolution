@@ -7,6 +7,7 @@ import '../../auth/presentation/auth_gate.dart';
 import '../data/onboarding_store.dart';
 import 'screens/chip_select_screen.dart';
 import 'screens/intro_screen.dart';
+import 'screens/onboarding_finish_screen.dart';
 import 'screens/payoff_screen.dart';
 import 'screens/schedule_screen.dart';
 import 'widgets/reminder_confirm_sheet.dart';
@@ -102,26 +103,40 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   /// first, guaranteeing the phone login page every single time — the whole
   /// point of that dev shortcut is to test login again and again.
   Future<void> _skip() async {
+    await _leaveToAuth();
+  }
+
+  /// Mark onboarding done and replace this route with the auth gate. [child] is
+  /// the logged-out screen: null → the plain phone login (Skip path); the
+  /// onboarding finish screen on the real Finish path. Signing out first when
+  /// there's no [onDone] keeps the dev replay button landing on login every time.
+  Future<void> _leaveToAuth({Widget? child}) async {
     OnboardingStore.instance.markComplete();
     if (widget.onDone == null) {
       await AuthStore.instance.logout();
     }
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const AuthGate()),
+      MaterialPageRoute(builder: (_) => AuthGate(child: child)),
     );
   }
 
   /// The real finish — fired from the schedule step's "Finish". Hand the drafts
   /// to the host (which creates the tasks), light the fifth "app" dot for a
-  /// beat, then leave.
+  /// beat, then land on the make-or-break finish screen: the completed setup
+  /// shown behind a name/number claim sheet, verified via SMS into the app.
   Future<void> _complete(Map<String, ReminderDraft> drafts) async {
     widget.onFinish?.call(drafts);
     // Light the fifth dot — "arriving at the app" — before we go.
     if (mounted) setState(() => _page = _pageCount);
     await Future<void>.delayed(const Duration(milliseconds: 260));
     if (!mounted) return;
-    _skip(); // same exit (onDone / pop); nothing else to save.
+    await _leaveToAuth(
+      child: OnboardingFinishScreen(
+        picked: Set<String>.from(_picked),
+        drafts: Map<String, ReminderDraft>.from(_drafts),
+      ),
+    );
   }
 
   void _toggle(String key) => setState(() {

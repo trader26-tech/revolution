@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/mascot.dart';
 import '../../domain/onboarding_chip_catalog.dart';
-import '../widgets/magic_text.dart' show RevoEntrance;
+import '../widgets/magic_text.dart' show MagicText, RevoEntrance;
 import '../widgets/reminder_confirm_sheet.dart';
 
 /// Onboarding page 4 — the SCHEDULE step: when to remind you.
@@ -42,8 +42,9 @@ class ScheduleScreen extends StatefulWidget {
 
 class _ScheduleScreenState extends State<ScheduleScreen>
     with SingleTickerProviderStateMixin {
-  /// One-shot entrance: Revo pops, the question fades up, then the sections
-  /// cascade in. Plays once — a single screen, nothing to replay.
+  /// One-shot entrance, matching page 2: Revo pops → the question MATERIALISES
+  /// word by word (the shimmer) → the section headers and cards CASCADE in, with
+  /// DELIBERATE PAUSES between the acts so the user reads each before the next.
   late final AnimationController _intro;
   final _scroll = ScrollController();
 
@@ -56,7 +57,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
     _rebuildSections();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 3800),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _intro.forward();
@@ -87,12 +88,36 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   List<OnboardingChipItem> _pickedItems(OnboardingChipSection s) =>
       s.items.where((i) => widget.picked.contains(i.key)).toList();
 
-  Widget _reveal(double start, Widget child, {double window = 0.5}) {
+  /// 0→1 progress over a timeline slice [start]..[end] — feeds MagicText's own
+  /// word-stagger for the question shimmer.
+  double _slice(double start, double end) =>
+      ((_intro.value - start) / (end - start)).clamp(0.0, 1.0);
+
+  Widget _reveal(double start, Widget child, {double window = 0.28}) {
     final t = Curves.easeOutCubic
         .transform(((_intro.value - start) / window).clamp(0.0, 1.0));
     return Opacity(
       opacity: t,
       child: Transform.translate(offset: Offset(0, 16 * (1 - t)), child: child),
+    );
+  }
+
+  /// A card's own entrance: fade + lift + a springy scale-in, keyed to its
+  /// global position so the cards cascade one after another down the screen.
+  Widget _cardReveal(double start, Widget child, {double window = 0.22}) {
+    final raw = ((_intro.value - start) / window).clamp(0.0, 1.0);
+    final ease = Curves.easeOutCubic.transform(raw);
+    final spring = Curves.easeOutBack.transform(raw);
+    return Opacity(
+      opacity: ease,
+      child: Transform.translate(
+        offset: Offset(0, 14 * (1 - ease)),
+        child: Transform.scale(
+          scale: 0.9 + 0.1 * spring,
+          alignment: Alignment.topCenter,
+          child: child,
+        ),
+      ),
     );
   }
 
@@ -111,10 +136,34 @@ class _ScheduleScreenState extends State<ScheduleScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Timeline (0..1), with pauses between the acts — mirrors page 2:
+    //   0.00..0.12  Revo enters.
+    //   —— pause ——
+    //   0.20..0.44  the question MATERIALISES word by word (the shimmer).
+    //   —— pause ——  (time to READ the question)
+    //   0.56..1.00  the tagline, then the section headers + cards CASCADE in.
+    const questionStart = 0.20;
+    const questionEnd = 0.44;
+    const taglineStart = 0.50;
+    const cascadeStart = 0.58;
+    final totalBeats = _sections.fold<int>(
+      0,
+      (n, s) => n + 1 + _pickedItems(s).length, // header + its cards
+    );
+    const cardWindow = 0.20;
+    final beatStep = totalBeats > 1
+        ? (1.0 - cascadeStart - cardWindow) / (totalBeats - 1)
+        : 0.0;
+    var beat = 0;
+    double nextStart() => cascadeStart + (beat++) * beatStep;
+
     // No Scaffold/Starfield here — renders inside OnboardingFlow's sky.
     return AnimatedBuilder(
       animation: _intro,
       builder: (context, _) {
+        // Reset the cascade cursor each frame so the staggered starts stay
+        // stable while the controller ticks.
+        beat = 0;
         return Column(
           children: [
             Expanded(
@@ -122,14 +171,15 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                 controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                 children: [
-                  // Header: Revo (tail-left) + one overall question.
+                  // Header: Revo (tail-left) + the question, materialising word
+                  // by word — the same signature shimmer as page 2.
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(right: 6, top: 2),
                         child: RevoEntrance(
-                          t: (_intro.value / 0.24).clamp(0.0, 1.0),
+                          t: (_intro.value / 0.12).clamp(0.0, 1.0),
                           child: Transform.flip(
                             flipX: true,
                             child: const AnimatedMascot(size: 56, glow: false),
@@ -137,18 +187,16 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                         ),
                       ),
                       Expanded(
-                        child: _reveal(
-                          0.14,
-                          const Padding(
-                            padding: EdgeInsets.only(top: 6),
-                            child: Text(
-                              'When should we\nremind you?',
-                              style: TextStyle(
-                                fontSize: 26,
-                                height: 1.16,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.ink,
-                              ),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: MagicText(
+                            text: 'When should we\nremind you?',
+                            progress: _slice(questionStart, questionEnd),
+                            style: const TextStyle(
+                              fontSize: 26,
+                              height: 1.16,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
                             ),
                           ),
                         ),
@@ -157,7 +205,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                   ),
                   const SizedBox(height: 6),
                   _reveal(
-                    0.22,
+                    taglineStart,
                     const Padding(
                       padding: EdgeInsets.only(left: 2),
                       child: Text(
@@ -170,25 +218,25 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // The picked items, sectioned: a header per category, its
-                  // schedule cards under it. Sections cascade in one by one.
+                  // The picked items, sectioned. The header and each card take
+                  // their own beat in the cascade, so they arrive one by one.
                   for (var s = 0; s < _sections.length; s++)
-                    _reveal(
-                      (0.30 + s * 0.06).clamp(0.0, 0.5),
-                      _ScheduleSection(
-                        section: _sections[s],
-                        items: _pickedItems(_sections[s]),
-                        draftFor: _draftFor,
-                        onChanged: () => setState(() {}),
-                        topGap: s == 0 ? 0 : 22,
-                      ),
+                    _ScheduleSection(
+                      section: _sections[s],
+                      items: _pickedItems(_sections[s]),
+                      draftFor: _draftFor,
+                      onChanged: () => setState(() {}),
+                      topGap: s == 0 ? 0 : 22,
+                      headerReveal: (child) => _reveal(nextStart(), child),
+                      cardReveal: (child) => _cardReveal(nextStart(), child),
                     ),
                 ],
               ),
             ),
-            // Bottom: one Finish, the sky fading up into it.
+            // Bottom: one Finish, the sky fading up into it. Reveals with the
+            // tagline so the primary action is present while the cards cascade.
             _reveal(
-              0.55,
+              taglineStart,
               Container(
                 padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
                 decoration: BoxDecoration(
@@ -245,6 +293,8 @@ class _ScheduleSection extends StatelessWidget {
     required this.draftFor,
     required this.onChanged,
     required this.topGap,
+    required this.headerReveal,
+    required this.cardReveal,
   });
 
   final OnboardingChipSection section;
@@ -253,36 +303,45 @@ class _ScheduleSection extends StatelessWidget {
   final VoidCallback onChanged;
   final double topGap;
 
+  /// Wraps the header (and each card) in its own staggered entrance, so the
+  /// cascade flows continuously across sections rather than restarting per one.
+  final Widget Function(Widget child) headerReveal;
+  final Widget Function(Widget child) cardReveal;
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(height: topGap),
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 12),
-          child: Row(
-            children: [
-              Icon(section.icon, size: 16, color: AppColors.accent),
-              const SizedBox(width: 8),
-              Text(
-                section.title.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                  color: AppColors.inkSoft,
+        headerReveal(
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 12),
+            child: Row(
+              children: [
+                Icon(section.icon, size: 16, color: AppColors.accent),
+                const SizedBox(width: 8),
+                Text(
+                  section.title.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
+                    color: AppColors.inkSoft,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         for (final item in items)
-          _ItemScheduleCard(
-            key: ValueKey('${section.key}:${item.key}'),
-            item: item,
-            draft: draftFor(item),
-            onChanged: onChanged,
+          cardReveal(
+            _ItemScheduleCard(
+              key: ValueKey('${section.key}:${item.key}'),
+              item: item,
+              draft: draftFor(item),
+              onChanged: onChanged,
+            ),
           ),
       ],
     );

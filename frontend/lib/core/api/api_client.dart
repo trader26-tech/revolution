@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Talks to the Revolution backend (Railway), which is the ONLY store — tasks
@@ -198,6 +199,44 @@ class ApiClient {
         await _http.delete(_uri(path), headers: _headers).timeout(_timeout);
     if (res.statusCode >= 300 && res.statusCode != 404) {
       throw ApiException(res.statusCode, res.body);
+    }
+  }
+
+  /// Upload a document (PDF/photo) for a task — multipart to
+  /// POST /tasks/{id}/document. Returns the stored path on success. A longer
+  /// timeout than JSON calls since files take a moment.
+  Future<String?> uploadDocument(
+    String taskId, {
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+  }) async {
+    await _ensureId();
+    final req = http.MultipartRequest('POST', _uri('/tasks/$taskId/document'))
+      ..headers['X-User-Id'] = _userId ?? ''
+      ..headers['X-Owner-Id'] = _userId ?? ''
+      ..files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: filename,
+        contentType: MediaType.parse(contentType),
+      ));
+    final streamed = await req.send().timeout(const Duration(seconds: 60));
+    final res = await http.Response.fromStream(streamed);
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      return json['document_path'] as String?;
+    }
+    throw ApiException(res.statusCode, res.body);
+  }
+
+  /// Fetch a short-lived signed URL to VIEW a task's document, or null if none.
+  Future<String?> documentUrl(String taskId) async {
+    try {
+      final json = await get('/tasks/$taskId/document') as Map<String, dynamic>;
+      return json['url'] as String?;
+    } catch (_) {
+      return null; // no document / not found
     }
   }
 

@@ -28,6 +28,7 @@ class Task {
     this.iconDomain,
     this.amount,
     this.currency = 'INR',
+    this.documentPath,
   });
 
   final String id;
@@ -53,9 +54,14 @@ class Task {
   double? amount;
   String currency;
 
+  /// Path of an attached document (insurance policy PDF/photo) in the private
+  /// bucket. Non-null → the item has a document; tapping its icon opens it.
+  String? documentPath;
+
   bool get isScheduled => dueAt != null;
   bool get hasIcon => (iconName != null && iconName!.isNotEmpty);
   bool get hasAmount => amount != null;
+  bool get hasDocument => documentPath != null && documentPath!.isNotEmpty;
 
   Task copyWith({
     String? title,
@@ -114,5 +120,6 @@ class Task {
         iconDomain: j['icon_domain'] as String?,
         amount: (j['amount'] as num?)?.toDouble(),
         currency: j['currency'] as String? ?? 'INR',
+        documentPath: j['document_path'] as String?,
       );
 }

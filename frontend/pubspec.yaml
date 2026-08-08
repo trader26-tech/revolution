@@ -45,6 +45,9 @@ dependencies:
 
   # Fetching brand/app logos by domain (Clearbit-style) for the icon picker.
   http: ^1.2.0
+  # MediaType for multipart document uploads (transitive via http; pinned direct
+  # so the import is explicit).
+  http_parser: ^4.0.0
   flutter_sticky_header: ^0.8.0
   url_launcher: ^6.3.2
   # Pinned to 8.x deliberately. 10.x's android/build.gradle.kts uses the
@@ -63,6 +66,11 @@ dependencies:
   # confirm-code flow. See features/auth/data/phone_auth_service.dart.
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1
+
+  # Pick a policy document (PDF or photo) to attach to an insurance item. The
+  # signed URL to VIEW it is opened with url_launcher (native PDF/image viewer),
+  # so no heavy in-app PDF renderer is needed.
+  file_picker: ^8.1.2
 
 dev_dependencies:
   flutter_test:

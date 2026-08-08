@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../add/presentation/insurance_form_page.dart' show openTaskDocument;
 import '../../../brand/data/brand_catalog.dart';
 import '../../../brand/domain/brand.dart';
 import '../../../brand/presentation/brand_logo.dart';
@@ -69,8 +70,13 @@ class _TaskTileState extends State<TaskTile> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 children: [
-                  // Brand logo on the LEFT — falls back to a filled letter tile.
-                  BrandLogo(brand: _brandOf(task), size: 44, radius: 12),
+                  // The LEFT icon. For an item with an attached document
+                  // (insurance policy), the icon IS the document — tap it to
+                  // open the real PDF/photo. Otherwise the brand logo (or letter
+                  // fallback).
+                  task.hasDocument
+                      ? _DocumentIcon(taskId: task.id)
+                      : BrandLogo(brand: _brandOf(task), size: 44, radius: 12),
                   const SizedBox(width: 14),
                   // Title + date in the middle.
                   Expanded(
@@ -309,6 +315,62 @@ class _DeleteSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The icon for an item that has an attached document (an insurance policy).
+/// It's a document glyph in the insurance accent; tapping it fetches a signed
+/// URL and opens the real PDF/photo in the phone's native viewer.
+class _DocumentIcon extends StatefulWidget {
+  const _DocumentIcon({required this.taskId});
+  final String taskId;
+
+  @override
+  State<_DocumentIcon> createState() => _DocumentIconState();
+}
+
+class _DocumentIconState extends State<_DocumentIcon> {
+  static const _accent = Color(0xFF34D399); // matches AddCategory.insurance
+  bool _opening = false;
+
+  Future<void> _open() async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    final ok = await openTaskDocument(widget.taskId);
+    if (mounted) {
+      setState(() => _opening = false);
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't open the document")),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _open,
+      child: Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _accent.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: _opening
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: _accent,
+                ),
+              )
+            : const Icon(Icons.description_rounded, color: _accent, size: 24),
+      ),
     );
   }
 }

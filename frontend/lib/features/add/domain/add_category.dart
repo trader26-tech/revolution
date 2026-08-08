@@ -11,23 +11,27 @@ import '../../../core/theme/app_theme.dart';
 /// Subscriptions and Birthdays.
 enum AddCategory {
   subscription,
-  birthday;
+  birthday,
+  insurance;
 
   /// Card title in the picker.
   String get label => switch (this) {
         AddCategory.subscription => 'Subscription',
         AddCategory.birthday => 'Birthday',
+        AddCategory.insurance => 'Insurance',
       };
 
   /// One-line hint under the title — what this category is for.
   String get blurb => switch (this) {
         AddCategory.subscription => 'Netflix, Prime, gym…',
         AddCategory.birthday => 'Never miss the people who matter',
+        AddCategory.insurance => 'Health, car, life — with the policy attached',
       };
 
   IconData get icon => switch (this) {
         AddCategory.subscription => Icons.subscriptions_rounded,
         AddCategory.birthday => Icons.cake_rounded,
+        AddCategory.insurance => Icons.shield_rounded,
       };
 
   /// The category's accent — used across its card and its form so the whole
@@ -35,12 +39,14 @@ enum AddCategory {
   Color get color => switch (this) {
         AddCategory.subscription => AppColors.accent,
         AddCategory.birthday => const Color(0xFFFF6FB5), // warm pink for people
+        AddCategory.insurance => const Color(0xFF34D399), // trustworthy green
       };
 
   /// The categories offered right now, in display order. More land here later
-  /// (Insurance, Documents, Renewals…), each with its own form.
+  /// (Documents, Renewals…), each with its own form.
   static const List<AddCategory> available = [
     AddCategory.subscription,
     AddCategory.birthday,
+    AddCategory.insurance,
   ];
 }

@@ -75,26 +75,31 @@ class _HomePageState extends State<HomePage> {
     if (picked != null) setState(() => _filter = picked);
   }
 
-  /// Press + → pick a category (Subscription, Birthday, …) → fill its tailored
-  /// form. Each form hands back a ready-to-save [Task]. On save, create it then
-  /// persist the form's fields.
+  /// Press + → pick a category (Subscription, Birthday, Insurance) → fill its
+  /// tailored form. Subscription/Birthday hand back a ready-to-save [Task];
+  /// Insurance saves itself (it needs the task id to upload its document) and
+  /// just signals a refresh.
   Future<void> _startAdd() async {
-    final result = await openAddFlow(context);
+    final result = await openAddFlow(context, widget.store);
     if (result == null || !mounted) return;
+    // Insurance already created + uploaded itself — nothing to persist here.
+    if (result.selfSaved) return;
+    final task = result.task;
+    if (task == null) return;
     try {
       // Create with the name + icon, then persist the rest of the form's fields.
       final created = await widget.store.add(
-        result.title,
-        iconName: result.iconName,
-        iconDomain: result.iconDomain,
+        task.title,
+        iconName: task.iconName,
+        iconDomain: task.iconDomain,
       );
       await widget.store.update(created.copyWith(
-        dueAt: result.dueAt,
-        clearDueAt: result.dueAt == null,
-        repeat: result.repeat,
-        amount: result.amount,
-        clearAmount: result.amount == null,
-        currency: result.currency,
+        dueAt: task.dueAt,
+        clearDueAt: task.dueAt == null,
+        repeat: task.repeat,
+        amount: task.amount,
+        clearAmount: task.amount == null,
+        currency: task.currency,
       ));
     } catch (e) {
       if (mounted) {

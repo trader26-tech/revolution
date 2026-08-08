@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/mascot.dart';
 import '../../domain/onboarding_chip_catalog.dart';
-import '../widgets/magic_text.dart' show RevoEntrance;
+import '../widgets/magic_text.dart' show MagicText, RevoEntrance;
 import '../widgets/reminder_confirm_sheet.dart';
 
 /// Onboarding page 2: "What should we remember?"
@@ -284,12 +284,19 @@ class _Section extends StatelessWidget {
     required this.picked,
     required this.onToggle,
     required this.topGap,
+    required this.headerReveal,
+    required this.chipReveal,
   });
 
   final OnboardingChipSection section;
   final Set<String> picked;
   final ValueChanged<String> onToggle;
   final double topGap;
+
+  /// Wraps the header (and each chip) in its own staggered entrance, so the
+  /// cascade flows continuously across sections rather than restarting per one.
+  final Widget Function(Widget child) headerReveal;
+  final Widget Function(Widget child) chipReveal;
 
   @override
   Widget build(BuildContext context) {
@@ -299,22 +306,24 @@ class _Section extends StatelessWidget {
         SizedBox(height: topGap),
         // Section header — the category name, quiet and all-caps, with a small
         // icon so the sections read as distinct bands as you scroll.
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 12),
-          child: Row(
-            children: [
-              Icon(section.icon, size: 16, color: AppColors.accent),
-              const SizedBox(width: 8),
-              Text(
-                section.title.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                  color: AppColors.inkSoft,
+        headerReveal(
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 12),
+            child: Row(
+              children: [
+                Icon(section.icon, size: 16, color: AppColors.accent),
+                const SizedBox(width: 8),
+                Text(
+                  section.title.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
+                    color: AppColors.inkSoft,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         Wrap(
@@ -322,10 +331,12 @@ class _Section extends StatelessWidget {
           runSpacing: 10,
           children: [
             for (final item in section.items)
-              _Chip(
-                item: item,
-                selected: picked.contains(item.key),
-                onTap: () => onToggle(item.key),
+              chipReveal(
+                _Chip(
+                  item: item,
+                  selected: picked.contains(item.key),
+                  onTap: () => onToggle(item.key),
+                ),
               ),
           ],
         ),

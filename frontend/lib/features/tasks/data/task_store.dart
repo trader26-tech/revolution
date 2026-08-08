@@ -169,8 +169,17 @@ class TaskStore extends ChangeNotifier {
   /// Re-create a deleted task on the server (for Undo).
   Future<void> restore(Task task, {int? at}) async {
     try {
-      await add(task.title,
-          iconName: task.iconName, iconDomain: task.iconDomain);
+      // Re-create with EVERYTHING the task had — undo must not lose the date,
+      // repeat, or amount.
+      await add(
+        task.title,
+        iconName: task.iconName,
+        iconDomain: task.iconDomain,
+        dueAt: task.dueAt,
+        repeat: task.repeat,
+        amount: task.amount,
+        currency: task.currency,
+      );
     } catch (_) {
       // best-effort
     }

@@ -140,9 +140,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     // fills it and the preview repaints as each reminder is created.
     final store = TaskStore();
     // Fire-and-forget: create the drafts (concurrently) under the anonymous
-    // owner. Best-effort — failures are swallowed per draft. Not awaited, so the
-    // transition is instant.
-    unawaited(commitOnboardingDrafts(store, drafts));
+    // account. Best-effort — failures are swallowed per draft. Not awaited, so
+    // the transition is instant — but REGISTERED with the ApiClient so login's
+    // claim waits for every save to land before re-keying rows. Without that
+    // barrier, a save still in flight during verification loses its data.
+    final commit = commitOnboardingDrafts(store, drafts);
+    ApiClient.instance.trackPendingWrite(commit);
+    unawaited(commit);
 
     if (!mounted) return;
     await _leaveToAuth(

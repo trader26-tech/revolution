@@ -1,20 +1,22 @@
 import '../../tasks/data/task_store.dart';
 import '../../tasks/domain/task.dart';
+import '../domain/onboarding_chip_catalog.dart';
 import '../presentation/widgets/reminder_confirm_sheet.dart';
 
 /// Turns the onboarding drafts into real server tasks.
 ///
-/// Called on Finish, BEFORE phone verification — the tasks are created under the
-/// current (anonymous) owner id, so the finish screen's live Home preview shows
-/// genuine saved data. On verify, [AuthStore.login] claims this anonymous
-/// session onto the verified phone, so nothing is lost.
+/// Called on Finish, BEFORE phone verification — the tasks are created under
+/// the current (anonymous) account, so the finish screen's live Home preview
+/// shows genuine saved data. On verify, [AuthStore.login] claims this
+/// anonymous session onto the verified phone; the claim WAITS for these writes
+/// (see ApiClient.trackPendingWrite) so no row is moved mid-save.
 ///
-/// Best-effort per task: one failed create never aborts the rest.
+/// Each task is ONE atomic create — title + date + repeat + category + brand
+/// all in the same request. Never create-then-patch: losing the second step is
+/// exactly how tasks used to arrive dateless.
 ///
-/// Drafts are committed CONCURRENTLY — each draft's create+update chain runs in
-/// parallel with the others — so the whole set costs about one round-trip of
-/// latency instead of (2 × N) sequential ones. On a handful of picks this is the
-/// difference between an instant finish and a multi-second wait.
+/// Best-effort per task: one failed create never aborts the rest. Drafts are
+/// committed CONCURRENTLY, so the whole set costs about one round-trip.
 Future<void> commitOnboardingDrafts(
   TaskStore store,
   Map<String, ReminderDraft> drafts, {
@@ -22,25 +24,49 @@ Future<void> commitOnboardingDrafts(
 }) async {
   final today = now ?? DateTime.now();
   // Leave the "initial load" shimmer immediately: the finish screen's Home
-  // preview renders the real list frame right away, and each reminder pops in as
-  // its create lands below (instead of shimmering until a server fetch that
-  // never happens on this path).
+  // preview renders the real list frame right away, and each reminder pops in
+  // as its create lands below.
   store.markLoaded();
   await Future.wait(
-    drafts.values.map((draft) async {
+    drafts.entries.map((entry) async {
+      final chipKey = entry.key;
+      final draft = entry.value;
       try {
-        final created = await store.add(draft.name);
-        await store.update(
-          created.copyWith(
-            dueAt: _nextOccurrence(today, draft),
-            repeat: draft.frequency,
-          ),
+        await store.add(
+          draft.name,
+          dueAt: _nextOccurrence(today, draft),
+          repeat: draft.frequency,
+          category: _categoryOf(chipKey),
+          source: chipKey,
+          // Real brand logo when the catalog knows the domain (e.g. Netflix).
+          iconDomain: _catalogItem(chipKey)?.domain,
         );
       } catch (_) {
         // Skip this one; keep going.
       }
     }),
   );
+}
+
+/// The catalog item behind a chip key (for its brand domain), if any.
+OnboardingChipItem? _catalogItem(String key) {
+  for (final section in kOnboardingChipSections) {
+    for (final item in section.items) {
+      if (item.key == key) return item;
+    }
+  }
+  return null;
+}
+
+/// Map a chip key's prefix to the task's life category (schema `category`).
+String _categoryOf(String key) {
+  if (key.startsWith('subs_')) return 'subscription';
+  if (key.startsWith('bills_')) return 'bill';
+  if (key.startsWith('docs_')) return 'document';
+  if (key.startsWith('family_')) return 'family';
+  if (key.startsWith('insure_')) return 'insurance';
+  if (key.startsWith('invest_')) return 'investment';
+  return 'other';
 }
 
 /// The next date this reminder should fire, from its (month, day) and cadence.

@@ -70,11 +70,38 @@ class ApiClient {
     unawaited(_mintAnonymous().catchError((_) => ''));
   }
 
+  /// Writes (like the onboarding batch-save) that MUST land before the claim
+  /// re-keys rows to the account. Tracked so [claim] can wait for them —
+  /// otherwise a save still in flight when login fires would be left behind on
+  /// the anonymous account (or lose its follow-up), which is how onboarding
+  /// tasks used to arrive broken.
+  final Set<Future<void>> _pendingWrites = {};
+
+  /// Register a write the next [claim] must wait for. Self-removes on finish.
+  void trackPendingWrite(Future<void> write) {
+    _pendingWrites.add(write);
+    write.whenComplete(() => _pendingWrites.remove(write));
+  }
+
+  Future<void> _awaitPendingWrites() async {
+    if (_pendingWrites.isEmpty) return;
+    try {
+      await Future.wait(List.of(_pendingWrites))
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      // Never block login forever on a stuck write.
+    }
+  }
+
   /// The pairing: attach this (anonymous) session to a verified phone. Runs
   /// UNDER the current anonymous id; the server either claims it in place or
   /// merges it into the phone's existing account. Returns the response map —
   /// the caller must [setUserId] to its `user_id`.
-  Future<dynamic> claim({required String phone, String? name}) {
+  ///
+  /// Waits for tracked in-flight writes first, so every onboarding task is on
+  /// the anonymous account BEFORE the server moves them over.
+  Future<dynamic> claim({required String phone, String? name}) async {
+    await _awaitPendingWrites();
     return post('/claim', {
       'phone': phone,
       if (name != null && name.trim().isNotEmpty) 'name': name.trim(),

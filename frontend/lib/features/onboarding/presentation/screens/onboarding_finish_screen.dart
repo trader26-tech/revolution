@@ -245,12 +245,16 @@ class _ClaimSheetState extends State<_ClaimSheet> {
     FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
     final e164 = '${_country.dial}$_digits';
-    try {
-      await AuthGateController.of(context)
-          .verify(e164, name: _nameCtrl.text.trim());
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    final name = _nameCtrl.text.trim();
+
+    // Grab the gate's verify BEFORE we pop — the controller lives above this
+    // sheet, so it must be read while this context is still mounted. We then
+    // CLOSE the sheet and push the OTP screen. Without closing first, the OTP
+    // route lands UNDERNEATH this modal sheet, so tapping Verify looked like it
+    // did nothing (the OTP screen was hidden behind the sheet).
+    final verify = AuthGateController.of(context).verify;
+    Navigator.of(context).pop(); // dismiss the claim sheet
+    await verify(e164, name: name);
   }
 
   Future<void> _pickCountry() async {

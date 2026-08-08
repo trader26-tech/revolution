@@ -124,11 +124,11 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
       ),
     ],
   ),
-  // The bills EVERYONE pays — the strongest "this app gets my life" section,
-  // so it sits right after the familiar subscription logos.
+  // The bills EVERYONE pays monthly — the strongest "this app gets my life"
+  // section, so it sits right after the familiar subscription logos.
   OnboardingChipSection(
     key: 'bills',
-    title: 'Bills & taxes',
+    title: 'Bills',
     icon: Icons.receipt_long_rounded,
     color: Color(0xFFF59E0B),
     items: [
@@ -142,28 +142,10 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
         preselected: true,
       ),
       OnboardingChipItem(
-        key: 'bills_water',
-        label: 'Water tax',
-        icon: Icons.water_drop_rounded,
-        defaultName: 'Water tax',
-        defaultDay: 15,
-        defaultFrequency: RepeatCadence.yearly,
-        preselected: true,
-      ),
-      OnboardingChipItem(
-        key: 'bills_land',
-        label: 'Land tax',
-        icon: Icons.landscape_rounded,
-        defaultName: 'Land / property tax',
-        defaultDay: 25,
-        defaultFrequency: RepeatCadence.yearly,
-        preselected: true,
-      ),
-      OnboardingChipItem(
         key: 'bills_wifi',
-        label: 'WiFi / broadband',
+        label: 'WiFi',
         icon: Icons.wifi_rounded,
-        defaultName: 'Broadband bill',
+        defaultName: 'WiFi bill',
         defaultDay: 5,
         defaultFrequency: RepeatCadence.monthly,
         preselected: true,

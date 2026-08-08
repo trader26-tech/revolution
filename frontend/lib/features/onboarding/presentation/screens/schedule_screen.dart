@@ -534,24 +534,32 @@ class _ItemIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasBrand = item.domain != null && item.domain!.isNotEmpty;
+    if (hasBrand) {
+      // The logo floats directly on the dark sky — bare (no white backing
+      // tile) + circular, so favicons that ship an opaque white background
+      // become a clean round badge instead of a glaring white square.
+      return SizedBox(
+        width: 42,
+        height: 42,
+        child: Center(
+          child: BrandLogo(
+            brand: Brand(name: item.label, domain: item.domain!),
+            size: 34,
+            bare: true,
+            circular: true,
+          ),
+        ),
+      );
+    }
     return Container(
       width: 42,
       height: 42,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        // Brand logos read best on a neutral tile; glyphs keep the accent wash.
-        color: hasBrand
-            ? Colors.white.withValues(alpha: 0.06)
-            : AppColors.accent.withValues(alpha: 0.16),
+        color: AppColors.accent.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(11),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: hasBrand
-          ? BrandLogo(
-              brand: Brand(name: item.label, domain: item.domain!),
-              size: 26,
-            )
-          : Icon(item.icon, size: 20, color: AppColors.ink),
+      child: Icon(item.icon, size: 20, color: AppColors.ink),
     );
   }
 }

@@ -14,9 +14,15 @@ import 'widgets/repeat_cycle_field.dart';
 /// brand logo), what it costs, how often it bills, and the next payment date.
 /// No documents, no person — those belong to other categories.
 ///
+/// Optionally seeded with an [initialBrand] — when the user tapped a brand on
+/// the add picker, the name + logo arrive already filled so they only set the
+/// price and date.
+///
 /// Returns a ready-to-save [Task], or null if cancelled.
 class SubscriptionFormPage extends StatefulWidget {
-  const SubscriptionFormPage({super.key});
+  const SubscriptionFormPage({super.key, this.initialBrand});
+
+  final Brand? initialBrand;
 
   @override
   State<SubscriptionFormPage> createState() => _SubscriptionFormPageState();
@@ -38,6 +44,13 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
   @override
   void initState() {
     super.initState();
+    // Pre-fill from the brand the user tapped on the picker, if any.
+    final b = widget.initialBrand;
+    if (b != null) {
+      _iconName = b.name;
+      _iconDomain = b.domain;
+      _name.text = b.name;
+    }
     _name.addListener(() => setState(() {}));
   }
 

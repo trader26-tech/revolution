@@ -173,18 +173,17 @@ class _HomePageState extends State<HomePage> {
                 filterActive: _filter.isActive,
               ),
               const SizedBox(height: 12),
-              // Revo hero — reacts to the day: panicking (due today), sad
-              // (overdue pending), or happy (all clear). Only once real tasks
-              // have loaded, so it never flashes during the initial fetch or on
-              // the empty state.
+              // Revo hero — always present (it's the hero): panicking (due
+              // today), sad (overdue pending), or happy (all clear / nothing
+              // yet). Hidden only during the very first fetch so it doesn't
+              // flash a wrong state before tasks load.
               AnimatedBuilder(
                 animation: widget.store,
                 builder: (context, _) {
-                  final tasks = widget.store.tasks;
-                  if (widget.store.isInitialLoad || tasks.isEmpty) {
+                  if (widget.store.isInitialLoad) {
                     return const SizedBox.shrink();
                   }
-                  return RevoHero(tasks: tasks);
+                  return RevoHero(tasks: widget.store.tasks);
                 },
               ),
               Expanded(

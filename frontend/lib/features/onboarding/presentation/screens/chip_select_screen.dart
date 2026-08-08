@@ -60,8 +60,9 @@ class ChipSelectWizard extends StatefulWidget {
 
 class _ChipSelectWizardState extends State<ChipSelectWizard>
     with SingleTickerProviderStateMixin {
-  /// One-shot entrance: Revo pops, the question fades up, then the sections
-  /// cascade in. Plays once — this is now a single screen, nothing to replay.
+  /// One-shot entrance: Revo pops → the question MATERIALISES word by word (the
+  /// signature shimmer) → the section headers and chips CASCADE in one by one.
+  /// Deliberately slow so the reveal reads as a considered flourish, not a snap.
   late final AnimationController _intro;
   final _scroll = ScrollController();
 
@@ -72,7 +73,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 3200),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _intro.forward();
@@ -86,8 +87,13 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     super.dispose();
   }
 
+  /// 0→1 progress over a timeline slice [start]..[end]. Feeds MagicText's own
+  /// word-stagger for the question shimmer.
+  double _slice(double start, double end) =>
+      ((_intro.value - start) / (end - start)).clamp(0.0, 1.0);
+
   /// Fade + slide-up for the slice of the timeline [start]..[start]+[window].
-  Widget _reveal(double start, Widget child, {double window = 0.5}) {
+  Widget _reveal(double start, Widget child, {double window = 0.28}) {
     final t = Curves.easeOutCubic
         .transform(((_intro.value - start) / window).clamp(0.0, 1.0));
     return Opacity(
@@ -96,13 +102,55 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     );
   }
 
+  /// A chip's own entrance: fade + lift + a springy scale-in, keyed to its
+  /// global position so the whole catalog cascades one chip after another.
+  Widget _chipReveal(double start, Widget child, {double window = 0.22}) {
+    final raw = ((_intro.value - start) / window).clamp(0.0, 1.0);
+    final ease = Curves.easeOutCubic.transform(raw);
+    final spring = Curves.easeOutBack.transform(raw);
+    return Opacity(
+      opacity: ease,
+      child: Transform.translate(
+        offset: Offset(0, 12 * (1 - ease)),
+        child: Transform.scale(
+          scale: 0.85 + 0.15 * spring,
+          alignment: Alignment.centerLeft,
+          child: child,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Timeline (0..1):
+    //   0.00..0.20  Revo makes his bubbly entrance.
+    //   0.14..0.50  the question MATERIALISES word by word (the shimmer).
+    //   0.46..1.00  the section headers + chips CASCADE in, one after another.
+    const questionStart = 0.14;
+    const questionEnd = 0.50;
+    const cascadeStart = 0.48;
+    // Each header and each chip is one "beat" in the cascade. Space the beats so
+    // the LAST one still finishes inside the timeline (start + window <= 1.0).
+    final totalBeats = _sections.fold<int>(
+      0,
+      (n, s) => n + 1 + s.items.length, // header + its chips
+    );
+    const chipWindow = 0.22;
+    final beatStep = totalBeats > 1
+        ? (1.0 - cascadeStart - chipWindow) / (totalBeats - 1)
+        : 0.0;
+    var beat = 0;
+    double nextStart() => cascadeStart + (beat++) * beatStep;
+
     // No Scaffold/Starfield/SafeArea here — this renders inside OnboardingFlow,
     // which already provides the sky and safe area.
     return AnimatedBuilder(
       animation: _intro,
       builder: (context, _) {
+        // Reset the cascade cursor each frame so the staggered starts stay
+        // stable while the controller ticks.
+        beat = 0;
         return Column(
           children: [
             Expanded(
@@ -110,14 +158,15 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                 controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                 children: [
-                  // Header: Revo (tail-left) + one overall question.
+                  // Header: Revo (tail-left) + the question, which materialises
+                  // word by word — the signature AI-conjuring shimmer.
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(right: 6, top: 2),
                         child: RevoEntrance(
-                          t: (_intro.value / 0.24).clamp(0.0, 1.0),
+                          t: (_intro.value / 0.20).clamp(0.0, 1.0),
                           child: Transform.flip(
                             flipX: true,
                             child: const AnimatedMascot(size: 60, glow: false),
@@ -125,18 +174,16 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                         ),
                       ),
                       Expanded(
-                        child: _reveal(
-                          0.14,
-                          const Padding(
-                            padding: EdgeInsets.only(top: 6),
-                            child: Text(
-                              'What should we\nremember?',
-                              style: TextStyle(
-                                fontSize: 27,
-                                height: 1.12,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.ink,
-                              ),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: MagicText(
+                            text: 'What should we\nremember?',
+                            progress: _slice(questionStart, questionEnd),
+                            style: const TextStyle(
+                              fontSize: 27,
+                              height: 1.12,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
                             ),
                           ),
                         ),
@@ -145,7 +192,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                   ),
                   const SizedBox(height: 6),
                   _reveal(
-                    0.22,
+                    0.40,
                     const Padding(
                       padding: EdgeInsets.only(left: 2),
                       child: Text(
@@ -158,23 +205,21 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // The whole catalog, sectioned: a header per category, its
-                  // items as rows under it. The sections cascade in one after
-                  // another across the back of the entrance timeline.
+                  // The whole catalog, sectioned. The header and each chip take
+                  // their own beat in the cascade, so the items shimmer in one
+                  // after another down the screen.
                   for (var s = 0; s < _sections.length; s++)
-                    _reveal(
-                      (0.30 + s * 0.06).clamp(0.0, 0.5),
-                      _Section(
-                        section: _sections[s],
-                        picked: widget.picked,
-                        onToggle: (key) {
-                          HapticFeedback.lightImpact();
-                          widget.onToggle(key);
-                        },
-                        // A little top gap between sections (not before the
-                        // first, which sits right under the tagline).
-                        topGap: s == 0 ? 0 : 22,
-                      ),
+                    _Section(
+                      section: _sections[s],
+                      picked: widget.picked,
+                      onToggle: (key) {
+                        HapticFeedback.lightImpact();
+                        widget.onToggle(key);
+                      },
+                      topGap: s == 0 ? 0 : 22,
+                      // Give the header and each chip its own staggered reveal.
+                      headerReveal: (child) => _reveal(nextStart(), child),
+                      chipReveal: (child) => _chipReveal(nextStart(), child),
                     ),
                 ],
               ),

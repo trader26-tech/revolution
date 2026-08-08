@@ -1,14 +1,22 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../reminders/data/reminder_scheduler.dart';
 import '../domain/task.dart';
 
-/// Task store — the SERVER is the only store. Every add/update/delete goes to
-/// the backend (Railway → Supabase); the local list is just a view of what the
-/// server returned. Nothing is persisted on the device.
+/// Task store — the server (Railway → Supabase) is the source of truth, but the
+/// last successful `/tasks` payload is CACHED on-device so a cold start paints
+/// the real list instantly instead of a shimmer while a (possibly cold) Railway
+/// round-trip runs. On load we hydrate from cache first, then refresh in the
+/// background and re-cache.
 class TaskStore extends ChangeNotifier {
   TaskStore({ApiClient? api}) : _api = api ?? ApiClient.instance;
+
+  static const _cacheKey = 'tasks_cache_v1';
 
   final ApiClient _api;
   final List<Task> _tasks = [];
@@ -53,23 +61,77 @@ class TaskStore extends ChangeNotifier {
   List<Task> get unscheduled => _tasks.where((t) => !t.isScheduled).toList();
   bool get isEmpty => _tasks.isEmpty;
 
-  /// Fetch the user's tasks from the server. Call at startup.
+  /// Fetch the user's tasks. Call at startup.
+  ///
+  /// Two phases for a snappy cold start:
+  ///   1. Hydrate from the on-device cache SYNCHRONOUSLY-ish — if we have cached
+  ///      rows, drop the shimmer and paint them immediately.
+  ///   2. Refresh from the server in the background; on success, replace the
+  ///      list and re-cache. A network failure keeps the cached rows on screen
+  ///      instead of an error/empty flash.
   Future<void> load() async {
-    _loading = true;
+    // Phase 1 — cache. Only mark "loaded" (leave the shimmer) if we actually
+    // had something cached, so a truly-first launch still shows the loader.
+    final hadCache = await _hydrateFromCache();
+    if (hadCache) {
+      _hasLoaded = true;
+      notifyListeners();
+    } else {
+      _loading = true;
+      notifyListeners();
+    }
+
+    // Phase 2 — network refresh.
     _error = null;
-    notifyListeners();
     try {
       final data = await _api.get('/tasks') as List;
+      final fresh =
+          data.map((e) => Task.fromJson(e as Map<String, dynamic>)).toList();
       _tasks
         ..clear()
-        ..addAll(data.map((e) => Task.fromJson(e as Map<String, dynamic>)));
+        ..addAll(fresh);
       _error = null;
+      unawaited(_writeCache(fresh)); // best-effort, off the paint path
     } catch (e) {
-      _error = e;
+      // Keep whatever we hydrated from cache; only surface the error if we have
+      // nothing to show.
+      if (_tasks.isEmpty) _error = e;
     } finally {
       _loading = false;
       _hasLoaded = true;
       notifyListeners();
+    }
+  }
+
+  /// Load cached tasks into [_tasks]. Returns true if any were present.
+  Future<bool> _hydrateFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_cacheKey);
+      if (raw == null || raw.isEmpty) return false;
+      final list = (jsonDecode(raw) as List)
+          .map((e) => Task.fromJson(e as Map<String, dynamic>))
+          .toList();
+      if (list.isEmpty) return false;
+      _tasks
+        ..clear()
+        ..addAll(list);
+      return true;
+    } catch (_) {
+      return false; // corrupt cache → ignore, fall through to network
+    }
+  }
+
+  /// Persist the current task list so the next cold start paints instantly.
+  Future<void> _writeCache(List<Task> tasks) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _cacheKey,
+        jsonEncode(tasks.map((t) => t.toJson()).toList()),
+      );
+    } catch (_) {
+      // Cache is best-effort; a write failure never affects the live list.
     }
   }
 
@@ -105,6 +167,7 @@ class TaskStore extends ChangeNotifier {
     final created = Task.fromJson(json);
     _tasks.insert(0, created);
     notifyListeners();
+    unawaited(_writeCache(_tasks));
     return created;
   }
 
@@ -117,6 +180,7 @@ class TaskStore extends ChangeNotifier {
     final i = _tasks.indexWhere((t) => t.id == saved.id);
     if (i != -1) _tasks[i] = saved;
     notifyListeners();
+    unawaited(_writeCache(_tasks));
   }
 
   /// Toggle done — OPTIMISTIC: flip the checkbox locally and repaint instantly,
@@ -139,6 +203,7 @@ class TaskStore extends ChangeNotifier {
         _tasks[j] = saved;
         notifyListeners();
       }
+      unawaited(_writeCache(_tasks));
     } catch (_) {
       // Roll back to the pre-toggle state on failure.
       final j = _tasks.indexWhere((t) => t.id == original.id);
@@ -155,6 +220,7 @@ class TaskStore extends ChangeNotifier {
     final previous = List<Task>.from(_tasks);
     _tasks.removeWhere((t) => t.id == task.id);
     notifyListeners();
+    unawaited(_writeCache(_tasks));
     try {
       await _api.delete('/tasks/${task.id}');
     } catch (_) {

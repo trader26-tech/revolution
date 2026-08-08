@@ -56,10 +56,8 @@ class _AuthGateState extends State<AuthGate> {
     return AnimatedBuilder(
       animation: _auth,
       builder: (context, _) {
-        if (_auth.isLoggedIn) return const AppShell();
-
-        // Verified → play the celebration, then log in (which rebuilds to
-        // AppShell above). Shown inline so nothing can get stuck on top of it.
+        // The celebration takes over the whole screen for its ~2s beat, then
+        // logs in. Shown inline (not a pushed route) so it can never get stuck.
         if (_celebrating && _celebrateNumber != null) {
           return VerifiedSuccessPage(
             phoneE164: _celebrateNumber!,
@@ -67,16 +65,16 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        // Expose the verification trigger to the logged-out subtree, so a custom
-        // [child] (the onboarding finish sheet) can start OTP with a name via
-        // AuthGateController.of(context).verify(...).
+        // The app is ALWAYS visible now — the user browses their (cached) tasks
+        // immediately. When not yet verified, AppShell shows a bottom "verify"
+        // banner that starts the OTP flow. AuthGateController still exposes the
+        // trigger so other surfaces (the onboarding finish sheet) can start it.
         return AuthGateController(
           verify: _startVerification,
-          child: widget.child ??
-              PhoneLoginPage(
-                onSubmit: (e164) => _startVerification(e164),
-                onSkip: _skipToHome,
-              ),
+          child: AppShell(
+            verified: _auth.isLoggedIn,
+            onVerify: _auth.isLoggedIn ? null : _startVerifyFromBanner,
+          ),
         );
       },
     );
@@ -96,13 +94,24 @@ class _AuthGateState extends State<AuthGate> {
   /// Integrity/reCAPTCHA), the screen flips from "sending…" to ready.
   void Function(String verificationId)? _onCodeArrived;
 
-  /// DEV shortcut — bypass phone verification and go straight to Home while the
-  /// login flow is being sorted out. Logs in under a placeholder number so the
-  /// gate rebuilds into the app; any onboarding data on the current anonymous
-  /// owner is claimed onto it (the same path a real sign-in takes), so the Home
-  /// we land on still shows the reminders that were set up.
-  Future<void> _skipToHome() async {
-    await _auth.login('+10000000000', name: 'You');
+  /// The bottom "Verify" banner was tapped: the app is already open, so first
+  /// push the phone-number entry screen OVER it to collect the number, then hand
+  /// off to [_startVerification]. The OTP screen and celebration then layer on
+  /// top; on success the gate rebuilds into the verified shell.
+  void _startVerifyFromBanner() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => PhoneLoginPage(
+          onSubmit: (e164) async {
+            // Close the number screen, then run the normal verify flow (which
+            // opens the OTP screen on the shell's navigator).
+            Navigator.of(context).pop();
+            await _startVerification(e164);
+          },
+        ),
+      ),
+    );
   }
 
   /// Kick off verification for [phoneE164]. We open the OTP screen IMMEDIATELY

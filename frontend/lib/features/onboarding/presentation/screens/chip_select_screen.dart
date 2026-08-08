@@ -61,13 +61,15 @@ class ChipSelectWizard extends StatefulWidget {
 class _ChipSelectWizardState extends State<ChipSelectWizard>
     with SingleTickerProviderStateMixin {
   /// One-shot entrance, timed in ABSOLUTE MILLISECONDS so the reveal is a clean
-  /// top-to-bottom WATERFALL that doesn't bunch up however many items there are:
-  ///   0..500     Revo makes his bubbly entrance.
-  ///   —— pause —— (900ms)
-  ///   900..1900  the question MATERIALISES word by word (the shimmer).
-  ///   —— pause —— (time to READ the question)
-  ///   2300..     the tagline, then EACH row (header, then each chip) fades in
-  ///              one after another, a fixed [_beatGap] apart, strictly in
+  /// top-to-bottom WATERFALL that doesn't bunch up however many items there are.
+  /// Tuned SNAPPY — the acts still read in order, but the chips stream in fast
+  /// so nothing feels like a load:
+  ///   0..350     Revo makes his bubbly entrance.
+  ///   —— brief pause ——
+  ///   650..1450  the question MATERIALISES word by word (the shimmer).
+  ///   —— brief pause —— (a beat to READ the question)
+  ///   1850..     the tagline, then EACH row (header, then each chip) fades in
+  ///              one after another, a tight [_beatGap] apart, strictly in
   ///              reading order down the screen.
   late final AnimationController _intro;
   final _scroll = ScrollController();

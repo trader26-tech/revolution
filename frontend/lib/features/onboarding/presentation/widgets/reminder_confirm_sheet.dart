@@ -4,7 +4,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../tasks/domain/task.dart';
 import '../../domain/onboarding_category.dart';
 import 'day_knob.dart';
-import 'frequency_picker.dart';
+import 'repeat_every_picker.dart';
 
 /// The things a reminder needs, captured in onboarding.
 class ReminderDraft {
@@ -97,6 +97,7 @@ class _ConfirmSheetState extends State<_ConfirmSheet> {
   late int _day = widget.initial?.day ?? widget.category.defaultDay;
   late RepeatCadence _freq =
       widget.initial?.frequency ?? widget.category.defaultFrequency;
+  late int _every = widget.initial?.every ?? 1;
 
   @override
   void dispose() {
@@ -111,6 +112,7 @@ class _ConfirmSheetState extends State<_ConfirmSheet> {
           : _name.text.trim(),
       day: _day,
       frequency: _freq,
+      every: _freq == RepeatCadence.none ? 1 : _every,
     ));
   }
 
@@ -207,13 +209,15 @@ class _ConfirmSheetState extends State<_ConfirmSheet> {
                   ),
                   const SizedBox(height: 18),
 
-                  // Frequency.
+                  // Frequency — the natural-language "every N unit" control.
                   const _FieldLabel('HOW OFTEN'),
-                  const SizedBox(height: 8),
-                  FrequencyPicker(
-                    value: _freq,
+                  const SizedBox(height: 10),
+                  RepeatEveryPicker(
+                    count: _every,
+                    unit: _freq,
                     accent: c.color,
-                    onChanged: (f) => setState(() => _freq = f),
+                    onCountChanged: (n) => setState(() => _every = n),
+                    onUnitChanged: (u) => setState(() => _freq = u),
                   ),
                   const SizedBox(height: 24),
 

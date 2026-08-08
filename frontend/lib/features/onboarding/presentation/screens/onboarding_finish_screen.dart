@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../auth/data/auth_store.dart';
 import '../../../auth/domain/country_code.dart';
 import '../../../auth/presentation/auth_gate.dart';
 import '../../../auth/presentation/widgets/country_flag.dart';
@@ -136,6 +137,18 @@ class _FinalStepPrompt extends StatelessWidget {
                   loading: false,
                   label: 'Verify to get in',
                   onTap: onTap,
+                ),
+              ),
+              // DEV: straight into Home while login is being sorted out.
+              TextButton(
+                onPressed: () =>
+                    AuthStore.instance.login('+10000000000', name: 'You'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.inkSoft,
+                ),
+                child: const Text(
+                  'Skip for now → Home',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
               ),
             ],

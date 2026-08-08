@@ -177,7 +177,15 @@ class _AuthGateState extends State<AuthGate> {
           MaterialPageRoute(
             builder: (_) => VerifiedSuccessPage(
               phoneE164: verifiedNumber,
-              onDone: () => _safeLogin(verifiedNumber),
+              // When the celebration finishes: persist the session (flips the
+              // gate under us to AppShell), THEN pop this success route so the
+              // Home screen it revealed comes to the front. Without the pop, the
+              // gate rebuilds into Home underneath but the success page stays on
+              // top — the user gets stuck on the "You're in." screen.
+              onDone: () async {
+                await _safeLogin(verifiedNumber);
+                if (navigator.canPop()) navigator.pop();
+              },
             ),
           ),
         );

@@ -176,6 +176,12 @@ class _AuthGateState extends State<AuthGate> {
       _otpScreenOpen = false;
       _onCodeArrived = null;
 
+      // Drop the keyboard before we leave the auth screens — otherwise the
+      // phone/OTP field's soft keyboard lingers on top of the celebration and
+      // then Home. Unfocus the primary focus explicitly (works even after the
+      // route it belonged to is popped).
+      FocusManager.instance.primaryFocus?.unfocus();
+
       // Pop ALL auth routes (the OTP screen + any lingering reCAPTCHA / SMS
       // route the OS left on top) back to the gate route, so the celebration —
       // which we now render INLINE via _celebrating — isn't hidden behind them.

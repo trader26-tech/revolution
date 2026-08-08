@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/mascot.dart';
 import '../../../../core/widgets/starfield.dart';
 import '../../../brand/domain/brand.dart';
 import '../../../brand/presentation/brand_logo.dart';
@@ -601,34 +602,16 @@ class _IntroScreenState extends State<IntroScreen>
   Widget _appLogo() {
     final pop = _pop(0.34, 0.45);
     final bob = math.sin(_sky.value * 2 * math.pi * 6) * 4;
+    // Revo — the app's mascot — greets from here instead of a static logo. It
+    // carries its own glow + gentle idle motion; we add the entrance pop and the
+    // sky-clock bob so it floats in with the rest of the scene.
     return Opacity(
       opacity: _lin(0.34, 0.45),
       child: Transform.translate(
         offset: Offset(0, bob),
         child: Transform.scale(
           scale: 0.6 + 0.4 * pop,
-          child: Container(
-            width: 82,
-            height: 82,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.accent.withValues(alpha: 0.42),
-                  blurRadius: 38,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                'assets/images/app_logo.png',
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.high,
-              ),
-            ),
-          ),
+          child: const AnimatedMascot(size: 92),
         ),
       ),
     );

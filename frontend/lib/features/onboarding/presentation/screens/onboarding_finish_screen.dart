@@ -242,12 +242,10 @@ class _ClaimSheetState extends State<_ClaimSheet> {
   CountryCode _country = kCountryCodes.first; // India
   bool _submitting = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _nameCtrl.addListener(() => setState(() {}));
-    _phoneCtrl.addListener(() => setState(() {}));
-  }
+  // NOTE: we deliberately do NOT setState on every keystroke. Rebuilding the
+  // whole sheet per character re-laid-out every field + the button and made the
+  // screen feel jumpy. Instead only the verify button listens to the
+  // controllers (via ListenableBuilder below), so typing is smooth and stable.
 
   @override
   void dispose() {
@@ -400,11 +398,16 @@ class _ClaimSheetState extends State<_ClaimSheet> {
                 SizedBox(
                   width: double.infinity,
                   height: 54,
-                  child: _VerifyButton(
-                    enabled: _valid && !_submitting,
-                    loading: _submitting,
-                    label: 'Verify & finish',
-                    onTap: _submit,
+                  // Only the button rebuilds as you type — it watches both
+                  // controllers directly, so the rest of the sheet stays put.
+                  child: ListenableBuilder(
+                    listenable: Listenable.merge([_nameCtrl, _phoneCtrl]),
+                    builder: (context, _) => _VerifyButton(
+                      enabled: _valid && !_submitting,
+                      loading: _submitting,
+                      label: 'Verify & finish',
+                      onTap: _submit,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -612,7 +615,8 @@ class _VerifyButton extends StatelessWidget {
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 130),
+        curve: Curves.easeOut,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           gradient: enabled

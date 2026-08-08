@@ -41,12 +41,17 @@ class _OnboardingFinishScreenState extends State<OnboardingFinishScreen> {
   /// Slide the claim sheet up on demand.
   void _openClaim() {
     HapticFeedback.mediumImpact();
+    // Read the gate's verify callback HERE — this State's context is a
+    // descendant of AuthGateController. The modal sheet's own builder context is
+    // NOT (it hangs off the root navigator's overlay), so AuthGateController.of
+    // would throw inside the sheet. Capture it now and hand it in.
+    final verify = AuthGateController.of(context).verify;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true, // full height for the keyboard
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.45),
-      builder: (_) => const _ClaimSheet(),
+      builder: (_) => _ClaimSheet(onVerify: verify),
     );
   }
 
@@ -219,7 +224,12 @@ class _HomePreview extends StatelessWidget {
 /// number, then SMS verify. Small and calm: the heavy lifting (the reminders)
 /// is already visibly done behind it.
 class _ClaimSheet extends StatefulWidget {
-  const _ClaimSheet();
+  const _ClaimSheet({required this.onVerify});
+
+  /// The gate's verification trigger, captured above the sheet (where the
+  /// AuthGateController is in scope) and passed in — the sheet's own context
+  /// can't reach the controller.
+  final Future<void> Function(String phoneE164, {String? name}) onVerify;
 
   @override
   State<_ClaimSheet> createState() => _ClaimSheetState();
@@ -260,14 +270,11 @@ class _ClaimSheetState extends State<_ClaimSheet> {
     final e164 = '${_country.dial}$_digits';
     final name = _nameCtrl.text.trim();
 
-    // Grab the gate's verify BEFORE we pop — the controller lives above this
-    // sheet, so it must be read while this context is still mounted. We then
-    // CLOSE the sheet and push the OTP screen. Without closing first, the OTP
-    // route lands UNDERNEATH this modal sheet, so tapping Verify looked like it
-    // did nothing (the OTP screen was hidden behind the sheet).
-    final verify = AuthGateController.of(context).verify;
+    // Close the sheet FIRST, then start verification via the callback captured
+    // above the sheet. Popping first means the OTP screen the gate pushes lands
+    // on top (not hidden behind this modal), so Verify visibly advances.
     Navigator.of(context).pop(); // dismiss the claim sheet
-    await verify(e164, name: name);
+    await widget.onVerify(e164, name: name);
   }
 
   Future<void> _pickCountry() async {

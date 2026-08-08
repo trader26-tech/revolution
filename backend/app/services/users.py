@@ -19,9 +19,23 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def create_anonymous() -> dict[str, Any]:
+    """Mint a brand-new anonymous account. The DATABASE generates the uuid
+    (users.id default) — the server owns its primary keys; the app just stores
+    what this returns."""
+    res = (
+        get_supabase()
+        .table(_USERS)
+        .insert({"status": "anonymous"})
+        .execute()
+    )
+    return res.data[0]
+
+
 def ensure_user(user_id: str) -> None:
-    """Materialise the (anonymous) users row for an app-generated id. No-op if
-    it already exists — never overwrites anything."""
+    """Self-heal: materialise the users row for an id the server handed out
+    earlier (e.g. the row was wiped in a reset). No-op if it exists — never
+    overwrites anything."""
     get_supabase().table(_USERS).upsert(
         {"id": user_id}, on_conflict="id", ignore_duplicates=True
     ).execute()

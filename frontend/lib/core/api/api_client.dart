@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,12 +7,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Talks to the Revolution backend (Railway), which is the ONLY store — tasks
 /// live in Supabase via the API, never on the device.
 ///
-/// Identity: the app GENERATES a uuid locally on first launch (works offline —
-/// onboarding never waits on the network) and sends it as `X-User-Id` on every
-/// request. The server materialises the anonymous account the first time it
-/// sees the id. Phone login later CLAIMS that same uuid (see [claim]) — or, if
-/// the phone already has an account, returns that account's id and the app
-/// switches to it via [setUserId].
+/// Identity: the SERVER mints the account uuid (the database primary key). On
+/// first launch the app calls `POST /users/anonymous`, stores the returned id,
+/// and sends it as `X-User-Id` on every request. Phone login later CLAIMS that
+/// account (see [claim]) — or, if the phone already has an account, returns
+/// that account's id and the app switches to it via [setUserId]. If minting
+/// fails at startup (offline / cold backend), every API call lazily retries it
+/// first, so the moment the network is back the app has its identity.
 class ApiClient {
   ApiClient._();
   static final ApiClient instance = ApiClient._();
@@ -23,31 +23,30 @@ class ApiClient {
     defaultValue: 'https://revolution-backend-production.up.railway.app',
   );
 
-  /// v2: an app-generated uuid (schema v2). The old key held a 'dev-…' string
-  /// or a phone number; both are obsolete with the fresh database.
+  /// v2: the server-minted account uuid (schema v2). The old key held a
+  /// 'dev-…' string or a phone number; both are obsolete with the fresh DB.
   static const _userKey = 'user_id_v2';
 
-  /// Every request is bounded by this — a cold/slow backend (Railway can be slow
-  /// to wake) must never hang the UI. On timeout the call throws like any other
-  /// API error, so callers' best-effort try/catch (login's claim/prefs, task
-  /// commits) degrade gracefully instead of freezing.
+  /// Every request is bounded by this — a cold/slow backend (Railway can be
+  /// slow to wake) must never hang the UI. On timeout the call throws like any
+  /// other API error, so callers' best-effort try/catch degrade gracefully.
   static const _timeout = Duration(seconds: 12);
 
   final http.Client _http = http.Client();
   String? _userId;
 
-  /// Load (or generate) the account uuid. Call once at startup. Also nudges the
-  /// server to materialise the row — fire-and-forget, because task writes
-  /// self-heal (the backend upserts the user on first write anyway).
+  /// The single in-flight mint, so parallel callers never create two accounts.
+  Future<String>? _minting;
+
+  /// Load the stored account id. Call once at startup — NEVER blocks on the
+  /// network: if there's no id yet, minting starts in the background and every
+  /// API call also ensures it before running.
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    var id = prefs.getString(_userKey);
-    if (id == null || id.isEmpty) {
-      id = _uuidV4();
-      await prefs.setString(_userKey, id);
+    _userId = prefs.getString(_userKey);
+    if (_userId == null || _userId!.isEmpty) {
+      unawaited(_mintAnonymous().catchError((_) => ''));
     }
-    _userId = id;
-    unawaited(post('/users/ensure', const {}).catchError((_) => null));
   }
 
   /// The current account uuid (anonymous at first, canonical after login).
@@ -61,11 +60,14 @@ class ApiClient {
     await prefs.setString(_userKey, id);
   }
 
-  /// Start a brand-new anonymous session (sign-out): generate a fresh uuid so
-  /// the next user of this device can't see the previous account's data.
+  /// Start a brand-new anonymous session (sign-out): forget this account and
+  /// mint a fresh server-side one, so the next person on this device can't see
+  /// the previous account's data. Minting is lazy-retried if offline.
   Future<void> resetToAnonymous() async {
-    await setUserId(_uuidV4());
-    unawaited(post('/users/ensure', const {}).catchError((_) => null));
+    _userId = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_userKey);
+    unawaited(_mintAnonymous().catchError((_) => ''));
   }
 
   /// The pairing: attach this (anonymous) session to a verified phone. Runs
@@ -79,10 +81,37 @@ class ApiClient {
     });
   }
 
+  /// Ask the SERVER to mint a new anonymous account and adopt its id.
+  /// Memoised while in flight so concurrent calls share one mint.
+  Future<String> _mintAnonymous() {
+    return _minting ??= () async {
+      try {
+        final res = await _http
+            .post(
+              _uri('/users/anonymous'),
+              headers: const {'Content-Type': 'application/json'},
+            )
+            .timeout(_timeout);
+        final body = _decode(res) as Map<String, dynamic>;
+        final id = body['user_id'] as String;
+        await setUserId(id);
+        return id;
+      } finally {
+        _minting = null; // allow a retry after failure
+      }
+    }();
+  }
+
+  /// Guarantee we have an identity before any scoped request goes out.
+  Future<void> _ensureId() async {
+    if (_userId != null && _userId!.isNotEmpty) return;
+    await _mintAnonymous();
+  }
+
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
-        // The canonical header + the legacy name, so either backend build works
-        // during the transition.
+        // The canonical header + the legacy name, so either backend build
+        // works during the transition.
         'X-User-Id': _userId ?? '',
         'X-Owner-Id': _userId ?? '',
       };
@@ -90,11 +119,14 @@ class ApiClient {
   Uri _uri(String path) => Uri.parse('$_baseUrl$path');
 
   Future<dynamic> get(String path) async {
-    final res = await _http.get(_uri(path), headers: _headers).timeout(_timeout);
+    await _ensureId();
+    final res =
+        await _http.get(_uri(path), headers: _headers).timeout(_timeout);
     return _decode(res);
   }
 
   Future<dynamic> post(String path, Object body) async {
+    await _ensureId();
     final res = await _http
         .post(_uri(path), headers: _headers, body: jsonEncode(body))
         .timeout(_timeout);
@@ -102,6 +134,7 @@ class ApiClient {
   }
 
   Future<dynamic> patch(String path, Object body) async {
+    await _ensureId();
     final res = await _http
         .patch(_uri(path), headers: _headers, body: jsonEncode(body))
         .timeout(_timeout);
@@ -109,6 +142,7 @@ class ApiClient {
   }
 
   Future<dynamic> put(String path, Object body) async {
+    await _ensureId();
     final res = await _http
         .put(_uri(path), headers: _headers, body: jsonEncode(body))
         .timeout(_timeout);
@@ -116,6 +150,7 @@ class ApiClient {
   }
 
   Future<void> delete(String path) async {
+    await _ensureId();
     final res =
         await _http.delete(_uri(path), headers: _headers).timeout(_timeout);
     if (res.statusCode >= 300 && res.statusCode != 404) {
@@ -129,18 +164,6 @@ class ApiClient {
       return jsonDecode(res.body);
     }
     throw ApiException(res.statusCode, res.body);
-  }
-
-  /// RFC-4122 v4 uuid from a cryptographic RNG — no package needed.
-  static String _uuidV4() {
-    final rng = Random.secure();
-    final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
-    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
-    bytes[8] = (bytes[8] & 0x3f) | 0x80; // RFC variant
-    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
-        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
-        '${hex.substring(20)}';
   }
 }
 

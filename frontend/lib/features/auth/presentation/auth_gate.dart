@@ -43,12 +43,30 @@ class _AuthGateState extends State<AuthGate> {
   /// lands on the verified account. Null on the plain login path.
   String? _pendingName;
 
+  /// While true, we show the "You're in." celebration IN PLACE (not as a pushed
+  /// route). When its animation finishes it calls back to persist the session,
+  /// which flips [AuthStore.isLoggedIn] → the gate rebuilds into AppShell. This
+  /// declarative swap is why the success screen always closes cleanly — there's
+  /// no route to pop and no navigator to fight.
+  bool _celebrating = false;
+  String? _celebrateNumber;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _auth,
       builder: (context, _) {
         if (_auth.isLoggedIn) return const AppShell();
+
+        // Verified → play the celebration, then log in (which rebuilds to
+        // AppShell above). Shown inline so nothing can get stuck on top of it.
+        if (_celebrating && _celebrateNumber != null) {
+          return VerifiedSuccessPage(
+            phoneE164: _celebrateNumber!,
+            onDone: () => _safeLogin(_celebrateNumber!),
+          );
+        }
+
         // Expose the verification trigger to the logged-out subtree, so a custom
         // [child] (the onboarding finish sheet) can start OTP with a name via
         // AuthGateController.of(context).verify(...).
@@ -158,37 +176,16 @@ class _AuthGateState extends State<AuthGate> {
       _otpScreenOpen = false;
       _onCodeArrived = null;
 
-      // Tear down the ENTIRE auth route stack before showing success — the OTP
-      // screen AND any lingering reCAPTCHA / SMS-consent route the OS left on
-      // top. `pushReplacement` alone only swaps the topmost route, which is why
-      // the captcha screen could stay stuck behind the app. Do it after the
-      // current frame so we never navigate mid-callback (a source of the
-      // "internal error" on the way back).
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          _safeLogin(verifiedNumber);
-          return;
-        }
-        final navigator = Navigator.of(context);
-        // Drop everything back to the first (gate) route, then put the
-        // celebration in its place — a clean stack with nothing lingering.
-        navigator.popUntil((r) => r.isFirst);
-        navigator.pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => VerifiedSuccessPage(
-              phoneE164: verifiedNumber,
-              // When the celebration finishes: persist the session (flips the
-              // gate under us to AppShell), THEN pop this success route so the
-              // Home screen it revealed comes to the front. Without the pop, the
-              // gate rebuilds into Home underneath but the success page stays on
-              // top — the user gets stuck on the "You're in." screen.
-              onDone: () async {
-                await _safeLogin(verifiedNumber);
-                if (navigator.canPop()) navigator.pop();
-              },
-            ),
-          ),
-        );
+      // Pop ALL auth routes (the OTP screen + any lingering reCAPTCHA / SMS
+      // route the OS left on top) back to the gate route, so the celebration —
+      // which we now render INLINE via _celebrating — isn't hidden behind them.
+      // Then flip _celebrating so build() shows VerifiedSuccessPage in place of
+      // the login page. No pushed success route → nothing can get stuck on top.
+      final navigator = Navigator.of(context);
+      navigator.popUntil((r) => r.isFirst);
+      setState(() {
+        _celebrating = true;
+        _celebrateNumber = verifiedNumber;
       });
     } catch (e) {
       _signingIn = false; // let them retry

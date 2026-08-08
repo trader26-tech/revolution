@@ -60,25 +60,59 @@ flutter pub get >/dev/null
 
 # Release/profile need the Dart AOT snapshot assembled before Xcode links it.
 # `flutter build ios` produces that and the App.framework; we then re-run
-# xcodebuild with -allowProvisioningUpdates to sign for the device.
+# xcodebuild with -allowProvisioningUpdates to sign for the device. (flutter's
+# own build reports a benign "Failed to build" — the xcodebuild step below is
+# what actually completes and signs it.)
 if [ "$CONFIG" = "Release" ]; then
   echo "▶ flutter build ios --release (AOT + framework)…"
   flutter build ios --release --no-codesign 2>&1 \
     | grep -iE "Building|Xcode build done|error|Failed" | grep -v "export " || true
 fi
 
+# Pre-resolve the Swift Package graph. SPM intermittently fails with "Could not
+# compute dependency graph / Failed to receive dependency graph response" when
+# the graph is resolved concurrently; a standalone resolve first settles it.
+echo "▶ Resolving Swift packages…"
+xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner \
+  -resolvePackageDependencies >/dev/null 2>&1 || true
+
+# Build + sign, retrying on the transient SPM dependency-graph flake.
+run_xcodebuild() {
+  xcodebuild \
+    -workspace ios/Runner.xcworkspace \
+    -scheme Runner \
+    -configuration "$CONFIG" \
+    -destination "id=$DEVICE" \
+    -allowProvisioningUpdates \
+    build 2>&1
+}
+
 echo "▶ Building + signing (xcodebuild -allowProvisioningUpdates)…"
-xcodebuild \
-  -workspace ios/Runner.xcworkspace \
-  -scheme Runner \
-  -configuration "$CONFIG" \
-  -destination "id=$DEVICE" \
-  -allowProvisioningUpdates \
-  build 2>&1 | grep -E "\*\* BUILD|error:" | grep -v "export " || true
+BUILD_OUT=""
+for attempt in 1 2 3; do
+  BUILD_OUT="$(run_xcodebuild)"
+  if grep -q "\*\* BUILD SUCCEEDED \*\*" <<<"$BUILD_OUT"; then
+    echo "  ✓ BUILD SUCCEEDED (attempt $attempt)"
+    break
+  fi
+  echo "  build attempt $attempt did not succeed; retrying…"
+  sleep 3
+done
+
+if ! grep -q "\*\* BUILD SUCCEEDED \*\*" <<<"$BUILD_OUT"; then
+  echo "✗ Xcode build failed after retries. Key errors:" >&2
+  grep -iE "error:|damaged|does not contain a scheme|dependency graph" \
+    <<<"$BUILD_OUT" | grep -v "export " | head -8 >&2
+  exit 1
+fi
 
 APP="$(find "$HOME/Library/Developer/Xcode/DerivedData" \
   -path "*/Build/Products/$CONFIG_DIR/Runner.app" -maxdepth 5 -type d \
   2>/dev/null | head -1)"
+if [ -z "$APP" ] || [ ! -d "$APP" ]; then
+  echo "✗ Built but couldn't locate Runner.app in DerivedData." >&2
+  exit 1
+fi
 echo "▶ App: $APP"
 
 echo "▶ Installing to iPhone…"

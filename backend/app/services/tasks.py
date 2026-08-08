@@ -90,3 +90,57 @@ def delete_task(user_id: str, task_id: str) -> bool:
         .execute()
     )
     return bool(res.data)
+
+
+_DOCS_BUCKET = "policy-docs"
+
+
+def attach_document(
+    user_id: str, task_id: str, data: bytes, content_type: str
+) -> Optional[str]:
+    """Upload a document (PDF/image) for [task_id] into the private policy-docs
+    bucket and record its path on the row. Returns the stored path, or None if
+    the task isn't the caller's. The object is keyed by user + task so it's
+    unambiguously owned; a re-upload overwrites the previous one."""
+    # Ownership check — the task must belong to this user.
+    if get_task(user_id, task_id) is None:
+        return None
+
+    ext = {
+        "application/pdf": "pdf",
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/heic": "heic",
+        "image/webp": "webp",
+    }.get(content_type, "bin")
+    path = f"{user_id}/{task_id}.{ext}"
+
+    supabase = get_supabase()
+    supabase.storage.from_(_DOCS_BUCKET).upload(
+        path,
+        data,
+        {"content-type": content_type, "upsert": "true"},
+    )
+    # Record the path on the task.
+    get_supabase().table(_TABLE).update({"document_path": path}).eq(
+        "id", task_id
+    ).eq("user_id", user_id).execute()
+    return path
+
+
+def document_signed_url(
+    user_id: str, task_id: str, expires_in: int = 3600
+) -> Optional[str]:
+    """Mint a short-lived signed URL to VIEW the task's document. Returns None if
+    the task isn't the caller's or has no document. Signed so the private bucket
+    stays private — the link works for [expires_in] seconds only."""
+    row = get_task(user_id, task_id)
+    if row is None:
+        return None
+    path = row.get("document_path")
+    if not path:
+        return None
+    res = get_supabase().storage.from_(_DOCS_BUCKET).create_signed_url(
+        path, expires_in
+    )
+    return res.get("signedURL") or res.get("signedUrl")

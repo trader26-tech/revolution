@@ -27,6 +27,10 @@ class TaskBase(BaseModel):
     # Where it came from, e.g. the onboarding chip key ('subs_netflix').
     source: Optional[str] = None
 
+    # Path of an attached document (insurance PDF/photo) in the private bucket;
+    # set via the upload endpoint, viewed via a signed URL. None = no document.
+    document_path: Optional[str] = None
+
 
 class TaskCreate(TaskBase):
     """Create payload. user_id comes from the X-User-Id header, not the body."""

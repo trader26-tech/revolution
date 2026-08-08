@@ -138,6 +138,11 @@ create table public.tasks (
     -- Where it came from, e.g. the onboarding chip key ('subs_netflix').
     source       text,
 
+    -- Attached document (e.g. an insurance policy PDF/photo): the object PATH in
+    -- the private 'policy-docs' storage bucket. The app views it via a signed
+    -- URL minted on demand. NULL = no document attached.
+    document_path text,
+
     created_at   timestamptz not null default now(),
     updated_at   timestamptz not null default now()
 );

@@ -1,12 +1,22 @@
 """Task routes. Identity is the X-User-Id header (the app-generated account
 uuid), so each account only touches its own tasks."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.api.deps import current_user_id
 from app.schemas.task import Task, TaskCreate, TaskUpdate
 from app.services import tasks as svc
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+# What a document upload may be — the app already narrows the picker to these.
+_ALLOWED_DOC_TYPES = {
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/heic",
+    "image/webp",
+}
+_MAX_DOC_BYTES = 10 * 1024 * 1024  # 10 MB — matches the bucket limit.
 
 
 @router.get("", response_model=list[Task])
@@ -37,3 +47,33 @@ async def delete_task(
 ) -> None:
     if not svc.delete_task(user_id, task_id):
         raise HTTPException(status_code=404, detail="Task not found")
+
+
+@router.post("/{task_id}/document")
+async def upload_document(
+    task_id: str,
+    file: UploadFile = File(...),
+    user_id: str = Depends(current_user_id),
+) -> dict:
+    """Attach a policy document (PDF/image) to a task. Stored privately; the app
+    views it later via the signed-URL endpoint below."""
+    if file.content_type not in _ALLOWED_DOC_TYPES:
+        raise HTTPException(status_code=415, detail="Unsupported file type")
+    data = await file.read()
+    if len(data) > _MAX_DOC_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
+    path = svc.attach_document(user_id, task_id, data, file.content_type)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"document_path": path}
+
+
+@router.get("/{task_id}/document")
+async def get_document_url(
+    task_id: str, user_id: str = Depends(current_user_id)
+) -> dict:
+    """Return a short-lived signed URL to view this task's document."""
+    url = svc.document_signed_url(user_id, task_id)
+    if url is None:
+        raise HTTPException(status_code=404, detail="No document")
+    return {"url": url}

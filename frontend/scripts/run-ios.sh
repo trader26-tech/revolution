@@ -116,11 +116,28 @@ if ! grep -q "\*\* BUILD SUCCEEDED \*\*" <<<"$BUILD_OUT"; then
   exit 1
 fi
 
-APP="$(find "$HOME/Library/Developer/Xcode/DerivedData" \
-  -path "*/Build/Products/$CONFIG_DIR/Runner.app" -maxdepth 5 -type d \
-  2>/dev/null | head -1)"
-if [ -z "$APP" ] || [ ! -d "$APP" ]; then
-  echo "✗ Built but couldn't locate Runner.app in DerivedData." >&2
+# Locate the SIGNED, installable Runner.app. It can land in DerivedData OR in
+# Flutter's build/ios dir depending on config; pick the first candidate that's a
+# valid bundle (has a CFBundleIdentifier), so we never try to install the
+# incomplete --no-codesign prebuild output.
+APP=""
+CANDIDATES=(
+  $(find "$HOME/Library/Developer/Xcode/DerivedData" \
+      -path "*/Build/Products/$CONFIG_DIR/Runner.app" -maxdepth 6 -type d 2>/dev/null)
+  "build/ios/$CONFIG_DIR/Runner.app"
+  "build/ios/iphoneos/Runner.app"
+)
+for cand in "${CANDIDATES[@]}"; do
+  [ -d "$cand" ] || continue
+  if /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
+       "$cand/Info.plist" >/dev/null 2>&1; then
+    APP="$cand"
+    break
+  fi
+done
+if [ -z "$APP" ]; then
+  echo "✗ Built but couldn't locate a valid signed Runner.app." >&2
+  echo "  Looked in DerivedData/$CONFIG_DIR and build/ios/." >&2
   exit 1
 fi
 echo "▶ App: $APP"

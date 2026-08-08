@@ -61,6 +61,26 @@ class _StarfieldState extends State<Starfield>
     super.dispose();
   }
 
+  // Frame-throttle: the twinkle is a slow 60s cycle, so ~24 distinct frames per
+  // second look identical to 60fps but skip ~half the repaints (StarfieldPainter
+  // paints only when the quantized t changes). ~1440 steps over the 60s loop.
+  static const _twinkleSteps = 1440;
+
+  double get _quantizedT =>
+      (_clock.value * _twinkleSteps).roundToDouble() / _twinkleSteps;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Freeze the sky when it isn't on screen (covered by a route / app inactive)
+    // so it never burns cycles unseen. Resumes seamlessly from the same frame.
+    if (TickerMode.of(context)) {
+      if (!_clock.isAnimating) _clock.repeat();
+    } else {
+      _clock.stop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -71,7 +91,7 @@ class _StarfieldState extends State<Starfield>
             animation: _clock,
             builder: (context, _) => CustomPaint(
               painter: StarfieldPainter(
-                t: _clock.value,
+                t: _quantizedT,
                 stars: StarfieldPainter.starsFor(widget.starCount, widget.seed),
                 intensity: widget.intensity,
               ),

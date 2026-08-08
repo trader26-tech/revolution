@@ -104,6 +104,18 @@ class _PayoffScreenState extends State<PayoffScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Freeze Revo's endless idle loop when this screen isn't on-screen so it
+    // never animates (and repaints the blur-heavy mascot) unseen.
+    if (TickerMode.of(context)) {
+      if (!_idle.isAnimating) _idle.repeat();
+    } else {
+      _idle.stop();
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant PayoffScreen old) {
     super.didUpdateWidget(old);
     // The parent rebuilds when the user lands here (and when picks change) —
@@ -178,29 +190,44 @@ class _PayoffScreenState extends State<PayoffScreen>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_c, _idle, _tail]),
-      builder: (context, _) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            children: [
-              const Spacer(flex: 5),
-              _bubble(
-                start: _bubble1Start,
-                child: _storyParagraph(),
-              ),
-              const SizedBox(height: 22),
-              _revo(),
-              const Spacer(flex: 3),
-              _promise(),
-              const SizedBox(height: 22),
-              if (widget.onDone != null) _getStarted(),
-              const Spacer(flex: 2),
-            ],
+    // Split by clock so the ENDLESS idle loop only rebuilds Revo — not the
+    // static Column, the text bubble, or the button. Each piece listens to
+    // exactly the controllers it animates:
+    //   • bubble + paragraph → the story clock (_c), a one-shot
+    //   • Revo              → story + idle (_c, _idle) — idle is the perpetual one
+    //   • closing line/CTA  → the aftermath clock (_tail), a one-shot
+    // Once _c and _tail finish, only Revo's subtree repaints on _idle's ticks.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: [
+          const Spacer(flex: 5),
+          AnimatedBuilder(
+            animation: _c,
+            builder: (context, _) => _bubble(
+              start: _bubble1Start,
+              child: _storyParagraph(),
+            ),
           ),
-        );
-      },
+          const SizedBox(height: 22),
+          AnimatedBuilder(
+            animation: Listenable.merge([_c, _idle]),
+            builder: (context, _) => _revo(),
+          ),
+          const Spacer(flex: 3),
+          AnimatedBuilder(
+            animation: _tail,
+            builder: (context, _) => _promise(),
+          ),
+          const SizedBox(height: 22),
+          if (widget.onDone != null)
+            AnimatedBuilder(
+              animation: _tail,
+              builder: (context, _) => _getStarted(),
+            ),
+          const Spacer(flex: 2),
+        ],
+      ),
     );
   }
 

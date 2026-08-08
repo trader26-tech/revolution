@@ -74,11 +74,32 @@ class TaskStore extends ChangeNotifier {
   }
 
   /// Create a task on the server and add the returned row (with its server id).
-  Future<Task> add(String title, {String? iconName, String? iconDomain}) async {
+  ///
+  /// ONE atomic request: the date, repeat, amount, category, and source all go
+  /// in the create itself. Never create-then-patch — a two-step save can lose
+  /// the second step (e.g. when login's claim moves rows between the two), and
+  /// that is exactly how onboarding tasks used to arrive dateless.
+  Future<Task> add(
+    String title, {
+    String? iconName,
+    String? iconDomain,
+    DateTime? dueAt,
+    RepeatCadence repeat = RepeatCadence.none,
+    double? amount,
+    String? currency,
+    String? category,
+    String? source,
+  }) async {
     final body = {
       'title': title.trim(),
       'icon_name': iconName,
       'icon_domain': iconDomain,
+      if (dueAt != null) 'due_at': dueAt.toIso8601String(),
+      'repeat': repeat.name,
+      if (amount != null) 'amount': amount,
+      if (currency != null) 'currency': currency,
+      if (category != null) 'category': category,
+      if (source != null) 'source': source,
     };
     final json = await _api.post('/tasks', body) as Map<String, dynamic>;
     final created = Task.fromJson(json);

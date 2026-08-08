@@ -9,6 +9,25 @@ import '../../../auth/presentation/widgets/country_flag.dart';
 import '../../../home/home_page.dart';
 import '../../../tasks/data/task_store.dart';
 
+/// Rise the name + phone "claim" sheet — the shared verify surface. [verify] is
+/// the gate's OTP trigger (capture it from AuthGateController where it's in
+/// scope, since the sheet's own context can't reach the controller). Used by
+/// both the onboarding finish screen and the home preview lock so verification
+/// always asks for name + number in one premium sheet.
+void showClaimSheet(
+  BuildContext context,
+  Future<void> Function(String phoneE164, {String? name}) verify,
+) {
+  HapticFeedback.mediumImpact();
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.45),
+    builder: (_) => _ClaimSheet(onVerify: verify),
+  );
+}
+
 /// The make-or-break final screen of onboarding.
 ///
 /// The user's finished app — the REAL [HomePage], already populated with the
@@ -38,21 +57,11 @@ class OnboardingFinishScreen extends StatefulWidget {
 }
 
 class _OnboardingFinishScreenState extends State<OnboardingFinishScreen> {
-  /// Slide the claim sheet up on demand.
+  /// Slide the claim sheet up on demand. Read the gate's verify callback HERE
+  /// (this State's context is under AuthGateController; the sheet's own context
+  /// is not), then hand it to the shared opener.
   void _openClaim() {
-    HapticFeedback.mediumImpact();
-    // Read the gate's verify callback HERE — this State's context is a
-    // descendant of AuthGateController. The modal sheet's own builder context is
-    // NOT (it hangs off the root navigator's overlay), so AuthGateController.of
-    // would throw inside the sheet. Capture it now and hand it in.
-    final verify = AuthGateController.of(context).verify;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true, // full height for the keyboard
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
-      builder: (_) => _ClaimSheet(onVerify: verify),
-    );
+    showClaimSheet(context, AuthGateController.of(context).verify);
   }
 
   @override

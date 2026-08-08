@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../onboarding/presentation/screens/onboarding_finish_screen.dart'
+    show showClaimSheet;
 import '../../shell/app_shell.dart';
 import '../data/auth_store.dart';
 import '../data/phone_auth_service.dart';
@@ -101,24 +103,12 @@ class _AuthGateState extends State<AuthGate> {
   /// Integrity/reCAPTCHA), the screen flips from "sending…" to ready.
   void Function(String verificationId)? _onCodeArrived;
 
-  /// The bottom "Verify" banner was tapped: the app is already open, so first
-  /// push the phone-number entry screen OVER it to collect the number, then hand
-  /// off to [_startVerification]. The OTP screen and celebration then layer on
-  /// top; on success the gate rebuilds into the verified shell.
+  /// The preview lock's "Verify & continue" was tapped: rise the shared name +
+  /// phone claim sheet (the same premium sheet onboarding uses), which collects
+  /// the name and number and calls [_startVerification] — the OTP screen and
+  /// celebration then layer on top, and the gate rebuilds into the real app.
   void _startVerifyFromBanner() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => PhoneLoginPage(
-          onSubmit: (e164) async {
-            // Close the number screen, then run the normal verify flow (which
-            // opens the OTP screen on the shell's navigator).
-            Navigator.of(context).pop();
-            await _startVerification(e164);
-          },
-        ),
-      ),
-    );
+    showClaimSheet(context, _startVerification);
   }
 
   /// Kick off verification for [phoneE164]. We open the OTP screen IMMEDIATELY
@@ -292,7 +282,12 @@ class _VerifyGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // Material provides the text baseline/theme so Text renders normally (no
+    // yellow debug underline that appears under raw Text with no Material
+    // ancestor).
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
       // Fade from transparent (so the preview shows through above) into a solid
       // panel that anchors the CTA.
       decoration: const BoxDecoration(
@@ -368,6 +363,7 @@ class _VerifyGate extends StatelessWidget {
             const SizedBox(height: 16),
           ],
         ),
+      ),
       ),
     );
   }

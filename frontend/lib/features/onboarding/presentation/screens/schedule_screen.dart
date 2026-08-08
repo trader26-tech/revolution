@@ -115,6 +115,11 @@ class _ScheduleScreenState extends State<ScheduleScreen>
       ((_ms - startMs) / (endMs - startMs)).clamp(0.0, 1.0);
 
   Widget _reveal(num startMs, Widget child, {num window = _beatWindow}) {
+    // Entrance over → everything is permanently visible. Without this, a row
+    // that scrolls into view AFTER the intro finished (a lower section built
+    // lazily by ListView) computes opacity from a past window and renders
+    // invisible — the "missing columns" bug.
+    if (_intro.isCompleted) return child;
     final t = Curves.easeOutCubic.transform(_win(startMs, startMs + window));
     return Opacity(
       opacity: t,
@@ -124,6 +129,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
 
   /// A header/card's entrance in the waterfall, starting at absolute [startMs].
   Widget _beatReveal(num startMs, Widget child) {
+    if (_intro.isCompleted) return child;
     final raw = _win(startMs, startMs + _beatWindow);
     final ease = Curves.easeOutCubic.transform(raw);
     final spring = Curves.easeOutBack.transform(raw);
@@ -158,18 +164,23 @@ class _ScheduleScreenState extends State<ScheduleScreen>
 
   @override
   Widget build(BuildContext context) {
-    // A single cursor walking DOWN the tree, handing each row (header, then each
-    // card) the next start — a strict top-to-bottom waterfall, [_beatGap] apart.
-    var beat = 0;
-    num nextStart() => _cascadeStartMs + (beat++) * _beatGap;
+    // Each row's beat is derived STATICALLY from its position in the list (each
+    // section contributes 1 header + its cards), NOT from build order. ListView
+    // builds rows lazily as they scroll into view, so a build-order cursor would
+    // hand a lower section — built late — the wrong (or a past) start time,
+    // rendering its cards invisible. Position-derived beats are stable forever.
+    final sectionBaseBeat = <int>[];
+    var acc = 0;
+    for (final s in _sections) {
+      sectionBaseBeat.add(acc);
+      acc += 1 + _pickedItems(s).length; // header + cards
+    }
+    num startOf(int beat) => _cascadeStartMs + beat * _beatGap;
 
     // No Scaffold/Starfield here — renders inside OnboardingFlow's sky.
     return AnimatedBuilder(
       animation: _intro,
       builder: (context, _) {
-        // Reset the cursor each frame so the staggered starts stay stable while
-        // the controller ticks.
-        beat = 0;
         return Column(
           children: [
             Expanded(
@@ -224,8 +235,9 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // The picked items, sectioned. The header and each card take
-                  // their own beat in the cascade, strictly in reading order.
+                  // The picked items, sectioned. Each row's beat is derived from
+                  // its fixed position (sectionBaseBeat), so lazily-built lower
+                  // sections still get correct, stable start times.
                   for (var s = 0; s < _sections.length; s++)
                     _ScheduleSection(
                       section: _sections[s],
@@ -233,8 +245,12 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                       draftFor: _draftFor,
                       onChanged: () => setState(() {}),
                       topGap: s == 0 ? 0 : 22,
-                      headerReveal: (child) => _reveal(nextStart(), child),
-                      cardReveal: (child) => _beatReveal(nextStart(), child),
+                      // Header is the section's base beat; each card the beats
+                      // after it.
+                      headerReveal: (child) =>
+                          _reveal(startOf(sectionBaseBeat[s]), child),
+                      cardReveal: (i, child) =>
+                          _beatReveal(startOf(sectionBaseBeat[s] + 1 + i), child),
                     ),
                 ],
               ),
@@ -309,10 +325,11 @@ class _ScheduleSection extends StatelessWidget {
   final VoidCallback onChanged;
   final double topGap;
 
-  /// Wraps the header (and each card) in its own staggered entrance, so the
-  /// cascade flows continuously across sections rather than restarting per one.
+  /// Wraps the header, and each card (by its index [i]), in its own staggered
+  /// entrance, so the cascade flows continuously across sections. Index-based so
+  /// the beat can be derived from the card's fixed position.
   final Widget Function(Widget child) headerReveal;
-  final Widget Function(Widget child) cardReveal;
+  final Widget Function(int i, Widget child) cardReveal;
 
   @override
   Widget build(BuildContext context) {
@@ -340,12 +357,13 @@ class _ScheduleSection extends StatelessWidget {
             ),
           ),
         ),
-        for (final item in items)
+        for (var i = 0; i < items.length; i++)
           cardReveal(
+            i,
             _ItemScheduleCard(
-              key: ValueKey('${section.key}:${item.key}'),
-              item: item,
-              draft: draftFor(item),
+              key: ValueKey('${section.key}:${items[i].key}'),
+              item: items[i],
+              draft: draftFor(items[i]),
               onChanged: onChanged,
             ),
           ),

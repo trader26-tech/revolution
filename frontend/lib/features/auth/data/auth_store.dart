@@ -4,13 +4,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/api_client.dart';
 
-/// Holds the signed-in state. The phone number IS the account: on login we set
-/// it as the API owner id, so every request is scoped to that number, and we
-/// remember it across launches until sign-out.
+/// Holds the signed-in state.
+///
+/// Identity model (schema v2): the app runs under an app-generated uuid from
+/// second zero (see [ApiClient.init]) — every onboarding task is saved against
+/// it immediately. Phone login PAIRS that uuid with the verified number via
+/// /claim: the server either claims the same uuid or, if the phone already has
+/// an account, moves this session's data onto it and returns that account's
+/// id. Either way the app keeps using ONE uuid and the home screen is a single
+/// indexed fetch — nothing re-keys mid-flight.
 ///
 /// The number is proven by Firebase phone (OTP) verification before [login] is
-/// called, so being logged-in is intentionally decoupled from persistence — see
-/// [login] and the Firebase reconciliation in [load].
+/// called, so being logged-in is intentionally decoupled from persistence.
 class AuthStore extends ChangeNotifier {
   AuthStore({ApiClient? api}) : _api = api ?? ApiClient.instance;
 
@@ -19,9 +24,14 @@ class AuthStore extends ChangeNotifier {
   final ApiClient _api;
   static const _phoneKey = 'auth_phone_e164';
   static const _nameKey = 'auth_display_name';
+  static const _claimedKey = 'auth_claimed_v2';
 
   String? _phone;
   String? _name;
+
+  /// Whether the server-side pairing (/claim) has succeeded for this login.
+  /// False after an offline login — [load] retries on the next launch.
+  bool _claimed = false;
 
   /// The signed-in phone in E.164 (e.g. '+919876543210'), or null if logged out.
   String? get phone => _phone;
@@ -31,20 +41,22 @@ class AuthStore extends ChangeNotifier {
   String? get name => _name;
   bool get isLoggedIn => _phone != null && _phone!.isNotEmpty;
 
-  /// Restore a saved session and re-scope the API to it. Call at startup.
+  /// Restore a saved session. Call at startup (after [ApiClient.init], which
+  /// restores the account uuid itself).
   ///
-  /// Also RECONCILES with Firebase: verification can complete on Firebase's side
-  /// while the app fails to finish persisting (e.g. killed on the reCAPTCHA
-  /// return). Without reconciliation the app would think you're logged out while
-  /// Firebase thinks you're in — the mismatch that showed an "internal error" on
-  /// reopen. So if there's no saved session but Firebase still holds a verified
-  /// phone, we adopt it and finish the login the app never got to.
+  /// Also RECONCILES with Firebase: verification can complete on Firebase's
+  /// side while the app fails to finish persisting (e.g. killed on the
+  /// reCAPTCHA return). If there's no saved session but Firebase still holds a
+  /// verified phone, we adopt it and finish the login the app never got to.
+  /// And if a previous login couldn't reach the server, the pairing is retried
+  /// here, best-effort.
   Future<void> load() async {
     String? phone;
     try {
       final prefs = await SharedPreferences.getInstance();
       phone = prefs.getString(_phoneKey);
       _name = prefs.getString(_nameKey);
+      _claimed = prefs.getBool(_claimedKey) ?? false;
     } catch (_) {}
 
     // No app session? Fall back to Firebase's verified user, if any.
@@ -63,64 +75,32 @@ class AuthStore extends ChangeNotifier {
 
     if (phone != null && phone.isNotEmpty) {
       _phone = phone;
-      try {
-        await _api.setOwnerId(phone);
-      } catch (_) {}
+      // A previous login that couldn't reach the server left the pairing
+      // pending — retry quietly; the account uuid may switch on success.
+      if (!_claimed) await _tryClaim();
     }
     notifyListeners();
   }
 
-  /// Log in with a phone number: make it the account identity, persist it.
+  /// Log in with a verified phone number.
   ///
   /// [name] is the display name captured on the onboarding finish screen (null
-  /// on sign-in paths that don't collect one — the existing value is then kept).
+  /// on sign-in paths that don't collect one — the existing value is kept).
   ///
   /// The number is already Firebase-verified by the time we get here, so being
-  /// logged-in must NOT hinge on any persistence/network call succeeding. We set
-  /// the identity and notify FIRST (so the gate rebuilds into the app), then do
-  /// every side effect best-effort — a flaky disk or network write can never
-  /// throw out of here or leave the UI stuck between login and app.
+  /// logged-in must NOT hinge on any network call succeeding: the pairing runs
+  /// first (so Home's first fetch sees the account's data), but if it fails —
+  /// offline, cold backend — we still log in under the anonymous uuid. The
+  /// user keeps seeing everything they created; [load] retries the pairing on
+  /// the next launch.
   Future<void> login(String phoneE164, {String? name}) async {
     final trimmed = name?.trim();
     if (trimmed != null && trimmed.isNotEmpty) _name = trimmed;
 
-    // The anonymous id the onboarding data was created under, captured BEFORE we
-    // switch identity so we know what to re-key from.
-    final anon = _api.ownerId;
-
-    // ── Link the identity BEFORE flipping to the app ──────────────────────────
-    // The gate rebuilds into Home the instant [notifyListeners] fires, and Home
-    // immediately loads /tasks for the CURRENT owner. So we must switch the owner
-    // to the phone AND run the claim (which creates the users record, writes
-    // prefs with the name, and re-keys the onboarding tasks onto this account)
-    // FIRST — otherwise Home's first load runs under the old id and comes back
-    // empty, and the user's selections wouldn't appear until a manual refresh.
-    //
-    // Verification already proved the number, so none of this may THROW out of
-    // login and strand the user: each step is best-effort. If the claim fails
-    // (offline), we still log in — a later refresh reconciles.
-    // Only re-key from a genuine anonymous session (the per-install "dev-…" id),
-    // never from another phone. Captured before switching owner below.
-    final anonToClaim =
-        (anon != null && anon.startsWith('dev-') && anon != phoneE164)
-            ? anon
-            : '';
-    try {
-      await _api.setOwnerId(phoneE164); // scope every request to the account
-    } catch (_) {}
-    try {
-      // Re-key the onboarding tasks (if any) and create/link the account record
-      // + prefs. Runs even with no anon session so a plain login still creates
-      // the users row.
-      await _api.claim(
-        anonOwnerId: anonToClaim,
-        newOwnerId: phoneE164,
-        name: _name,
-      );
-    } catch (_) {}
-
     _phone = phoneE164;
-    notifyListeners(); // NOW flip to logged-in — Home's first load sees the data
+    await _tryClaim();
+
+    notifyListeners(); // flip to logged-in — Home's first load sees the data
 
     // Persist the session locally (best-effort, after the flip).
     try {
@@ -132,13 +112,46 @@ class AuthStore extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// Sign out — forget the number (data stays on the server under that number).
+  /// Run the server pairing for the current phone. On success the app switches
+  /// to the canonical account uuid (may differ from the anonymous one when the
+  /// phone already had an account). Never throws.
+  Future<void> _tryClaim() async {
+    final phone = _phone;
+    if (phone == null || phone.isEmpty) return;
+    try {
+      final res = await _api.claim(phone: phone, name: _name);
+      final canonical = (res is Map) ? res['user_id'] as String? : null;
+      if (canonical != null &&
+          canonical.isNotEmpty &&
+          canonical != _api.userId) {
+        await _api.setUserId(canonical);
+      }
+      _claimed = true;
+    } catch (_) {
+      _claimed = false; // offline — retried on next launch
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_claimedKey, _claimed);
+    } catch (_) {}
+  }
+
+  /// Sign out — forget the number and start a FRESH anonymous session, so the
+  /// next person on this device can't see this account's data. The account's
+  /// data stays safe on the server under the phone.
   Future<void> logout() async {
     _phone = null;
     _name = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_phoneKey);
-    await prefs.remove(_nameKey);
+    _claimed = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_phoneKey);
+      await prefs.remove(_nameKey);
+      await prefs.remove(_claimedKey);
+    } catch (_) {}
+    try {
+      await _api.resetToAnonymous();
+    } catch (_) {}
     notifyListeners();
   }
 }

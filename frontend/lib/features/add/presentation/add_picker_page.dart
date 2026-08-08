@@ -2,37 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../brand/data/brand_catalog.dart';
-import '../../brand/domain/brand.dart';
-import '../../brand/presentation/brand_logo.dart';
-import '../domain/add_category.dart';
+import '../domain/reminder_catalog.dart';
 
-/// What the add picker resolved to. Exactly one field is set:
-///   • [brand]    — the user tapped a brand → open the subscription form
-///                  pre-filled with it.
-///   • [category] — the user tapped a top action (Type or paste → subscription;
-///                  Birthday; Insurance) → open that category's blank form.
-///   • [query]    — the user typed a name and chose to add it as-is.
+/// What the add picker resolved to.
+///   • [item]/[category] — the user tapped a catalog item (its label + default
+///     cadence + category accent seed the form).
+///   • [query]           — the user typed a name and added it as-is.
+/// The "Something else" row resolves to its [category] with a null [item].
 class AddPickerResult {
-  const AddPickerResult.brand(this.brand)
-      : category = null,
-        query = null;
-  const AddPickerResult.category(this.category)
-      : brand = null,
+  const AddPickerResult.item(this.category, this.item)
+      : query = null;
+  const AddPickerResult.other(this.category)
+      : item = null,
         query = null;
   const AddPickerResult.query(this.query)
-      : brand = null,
-        category = null;
+      : category = null,
+        item = null;
 
-  final Brand? brand;
-  final AddCategory? category;
+  final ReminderCategory? category;
+  final ReminderItem? item;
   final String? query;
 }
 
-/// The home "+" screen — one rich, scannable page: a few quick actions at the
-/// top (import a receipt, type it in), then the whole brand catalog laid out as
-/// category sections of tappable rows, with a live search pinned at the bottom.
-/// Tapping anything resolves the add and pops with an [AddPickerResult].
+/// The home "+" screen — one scannable page. A short intro, then every reminder
+/// CATEGORY laid out as a section of tappable rows (Birthday, Car insurance,
+/// Electricity bill…), each with an "Add your own" escape hatch. A live search
+/// pinned at the bottom filters across everything. Tapping anything pops with an
+/// [AddPickerResult].
 class AddPickerPage extends StatefulWidget {
   const AddPickerPage({super.key});
 
@@ -58,31 +54,42 @@ class _AddPickerPageState extends State<AddPickerPage> {
     super.dispose();
   }
 
-  void _pickBrand(Brand b) {
+  void _pickItem(ReminderCategory cat, ReminderItem item) {
     HapticFeedback.selectionClick();
-    Navigator.of(context).pop(AddPickerResult.brand(b));
-  }
-
-  void _pickCategory(AddCategory c) {
-    HapticFeedback.selectionClick();
-    Navigator.of(context).pop(AddPickerResult.category(c));
+    Navigator.of(context).pop(
+      item.isOther
+          ? AddPickerResult.other(cat)
+          : AddPickerResult.item(cat, item),
+    );
   }
 
   void _addTyped() {
     final q = _query.trim();
+    if (q.isEmpty) return;
     HapticFeedback.selectionClick();
-    Navigator.of(context).pop(
-      q.isEmpty
-          ? const AddPickerResult.category(AddCategory.subscription)
-          : AddPickerResult.query(q),
-    );
+    Navigator.of(context).pop(AddPickerResult.query(q));
+  }
+
+  /// Flat (category, item) matches for the current query.
+  List<(ReminderCategory, ReminderItem)> get _matches {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return const [];
+    final out = <(ReminderCategory, ReminderItem)>[];
+    for (final c in kReminderCatalog) {
+      for (final i in c.items) {
+        if (i.isOther) continue;
+        if (i.label.toLowerCase().contains(q) ||
+            c.title.toLowerCase().contains(q)) {
+          out.add((c, i));
+        }
+      }
+    }
+    return out;
   }
 
   @override
   Widget build(BuildContext context) {
     final searching = _query.trim().isNotEmpty;
-    final results = searching ? BrandCatalog.search(_query) : const <Brand>[];
-
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -92,17 +99,13 @@ class _AddPickerPageState extends State<AddPickerPage> {
             _Header(onCancel: () => Navigator.of(context).maybePop()),
             Expanded(
               child: searching
-                  ? _SearchResults(
+                  ? _Results(
                       query: _query.trim(),
-                      results: results,
-                      onPickBrand: _pickBrand,
+                      matches: _matches,
+                      onPick: _pickItem,
                       onAddTyped: _addTyped,
                     )
-                  : _Browse(
-                      onPickBrand: _pickBrand,
-                      onPickCategory: _pickCategory,
-                      onTypeOrPaste: _addTyped,
-                    ),
+                  : _Browse(onPick: _pickItem),
             ),
             _SearchBar(controller: _search),
           ],
@@ -124,7 +127,7 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Row(
         children: [
-          _PillButton(label: 'Cancel', onTap: onCancel),
+          _CancelPill(onTap: onCancel),
           const Expanded(
             child: Text(
               'Add to Revolution',
@@ -137,17 +140,15 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          // Balance the Cancel pill so the title stays centred.
-          const SizedBox(width: 76),
+          const SizedBox(width: 84), // balance the Cancel pill → keep title centred
         ],
       ),
     );
   }
 }
 
-class _PillButton extends StatelessWidget {
-  const _PillButton({required this.label, required this.onTap});
-  final String label;
+class _CancelPill extends StatelessWidget {
+  const _CancelPill({required this.onTap});
   final VoidCallback onTap;
 
   @override
@@ -158,11 +159,11 @@ class _PillButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 9),
           child: Text(
-            label,
-            style: const TextStyle(
+            'Cancel',
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
               color: AppColors.ink,
@@ -174,247 +175,197 @@ class _PillButton extends StatelessWidget {
   }
 }
 
-// ── Browse (default) view ────────────────────────────────────────────────────
+// ── Browse (default) ─────────────────────────────────────────────────────────
 
 class _Browse extends StatelessWidget {
-  const _Browse({
-    required this.onPickBrand,
-    required this.onPickCategory,
-    required this.onTypeOrPaste,
-  });
-
-  final ValueChanged<Brand> onPickBrand;
-  final ValueChanged<AddCategory> onPickCategory;
-  final VoidCallback onTypeOrPaste;
-
-  @override
-  Widget build(BuildContext context) {
-    final cats = BrandCatalog.categories;
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 16),
-      children: [
-        const SizedBox(height: 8),
-        // Quick actions — the ways in that aren't "pick a brand".
-        _ActionRow(
-          icon: Icons.photo_library_rounded,
-          title: 'Import from photos',
-          subtitle: 'Receipt, bill or renewal screenshots',
-          onTap: onTypeOrPaste, // TODO: dedicated photo-import flow
-        ),
-        _ActionRow(
-          icon: Icons.description_rounded,
-          title: 'Import a file',
-          subtitle: 'Bank statement or spreadsheet (PDF or CSV)',
-          onTap: onTypeOrPaste, // TODO: dedicated file-import flow
-        ),
-        _ActionRow(
-          icon: Icons.auto_awesome_rounded,
-          title: 'Type or paste',
-          subtitle: 'Name, price and how often you pay',
-          onTap: onTypeOrPaste,
-        ),
-        const SizedBox(height: 6),
-        // The other add types — birthday & insurance get their own tailored form.
-        _ActionRow(
-          icon: AddCategory.birthday.icon,
-          accent: AddCategory.birthday.color,
-          title: 'Birthday or anniversary',
-          subtitle: 'Never miss the people who matter',
-          onTap: () => onPickCategory(AddCategory.birthday),
-        ),
-        _ActionRow(
-          icon: AddCategory.insurance.icon,
-          accent: AddCategory.insurance.color,
-          title: 'Insurance',
-          subtitle: 'Health, car, life — with the policy attached',
-          onTap: () => onPickCategory(AddCategory.insurance),
-        ),
-        const SizedBox(height: 8),
-        // Every brand category as its own section of rows.
-        for (final cat in cats) ...[
-          _SectionHeader(title: cat.title.toUpperCase(), icon: cat.icon),
-          for (final b in cat.brands)
-            _BrandRow(brand: b, onTap: () => onPickBrand(b)),
-        ],
-      ],
-    );
-  }
-}
-
-/// A top quick-action row: a rounded accent icon tile, a title and a subtitle.
-class _ActionRow extends StatelessWidget {
-  const _ActionRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.accent = AppColors.accent,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: accent, size: 24),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A quiet all-caps section header with a small leading icon, and a hairline
-/// above it to separate bands as you scroll — matching the catalog picker.
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.icon});
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
-              color: AppColors.inkFaint,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One brand row: the real logo, the name, and a subtle add affordance.
-class _BrandRow extends StatelessWidget {
-  const _BrandRow({required this.brand, required this.onTap});
-  final Brand brand;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: BrandLogo(brand: brand, size: 44, radius: 10),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Text(
-                  brand.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-            ),
-            Icon(
-              Icons.add_rounded,
-              color: AppColors.inkFaint.withValues(alpha: 0.7),
-              size: 22,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Search results view ──────────────────────────────────────────────────────
-
-class _SearchResults extends StatelessWidget {
-  const _SearchResults({
-    required this.query,
-    required this.results,
-    required this.onPickBrand,
-    required this.onAddTyped,
-  });
-
-  final String query;
-  final List<Brand> results;
-  final ValueChanged<Brand> onPickBrand;
-  final VoidCallback onAddTyped;
+  const _Browse({required this.onPick});
+  final void Function(ReminderCategory, ReminderItem) onPick;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.only(top: 4, bottom: 16),
       children: [
-        // Always offer the typed name as its own add, first — so any app or
-        // company can be added, not only the ones in the catalog.
-        _ActionRow(
-          icon: Icons.add_circle_outline_rounded,
-          title: 'Add “$query”',
-          subtitle: 'Use this name as you typed it',
-          onTap: onAddTyped,
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
+          child: Text(
+            'What should we remember?',
+            style: TextStyle(
+              fontSize: 15,
+              color: AppColors.inkSoft,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
-        if (results.isNotEmpty)
-          const _SectionHeader(title: 'MATCHES', icon: Icons.search_rounded),
-        for (final b in results)
-          _BrandRow(brand: b, onTap: () => onPickBrand(b)),
+        for (final cat in kReminderCatalog) _CategorySection(cat: cat, onPick: onPick),
+      ],
+    );
+  }
+}
+
+/// One category: a coloured header chip + its item rows.
+class _CategorySection extends StatelessWidget {
+  const _CategorySection({required this.cat, required this.onPick});
+  final ReminderCategory cat;
+  final void Function(ReminderCategory, ReminderItem) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: cat.color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(cat.icon, size: 17, color: cat.color),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                cat.title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final item in cat.items)
+          _ItemRow(cat: cat, item: item, onTap: () => onPick(cat, item)),
+      ],
+    );
+  }
+}
+
+/// One reminder row: a soft accent icon tile, the label, and a trailing "+".
+/// The "Something else" row reads as a quieter, dashed-feel add affordance.
+class _ItemRow extends StatelessWidget {
+  const _ItemRow({required this.cat, required this.item, required this.onTap});
+  final ReminderCategory cat;
+  final ReminderItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final other = item.isOther;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: other
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : cat.color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+                border: other
+                    ? Border.all(color: AppColors.cardBorder)
+                    : null,
+              ),
+              child: Icon(
+                item.icon,
+                size: 20,
+                color: other ? AppColors.inkSoft : cat.color,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                other ? 'Add your own' : item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: other ? FontWeight.w600 : FontWeight.w600,
+                  color: other ? AppColors.inkSoft : AppColors.ink,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.add_rounded,
+              size: 22,
+              color: AppColors.inkFaint.withValues(alpha: 0.75),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Search results ───────────────────────────────────────────────────────────
+
+class _Results extends StatelessWidget {
+  const _Results({
+    required this.query,
+    required this.matches,
+    required this.onPick,
+    required this.onAddTyped,
+  });
+
+  final String query;
+  final List<(ReminderCategory, ReminderItem)> matches;
+  final void Function(ReminderCategory, ReminderItem) onPick;
+  final VoidCallback onAddTyped;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      children: [
+        // Always offer the typed name first — anything can be added.
+        InkWell(
+          onTap: onAddTyped,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.add_circle_outline_rounded,
+                      size: 20, color: AppColors.accent),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'Add “$query”',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        for (final (cat, item) in matches)
+          _ItemRow(cat: cat, item: item, onTap: () => onPick(cat, item)),
       ],
     );
   }
@@ -445,20 +396,12 @@ class _SearchBar extends StatelessWidget {
           controller: controller,
           textInputAction: TextInputAction.search,
           style: const TextStyle(color: AppColors.ink, fontSize: 15),
-          decoration: InputDecoration(
-            hintText: 'Search Netflix, HDFC, Zerodha…',
-            hintStyle: const TextStyle(color: AppColors.inkFaint),
-            prefixIcon:
-                const Icon(Icons.search_rounded, color: AppColors.inkFaint),
-            suffixIcon: controller.text.isEmpty
-                ? null
-                : IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    color: AppColors.inkFaint,
-                    onPressed: controller.clear,
-                  ),
+          decoration: const InputDecoration(
+            hintText: 'Search or add anything…',
+            hintStyle: TextStyle(color: AppColors.inkFaint),
+            prefixIcon: Icon(Icons.search_rounded, color: AppColors.inkFaint),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            contentPadding: EdgeInsets.symmetric(vertical: 14),
           ),
         ),
       ),

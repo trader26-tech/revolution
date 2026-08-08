@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../brand/domain/brand.dart';
 import '../../tasks/data/task_store.dart';
 import '../../tasks/domain/task.dart';
-import '../domain/add_category.dart';
 import 'add_picker_page.dart';
 import 'birthday_form_page.dart';
-import 'insurance_form_page.dart';
 import 'subscription_form_page.dart';
 
 /// The result of the add flow. Most forms hand back a ready-to-save [Task] the
@@ -19,11 +16,11 @@ class AddResult {
   final bool selfSaved;
 }
 
-/// The home "+" entry point: pick a category, then fill its tailored form.
-/// Returns an [AddResult], or null if the user backed out at any step. Needs the
-/// [store] so the insurance form can create-then-upload directly.
+/// The home "+" entry point: pick a reminder from the catalog (or type your
+/// own), then fill the tailored form pre-seeded with that choice. Returns an
+/// [AddResult], or null if the user backed out at any step.
 Future<AddResult?> openAddFlow(BuildContext context, TaskStore store) async {
-  // Step 1: the rich picker — pick a brand, a type, or type a name.
+  // Step 1: the catalog picker.
   final pick = await Navigator.of(context).push<AddPickerResult>(
     MaterialPageRoute(
       fullscreenDialog: true,
@@ -32,8 +29,10 @@ Future<AddResult?> openAddFlow(BuildContext context, TaskStore store) async {
   );
   if (pick == null || !context.mounted) return null;
 
-  // Birthday / Insurance route to their own tailored forms.
-  if (pick.category == AddCategory.birthday) {
+  // Birthdays get their own tailored form (person + date, no price/cycle).
+  final isBirthday = pick.item?.label == 'Birthday' ||
+      pick.item?.label == 'Wedding anniversary';
+  if (isBirthday) {
     final task = await Navigator.of(context).push<Task>(
       MaterialPageRoute(
         fullscreenDialog: true,
@@ -42,25 +41,19 @@ Future<AddResult?> openAddFlow(BuildContext context, TaskStore store) async {
     );
     return task == null ? null : AddResult(task: task);
   }
-  if (pick.category == AddCategory.insurance) {
-    // Insurance saves itself (task + document upload). Returns true on success.
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => InsuranceFormPage(store: store),
-      ),
-    );
-    return saved == true ? const AddResult(selfSaved: true) : null;
-  }
 
-  // Everything else → the subscription form, pre-filled with the chosen brand
-  // (or the typed name) when there is one.
-  final Brand? seed = pick.brand ??
-      (pick.query != null ? Brand(name: pick.query!, domain: '') : null);
+  // Everything else → the general reminder form, pre-seeded with the picked
+  // item's name + cadence + category accent (or the name the user typed).
+  final name = pick.item?.label ?? pick.query;
   final task = await Navigator.of(context).push<Task>(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => SubscriptionFormPage(initialBrand: seed),
+      builder: (_) => SubscriptionFormPage(
+        initialName: name,
+        initialCycle: pick.item?.defaultRepeat,
+        title: name ?? 'New reminder',
+        accent: pick.category?.color,
+      ),
     ),
   );
   return task == null ? null : AddResult(task: task);

@@ -20,23 +20,43 @@ import 'widgets/repeat_cycle_field.dart';
 ///
 /// Returns a ready-to-save [Task], or null if cancelled.
 class SubscriptionFormPage extends StatefulWidget {
-  const SubscriptionFormPage({super.key, this.initialBrand});
+  const SubscriptionFormPage({
+    super.key,
+    this.initialBrand,
+    this.initialName,
+    this.initialCycle,
+    this.title,
+    this.accent,
+  });
 
+  /// Seed the logo + name from a tapped brand.
   final Brand? initialBrand;
+
+  /// Seed just the name (a catalog item like "Passport renewal").
+  final String? initialName;
+
+  /// Seed the repeat cadence (the catalog item's sensible default).
+  final RepeatCadence? initialCycle;
+
+  /// Optional custom app-bar title (defaults to "New subscription").
+  final String? title;
+
+  /// Optional accent — the tapped category's colour, carried into the form.
+  final Color? accent;
 
   @override
   State<SubscriptionFormPage> createState() => _SubscriptionFormPageState();
 }
 
 class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
-  static const _accent = AppColors.accent;
+  Color get _accent => widget.accent ?? AppColors.accent;
 
   final _name = TextEditingController();
   final _amount = TextEditingController();
 
   String? _iconName;
   String? _iconDomain;
-  RepeatCadence _cycle = RepeatCadence.monthly;
+  late RepeatCadence _cycle = widget.initialCycle ?? RepeatCadence.monthly;
   DateTime _nextDate = DateTime.now().add(const Duration(days: 30));
 
   bool get _valid => _name.text.trim().isNotEmpty;
@@ -50,6 +70,9 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
       _iconName = b.name;
       _iconDomain = b.domain;
       _name.text = b.name;
+    } else if (widget.initialName != null &&
+        widget.initialName!.trim().isNotEmpty) {
+      _name.text = widget.initialName!.trim();
     }
     _name.addListener(() => setState(() {}));
   }
@@ -103,7 +126,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
   @override
   Widget build(BuildContext context) {
     return AddScaffold(
-      title: 'New subscription',
+      title: widget.title ?? 'New subscription',
       accent: _accent,
       icon: AddCategory.subscription.icon,
       canSave: _valid,

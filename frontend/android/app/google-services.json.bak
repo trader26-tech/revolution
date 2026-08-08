@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "795412577532",
+    "project_id": "revolution-86562",
+    "storage_bucket": "revolution-86562.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:795412577532:android:5a00769cd59b93b127ab79",
+        "android_client_info": {
+          "package_name": "com.revolution.revolution"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZT41wbZUmM776xA5zoiMqnFstlp6fzkI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

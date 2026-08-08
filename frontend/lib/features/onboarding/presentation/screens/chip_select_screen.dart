@@ -75,13 +75,15 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
   List<OnboardingChipSection> get _sections => kOnboardingChipSections;
 
   // Absolute timings (ms) for the fixed phases.
-  static const _revoMs = 500;
-  static const _questionStartMs = 900;
-  static const _questionEndMs = 1900;
-  static const _taglineMs = 2300;
-  static const _cascadeStartMs = 2600; // first header begins here
-  static const _beatGap = 130; // gap between consecutive rows (header/chip)
-  static const _beatWindow = 340; // each row's fade-in length
+  // Snappy timing: the acts still read in order, but the user never waits on
+  // the chips — they flow in quickly, close on each other's heels.
+  static const _revoMs = 350;
+  static const _questionStartMs = 650;
+  static const _questionEndMs = 1450;
+  static const _taglineMs = 1650;
+  static const _cascadeStartMs = 1850; // first header begins here
+  static const _beatGap = 55; // tight gap so chips stream in, no waiting
+  static const _beatWindow = 260; // each row's fade-in length
 
   /// Total rows in the cascade: one header + its chips, per section.
   int get _beatCount =>

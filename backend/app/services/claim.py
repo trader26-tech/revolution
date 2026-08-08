@@ -8,22 +8,50 @@ it all shows up under their account on the next fetch.
 Idempotent and safe: if the anonymous id has no rows (already claimed, or a
 fresh verified login), it simply reports zero moved.
 """
-from typing import Any
+from typing import Any, Optional
 
 from app.core.supabase import get_supabase
+from app.services import user_prefs, users
 
 _TASKS = "tasks"
 _PREFS = "user_prefs"
 
 
-def claim(anon_owner_id: str, new_owner_id: str) -> dict[str, Any]:
-    """Reassign all tasks (and prefs) from [anon_owner_id] to [new_owner_id].
+def claim(
+    anon_owner_id: str,
+    new_owner_id: str,
+    *,
+    name: Optional[str] = None,
+) -> dict[str, Any]:
+    """Attach an anonymous session to the verified account.
 
-    No-ops when the two ids are equal or the anon id is empty. Returns how many
-    task rows moved so the caller can log/verify.
+    This is the single place login lands, so it does the whole identity link:
+      1. Upsert the canonical `users` row (find-or-create by phone) — the
+         primary account record tying phone + name to a stable UUID PK.
+      2. Upsert `user_prefs` (phone + name + call_reminder) for the digest.
+      3. Re-key every task (and any orphan prefs) from the anonymous id onto the
+         verified id, so the reminders set up during onboarding show up under the
+         account immediately.
+
+    Steps 1–2 always run (so a plain login with no onboarding still creates the
+    account). Step 3 no-ops when there's nothing to move.
     """
+    # 1) The canonical account record (primary key lives here).
+    account = users.upsert_user(new_owner_id, name=name)
+
+    # 2) Prefs row for the weekly call digest — phone + name + default opt-in.
+    user_prefs.upsert_prefs(
+        new_owner_id, phone=new_owner_id, name=name, call_reminder=True
+    )
+
+    # 3) Move the anonymous session's data onto the account.
     if not anon_owner_id or anon_owner_id == new_owner_id:
-        return {"moved_tasks": 0, "moved_prefs": 0, "skipped": True}
+        return {
+            "user": account,
+            "moved_tasks": 0,
+            "moved_prefs": 0,
+            "skipped": True,
+        }
 
     sb = get_supabase()
 
@@ -60,6 +88,7 @@ def claim(anon_owner_id: str, new_owner_id: str) -> dict[str, Any]:
         )
 
     return {
+        "user": account,
         "moved_tasks": len(moved),
         "moved_prefs": moved_prefs,
         "skipped": False,

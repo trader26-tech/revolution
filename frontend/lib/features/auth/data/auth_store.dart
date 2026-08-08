@@ -81,40 +81,54 @@ class AuthStore extends ChangeNotifier {
   /// every side effect best-effort — a flaky disk or network write can never
   /// throw out of here or leave the UI stuck between login and app.
   Future<void> login(String phoneE164, {String? name}) async {
-    _phone = phoneE164;
     final trimmed = name?.trim();
     if (trimmed != null && trimmed.isNotEmpty) _name = trimmed;
-    notifyListeners(); // flip to logged-in immediately
 
-    // Claim the anonymous onboarding session BEFORE switching identity: if the
-    // current owner is still the per-install "dev-…" id, re-key its tasks/prefs
-    // onto this verified phone so nothing set up during onboarding is lost.
-    // Best-effort — a failed claim must never block a verified sign-in.
+    // The anonymous id the onboarding data was created under, captured BEFORE we
+    // switch identity so we know what to re-key from.
+    final anon = _api.ownerId;
+
+    // ── Link the identity BEFORE flipping to the app ──────────────────────────
+    // The gate rebuilds into Home the instant [notifyListeners] fires, and Home
+    // immediately loads /tasks for the CURRENT owner. So we must switch the owner
+    // to the phone AND run the claim (which creates the users record, writes
+    // prefs with the name, and re-keys the onboarding tasks onto this account)
+    // FIRST — otherwise Home's first load runs under the old id and comes back
+    // empty, and the user's selections wouldn't appear until a manual refresh.
+    //
+    // Verification already proved the number, so none of this may THROW out of
+    // login and strand the user: each step is best-effort. If the claim fails
+    // (offline), we still log in — a later refresh reconciles.
+    // Only re-key from a genuine anonymous session (the per-install "dev-…" id),
+    // never from another phone. Captured before switching owner below.
+    final anonToClaim =
+        (anon != null && anon.startsWith('dev-') && anon != phoneE164)
+            ? anon
+            : '';
     try {
-      final anon = _api.ownerId;
-      if (anon != null && _api.isAnonymousOwner && anon != phoneE164) {
-        await _api.claim(anonOwnerId: anon, newOwnerId: phoneE164);
-      }
+      await _api.setOwnerId(phoneE164); // scope every request to the account
+    } catch (_) {}
+    try {
+      // Re-key the onboarding tasks (if any) and create/link the account record
+      // + prefs. Runs even with no anon session so a plain login still creates
+      // the users row.
+      await _api.claim(
+        anonOwnerId: anonToClaim,
+        newOwnerId: phoneE164,
+        name: _name,
+      );
     } catch (_) {}
 
-    try {
-      await _api.setOwnerId(phoneE164);
-    } catch (_) {}
+    _phone = phoneE164;
+    notifyListeners(); // NOW flip to logged-in — Home's first load sees the data
+
+    // Persist the session locally (best-effort, after the flip).
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_phoneKey, phoneE164);
       if (_name != null && _name!.isNotEmpty) {
         await prefs.setString(_nameKey, _name!);
       }
-    } catch (_) {}
-    // Register the user's phone + name + default "call me to remind" (on) on the
-    // server, so the weekly digest can reach them. Best-effort.
-    try {
-      await _api.put('/prefs', {
-        'phone': phoneE164,
-        if (_name != null && _name!.isNotEmpty) 'name': _name,
-        'call_reminder': true,
-      });
     } catch (_) {}
   }
 

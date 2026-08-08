@@ -369,11 +369,15 @@ create policy brand_logos_public_read
 create table if not exists public.user_prefs (
     owner_id       text primary key,          -- the X-Owner-Id (per install/user)
     phone          text,                      -- E.164, for the WhatsApp call
+    name           text,                      -- the user's display name
     call_reminder  boolean not null default true,
 
     created_at     timestamptz not null default now(),
     updated_at     timestamptz not null default now()
 );
+
+-- Migration for databases created before `name` existed. Safe to re-run.
+alter table public.user_prefs add column if not exists name text;
 
 drop trigger if exists user_prefs_set_updated_at on public.user_prefs;
 create trigger user_prefs_set_updated_at

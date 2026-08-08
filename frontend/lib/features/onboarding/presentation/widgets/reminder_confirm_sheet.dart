@@ -59,6 +59,43 @@ class ReminderDraft {
       every = (12 / times).round().clamp(1, 12);
     }
   }
+
+  /// Seed a draft prefilled to the NEXT upcoming occurrence from [now], so the
+  /// date the user sees on the schedule screen is genuinely in their future —
+  /// not a stale catalog default like "10 Jan" shown in August.
+  ///
+  /// The (month, day) here matches exactly what the commit layer's
+  /// next-occurrence logic will save, so the preview and the real reminder agree:
+  ///   • Monthly (and shorter): the day-of-month, in THIS month if it hasn't
+  ///     passed yet, otherwise NEXT month.
+  ///   • Yearly / one-off: the day-of-month in the month the user is in — or,
+  ///     if that day already passed this month, next month — giving a sensible
+  ///     near-future date (they can still fine-tune the exact month).
+  factory ReminderDraft.smart({
+    required String name,
+    required int defaultDay,
+    required RepeatCadence frequency,
+    required DateTime now,
+  }) {
+    final day = defaultDay.clamp(1, 28); // keep valid in every month
+    // If the day is still ahead of us this month, keep this month; else roll on.
+    var month = now.month;
+    var year = now.year;
+    final thisMonth = DateTime(year, month, day, 9);
+    if (thisMonth.isBefore(DateTime(now.year, now.month, now.day))) {
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+    return ReminderDraft(
+      name: name,
+      day: day,
+      month: month,
+      frequency: frequency,
+    );
+  }
 }
 
 /// A premium sheet to confirm/adjust one reminder — name, the semicircular

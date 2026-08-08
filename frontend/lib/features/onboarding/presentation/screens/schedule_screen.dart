@@ -145,10 +145,13 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   ReminderDraft _draftFor(OnboardingChipItem item) {
     return widget.drafts.putIfAbsent(
       item.key,
-      () => ReminderDraft(
+      // Prefill to the NEXT upcoming date from today, not a stale catalog
+      // default — so onboarding in August shows "10 Sep", not "10 Jan".
+      () => ReminderDraft.smart(
         name: item.defaultName,
-        day: item.defaultDay,
+        defaultDay: item.defaultDay,
         frequency: item.defaultFrequency,
+        now: DateTime.now(),
       ),
     );
   }

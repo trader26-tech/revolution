@@ -65,6 +65,7 @@ class ApiClient {
   Future<dynamic> claim({
     required String anonOwnerId,
     required String newOwnerId,
+    String? name,
   }) async {
     final res = await _http
         .post(
@@ -73,7 +74,10 @@ class ApiClient {
             'Content-Type': 'application/json',
             'X-Owner-Id': newOwnerId,
           },
-          body: jsonEncode({'anon_owner_id': anonOwnerId}),
+          body: jsonEncode({
+            'anon_owner_id': anonOwnerId,
+            if (name != null && name.isNotEmpty) 'name': name,
+          }),
         )
         .timeout(_timeout);
     return _decode(res);

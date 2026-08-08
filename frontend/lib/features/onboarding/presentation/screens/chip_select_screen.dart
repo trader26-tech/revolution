@@ -27,17 +27,23 @@ Set<String> preselectedChipKeys() => {
       if (i.preselected) i.key,
 };
 
-/// A ready-to-save draft for every picked item.
-Map<String, ReminderDraft> chipDraftsFor(Set<String> picked) => {
-  for (final s in kOnboardingChipSections)
-    for (final i in s.items)
-      if (picked.contains(i.key))
-        i.key: ReminderDraft(
-          name: i.defaultName,
-          day: i.defaultDay,
-          frequency: i.defaultFrequency,
-        ),
-};
+/// A ready-to-save draft for every picked item, each prefilled to its NEXT
+/// upcoming date from today (so the schedule screen shows real future dates,
+/// customised to when the user onboards — not stale catalog defaults).
+Map<String, ReminderDraft> chipDraftsFor(Set<String> picked) {
+  final now = DateTime.now();
+  return {
+    for (final s in kOnboardingChipSections)
+      for (final i in s.items)
+        if (picked.contains(i.key))
+          i.key: ReminderDraft.smart(
+            name: i.defaultName,
+            defaultDay: i.defaultDay,
+            frequency: i.defaultFrequency,
+            now: now,
+          ),
+  };
+}
 
 class ChipSelectWizard extends StatefulWidget {
   const ChipSelectWizard({

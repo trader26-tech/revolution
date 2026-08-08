@@ -7,3 +7,7 @@ uvicorn[standard]==0.39.0
 pydantic==2.13.4
 pydantic-settings==2.15.0
 supabase==2.31.0
+# Required by FastAPI to parse multipart/form-data — the document upload
+# endpoint (POST /tasks/{id}/document) uses UploadFile. Without it the app
+# crashes on startup (import-time) and Railway's healthcheck fails.
+python-multipart==0.0.20

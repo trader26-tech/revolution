@@ -75,6 +75,18 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  # Generates the Android + iOS launcher icons from tool/revo_icon.png (Revo,
+  # rendered from the in-app Mascot). Regenerate with:
+  #   dart run flutter_launcher_icons
+  flutter_launcher_icons: ^0.14.1
+
+# App launcher icon — Revo the mascot on the dark-purple app background.
+flutter_launcher_icons:
+  image_path: "tool/revo_icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true # iOS icons must be opaque; our bg is already solid
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

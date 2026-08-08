@@ -23,23 +23,33 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Firebase init failed: $e');
   }
-  // Establish the owner id used on every server request.
+  // Ordered dependency: establish the owner id, THEN let a saved session
+  // override it — every later request is scoped to that number.
   await ApiClient.instance.init();
-  // Restore a signed-in session (the phone number → API owner id), if any. This
-  // may override the owner id set above, scoping data to the logged-in number.
   await AuthStore.instance.load();
-  // Load the user's saved lists / categories / payment methods before the UI.
-  await OptionsStore.instance.load();
-  // Load manually-curated brand logos (override the auto-resolver). Best-effort.
-  await CustomLogoStore.instance.load();
-  // Load the user's personal preferences (name, notifications, defaults).
-  await ProfileStore.instance.load();
-  // Whether the one-time onboarding intro has been completed.
-  await OnboardingStore.instance.load();
-  // Set up the daily-summary notification machinery (timezones, channels,
-  // tray actions). Must run before TaskStore starts feeding it task changes.
-  await ReminderScheduler.instance.init();
+
+  // The remaining pre-UI stores touch disjoint prefs keys with no ordering
+  // between them — load them concurrently instead of one-after-another so the
+  // first frame isn't gated on the sum of their latencies.
+  await Future.wait([
+    OptionsStore.instance.load(), // saved lists / categories / payment methods
+    ProfileStore.instance.load(), // name, notifications, defaults
+    OnboardingStore.instance.load(), // whether the intro was completed
+  ]);
+
   runApp(const RevolutionApp());
+
+  // Deferred, off the first-frame path — neither is needed to draw the initial
+  // screen, both are self-guarded (best-effort / no-op until ready):
+  //   • CustomLogoStore.load() does a NETWORK call; its overrides are only read
+  //     when the brand picker opens, and match() returns null gracefully until.
+  //   • ReminderScheduler.init() is heavy (timezone db + native plugin); no
+  //     notification is scheduled until TaskStore feeds tasks, and every
+  //     consumer early-returns while it isn't ready.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    CustomLogoStore.instance.load();
+    ReminderScheduler.instance.init();
+  });
 }
 
 class RevolutionApp extends StatelessWidget {

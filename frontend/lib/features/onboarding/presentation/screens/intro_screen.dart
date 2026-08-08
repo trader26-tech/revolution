@@ -291,29 +291,40 @@ class _IntroScreenState extends State<IntroScreen>
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return AnimatedBuilder(
-      animation: Listenable.merge([_enter, _sky]),
-      builder: (context, _) => Stack(
-        fit: StackFit.expand,
-        children: [
-          // The twinkling starfield behind everything — driven by this screen's
-          // own sky clock, so stars and orbits share one animation.
-          RepaintBoundary(
-            child: CustomPaint(
+    // Split by clock: the endless _sky loop only repaints the starfield and the
+    // app-logo bob. The orbits/text/button reveal on the one-shot _enter, so
+    // once the entrance finishes they stop rebuilding entirely — the perpetual
+    // clock no longer re-lays-out text/images every frame.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // The twinkling starfield behind everything — its own _sky builder so it
+        // repaints without dragging the whole screen along.
+        RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _sky,
+            builder: (context, _) => CustomPaint(
               painter: StarfieldPainter(
-                t: _sky.value,
+                t: (_sky.value * 1440).roundToDouble() / 1440, // ~24fps twinkle
                 stars: StarfieldPainter.starsFor(90, 7),
               ),
             ),
           ),
-          Column(
+        ),
+        AnimatedBuilder(
+          animation: _enter,
+          builder: (context, _) => Column(
             children: [
               // The orbits get the stage: they claim the whole upper area and
               // size themselves to it, so short screens shrink the cluster
               // instead of clipping it. Everything below is deliberately
               // compact and pushed down so nothing competes with the rings.
               Expanded(flex: 72, child: _orbits()),
-              _appLogo(),
+              // The logo bob is the only content that needs the perpetual clock.
+              AnimatedBuilder(
+                animation: _sky,
+                builder: (context, _) => _appLogo(),
+              ),
               const SizedBox(height: 20),
               // Headline + subtitle share ONE width, so the two blocks line up
               // edge to edge instead of each finding its own natural width.
@@ -330,8 +341,8 @@ class _IntroScreenState extends State<IntroScreen>
               const Spacer(flex: 8),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

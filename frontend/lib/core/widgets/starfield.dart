@@ -70,18 +70,6 @@ class _StarfieldState extends State<Starfield>
       (_clock.value * _twinkleSteps).roundToDouble() / _twinkleSteps;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Freeze the sky when it isn't on screen (covered by a route / app inactive)
-    // so it never burns cycles unseen. Resumes seamlessly from the same frame.
-    if (TickerMode.of(context)) {
-      if (!_clock.isAnimating) _clock.repeat();
-    } else {
-      _clock.stop();
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,

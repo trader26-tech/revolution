@@ -104,18 +104,6 @@ class _PayoffScreenState extends State<PayoffScreen>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Freeze Revo's endless idle loop when this screen isn't on-screen so it
-    // never animates (and repaints the blur-heavy mascot) unseen.
-    if (TickerMode.of(context)) {
-      if (!_idle.isAnimating) _idle.repeat();
-    } else {
-      _idle.stop();
-    }
-  }
-
-  @override
   void didUpdateWidget(covariant PayoffScreen old) {
     super.didUpdateWidget(old);
     // The parent rebuilds when the user lands here (and when picks change) —

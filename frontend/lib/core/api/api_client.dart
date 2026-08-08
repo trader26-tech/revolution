@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,9 +8,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Talks to the Revolution backend (Railway), which is the ONLY store — tasks
 /// live in Supabase via the API, never on the device.
 ///
-/// Ownership: every request carries an `X-Owner-Id` header. Until phone login is
-/// wired in, we use a stable per-install id (created once, kept in prefs) so a
-/// user's data is still scoped to them. Swap this for the real user id later.
+/// Identity: the app GENERATES a uuid locally on first launch (works offline —
+/// onboarding never waits on the network) and sends it as `X-User-Id` on every
+/// request. The server materialises the anonymous account the first time it
+/// sees the id. Phone login later CLAIMS that same uuid (see [claim]) — or, if
+/// the phone already has an account, returns that account's id and the app
+/// switches to it via [setUserId].
 class ApiClient {
   ApiClient._();
   static final ApiClient instance = ApiClient._();
@@ -18,7 +22,10 @@ class ApiClient {
     'API_BASE_URL',
     defaultValue: 'https://revolution-backend-production.up.railway.app',
   );
-  static const _ownerKey = 'owner_id_v1';
+
+  /// v2: an app-generated uuid (schema v2). The old key held a 'dev-…' string
+  /// or a phone number; both are obsolete with the fresh database.
+  static const _userKey = 'user_id_v2';
 
   /// Every request is bounded by this — a cold/slow backend (Railway can be slow
   /// to wake) must never hang the UI. On timeout the call throws like any other
@@ -27,65 +34,57 @@ class ApiClient {
   static const _timeout = Duration(seconds: 12);
 
   final http.Client _http = http.Client();
-  String? _ownerId;
+  String? _userId;
 
-  /// Load (or create) the stable owner id. Call once at startup.
+  /// Load (or generate) the account uuid. Call once at startup. Also nudges the
+  /// server to materialise the row — fire-and-forget, because task writes
+  /// self-heal (the backend upserts the user on first write anyway).
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    var id = prefs.getString(_ownerKey);
+    var id = prefs.getString(_userKey);
     if (id == null || id.isEmpty) {
-      // A simple unique-enough id for this install.
-      id = 'dev-${DateTime.now().microsecondsSinceEpoch}';
-      await prefs.setString(_ownerKey, id);
+      id = _uuidV4();
+      await prefs.setString(_userKey, id);
     }
-    _ownerId = id;
+    _userId = id;
+    unawaited(post('/users/ensure', const {}).catchError((_) => null));
   }
 
-  /// The current owner id (the logged-in phone number, once set).
-  String? get ownerId => _ownerId;
+  /// The current account uuid (anonymous at first, canonical after login).
+  String? get userId => _userId;
 
-  /// Whether the current owner id is a per-install ANONYMOUS id (the
-  /// `dev-<timestamp>` created before login) rather than a verified phone. Used
-  /// to decide whether there's a session to claim on sign-in.
-  bool get isAnonymousOwner => (_ownerId ?? '').startsWith('dev-');
-
-  /// Set the owner id to the signed-in identity (the phone number) and persist
-  /// it, so every request is scoped to that account.
-  Future<void> setOwnerId(String id) async {
-    _ownerId = id;
+  /// Switch to a (possibly different) account uuid and persist it — called
+  /// with the id [claim] returns.
+  Future<void> setUserId(String id) async {
+    _userId = id;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_ownerKey, id);
+    await prefs.setString(_userKey, id);
   }
 
-  /// Re-key the anonymous session's data (tasks + prefs) onto the verified
-  /// account. Called right after phone verification, BEFORE [setOwnerId]: the
-  /// request goes out under the NEW verified id (header), carrying the old
-  /// [anonOwnerId] to move rows from. Best-effort — the caller swallows errors
-  /// so a flaky claim never blocks sign-in.
-  Future<dynamic> claim({
-    required String anonOwnerId,
-    required String newOwnerId,
-    String? name,
-  }) async {
-    final res = await _http
-        .post(
-          _uri('/claim'),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Owner-Id': newOwnerId,
-          },
-          body: jsonEncode({
-            'anon_owner_id': anonOwnerId,
-            if (name != null && name.isNotEmpty) 'name': name,
-          }),
-        )
-        .timeout(_timeout);
-    return _decode(res);
+  /// Start a brand-new anonymous session (sign-out): generate a fresh uuid so
+  /// the next user of this device can't see the previous account's data.
+  Future<void> resetToAnonymous() async {
+    await setUserId(_uuidV4());
+    unawaited(post('/users/ensure', const {}).catchError((_) => null));
+  }
+
+  /// The pairing: attach this (anonymous) session to a verified phone. Runs
+  /// UNDER the current anonymous id; the server either claims it in place or
+  /// merges it into the phone's existing account. Returns the response map —
+  /// the caller must [setUserId] to its `user_id`.
+  Future<dynamic> claim({required String phone, String? name}) {
+    return post('/claim', {
+      'phone': phone,
+      if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+    });
   }
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
-        'X-Owner-Id': _ownerId ?? 'demo-user',
+        // The canonical header + the legacy name, so either backend build works
+        // during the transition.
+        'X-User-Id': _userId ?? '',
+        'X-Owner-Id': _userId ?? '',
       };
 
   Uri _uri(String path) => Uri.parse('$_baseUrl$path');
@@ -130,6 +129,18 @@ class ApiClient {
       return jsonDecode(res.body);
     }
     throw ApiException(res.statusCode, res.body);
+  }
+
+  /// RFC-4122 v4 uuid from a cryptographic RNG — no package needed.
+  static String _uuidV4() {
+    final rng = Random.secure();
+    final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // RFC variant
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
+        '${hex.substring(20)}';
   }
 }
 

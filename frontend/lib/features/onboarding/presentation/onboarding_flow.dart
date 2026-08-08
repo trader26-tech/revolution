@@ -4,6 +4,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/starfield.dart';
 import '../../auth/data/auth_store.dart';
 import '../../auth/presentation/auth_gate.dart';
+import '../../tasks/data/task_store.dart';
+import '../data/onboarding_commit.dart';
 import '../data/onboarding_store.dart';
 import 'screens/chip_select_screen.dart';
 import 'screens/intro_screen.dart';

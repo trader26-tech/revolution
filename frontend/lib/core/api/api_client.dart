@@ -37,12 +37,37 @@ class ApiClient {
   /// The current owner id (the logged-in phone number, once set).
   String? get ownerId => _ownerId;
 
+  /// Whether the current owner id is a per-install ANONYMOUS id (the
+  /// "dev-<timestamp>" created before login) rather than a verified phone. Used
+  /// to decide whether there's a session to claim on sign-in.
+  bool get isAnonymousOwner => (_ownerId ?? '').startsWith('dev-');
+
   /// Set the owner id to the signed-in identity (the phone number) and persist
   /// it, so every request is scoped to that account.
   Future<void> setOwnerId(String id) async {
     _ownerId = id;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_ownerKey, id);
+  }
+
+  /// Re-key the anonymous session's data (tasks + prefs) onto the verified
+  /// account. Called right after phone verification, BEFORE [setOwnerId]: the
+  /// request goes out under the NEW verified id (header), carrying the old
+  /// [anonOwnerId] to move rows from. Best-effort — the caller swallows errors
+  /// so a flaky claim never blocks sign-in.
+  Future<dynamic> claim({
+    required String anonOwnerId,
+    required String newOwnerId,
+  }) async {
+    final res = await _http.post(
+      _uri('/claim'),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Owner-Id': newOwnerId,
+      },
+      body: jsonEncode({'anon_owner_id': anonOwnerId}),
+    );
+    return _decode(res);
   }
 
   Map<String, String> get _headers => {

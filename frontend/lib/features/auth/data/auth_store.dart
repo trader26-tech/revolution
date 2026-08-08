@@ -86,6 +86,17 @@ class AuthStore extends ChangeNotifier {
     if (trimmed != null && trimmed.isNotEmpty) _name = trimmed;
     notifyListeners(); // flip to logged-in immediately
 
+    // Claim the anonymous onboarding session BEFORE switching identity: if the
+    // current owner is still the per-install "dev-…" id, re-key its tasks/prefs
+    // onto this verified phone so nothing set up during onboarding is lost.
+    // Best-effort — a failed claim must never block a verified sign-in.
+    try {
+      final anon = _api.ownerId;
+      if (anon != null && _api.isAnonymousOwner && anon != phoneE164) {
+        await _api.claim(anonOwnerId: anon, newOwnerId: phoneE164);
+      }
+    } catch (_) {}
+
     try {
       await _api.setOwnerId(phoneE164);
     } catch (_) {}

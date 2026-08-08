@@ -16,6 +16,7 @@ router = APIRouter(prefix="/prefs", tags=["prefs"])
 
 class PrefsUpdate(BaseModel):
     phone: Optional[str] = None
+    name: Optional[str] = None
     call_reminder: Optional[bool] = None
 
 
@@ -26,6 +27,7 @@ async def update_prefs(
     return svc.upsert_prefs(
         x_owner_id,
         phone=payload.phone,
+        name=payload.name,
         call_reminder=payload.call_reminder,
     )
 

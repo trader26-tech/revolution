@@ -17,11 +17,14 @@ def upsert_prefs(
     owner_id: str,
     *,
     phone: Optional[str] = None,
+    name: Optional[str] = None,
     call_reminder: Optional[bool] = None,
 ) -> dict[str, Any]:
     row: dict[str, Any] = {"owner_id": owner_id}
     if phone is not None:
         row["phone"] = phone
+    if name is not None:
+        row["name"] = name
     if call_reminder is not None:
         row["call_reminder"] = call_reminder
     res = (

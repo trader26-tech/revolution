@@ -44,25 +44,44 @@ class ScheduleScreen extends StatefulWidget {
 
 class _ScheduleScreenState extends State<ScheduleScreen>
     with SingleTickerProviderStateMixin {
-  /// One-shot entrance, matching page 2: Revo pops → the question MATERIALISES
-  /// word by word (the shimmer) → the section headers and cards CASCADE in, with
-  /// DELIBERATE PAUSES between the acts so the user reads each before the next.
+  /// One-shot entrance, timed in ABSOLUTE MILLISECONDS so the reveal is a clean
+  /// top-to-bottom WATERFALL — identical choreography to page 2:
+  ///   0..500     Revo enters.  —— pause ——
+  ///   900..1900  the question MATERIALISES word by word (shimmer).  —— pause ——
+  ///   2300       the tagline, then EACH row (header, then each card) fades in
+  ///              one after another a fixed [_beatGap] apart, in reading order.
   late final AnimationController _intro;
   final _scroll = ScrollController();
 
   /// Only the sections that have at least one picked item — the ones we show.
   late List<OnboardingChipSection> _sections;
 
+  static const _revoMs = 500;
+  static const _questionStartMs = 900;
+  static const _questionEndMs = 1900;
+  static const _taglineMs = 2300;
+  static const _cascadeStartMs = 2600;
+  static const _beatGap = 140;
+  static const _beatWindow = 340;
+
+  int get _beatCount =>
+      _sections.fold(0, (n, s) => n + 1 + _pickedItems(s).length);
+
+  int get _totalMs =>
+      _cascadeStartMs + ((_beatCount - 1).clamp(0, 1 << 30)) * _beatGap +
+          _beatWindow;
+
+  double get _ms => _intro.value * _totalMs;
+
   @override
   void initState() {
     super.initState();
     _rebuildSections();
-    _intro = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3800),
-    );
+    _intro = AnimationController(vsync: this, duration: Duration.zero);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _intro.forward();
+      if (!mounted) return;
+      _intro.duration = Duration(milliseconds: _totalMs);
+      _intro.forward();
     });
   }
 
@@ -90,24 +109,22 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   List<OnboardingChipItem> _pickedItems(OnboardingChipSection s) =>
       s.items.where((i) => widget.picked.contains(i.key)).toList();
 
-  /// 0→1 progress over a timeline slice [start]..[end] — feeds MagicText's own
-  /// word-stagger for the question shimmer.
-  double _slice(double start, double end) =>
-      ((_intro.value - start) / (end - start)).clamp(0.0, 1.0);
+  /// 0→1 progress across an absolute ms window — for MagicText's shimmer and the
+  /// fixed-phase reveals.
+  double _win(num startMs, num endMs) =>
+      ((_ms - startMs) / (endMs - startMs)).clamp(0.0, 1.0);
 
-  Widget _reveal(double start, Widget child, {double window = 0.28}) {
-    final t = Curves.easeOutCubic
-        .transform(((_intro.value - start) / window).clamp(0.0, 1.0));
+  Widget _reveal(num startMs, Widget child, {num window = _beatWindow}) {
+    final t = Curves.easeOutCubic.transform(_win(startMs, startMs + window));
     return Opacity(
       opacity: t,
       child: Transform.translate(offset: Offset(0, 16 * (1 - t)), child: child),
     );
   }
 
-  /// A card's own entrance: fade + lift + a springy scale-in, keyed to its
-  /// global position so the cards cascade one after another down the screen.
-  Widget _cardReveal(double start, Widget child, {double window = 0.22}) {
-    final raw = ((_intro.value - start) / window).clamp(0.0, 1.0);
+  /// A header/card's entrance in the waterfall, starting at absolute [startMs].
+  Widget _beatReveal(num startMs, Widget child) {
+    final raw = _win(startMs, startMs + _beatWindow);
     final ease = Curves.easeOutCubic.transform(raw);
     final spring = Curves.easeOutBack.transform(raw);
     return Opacity(
@@ -138,33 +155,17 @@ class _ScheduleScreenState extends State<ScheduleScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Timeline (0..1), with pauses between the acts — mirrors page 2:
-    //   0.00..0.12  Revo enters.
-    //   —— pause ——
-    //   0.20..0.44  the question MATERIALISES word by word (the shimmer).
-    //   —— pause ——  (time to READ the question)
-    //   0.56..1.00  the tagline, then the section headers + cards CASCADE in.
-    const questionStart = 0.20;
-    const questionEnd = 0.44;
-    const taglineStart = 0.50;
-    const cascadeStart = 0.58;
-    final totalBeats = _sections.fold<int>(
-      0,
-      (n, s) => n + 1 + _pickedItems(s).length, // header + its cards
-    );
-    const cardWindow = 0.20;
-    final beatStep = totalBeats > 1
-        ? (1.0 - cascadeStart - cardWindow) / (totalBeats - 1)
-        : 0.0;
+    // A single cursor walking DOWN the tree, handing each row (header, then each
+    // card) the next start — a strict top-to-bottom waterfall, [_beatGap] apart.
     var beat = 0;
-    double nextStart() => cascadeStart + (beat++) * beatStep;
+    num nextStart() => _cascadeStartMs + (beat++) * _beatGap;
 
     // No Scaffold/Starfield here — renders inside OnboardingFlow's sky.
     return AnimatedBuilder(
       animation: _intro,
       builder: (context, _) {
-        // Reset the cascade cursor each frame so the staggered starts stay
-        // stable while the controller ticks.
+        // Reset the cursor each frame so the staggered starts stay stable while
+        // the controller ticks.
         beat = 0;
         return Column(
           children: [
@@ -181,7 +182,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                       Padding(
                         padding: const EdgeInsets.only(right: 6, top: 2),
                         child: RevoEntrance(
-                          t: (_intro.value / 0.12).clamp(0.0, 1.0),
+                          t: _win(0, _revoMs),
                           child: Transform.flip(
                             flipX: true,
                             child: const AnimatedMascot(size: 56, glow: false),
@@ -193,7 +194,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                           padding: const EdgeInsets.only(top: 6),
                           child: MagicText(
                             text: 'When should we\nremind you?',
-                            progress: _slice(questionStart, questionEnd),
+                            progress: _win(_questionStartMs, _questionEndMs),
                             style: const TextStyle(
                               fontSize: 26,
                               height: 1.16,
@@ -207,7 +208,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                   ),
                   const SizedBox(height: 6),
                   _reveal(
-                    taglineStart,
+                    _taglineMs,
                     const Padding(
                       padding: EdgeInsets.only(left: 2),
                       child: Text(
@@ -221,7 +222,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                   ),
                   const SizedBox(height: 20),
                   // The picked items, sectioned. The header and each card take
-                  // their own beat in the cascade, so they arrive one by one.
+                  // their own beat in the cascade, strictly in reading order.
                   for (var s = 0; s < _sections.length; s++)
                     _ScheduleSection(
                       section: _sections[s],
@@ -230,7 +231,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                       onChanged: () => setState(() {}),
                       topGap: s == 0 ? 0 : 22,
                       headerReveal: (child) => _reveal(nextStart(), child),
-                      cardReveal: (child) => _cardReveal(nextStart(), child),
+                      cardReveal: (child) => _beatReveal(nextStart(), child),
                     ),
                 ],
               ),
@@ -238,7 +239,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
             // Bottom: one Finish, the sky fading up into it. Reveals with the
             // tagline so the primary action is present while the cards cascade.
             _reveal(
-              taglineStart,
+              _taglineMs,
               Container(
                 padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
                 decoration: BoxDecoration(

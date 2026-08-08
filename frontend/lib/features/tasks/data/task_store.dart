@@ -94,12 +94,12 @@ class TaskStore extends ChangeNotifier {
       'title': title.trim(),
       'icon_name': iconName,
       'icon_domain': iconDomain,
-      if (dueAt != null) 'due_at': dueAt.toIso8601String(),
+      'due_at': ?dueAt?.toIso8601String(),
       'repeat': repeat.name,
-      if (amount != null) 'amount': amount,
-      if (currency != null) 'currency': currency,
-      if (category != null) 'category': category,
-      if (source != null) 'source': source,
+      'amount': ?amount,
+      'currency': ?currency,
+      'category': ?category,
+      'source': ?source,
     };
     final json = await _api.post('/tasks', body) as Map<String, dynamic>;
     final created = Task.fromJson(json);

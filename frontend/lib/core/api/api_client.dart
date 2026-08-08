@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -18,6 +19,12 @@ class ApiClient {
     defaultValue: 'https://revolution-backend-production.up.railway.app',
   );
   static const _ownerKey = 'owner_id_v1';
+
+  /// Every request is bounded by this — a cold/slow backend (Railway can be slow
+  /// to wake) must never hang the UI. On timeout the call throws like any other
+  /// API error, so callers' best-effort try/catch (login's claim/prefs, task
+  /// commits) degrade gracefully instead of freezing.
+  static const _timeout = Duration(seconds: 12);
 
   final http.Client _http = http.Client();
   String? _ownerId;
@@ -59,14 +66,16 @@ class ApiClient {
     required String anonOwnerId,
     required String newOwnerId,
   }) async {
-    final res = await _http.post(
-      _uri('/claim'),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Owner-Id': newOwnerId,
-      },
-      body: jsonEncode({'anon_owner_id': anonOwnerId}),
-    );
+    final res = await _http
+        .post(
+          _uri('/claim'),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Owner-Id': newOwnerId,
+          },
+          body: jsonEncode({'anon_owner_id': anonOwnerId}),
+        )
+        .timeout(_timeout);
     return _decode(res);
   }
 
@@ -78,30 +87,34 @@ class ApiClient {
   Uri _uri(String path) => Uri.parse('$_baseUrl$path');
 
   Future<dynamic> get(String path) async {
-    final res = await _http.get(_uri(path), headers: _headers);
+    final res = await _http.get(_uri(path), headers: _headers).timeout(_timeout);
     return _decode(res);
   }
 
   Future<dynamic> post(String path, Object body) async {
-    final res = await _http.post(_uri(path),
-        headers: _headers, body: jsonEncode(body));
+    final res = await _http
+        .post(_uri(path), headers: _headers, body: jsonEncode(body))
+        .timeout(_timeout);
     return _decode(res);
   }
 
   Future<dynamic> patch(String path, Object body) async {
-    final res = await _http.patch(_uri(path),
-        headers: _headers, body: jsonEncode(body));
+    final res = await _http
+        .patch(_uri(path), headers: _headers, body: jsonEncode(body))
+        .timeout(_timeout);
     return _decode(res);
   }
 
   Future<dynamic> put(String path, Object body) async {
-    final res = await _http.put(_uri(path),
-        headers: _headers, body: jsonEncode(body));
+    final res = await _http
+        .put(_uri(path), headers: _headers, body: jsonEncode(body))
+        .timeout(_timeout);
     return _decode(res);
   }
 
   Future<void> delete(String path) async {
-    final res = await _http.delete(_uri(path), headers: _headers);
+    final res =
+        await _http.delete(_uri(path), headers: _headers).timeout(_timeout);
     if (res.statusCode >= 300 && res.statusCode != 404) {
       throw ApiException(res.statusCode, res.body);
     }

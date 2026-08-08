@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -123,22 +125,24 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     );
   }
 
-  /// The real finish — fired from the schedule step's "Finish". Create the
-  /// tasks on the server NOW (under the anonymous owner id) so the finish
-  /// screen's live Home preview shows genuine saved data, light the fifth "app"
-  /// dot for a beat, then land on the make-or-break finish screen: the real Home
-  /// behind a name/number claim sheet, verified via SMS into the app.
+  /// The real finish — fired from the schedule step's "Finish". We navigate to
+  /// the finish screen IMMEDIATELY (no waiting on the network), then create the
+  /// tasks in the BACKGROUND. The finish screen's Home preview is driven by the
+  /// [TaskStore] (a ChangeNotifier), so reminders pop in the instant each commit
+  /// lands — the user never stares at a spinner after tapping Finish.
   Future<void> _complete(Map<String, ReminderDraft> drafts) async {
     widget.onFinish?.call(drafts);
     // Light the fifth dot — "arriving at the app" — before we go.
     if (mounted) setState(() => _page = _pageCount);
 
-    // Build the store the finish screen (and, after claim, the app) will use.
-    // Commit the drafts to the server, then load — so the Home behind the sheet
-    // is the user's real, saved reminders, not a mock.
+    // The store the finish screen (and, after claim, the app) will use. Handed
+    // to the finish screen straight away, still empty; the background commit
+    // fills it and the preview repaints as each reminder is created.
     final store = TaskStore();
-    await commitOnboardingDrafts(store, drafts);
-    await store.load();
+    // Fire-and-forget: create the drafts (concurrently) under the anonymous
+    // owner. Best-effort — failures are swallowed per draft. Not awaited, so the
+    // transition is instant.
+    unawaited(commitOnboardingDrafts(store, drafts));
 
     if (!mounted) return;
     await _leaveToAuth(

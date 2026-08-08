@@ -257,14 +257,40 @@ class _OtpFlowState extends State<_OtpFlow> {
   String? _verificationId;
   String? _error;
   bool _busy = false; // block double-submits of the same code
+  Timer? _sendTimeout;
 
   @override
   void initState() {
     super.initState();
     // Route the gate's codeSent into our state.
     widget.registerCodeSink((id) {
-      if (mounted) setState(() => _verificationId = id);
+      if (mounted) {
+        _sendTimeout?.cancel();
+        setState(() => _verificationId = id);
+      }
     });
+    _armSendTimeout();
+  }
+
+  /// If the code never arrives (misconfigured Firebase — e.g. the release
+  /// keystore's SHA isn't registered, so Play Integrity/reCAPTCHA can't verify
+  /// the app), the screen would otherwise sit in "sending…" forever with no way
+  /// forward. Surface a clear, escapable error instead of a silent dead-end.
+  void _armSendTimeout() {
+    _sendTimeout?.cancel();
+    _sendTimeout = Timer(const Duration(seconds: 30), () {
+      if (mounted && _verificationId == null) {
+        setState(() => _error =
+            "Couldn't send the code. Check your connection and tap Resend — "
+            'if it keeps failing, try again shortly.');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _sendTimeout?.cancel();
+    super.dispose();
   }
 
   Future<void> _confirm(String code) async {

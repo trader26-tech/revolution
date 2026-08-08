@@ -206,7 +206,9 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
               (_showFallbackField ? _fallbackFocus : _focus).requestFocus(),
           behavior: HitTestBehavior.opaque,
           child: SafeArea(
-            child: Padding(
+            // Scrollable so nothing is trapped behind the keyboard on short
+            // screens — the Verify button always stays reachable.
+            child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -373,21 +375,49 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
                     secondsLeft: _secondsLeft,
                     onResend: _resend,
                   ),
-                  const Spacer(),
-                  if (_submitting)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: 8),
-                        child: SizedBox(
-                          width: 26,
-                          height: 26,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.6,
-                            color: AppColors.accent,
-                          ),
+                  const SizedBox(height: 28),
+                  // An explicit, always-visible Verify button. The code still
+                  // auto-submits when six digits land, but this guarantees a
+                  // clear way forward — never a screen with no button. Disabled
+                  // (but visible) until the code is complete and actually
+                  // verifiable (verificationId has arrived).
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: FilledButton(
+                      onPressed: (_complete && !widget.sending && !_submitting)
+                          ? _submit
+                          : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.accent,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            AppColors.accent.withValues(alpha: 0.25),
+                        disabledForegroundColor:
+                            Colors.white.withValues(alpha: 0.6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
+                      child: _submitting
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              widget.sending ? 'Sending…' : 'Verify',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                     ),
+                  ),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),

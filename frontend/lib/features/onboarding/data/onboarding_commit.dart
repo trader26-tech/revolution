@@ -10,25 +10,32 @@ import '../presentation/widgets/reminder_confirm_sheet.dart';
 /// session onto the verified phone, so nothing is lost.
 ///
 /// Best-effort per task: one failed create never aborts the rest.
+///
+/// Drafts are committed CONCURRENTLY — each draft's create+update chain runs in
+/// parallel with the others — so the whole set costs about one round-trip of
+/// latency instead of (2 × N) sequential ones. On a handful of picks this is the
+/// difference between an instant finish and a multi-second wait.
 Future<void> commitOnboardingDrafts(
   TaskStore store,
   Map<String, ReminderDraft> drafts, {
   DateTime? now,
 }) async {
   final today = now ?? DateTime.now();
-  for (final draft in drafts.values) {
-    try {
-      final created = await store.add(draft.name);
-      await store.update(
-        created.copyWith(
-          dueAt: _nextOccurrence(today, draft),
-          repeat: draft.frequency,
-        ),
-      );
-    } catch (_) {
-      // Skip this one; keep going.
-    }
-  }
+  await Future.wait(
+    drafts.values.map((draft) async {
+      try {
+        final created = await store.add(draft.name);
+        await store.update(
+          created.copyWith(
+            dueAt: _nextOccurrence(today, draft),
+            repeat: draft.frequency,
+          ),
+        );
+      } catch (_) {
+        // Skip this one; keep going.
+      }
+    }),
+  );
 }
 
 /// The next date this reminder should fire, from its (month, day) and cadence.

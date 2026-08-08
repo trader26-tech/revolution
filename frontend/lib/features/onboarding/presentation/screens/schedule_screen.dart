@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/mascot.dart';
+import '../../../brand/domain/brand.dart';
+import '../../../brand/presentation/brand_logo.dart';
 import '../../../tasks/domain/task.dart';
 import '../../domain/onboarding_chip_catalog.dart';
 import '../widgets/magic_text.dart' show MagicText, RevoEntrance;
@@ -479,16 +481,7 @@ class _ItemScheduleCard extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Icon(item.icon, size: 20, color: AppColors.ink),
-                ),
+                _ItemIcon(item: item),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -526,6 +519,39 @@ class _ItemScheduleCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The leading icon tile for a scheduled item — the real brand logo when the
+/// item has a [OnboardingChipItem.domain] (Netflix, Spotify, …), or the clean
+/// Material glyph otherwise (Mom, electricity, …). Same 42×42 rounded tile
+/// either way, so the column stays perfectly uniform.
+class _ItemIcon extends StatelessWidget {
+  const _ItemIcon({required this.item});
+  final OnboardingChipItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasBrand = item.domain != null && item.domain!.isNotEmpty;
+    return Container(
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        // Brand logos read best on a neutral tile; glyphs keep the accent wash.
+        color: hasBrand
+            ? Colors.white.withValues(alpha: 0.06)
+            : AppColors.accent.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: hasBrand
+          ? BrandLogo(
+              brand: Brand(name: item.label, domain: item.domain!),
+              size: 26,
+            )
+          : Icon(item.icon, size: 20, color: AppColors.ink),
     );
   }
 }

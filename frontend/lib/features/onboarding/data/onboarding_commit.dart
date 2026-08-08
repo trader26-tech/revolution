@@ -21,6 +21,11 @@ Future<void> commitOnboardingDrafts(
   DateTime? now,
 }) async {
   final today = now ?? DateTime.now();
+  // Leave the "initial load" shimmer immediately: the finish screen's Home
+  // preview renders the real list frame right away, and each reminder pops in as
+  // its create lands below (instead of shimmering until a server fetch that
+  // never happens on this path).
+  store.markLoaded();
   await Future.wait(
     drafts.values.map((draft) async {
       try {

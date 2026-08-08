@@ -34,6 +34,16 @@ class TaskStore extends ChangeNotifier {
   bool get isInitialLoad => !_hasLoaded;
   Object? get error => _error;
 
+  /// Mark the store as "past its first load" WITHOUT hitting the server. Used
+  /// when tasks are populated by another path (the onboarding commit inserts
+  /// them locally as they're created), so the Home view leaves its shimmer and
+  /// renders the list/empty state immediately instead of loading forever.
+  void markLoaded() {
+    if (_hasLoaded) return;
+    _hasLoaded = true;
+    notifyListeners();
+  }
+
   List<Task> get scheduled {
     final list = _tasks.where((t) => t.isScheduled).toList()
       ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));

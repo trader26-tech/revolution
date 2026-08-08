@@ -13,16 +13,18 @@ import '../widgets/reminder_confirm_sheet.dart';
 
 /// The make-or-break final screen of onboarding.
 ///
-/// The user's completed setup — every reminder they picked, with its schedule —
-/// is rendered LIVE behind, softly blurred and dimmed. It reads as "your setup
-/// is done and sitting right here". A single sheet rises over it: "Almost done!
-/// Just your name and number." Once they see their own work already prepared,
-/// giving a name + number to save it feels like claiming it, not starting over.
+/// The user's finished app — their real Home, showing every reminder they set —
+/// fills the whole screen behind, only LIGHTLY veiled (a soft blur + gentle dim)
+/// so they can still READ it: "this is your app, already built." A small prompt
+/// floats at the bottom — "Final step to unlock your reminders" + a compact
+/// "Verify to get in" button. Tapping it RISES a sheet (name + number → SMS
+/// verify) over the still-visible home. Once they see their own work waiting,
+/// verifying to claim it feels like unlocking, not starting over.
 ///
 /// Verification reuses the app's one OTP pipeline via [AuthGateController], so
 /// this screen is mounted as [AuthGate.child]: it shows while logged out and
 /// the gate flips to the app the instant the number is verified.
-class OnboardingFinishScreen extends StatelessWidget {
+class OnboardingFinishScreen extends StatefulWidget {
   const OnboardingFinishScreen({
     super.key,
     required this.picked,
@@ -36,6 +38,23 @@ class OnboardingFinishScreen extends StatelessWidget {
   final Map<String, ReminderDraft> drafts;
 
   @override
+  State<OnboardingFinishScreen> createState() => _OnboardingFinishScreenState();
+}
+
+class _OnboardingFinishScreenState extends State<OnboardingFinishScreen> {
+  /// Slide the claim sheet up on demand.
+  void _openClaim() {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true, // full height for the keyboard
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (_) => const _ClaimSheet(),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -43,15 +62,17 @@ class OnboardingFinishScreen extends StatelessWidget {
       body: Starfield(
         intensity: 0.6,
         child: Stack(
+          fit: StackFit.expand,
           children: [
-            // ── The completed setup, blurred + dimmed behind everything ──
+            // ── The finished app (their reminders), full-screen, lightly veiled
+            //    but still readable ──
             Positioned.fill(
-              child: _BlurredSummary(picked: picked, drafts: drafts),
+              child: _HomePreview(picked: widget.picked, drafts: widget.drafts),
             ),
-            // ── The claim sheet, riding at the bottom ──
-            const Align(
+            // ── A small floating prompt + compact button at the bottom ──
+            Align(
               alignment: Alignment.bottomCenter,
-              child: _ClaimSheet(),
+              child: _FinalStepPrompt(onTap: _openClaim),
             ),
           ],
         ),
@@ -60,12 +81,85 @@ class OnboardingFinishScreen extends StatelessWidget {
   }
 }
 
-/// The picked reminders, laid out as a real finished-looking summary, then
-/// blurred and dimmed so the sheet reads clearly on top. The content is the
-/// user's actual work — sections with their items and schedules — so it feels
-/// like their setup is genuinely there, ready to be saved.
-class _BlurredSummary extends StatelessWidget {
-  const _BlurredSummary({required this.picked, required this.drafts});
+/// The small floating prompt at the bottom: one line of copy over a soft
+/// gradient scrim, and a compact "Verify to get in" button. Deliberately tiny —
+/// the home behind it is the hero; this is just the key to it.
+class _FinalStepPrompt extends StatelessWidget {
+  const _FinalStepPrompt({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      // A scrim so the text is legible over the home preview.
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.bg.withValues(alpha: 0.0),
+            AppColors.bg.withValues(alpha: 0.75),
+            AppColors.bg,
+          ],
+          stops: const [0.0, 0.55, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_open_rounded,
+                  size: 22, color: AppColors.accent),
+              const SizedBox(height: 10),
+              const Text(
+                'Final step to unlock your reminders',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Verify your number to save everything and get in.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: _VerifyButton(
+                  enabled: true,
+                  loading: false,
+                  label: 'Verify to get in',
+                  onTap: onTap,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The user's finished app — their real reminders in the Home layout — filling
+/// the screen. Only LIGHTLY veiled: a gentle blur + a soft dim, tuned so the
+/// content stays READABLE (you can see your own reminders), while still reading
+/// as "behind glass" so the prompt/sheet on top is clearly the focus.
+class _HomePreview extends StatelessWidget {
+  const _HomePreview({required this.picked, required this.drafts});
 
   final Set<String> picked;
   final Map<String, ReminderDraft> drafts;
@@ -81,63 +175,79 @@ class _BlurredSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sections = _sections;
+    // Light veil: a small blur so it's clearly "behind glass" but every word is
+    // still readable, plus a slight dim (opacity) rather than a heavy one.
     return ClipRect(
       child: ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
-        child: ShaderMask(
-          // Fade the summary out toward the bottom so it slides cleanly under
-          // the sheet with no hard seam.
-          shaderCallback: (rect) => const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.white, Colors.white, Colors.transparent],
-            stops: [0.0, 0.62, 0.92],
-          ).createShader(rect),
-          blendMode: BlendMode.dstIn,
-          child: Opacity(
-            opacity: 0.5,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Your setup',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_total(sections)} reminders ready',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.inkSoft,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Expanded(
-                      child: ListView(
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: EdgeInsets.zero,
-                        children: [
-                          for (final s in sections)
-                            _SummarySection(
-                              section: s,
-                              items: _pickedItems(s),
-                              drafts: drafts,
+        imageFilter: ui.ImageFilter.blur(sigmaX: 2.4, sigmaY: 2.4),
+        child: Opacity(
+          opacity: 0.82,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // A Home-style header (greeting + count), matching the app.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Your reminders',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.ink,
+                                letterSpacing: -0.5,
+                              ),
                             ),
-                        ],
+                            const SizedBox(height: 2),
+                            Text(
+                              '${_total(sections)} set up and ready',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.inkSoft,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      // A faux profile chip, like the real home's top-right.
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.accent.withValues(alpha: 0.16),
+                          border:
+                              Border.all(color: AppColors.glassBorder),
+                        ),
+                        child: const Icon(Icons.person_rounded,
+                            size: 20, color: AppColors.inkSoft),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: ListView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.zero,
+                      children: [
+                        for (final s in sections)
+                          _SummarySection(
+                            section: s,
+                            items: _pickedItems(s),
+                            drafts: drafts,
+                          ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -355,11 +465,10 @@ class _ClaimSheetState extends State<_ClaimSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Lift the sheet above the keyboard when it's up.
+    // A modal sheet: rounded card that grows with content and lifts above the
+    // keyboard via viewInsets. It rises over the still-visible home preview.
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
+    return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
         width: double.infinity,
@@ -379,7 +488,7 @@ class _ClaimSheetState extends State<_ClaimSheet> {
         ),
         child: SafeArea(
           top: false,
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(22, 14, 22, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -455,6 +564,7 @@ class _ClaimSheetState extends State<_ClaimSheet> {
                   child: _VerifyButton(
                     enabled: _valid && !_submitting,
                     loading: _submitting,
+                    label: 'Verify & finish',
                     onTap: _submit,
                   ),
                 ),
@@ -650,10 +760,12 @@ class _VerifyButton extends StatelessWidget {
     required this.enabled,
     required this.loading,
     required this.onTap,
+    this.label = 'Verify & finish',
   });
 
   final bool enabled;
   final bool loading;
+  final String label;
   final VoidCallback onTap;
 
   @override
@@ -691,7 +803,7 @@ class _VerifyButton extends StatelessWidget {
                 ),
               )
             : Text(
-                'Verify & finish',
+                label,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,

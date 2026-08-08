@@ -86,6 +86,13 @@ flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true # iOS icons must be opaque; our bg is already solid
+  # Android 8+ uses the ADAPTIVE icon (a separate foreground + background). Set
+  # both so the home-screen icon actually updates — without these the adaptive
+  # foreground stays stale and the old icon keeps showing even after regen. The
+  # foreground is Revo already composed on the dark bg, so the background colour
+  # just fills the mask edges to match.
+  adaptive_icon_background: "#100B20" # AppColors.bg — matches the app sky
+  adaptive_icon_foreground: "tool/revo_icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

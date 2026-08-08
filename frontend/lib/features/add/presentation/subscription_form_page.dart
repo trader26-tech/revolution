@@ -191,7 +191,10 @@ class _IconChip extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: hasIcon
-            ? BrandLogo(name: iconName!, domain: iconDomain ?? '', size: 32)
+            ? BrandLogo(
+                brand: Brand(name: iconName!, domain: iconDomain ?? ''),
+                size: 32,
+              )
             : Icon(Icons.add_rounded, color: accent, size: 26),
       ),
     );

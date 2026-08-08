@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
+import '../add/presentation/open_add_flow.dart';
 import '../onboarding/presentation/onboarding_flow.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
@@ -74,10 +75,11 @@ class _HomePageState extends State<HomePage> {
     if (picked != null) setState(() => _filter = picked);
   }
 
-  /// Press + → straight to the full details screen (prefilled/blank), no
-  /// quick-add field. On save, create the task from the form.
+  /// Press + → pick a category (Subscription, Birthday, …) → fill its tailored
+  /// form. Each form hands back a ready-to-save [Task]. On save, create it then
+  /// persist the form's fields.
   Future<void> _startAdd() async {
-    final result = await openTaskDetails(context);
+    final result = await openAddFlow(context);
     if (result == null || !mounted) return;
     try {
       // Create with the name + icon, then persist the rest of the form's fields.

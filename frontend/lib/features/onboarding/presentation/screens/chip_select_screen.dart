@@ -234,7 +234,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 14),
                   // The whole catalog, sectioned. The header and each chip take
                   // their own beat in the cascade, so the items shimmer in one
                   // after another down the screen.
@@ -246,11 +246,13 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                         HapticFeedback.lightImpact();
                         widget.onToggle(key);
                       },
-                      topGap: s == 0 ? 0 : 22,
-                      // Give the header and each chip its own staggered reveal,
-                      // strictly in order via the shared [nextStart] cursor.
-                      headerReveal: (child) => _reveal(nextStart(), child),
-                      chipReveal: (child) => _beatReveal(nextStart(), child),
+                      topGap: s == 0 ? 0 : 14,
+                      // Header + chips reveal on their own fixed beats, derived
+                      // from catalog position — stable across scroll rebuilds.
+                      headerReveal: (child) =>
+                          _reveal(startOf(sectionBaseBeat[s]), child),
+                      chipReveal: (i, child) =>
+                          _beatReveal(startOf(sectionBaseBeat[s] + 1 + i), child),
                     ),
                 ],
               ),
@@ -329,10 +331,10 @@ class _Section extends StatelessWidget {
   final ValueChanged<String> onToggle;
   final double topGap;
 
-  /// Wraps the header (and each chip) in its own staggered entrance, so the
-  /// cascade flows continuously across sections rather than restarting per one.
+  /// Wraps the header (and each chip, by its index) in its own staggered
+  /// entrance — the beat comes from catalog position, so it never shifts.
   final Widget Function(Widget child) headerReveal;
-  final Widget Function(Widget child) chipReveal;
+  final Widget Function(int index, Widget child) chipReveal;
 
   @override
   Widget build(BuildContext context) {
@@ -344,7 +346,7 @@ class _Section extends StatelessWidget {
         // icon so the sections read as distinct bands as you scroll.
         headerReveal(
           Padding(
-            padding: const EdgeInsets.only(left: 2, bottom: 12),
+            padding: const EdgeInsets.only(left: 2, bottom: 8),
             child: Row(
               children: [
                 Icon(section.icon, size: 16, color: AppColors.accent),
@@ -363,15 +365,16 @@ class _Section extends StatelessWidget {
           ),
         ),
         Wrap(
-          spacing: 10,
-          runSpacing: 10,
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            for (final item in section.items)
+            for (var i = 0; i < section.items.length; i++)
               chipReveal(
+                i,
                 _Chip(
-                  item: item,
-                  selected: picked.contains(item.key),
-                  onTap: () => onToggle(item.key),
+                  item: section.items[i],
+                  selected: picked.contains(section.items[i].key),
+                  onTap: () => onToggle(section.items[i].key),
                 ),
               ),
           ],

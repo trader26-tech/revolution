@@ -12,10 +12,10 @@ import '../widgets/reminder_confirm_sheet.dart';
 /// ONE scrollable screen, not a per-category wizard. Revo greets from the
 /// top-left with a single question; below him the whole catalog scrolls as a
 /// sectioned list — a header per category (SUBSCRIPTIONS, DOCUMENTS, …) with its
-/// items as full-width selectable rows under it. The commonest items arrive
-/// already ticked. One "Continue" at the bottom fires [onComplete] with a draft
-/// per picked item and moves straight to the payoff. Faster and cleaner than
-/// stepping through five screens.
+/// items as WRAPPING CHIPS under it, so a big catalog stays compact. The
+/// commonest items arrive already selected. One "Continue" at the bottom fires
+/// [onComplete] with a draft per picked item and moves straight to the payoff.
+/// Faster and cleaner than stepping through five screens.
 ///
 /// The flow's shared 3-dot header carries the macro progress, so there's no
 /// per-section progress or momentum copy here.
@@ -230,7 +230,9 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
 }
 
 /// One category block on the single-scroll picker: a header (the category name
-/// as a quiet all-caps kicker) followed by its items as full-width rows.
+/// as a quiet all-caps kicker) followed by its items as WRAPPING CHIPS — compact
+/// pills that flow two-plus per row, so a long catalog stays short to scroll and
+/// reads as "pick from the set".
 class _Section extends StatelessWidget {
   const _Section({
     required this.section,
@@ -270,22 +272,29 @@ class _Section extends StatelessWidget {
             ],
           ),
         ),
-        for (final item in section.items)
-          _Row(
-            item: item,
-            selected: picked.contains(item.key),
-            onTap: () => onToggle(item.key),
-          ),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final item in section.items)
+              _Chip(
+                item: item,
+                selected: picked.contains(item.key),
+                onTap: () => onToggle(item.key),
+              ),
+          ],
+        ),
       ],
     );
   }
 }
 
-/// One list row: an icon tile, the name, and a radio circle. Selected, it fills
-/// with a soft violet wash, its edge lights up, and the circle fills with a
-/// check — one calm violet world, no per-category colours.
-class _Row extends StatelessWidget {
-  const _Row({required this.item, required this.selected, required this.onTap});
+/// One selectable chip: the item's icon + name in a compact pill. Selected, it
+/// fills with a soft violet wash, its edge lights up, the icon flips to a check,
+/// and it gets a gentle glow — one calm violet world on the dark sky, no
+/// per-category colours. Unselected chips sit quietly in the glass surface.
+class _Chip extends StatelessWidget {
+  const _Chip({required this.item, required this.selected, required this.onTap});
 
   final OnboardingChipItem item;
   final bool selected;
@@ -294,113 +303,73 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const accent = AppColors.accent;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          gradient: selected
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    accent.withValues(alpha: 0.22),
-                    accent.withValues(alpha: 0.10),
-                  ],
-                )
-              : null,
-          color: selected ? null : Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected
-                ? accent.withValues(alpha: 0.7)
-                : AppColors.glassBorder,
-            width: 1.4,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: accent.withValues(alpha: 0.3),
-                    blurRadius: 16,
-                    spreadRadius: -3,
-                  ),
-                ]
-              : null,
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(18),
-            splashColor: accent.withValues(alpha: 0.14),
-            highlightColor: accent.withValues(alpha: 0.06),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Row(
-                children: [
-                  // Icon tile.
-                  Container(
-                    width: 42,
-                    height: 42,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: selected ? 0.28 : 0.14),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      item.icon,
-                      size: 21,
-                      color: selected ? Colors.white : AppColors.inkSoft,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: selected ? AppColors.ink : AppColors.inkSoft,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  _Radio(selected: selected),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        gradient: selected
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accent.withValues(alpha: 0.26),
+                  accent.withValues(alpha: 0.12),
                 ],
-              ),
+              )
+            : null,
+        color: selected ? null : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: selected ? accent.withValues(alpha: 0.75) : AppColors.glassBorder,
+          width: 1.4,
+        ),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.3),
+                  blurRadius: 14,
+                  spreadRadius: -3,
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          splashColor: accent.withValues(alpha: 0.14),
+          highlightColor: accent.withValues(alpha: 0.06),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // The leading glyph swaps to a check when selected — a small,
+                // satisfying confirmation without adding a separate control.
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 160),
+                  child: Icon(
+                    selected ? Icons.check_rounded : item.icon,
+                    key: ValueKey(selected),
+                    size: 18,
+                    color: selected ? Colors.white : AppColors.inkSoft,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  item.label,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? AppColors.ink : AppColors.inkSoft,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-/// The circular selector on the right of a row.
-class _Radio extends StatelessWidget {
-  const _Radio({required this.selected});
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      width: 26,
-      height: 26,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: selected ? AppColors.accent : Colors.transparent,
-        border: Border.all(
-          color: selected
-              ? AppColors.accent
-              : AppColors.inkFaint.withValues(alpha: 0.7),
-          width: 2,
-        ),
-      ),
-      child: selected
-          ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-          : null,
     );
   }
 }

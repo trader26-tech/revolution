@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/mascot.dart';
+import '../../../tasks/domain/task.dart';
 import '../../domain/onboarding_chip_catalog.dart';
 import '../widgets/magic_text.dart' show MagicText, RevoEntrance;
 import '../widgets/reminder_confirm_sheet.dart';
+import '../widgets/repeat_every_picker.dart';
 
 /// Onboarding page 4 — the SCHEDULE step: when to remind you.
 ///
@@ -488,16 +490,23 @@ class _ScheduleSheet extends StatefulWidget {
 }
 
 class _ScheduleSheetState extends State<_ScheduleSheet> {
-  late int _times = widget.draft.timesPerYear;
+  // The repeat is edited as a natural "every N unit" pair; it maps to/from the
+  // draft's times-per-year so the rest of onboarding is unchanged.
+  late int _count;
+  late RepeatCadence _unit;
   late int _month = widget.draft.month.clamp(1, 12);
   late int _day = widget.draft.day.clamp(1, 31);
 
-  static const _freqOptions = <(int, String)>[
-    (12, 'Every month'),
-    (4, 'Every 3 months'),
-    (2, 'Every 6 months'),
-    (1, 'Once a year'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    final seed = _everyFromTimesPerYear(widget.draft.timesPerYear);
+    _count = seed.$1;
+    _unit = seed.$2;
+  }
+
+  /// Times-per-year for the current (count, unit) — the value the draft stores.
+  int get _times => _timesPerYearFrom(_count, _unit);
 
   void _save() {
     widget.draft
@@ -550,22 +559,13 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
               ),
               const SizedBox(height: 20),
               const _SheetLabel('How often?'),
-              const SizedBox(height: 10),
-              // How often — a compact wrap of pill options (quick to tap).
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final (times, label) in _freqOptions)
-                    _FreqPill(
-                      label: label,
-                      selected: _times == times,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _times = times);
-                      },
-                    ),
-                ],
+              const SizedBox(height: 12),
+              // How often — the natural-language "every N unit" control.
+              RepeatEveryPicker(
+                count: _count,
+                unit: _unit,
+                onCountChanged: (n) => setState(() => _count = n),
+                onUnitChanged: (u) => setState(() => _unit = u),
               ),
               const SizedBox(height: 20),
               const _SheetLabel('On this date'),

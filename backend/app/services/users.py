@@ -76,6 +76,18 @@ def claim(
     return {"user_id": user_id, "user": get_user(user_id)}
 
 
+def delete_account(user_id: str) -> None:
+    """HARD-delete everything for this account: all of its tasks, then the user
+    row itself. Used by the app's "Delete data & log off" — this is a real,
+    irreversible wipe from the database (not the soft archive that task deletes
+    use). Scoped strictly by user_id so it can only ever remove the caller's own
+    data."""
+    supabase = get_supabase()
+    # Remove the account's tasks first (FK-safe), then the account row.
+    supabase.table("tasks").delete().eq("user_id", user_id).execute()
+    supabase.table(_USERS).delete().eq("id", user_id).execute()
+
+
 def update_prefs(
     user_id: str,
     *,

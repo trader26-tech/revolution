@@ -70,6 +70,22 @@ class ApiClient {
     unawaited(_mintAnonymous().catchError((_) => ''));
   }
 
+  /// HARD-delete this account and ALL its data on the server (tasks + user row),
+  /// then forget the id locally. Backs "Delete data & log off" — a real wipe,
+  /// not a soft reset. Best-effort on the network call so the local reset always
+  /// proceeds even offline (the row is orphaned server-side and cleaned later).
+  Future<void> deleteAccount() async {
+    try {
+      await _awaitPendingWrites(); // don't race in-flight creates
+      await delete('/users/me');
+    } catch (_) {
+      // Network/again-later — still clear locally below.
+    }
+    _userId = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_userKey);
+  }
+
   /// Writes (like the onboarding batch-save) that MUST land before the claim
   /// re-keys rows to the account. Tracked so [claim] can wait for them —
   /// otherwise a save still in flight when login fires would be left behind on

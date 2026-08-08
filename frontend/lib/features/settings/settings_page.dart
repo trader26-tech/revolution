@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_toast.dart';
 import '../auth/data/auth_store.dart';
 import '../auth/domain/country_code.dart';
+import '../onboarding/data/onboarding_store.dart';
 import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
 import 'data/profile_store.dart';
@@ -74,25 +75,30 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) Navigator.of(context).pop(); // AuthGate shows login
   }
 
-  /// Delete this account's data on THIS device and start fresh: clear the local
-  /// task cache, reset to a brand-new anonymous session (so the old account's
-  /// data is no longer reachable here), and sign out. A clean slate.
+  /// Permanently delete this account's data from the DATABASE and return to the
+  /// very start (onboarding). Order matters: wipe the server row, sign out,
+  /// forget onboarding — then the root gate rebuilds into the fresh intro.
   Future<void> _deleteData() async {
     final confirmed = await _confirm(
       title: 'Delete data & log off?',
       message:
-          'This clears everything on this device and starts you fresh — your '
-          'reminders here will be removed and you’ll be signed out. This can’t '
-          'be undone.',
-      confirmLabel: 'Delete & log off',
+          'This permanently deletes your account and all your reminders from '
+          'our servers, and takes you back to the start. This can’t be undone.',
+      confirmLabel: 'Delete everything',
       danger: true,
     );
     if (confirmed != true) return;
-    // Fresh anonymous account (old data no longer reachable here) + clear the
-    // signed-in session. Best-effort; never blocks the exit.
-    await ApiClient.instance.resetToAnonymous();
+
+    // 1. HARD-delete the account + all tasks on the server (real DB wipe).
+    await ApiClient.instance.deleteAccount();
+    // 2. Forget the signed-in session.
     await _auth.logout();
-    if (mounted) Navigator.of(context).pop(); // AuthGate shows login/onboarding
+    // 3. Reset onboarding → the root OnboardingGate rebuilds into the intro.
+    await OnboardingStore.instance.reset();
+    // 4. Unwind any screens on top so the fresh onboarding shows cleanly.
+    if (mounted) {
+      Navigator.of(context).popUntil((r) => r.isFirst);
+    }
   }
 
   /// "8:00 AM" from minutes-since-midnight.

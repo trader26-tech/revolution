@@ -35,3 +35,11 @@ async def me(user_id: str = Depends(current_user_id)) -> dict:
     if row is None:
         raise HTTPException(status_code=404, detail="User not found")
     return row
+
+
+@router.delete("/me", status_code=204)
+async def delete_me(user_id: str = Depends(current_user_id)) -> None:
+    """HARD-delete this account and all its data (tasks + user row). Backs the
+    app's "Delete data & log off" — a real, irreversible wipe scoped to the
+    caller's own id."""
+    svc.delete_account(user_id)

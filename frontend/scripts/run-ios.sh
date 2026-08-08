@@ -18,6 +18,38 @@
 
 set -euo pipefail
 
+# ── Serialize builds across ALL sessions (portable, no flock) ───────────────
+# Concurrent xcodebuilds (peer Claude sessions) corrupt the Xcode build DB and
+# cause silent failures. A mkdir-based lock (atomic everywhere) lets only one
+# Revolution build run at a time; others WAIT their turn. A stale lock older
+# than 12 min is reclaimed so a crashed build never blocks forever.
+LOCKDIR="/tmp/revolution-ios-build.lock.d"
+_have_lock=0
+for _try in $(seq 1 240); do            # up to ~20 min of waiting
+  if mkdir "$LOCKDIR" 2>/dev/null; then
+    echo "$$" > "$LOCKDIR/pid"
+    _have_lock=1
+    break
+  fi
+  # Reclaim a stale lock (older than 12 minutes).
+  if [ -d "$LOCKDIR" ]; then
+    _age=$(( $(date +%s) - $(stat -f %m "$LOCKDIR" 2>/dev/null || echo 0) ))
+    if [ "$_age" -gt 720 ]; then
+      echo "▶ Reclaiming a stale build lock (${_age}s old)…"
+      rm -rf "$LOCKDIR"
+      continue
+    fi
+  fi
+  [ "$_try" = "1" ] && echo "▶ Another Revolution build is running — waiting…"
+  sleep 5
+done
+if [ "$_have_lock" != "1" ]; then
+  echo "✗ Timed out waiting for the build lock." >&2
+  exit 1
+fi
+# Release the lock on ANY exit.
+trap 'rm -rf "$LOCKDIR" 2>/dev/null || true' EXIT
+
 # Build config: Release (default) or Debug (pass "debug" as 2nd-ish arg).
 CONFIG="Release"
 CONFIG_DIR="Release-iphoneos"
@@ -68,14 +100,9 @@ if [ "${SKIP_ANALYZE:-0}" != "1" ]; then
   echo "  ✓ no analyzer errors"
 fi
 
-# ── Guard against concurrent/stale builds (peer Claude sessions lock the Xcode
-#    build DB). Only clear if OUR script isn't the one holding it. ────────────
-STALE="$(pgrep -f 'xcodebuild.*Runner' | grep -v $$ || true)"
-if [ -n "$STALE" ]; then
-  echo "▶ Clearing a stale/concurrent xcodebuild + build-DB lock…"
-  echo "$STALE" | xargs kill 2>/dev/null || true
-  sleep 1
-fi
+# We hold the build lock now, so no peer xcodebuild should be mid-flight. Clear
+# any stale XCBuildData lock file left by a previously-killed build (harmless
+# when there's none).
 rm -rf ~/Library/Developer/Xcode/DerivedData/Runner-*/Build/Intermediates.noindex/XCBuildData 2>/dev/null || true
 
 echo "▶ flutter pub get"

@@ -4,25 +4,21 @@ import 'package:flutter/services.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/mascot.dart';
 import '../../domain/onboarding_chip_catalog.dart';
-import '../widgets/magic_text.dart';
+import '../widgets/magic_text.dart' show RevoEntrance;
 import '../widgets/reminder_confirm_sheet.dart';
 
-/// Onboarding page 2: "Which … should we remember?"
+/// Onboarding page 2: "What should we remember?"
 ///
-/// A one-category-per-screen wizard. The flow's shared 3-dot header (common to
-/// every onboarding screen) carries the macro progress. Two lines of copy do
-/// the rest: the tagline under the question — "Choose a few, add more later" —
-/// while the line just above the Continue button carries forward momentum —
-/// "3 more to go", then "Last one" on the final screen. No separate progress
-/// element;
-/// the Continue button stays plain. Just a back-arrow sits at the top. Revo
-/// greets from the top-left, and each category is a clean LIST of rows (icon +
-/// name + radio) — the commonest ones arrive already selected.
+/// ONE scrollable screen, not a per-category wizard. Revo greets from the
+/// top-left with a single question; below him the whole catalog scrolls as a
+/// sectioned list — a header per category (SUBSCRIPTIONS, DOCUMENTS, …) with its
+/// items as full-width selectable rows under it. The commonest items arrive
+/// already ticked. One "Continue" at the bottom fires [onComplete] with a draft
+/// per picked item and moves straight to the payoff. Faster and cleaner than
+/// stepping through five screens.
 ///
-/// [ChipSelectWizard] is the full self-driving flow used as page 2 of the
-/// onboarding PageView; it fires [onComplete] with a draft per picked item
-/// when the last category is done, and [onExit] if the user backs out of the
-/// first one.
+/// The flow's shared 3-dot header carries the macro progress, so there's no
+/// per-section progress or momentum copy here.
 
 /// The items ticked on arrival — seed a picked-set with these.
 Set<String> preselectedChipKeys() => {
@@ -43,35 +39,20 @@ Map<String, ReminderDraft> chipDraftsFor(Set<String> picked) => {
         ),
 };
 
-/// "Which subscriptions should we remember?" etc. — a category-specific
-/// question, kept short.
-String _questionFor(OnboardingChipSection s) => switch (s.key) {
-  'subs' => 'Which subscriptions\nshould we remember?',
-  'docs' => 'Which documents\nshould we remember?',
-  'family' => 'Whose dates\nshould we remember?',
-  'insure' => 'Which renewals\nshould we remember?',
-  'invest' => 'Which investments\nshould we remember?',
-  _ => 'What should we\nremember?',
-};
-
 class ChipSelectWizard extends StatefulWidget {
   const ChipSelectWizard({
     super.key,
     required this.picked,
     required this.onToggle,
     required this.onComplete,
-    this.onExit,
   });
 
   /// The shared picked set (lives in the parent so the payoff can read it).
   final Set<String> picked;
   final ValueChanged<String> onToggle;
 
-  /// Fired when the user finishes the last category.
+  /// Fired on Continue with a ready-to-save draft per picked item.
   final ValueChanged<Map<String, ReminderDraft>> onComplete;
-
-  /// Fired when the user backs out of the first category (e.g. → intro).
-  final VoidCallback? onExit;
 
   @override
   State<ChipSelectWizard> createState() => _ChipSelectWizardState();
@@ -79,29 +60,19 @@ class ChipSelectWizard extends StatefulWidget {
 
 class _ChipSelectWizardState extends State<ChipSelectWizard>
     with SingleTickerProviderStateMixin {
-  int _index = 0;
-
-  /// Drives the per-category entry cascade; replays on each category change.
-  /// The timeline runs: Revo makes a slow bubbly entrance, the question's words
-  /// materialise one by one, "Tap all that apply." drifts up, then the rows
-  /// cascade in. Long and deliberate so nothing feels rushed.
+  /// One-shot entrance: Revo pops, the question fades up, then the sections
+  /// cascade in. Plays once — this is now a single screen, nothing to replay.
   late final AnimationController _intro;
-
-  /// Resets to the top on every category change so each screen starts fresh
-  /// (Revo at the top, then the question materialising) rather than mid-scroll.
   final _scroll = ScrollController();
 
   List<OnboardingChipSection> get _sections => kOnboardingChipSections;
-  OnboardingChipSection get _section => _sections[_index];
 
   @override
   void initState() {
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      // Slow and deliberate — a proper introduction. Revo takes his time, the
-      // words materialise one by one, then the rows drift up. No hurry.
-      duration: const Duration(milliseconds: 3400),
+      duration: const Duration(milliseconds: 1400),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _intro.forward();
@@ -115,36 +86,8 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
     super.dispose();
   }
 
-  int get _pickedInSection =>
-      _section.items.where((i) => widget.picked.contains(i.key)).length;
-
-  void _next() {
-    HapticFeedback.lightImpact();
-    if (_index >= _sections.length - 1) {
-      widget.onComplete(chipDraftsFor(widget.picked));
-      return;
-    }
-    setState(() => _index++);
-    _replay();
-  }
-
-  void _replay() {
-    // Jump back to the top so the new category starts from Revo, then replay
-    // the whole entry cascade.
-    if (_scroll.hasClients) _scroll.jumpTo(0);
-    _intro
-      ..reset()
-      ..forward();
-  }
-
-  /// 0→1 progress over the timeline slice [start]..[end]. Linear, so each word
-  /// gets an equal, unhurried beat to materialise (the per-word spring supplies
-  /// the character of the motion).
-  double _typeProgress(double start, double end) =>
-      ((_intro.value - start) / (end - start)).clamp(0.0, 1.0);
-
   /// Fade + slide-up for the slice of the timeline [start]..[start]+[window].
-  Widget _reveal(double start, Widget child, {double window = 0.3}) {
+  Widget _reveal(double start, Widget child, {double window = 0.5}) {
     final t = Curves.easeOutCubic
         .transform(((_intro.value - start) / window).clamp(0.0, 1.0));
     return Opacity(
@@ -155,203 +98,186 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
 
   @override
   Widget build(BuildContext context) {
-    final section = _section;
-    final items = section.items;
-    // The staged entry timeline (0..1), slow and deliberate:
-    //   0.00..0.26  Revo makes his entrance — a slow bubbly bounce-in.
-    //   0.26..0.66  the question's words MATERIALISE one by one (blur in, float
-    //               up, settle with a springy overshoot + a soft glow).
-    //   0.66..0.72  "Tap all that apply." drifts up.
-    //   0.72..0.98  the rows cascade in, one calm beat each.
-    const questionStart = 0.26;
-    const questionEnd = 0.66;
-    const taglineStart = 0.68;
-    const rowsStart = 0.74;
-    final perRow = (0.98 - rowsStart) / items.length;
-
-    // No Scaffold/Starfield/SafeArea here — this renders as page 2 inside the
-    // OnboardingFlow, which already provides the sky and safe area.
+    // No Scaffold/Starfield/SafeArea here — this renders inside OnboardingFlow,
+    // which already provides the sky and safe area.
     return AnimatedBuilder(
       animation: _intro,
       builder: (context, _) {
         return Column(
           children: [
-                  Expanded(
-                    child: ListView(
-                      controller: _scroll,
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                      children: [
-                        // No back button — the flow's shared 3-dot header carries
-                        // the macro progress, and the "which of five categories"
-                        // is carried by the Continue button's own fill.
-                        // Header: Revo (left) + question.
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Revo, first to arrive — a slow bubbly entrance: he
-                            // fades in while scaling up past his size and
-                            // settling back (a springy overshoot), so he lands
-                            // with a little bounce rather than a snap.
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6, top: 2),
-                              child: RevoEntrance(
-                                t: (_intro.value / 0.26).clamp(0.0, 1.0),
-                                // Sitting top-left, Revo reads better with his
-                                // tail pointing LEFT — mirror him horizontally.
-                                // (His gaze flips with him, so it now leans right,
-                                // still counterbalancing the tail.)
-                                child: Transform.flip(
-                                  flipX: true,
-                                  child: const AnimatedMascot(
-                                    size: 60,
-                                    glow: false,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: MagicText(
-                                  // Keyed by category so it restarts cleanly
-                                  // when the question changes.
-                                  key: ValueKey(section.key),
-                                  text: _questionFor(section),
-                                  progress: _typeProgress(
-                                    questionStart,
-                                    questionEnd,
-                                  ),
-                                  style: const TextStyle(
-                                    fontSize: 27,
-                                    height: 1.12,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.ink,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+            Expanded(
+              child: ListView(
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                children: [
+                  // Header: Revo (tail-left) + one overall question.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6, top: 2),
+                        child: RevoEntrance(
+                          t: (_intro.value / 0.24).clamp(0.0, 1.0),
+                          child: Transform.flip(
+                            flipX: true,
+                            child: const AnimatedMascot(size: 60, glow: false),
+                          ),
                         ),
-                        const SizedBox(height: 6),
-                        // Tagline under the question — one short line in a
-                        // single light tone. Forward progress ("N more to go")
-                        // lives down by the button.
-                        _reveal(
-                          taglineStart,
+                      ),
+                      Expanded(
+                        child: _reveal(
+                          0.14,
                           const Padding(
-                            padding: EdgeInsets.only(left: 2),
+                            padding: EdgeInsets.only(top: 6),
                             child: Text(
-                              'Choose a few, add more later',
+                              'What should we\nremember?',
                               style: TextStyle(
-                                fontSize: 14.5,
-                                color: AppColors.inkSoft,
+                                fontSize: 27,
+                                height: 1.12,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.ink,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        // The list — one row per item, cascading up.
-                        for (var i = 0; i < items.length; i++)
-                          _reveal(
-                            rowsStart + perRow * i,
-                            _Row(
-                              item: items[i],
-                              selected: widget.picked.contains(items[i].key),
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                widget.onToggle(items[i].key);
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  // Bottom: reassurance + Continue, the sky fading up into it.
-                  // Reveal must COMPLETE within the 0..1 timeline, so start
-                  // early enough that start+window <= 1.0 — otherwise the
-                  // button caps at a faint fraction of full opacity and reads
-                  // as "no button".
+                  const SizedBox(height: 6),
                   _reveal(
-                    0.7,
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(24, 18, 24, 18),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            AppColors.bg.withValues(alpha: 0.0),
-                            AppColors.bg.withValues(alpha: 0.85),
-                            AppColors.bg,
-                          ],
-                          stops: const [0.0, 0.5, 1.0],
+                    0.22,
+                    const Padding(
+                      padding: EdgeInsets.only(left: 2),
+                      child: Text(
+                        'Choose a few, add more later',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          color: AppColors.inkSoft,
                         ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Forward momentum, right above the button: "3 more to
-                          // go" (or "Last one" on the final category) — the push
-                          // to keep going. The "not here? add more in the app"
-                          // reassurance now lives up in the tagline.
-                          Text(
-                            _remainingPhrase(),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
-                              color: AppColors.accent.withValues(alpha: 0.9),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          // A plain, clean Continue — the "which of five" is
-                          // spoken by Revo's tagline above, not carried here.
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: FilledButton(
-                              onPressed: _next,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppColors.accent,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              child: Text(
-                                _buttonLabel(),
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  // The whole catalog, sectioned: a header per category, its
+                  // items as rows under it. The sections cascade in one after
+                  // another across the back of the entrance timeline.
+                  for (var s = 0; s < _sections.length; s++)
+                    _reveal(
+                      (0.30 + s * 0.06).clamp(0.0, 0.5),
+                      _Section(
+                        section: _sections[s],
+                        picked: widget.picked,
+                        onToggle: (key) {
+                          HapticFeedback.lightImpact();
+                          widget.onToggle(key);
+                        },
+                        // A little top gap between sections (not before the
+                        // first, which sits right under the tagline).
+                        topGap: s == 0 ? 0 : 22,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // Bottom: one Continue, the sky fading up into it.
+            _reveal(
+              0.55,
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppColors.bg.withValues(alpha: 0.0),
+                      AppColors.bg.withValues(alpha: 0.85),
+                      AppColors.bg,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      widget.onComplete(chipDraftsFor(widget.picked));
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      widget.picked.isEmpty ? 'Skip for now' : 'Continue',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         );
       },
     );
   }
+}
 
-  String _buttonLabel() {
-    final last = _index >= _sections.length - 1;
-    if (_pickedInSection == 0) return last ? 'Finish' : 'None of these';
-    return last ? 'Finish' : 'Continue';
-  }
+/// One category block on the single-scroll picker: a header (the category name
+/// as a quiet all-caps kicker) followed by its items as full-width rows.
+class _Section extends StatelessWidget {
+  const _Section({
+    required this.section,
+    required this.picked,
+    required this.onToggle,
+    required this.topGap,
+  });
 
-  /// The forward-looking progress phrase that leads Revo's tagline — how many
-  /// categories are still ahead AFTER this one, framed as momentum: "4 more to
-  /// go" … "1 more to go" … then "Last one" on the final screen. Short and
-  /// motivating rather than a bare "N of 5".
-  String _remainingPhrase() {
-    final remaining = _sections.length - 1 - _index;
-    if (remaining <= 0) return 'Last one';
-    return '$remaining more to go';
+  final OnboardingChipSection section;
+  final Set<String> picked;
+  final ValueChanged<String> onToggle;
+  final double topGap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(height: topGap),
+        // Section header — the category name, quiet and all-caps, with a small
+        // icon so the sections read as distinct bands as you scroll.
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 12),
+          child: Row(
+            children: [
+              Icon(section.icon, size: 16, color: AppColors.accent),
+              const SizedBox(width: 8),
+              Text(
+                section.title.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final item in section.items)
+          _Row(
+            item: item,
+            selected: picked.contains(item.key),
+            onTap: () => onToggle(item.key),
+          ),
+      ],
+    );
   }
 }
 

@@ -1,44 +1,22 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/mascot.dart';
 import '../../domain/onboarding_chip_catalog.dart';
-import '../widgets/magic_text.dart';
+import '../widgets/magic_text.dart' show RevoEntrance;
 import '../widgets/reminder_confirm_sheet.dart';
-
-/// Revo's per-category question — the category is baked into the ask, so he
-/// speaks it directly ("When should we remind you about your subscriptions?")
-/// rather than showing a separate category label.
-String _questionFor(OnboardingChipSection s) => switch (s.key) {
-  'subs' => 'When should we remind\nyou about your subscriptions?',
-  'docs' => 'When should we remind\nyou about these documents?',
-  'family' => "When are your\nfamily's special days?",
-  'insure' => 'When are these\nrenewals due?',
-  'invest' => 'When should we remind\nyou about these investments?',
-  _ => 'When should we\nremind you?',
-};
 
 /// Onboarding page 4 — the SCHEDULE step: when to remind you.
 ///
-/// The user has said WHAT to remember (page 2); here they say WHEN. We walk them
-/// through it one category at a time (only the categories they actually picked).
-/// Revo greets from the top-left and ASKS the category's question directly — it
-/// materialises word by word, the same bubble effect as the chip wizard ("When
-/// are your family's special days?"). No separate category label or sub-copy;
-/// the question carries the context.
-///
-/// Each picked item reads as a plain-English SENTENCE you skim, not a form:
-/// "Netflix — Every month · Mid-month", already filled from smart defaults.
-/// Tapping the card opens ONE simple sheet with plain-English how-often options
-/// (Every month / 3 months / 6 months / Once a year) and Start / Mid / End
-/// day-of-month presets (with a "Pick exact day" escape hatch to the calendar
-/// grid). Glance and go — the user only touches what's wrong. Above the button,
-/// a momentum line ("3 more to go" … "Last one") mirrors the wizard; the button
-/// fills as they advance the categories, reading "Finish" on the last one and
-/// firing [onFinish] with a ready-to-save draft per picked item.
+/// ONE scrollable screen, matching page 2's shape. Revo greets from the
+/// top-left with a single question; below him the picked items scroll as a
+/// SECTIONED list — a header per category (SUBSCRIPTIONS, DOCUMENTS, …) with its
+/// picked items' schedule cards under it. Each card reads as a plain-English
+/// sentence ("Netflix — Every month · 15 Mar"), pre-filled from smart defaults;
+/// tapping it opens one sheet (how-often pills + a month/day wheel). Glance and
+/// go — only touch what's wrong. One "Finish" at the bottom fires [onFinish]
+/// with the ready-to-save drafts.
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({
     super.key,
@@ -54,8 +32,8 @@ class ScheduleScreen extends StatefulWidget {
   /// place here so the parent keeps the values; seeded from the catalog.
   final Map<String, ReminderDraft> drafts;
 
-  /// Fired on the last category's "Finish" — the parent turns the drafts into
-  /// real tasks and lands the user in the app. Null in previews.
+  /// Fired on "Finish" — the parent turns the drafts into real tasks and lands
+  /// the user in the app. Null in previews.
   final ValueChanged<Map<String, ReminderDraft>>? onFinish;
 
   @override
@@ -64,13 +42,12 @@ class ScheduleScreen extends StatefulWidget {
 
 class _ScheduleScreenState extends State<ScheduleScreen>
     with SingleTickerProviderStateMixin {
-  int _index = 0;
-
-  /// Per-category entry cascade — replays on each category change.
+  /// One-shot entrance: Revo pops, the question fades up, then the sections
+  /// cascade in. Plays once — a single screen, nothing to replay.
   late final AnimationController _intro;
   final _scroll = ScrollController();
 
-  /// Only the sections that have at least one picked item — the ones we walk.
+  /// Only the sections that have at least one picked item — the ones we show.
   late List<OnboardingChipSection> _sections;
 
   @override
@@ -79,7 +56,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
     _rebuildSections();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 1400),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _intro.forward();
@@ -89,10 +66,8 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   @override
   void didUpdateWidget(covariant ScheduleScreen old) {
     super.didUpdateWidget(old);
-    // Picks can change if the user backed up and edited page 2, so recompute the
-    // walked sections and clamp the index.
+    // Picks can change if the user backed up and edited page 2.
     _rebuildSections();
-    if (_index >= _sections.length) _index = math.max(0, _sections.length - 1);
   }
 
   void _rebuildSections() {
@@ -109,43 +84,10 @@ class _ScheduleScreenState extends State<ScheduleScreen>
     super.dispose();
   }
 
-  OnboardingChipSection get _section => _sections[_index];
+  List<OnboardingChipItem> _pickedItems(OnboardingChipSection s) =>
+      s.items.where((i) => widget.picked.contains(i.key)).toList();
 
-  List<OnboardingChipItem> get _pickedItems =>
-      _section.items.where((i) => widget.picked.contains(i.key)).toList();
-
-  bool get _isLast => _index >= _sections.length - 1;
-
-  /// Forward momentum above the button — how many categories are still ahead
-  /// AFTER this one: "3 more to go" … "1 more to go" … then "Last one". Mirrors
-  /// the chip wizard's language so the two steps read as one journey.
-  String _remainingPhrase() {
-    final remaining = _sections.length - 1 - _index;
-    if (remaining <= 0) return 'Last one';
-    return '$remaining more to go';
-  }
-
-  void _next() {
-    HapticFeedback.lightImpact();
-    if (_isLast) {
-      widget.onFinish?.call(widget.drafts);
-      return;
-    }
-    setState(() => _index++);
-    _replay();
-  }
-
-  void _replay() {
-    if (_scroll.hasClients) _scroll.jumpTo(0);
-    _intro
-      ..reset()
-      ..forward();
-  }
-
-  double _p(double start, double end) =>
-      ((_intro.value - start) / (end - start)).clamp(0.0, 1.0);
-
-  Widget _reveal(double start, Widget child, {double window = 0.28}) {
+  Widget _reveal(double start, Widget child, {double window = 0.5}) {
     final t = Curves.easeOutCubic
         .transform(((_intro.value - start) / window).clamp(0.0, 1.0));
     return Opacity(
@@ -154,7 +96,7 @@ class _ScheduleScreenState extends State<ScheduleScreen>
     );
   }
 
-  /// The reminder draft for [key], creating one from catalog defaults on first
+  /// The reminder draft for [item], creating one from catalog defaults on first
   /// touch so the map always has an entry to edit.
   ReminderDraft _draftFor(OnboardingChipItem item) {
     return widget.drafts.putIfAbsent(
@@ -173,23 +115,6 @@ class _ScheduleScreenState extends State<ScheduleScreen>
     return AnimatedBuilder(
       animation: _intro,
       builder: (context, _) {
-        final section = _section;
-        final items = _pickedItems;
-        // Timeline (0..1): Revo pops (0..0.24), his question MATERIALISES word
-        // by word (0.24..0.6, the same bubble effect as the chip wizard), then
-        // the cards cascade in. No sub-copy — Revo's question carries the ask.
-        const questionStart = 0.24;
-        const questionEnd = 0.60;
-        // Rows cascade across [rowsStart .. lastRowStart]; the last row STARTS
-        // at lastRowStart and, with its reveal window, completes by 1.0 — so no
-        // card is left stuck at partial opacity.
-        const rowsStart = 0.60;
-        const rowWindow = 0.26;
-        const lastRowStart = 1.0 - rowWindow; // 0.74
-        final perRow = items.length > 1
-            ? (lastRowStart - rowsStart) / (items.length - 1)
-            : 0.0;
-
         return Column(
           children: [
             Expanded(
@@ -197,16 +122,14 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                 controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                 children: [
-                  // Header: Revo (tail-left) + his question, which materialises
-                  // word by word (the same bubble effect as the chip wizard).
+                  // Header: Revo (tail-left) + one overall question.
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(right: 6, top: 2),
-                        // Tail points left to lean into the content.
                         child: RevoEntrance(
-                          t: _p(0.0, 0.24),
+                          t: (_intro.value / 0.24).clamp(0.0, 1.0),
                           child: Transform.flip(
                             flipX: true,
                             child: const AnimatedMascot(size: 56, glow: false),
@@ -214,48 +137,60 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                         ),
                       ),
                       Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: MagicText(
-                            // Keyed by category so it restarts on each change.
-                            key: ValueKey(section.key),
-                            text: _questionFor(section),
-                            progress: _p(questionStart, questionEnd),
-                            style: const TextStyle(
-                              fontSize: 25,
-                              height: 1.16,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.ink,
+                        child: _reveal(
+                          0.14,
+                          const Padding(
+                            padding: EdgeInsets.only(top: 6),
+                            child: Text(
+                              'When should we\nremind you?',
+                              style: TextStyle(
+                                fontSize: 26,
+                                height: 1.16,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.ink,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
-                  // One card per picked item in this category, cascading in.
-                  for (var i = 0; i < items.length; i++)
+                  const SizedBox(height: 6),
+                  _reveal(
+                    0.22,
+                    const Padding(
+                      padding: EdgeInsets.only(left: 2),
+                      child: Text(
+                        'Tap any to change — we filled in the rest',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          color: AppColors.inkSoft,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // The picked items, sectioned: a header per category, its
+                  // schedule cards under it. Sections cascade in one by one.
+                  for (var s = 0; s < _sections.length; s++)
                     _reveal(
-                      rowsStart + perRow * i,
-                      window: rowWindow,
-                      _ItemScheduleCard(
-                        key: ValueKey('${section.key}:${items[i].key}'),
-                        item: items[i],
-                        draft: _draftFor(items[i]),
+                      (0.30 + s * 0.06).clamp(0.0, 0.5),
+                      _ScheduleSection(
+                        section: _sections[s],
+                        items: _pickedItems(_sections[s]),
+                        draftFor: _draftFor,
                         onChanged: () => setState(() {}),
+                        topGap: s == 0 ? 0 : 22,
                       ),
                     ),
                 ],
               ),
             ),
-            // Bottom: reassurance + the filling Continue/Finish button. Its
-            // reveal must COMPLETE within the 0..1 timeline (start + window <=
-            // 1.0), or the button caps at a fraction of full opacity and reads
-            // as missing. 0.72 + 0.28 == 1.0.
+            // Bottom: one Finish, the sky fading up into it.
             _reveal(
-              0.72,
+              0.55,
               Container(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 18),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -268,34 +203,88 @@ class _ScheduleScreenState extends State<ScheduleScreen>
                     stops: const [0.0, 0.5, 1.0],
                   ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Forward momentum — how many categories are left to set up,
-                    // matching the chip wizard's "N more to go" language.
-                    Text(
-                      _remainingPhrase(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.inkFaint,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      widget.onFinish?.call(widget.drafts);
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _FillButton(
-                      label: _isLast ? 'Finish' : 'Continue',
-                      // Fill reflects how far through the categories we are.
-                      progress: (_index + 1) / _sections.length,
-                      onPressed: _next,
+                    child: const Text(
+                      'Finish',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+/// One category block on the single-scroll schedule: a header (the category
+/// name as a quiet all-caps kicker) followed by its picked items' cards.
+class _ScheduleSection extends StatelessWidget {
+  const _ScheduleSection({
+    required this.section,
+    required this.items,
+    required this.draftFor,
+    required this.onChanged,
+    required this.topGap,
+  });
+
+  final OnboardingChipSection section;
+  final List<OnboardingChipItem> items;
+  final ReminderDraft Function(OnboardingChipItem) draftFor;
+  final VoidCallback onChanged;
+  final double topGap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(height: topGap),
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 12),
+          child: Row(
+            children: [
+              Icon(section.icon, size: 16, color: AppColors.accent),
+              const SizedBox(width: 8),
+              Text(
+                section.title.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final item in items)
+          _ItemScheduleCard(
+            key: ValueKey('${section.key}:${item.key}'),
+            item: item,
+            draft: draftFor(item),
+            onChanged: onChanged,
+          ),
+      ],
     );
   }
 }
@@ -762,70 +751,6 @@ class _FreqPill extends StatelessWidget {
               fontWeight: FontWeight.w800,
               color: selected ? Colors.white : AppColors.inkSoft,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FillButton extends StatelessWidget {
-  const _FillButton({
-    required this.label,
-    required this.progress,
-    required this.onPressed,
-  });
-
-  final String label;
-  final double progress; // 0..1
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 54,
-      child: Material(
-        color: AppColors.accentDeep,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // The brighter fill sweeping across [progress] of the width.
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: progress.clamp(0.0, 1.0),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 320),
-                    curve: Curves.easeOutCubic,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.accent, AppColors.accentDeep],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accent.withValues(alpha: 0.4),
-                          blurRadius: 16,
-                          spreadRadius: -4,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-            ],
           ),
         ),
       ),

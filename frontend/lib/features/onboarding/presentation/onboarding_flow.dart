@@ -170,10 +170,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               Expanded(
                 child: PageView(
                   controller: _controller,
-                  // The wizard drives its own paging; block manual swipes on it
-                  // so the category flow stays in charge — but NOT while a
-                  // programmatic transition is running, or the controller's own
-                  // animateToPage off the wizard would be blocked too.
+                  // The picker (page 1) must advance only via its Continue
+                  // button, not a stray swipe to the payoff — so block manual
+                  // swipes there, EXCEPT while a programmatic transition runs, or
+                  // the controller's own animateToPage off it would be blocked
+                  // too.
                   physics: (wizardPage && !_animating)
                       ? const NeverScrollableScrollPhysics()
                       : null,
@@ -183,15 +184,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                     ChipSelectWizard(
                       picked: _picked,
                       onToggle: _toggle,
-                      // The wizard hands us a draft per picked item; merge into
-                      // the shared map so the schedule step edits the same set.
+                      // Continue hands us a draft per picked item; merge into the
+                      // shared map so the schedule step edits the same set, then
+                      // advance to the payoff.
                       onComplete: (drafts) {
                         _drafts
                           ..clear()
                           ..addAll(drafts);
                         _goToPage(2);
                       },
-                      onExit: () => _goToPage(0),
                     ),
                     // Payoff's CTA now advances to the schedule step (page 3)
                     // instead of finishing.

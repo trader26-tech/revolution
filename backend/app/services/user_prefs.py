@@ -1,44 +1,21 @@
-"""User preferences + the weekly 'call me to remind' digest.
+"""The weekly 'call me to remind' digest.
 
-Stores one row per owner (phone + call_reminder). The digest lists every user
-who opted in AND has something due in the upcoming calendar week (next Mon–Sun),
-so the operator knows who to WhatsApp-call and what to say.
+Preferences live ON the users row (users.call_reminder); see
+app.services.users.update_prefs for writes. The digest lists every CLAIMED
+user who opted in AND has something due in the upcoming calendar week (next
+Mon–Sun), so the operator knows who to WhatsApp-call and what to say.
 """
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 from app.core.supabase import get_supabase
 
-_PREFS = "user_prefs"
+_USERS = "users"
 _TASKS = "tasks"
-
-
-def upsert_prefs(
-    owner_id: str,
-    *,
-    phone: Optional[str] = None,
-    name: Optional[str] = None,
-    call_reminder: Optional[bool] = None,
-) -> dict[str, Any]:
-    row: dict[str, Any] = {"owner_id": owner_id}
-    if phone is not None:
-        row["phone"] = phone
-    if name is not None:
-        row["name"] = name
-    if call_reminder is not None:
-        row["call_reminder"] = call_reminder
-    res = (
-        get_supabase()
-        .table(_PREFS)
-        .upsert(row, on_conflict="owner_id")
-        .execute()
-    )
-    return res.data[0] if res.data else row
 
 
 def _next_calendar_week(today: date) -> tuple[date, date]:
     """The upcoming Mon–Sun block. If today is mid-week, it's NEXT week's Mon–Sun."""
-    # Monday of this week.
     this_monday = today - timedelta(days=today.weekday())
     next_monday = this_monday + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
@@ -47,44 +24,56 @@ def _next_calendar_week(today: date) -> tuple[date, date]:
 
 def weekly_digest(today: Optional[date] = None) -> dict[str, Any]:
     """Everyone who opted in and has tasks due in the upcoming calendar week."""
-    today = today or datetime.utcnow().date()
+    today = today or datetime.now(timezone.utc).date()
     start, end = _next_calendar_week(today)
     sb = get_supabase()
 
-    # Opted-in users.
-    prefs = (
-        sb.table(_PREFS)
-        .select("owner_id, phone, call_reminder")
+    # Opted-in, claimed accounts (anonymous rows have no phone to call).
+    people_rows = (
+        sb.table(_USERS)
+        .select("id, phone, display_name, call_reminder")
         .eq("call_reminder", True)
+        .eq("status", "claimed")
         .execute()
     ).data or []
 
-    # Tasks due within the window (inclusive). due_at is a timestamp.
+    # Live tasks due within the window (inclusive). due_at is a timestamp.
     start_dt = f"{start.isoformat()}T00:00:00"
     end_dt = f"{end.isoformat()}T23:59:59"
     tasks = (
         sb.table(_TASKS)
-        .select("owner_id, title, due_at, icon_name")
+        .select("user_id, title, due_at, icon_name, amount, currency")
+        .eq("archived", False)
         .gte("due_at", start_dt)
         .lte("due_at", end_dt)
         .execute()
     ).data or []
 
-    by_owner: dict[str, list[dict[str, Any]]] = {}
+    by_user: dict[str, list[dict[str, Any]]] = {}
     for t in tasks:
-        by_owner.setdefault(t["owner_id"], []).append(
-            {"title": t.get("title"), "due_at": t.get("due_at"),
-             "icon_name": t.get("icon_name")}
+        by_user.setdefault(t["user_id"], []).append(
+            {
+                "title": t.get("title"),
+                "due_at": t.get("due_at"),
+                "icon_name": t.get("icon_name"),
+                "amount": t.get("amount"),
+                "currency": t.get("currency"),
+            }
         )
 
     people = []
-    for p in prefs:
-        items = by_owner.get(p["owner_id"], [])
+    for p in people_rows:
+        items = by_user.get(p["id"], [])
         if not items:
             continue  # opted in but nothing next week → skip
         items.sort(key=lambda x: x["due_at"] or "")
         people.append(
-            {"owner_id": p["owner_id"], "phone": p.get("phone"), "items": items}
+            {
+                "user_id": p["id"],
+                "phone": p.get("phone"),
+                "name": p.get("display_name"),
+                "items": items,
+            }
         )
 
     return {

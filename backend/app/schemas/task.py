@@ -1,5 +1,5 @@
 """Pydantic schemas for tasks — the items a user tracks (with an optional
-brand icon, due date, and repeat)."""
+brand icon, due date, repeat, and cost)."""
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -9,6 +9,10 @@ from pydantic import BaseModel, Field
 
 class TaskBase(BaseModel):
     title: str = Field(..., examples=["Netflix"])
+    notes: Optional[str] = None
+    # 'subscription' | 'bill' | 'document' | 'family' | 'insurance'
+    # | 'investment' | 'other'
+    category: str = "other"
     done: bool = False
     reminder_on: bool = True
     due_at: Optional[datetime] = None
@@ -20,16 +24,20 @@ class TaskBase(BaseModel):
     # or a plain reminder). currency is an ISO code (INR / USD / KWD).
     amount: Optional[float] = None
     currency: str = "INR"
+    # Where it came from, e.g. the onboarding chip key ('subs_netflix').
+    source: Optional[str] = None
 
 
 class TaskCreate(TaskBase):
-    """Create payload. owner_id comes from the X-Owner-Id header, not the body."""
+    """Create payload. user_id comes from the X-User-Id header, not the body."""
 
 
 class TaskUpdate(BaseModel):
     """All fields optional — patch semantics."""
 
     title: Optional[str] = None
+    notes: Optional[str] = None
+    category: Optional[str] = None
     done: Optional[bool] = None
     reminder_on: Optional[bool] = None
     due_at: Optional[datetime] = None
@@ -39,10 +47,12 @@ class TaskUpdate(BaseModel):
     icon_domain: Optional[str] = None
     amount: Optional[float] = None
     currency: Optional[str] = None
+    archived: Optional[bool] = None
 
 
 class Task(TaskBase):
     id: UUID
-    owner_id: str
+    user_id: UUID
+    archived: bool = False
     created_at: datetime
     updated_at: datetime

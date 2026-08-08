@@ -12,6 +12,7 @@ from app.api.routes import (
     prefs,
     reminders,
     tasks,
+    users,
 )
 
 app = FastAPI(title="Revolution API", version="0.1.1")
@@ -31,6 +32,7 @@ app.include_router(prefs.router)
 app.include_router(claim.router)
 app.include_router(app_version.router)
 app.include_router(reminders.router)
+app.include_router(users.router)
 
 
 @app.get("/", include_in_schema=False)

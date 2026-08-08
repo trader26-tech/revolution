@@ -360,6 +360,38 @@ String _freqLabel(int timesPerYear) => switch (timesPerYear) {
       _ => 'Every month',
     };
 
+/// How many times a year "every [count] [unit]" fires.
+int _timesPerYearFrom(int count, RepeatCadence unit) {
+  final n = count < 1 ? 1 : count;
+  final perYear = switch (unit) {
+    RepeatCadence.daily => 365,
+    RepeatCadence.weekly => 52,
+    RepeatCadence.monthly => 12,
+    RepeatCadence.yearly => 1,
+    RepeatCadence.none => 1,
+  };
+  final t = (perYear / n).round();
+  return t < 1 ? 1 : t;
+}
+
+/// The cleanest "every [count] [unit]" that yields [timesPerYear] — the inverse
+/// of [_timesPerYearFrom], picking whole-number intervals people recognise
+/// (every month, every 3 months, once a year, …).
+(int, RepeatCadence) _everyFromTimesPerYear(int timesPerYear) {
+  final t = timesPerYear < 1 ? 1 : timesPerYear;
+  return switch (t) {
+    1 => (1, RepeatCadence.yearly),
+    2 => (6, RepeatCadence.monthly),
+    3 => (4, RepeatCadence.monthly),
+    4 => (3, RepeatCadence.monthly),
+    6 => (2, RepeatCadence.monthly),
+    12 => (1, RepeatCadence.monthly),
+    _ when t >= 365 => (1, RepeatCadence.daily),
+    _ when t >= 52 => (1, RepeatCadence.weekly),
+    _ => (1, RepeatCadence.monthly),
+  };
+}
+
 /// Short month names, 1-indexed via [_monthNames[m - 1]].
 const _monthNames = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -772,47 +804,3 @@ class _SheetLabel extends StatelessWidget {
   }
 }
 
-/// A pill option for the how-often choice.
-class _FreqPill extends StatelessWidget {
-  const _FreqPill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? AppColors.accent
-          : Colors.white.withValues(alpha: 0.04),
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? AppColors.accent : AppColors.cardBorder,
-              width: selected ? 1.6 : 1,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: selected ? Colors.white : AppColors.inkSoft,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

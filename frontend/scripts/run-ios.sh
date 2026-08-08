@@ -93,6 +93,11 @@ run_xcodebuild() {
 
 echo "▶ Building + signing (xcodebuild -allowProvisioningUpdates)…"
 BUILD_OUT=""
+# Disable errexit/pipefail around the retry loop so a failed attempt RETRIES
+# instead of silently aborting the whole script (which left the deploy hanging
+# at "Building + signing" with no output).
+set +e
+set +o pipefail
 for attempt in 1 2 3; do
   BUILD_OUT="$(run_xcodebuild)"
   if grep -q "\*\* BUILD SUCCEEDED \*\*" <<<"$BUILD_OUT"; then
@@ -102,6 +107,7 @@ for attempt in 1 2 3; do
   echo "  build attempt $attempt did not succeed; retrying…"
   sleep 3
 done
+set -e
 
 if ! grep -q "\*\* BUILD SUCCEEDED \*\*" <<<"$BUILD_OUT"; then
   echo "✗ Xcode build failed after retries. Key errors:" >&2

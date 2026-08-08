@@ -76,14 +76,18 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        // NOT verified → a PREVIEW of Home: the user's added items are rendered
-        // exactly as they'll appear, but the whole app is non-interactive (no
-        // buttons, no taps, no tab switch). The ONLY live control is the verify
-        // prompt covering the bottom. It's a "here's what you've got — verify to
-        // use it" teaser. Verifying unlocks the real app above.
+        // NOT verified. If onboarding handed us a [child] — the
+        // OnboardingFinishScreen, which already shows the user's REAL Home
+        // preview (populated with the items they just picked) plus the name +
+        // phone claim sheet — render THAT. It owns the populated TaskStore, so
+        // the preview shows their actual reminders (Netflix, etc.), not an empty
+        // "add your first task" state.
+        //
+        // Only when there's no such child (e.g. a logged-out cold relaunch with
+        // no onboarding context) do we fall back to the generic preview lock.
         return AuthGateController(
           verify: _startVerification,
-          child: _PreviewLock(onVerify: _startVerifyFromBanner),
+          child: widget.child ?? _PreviewLock(onVerify: _startVerifyFromBanner),
         );
       },
     );

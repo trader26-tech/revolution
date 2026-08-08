@@ -31,7 +31,12 @@ Future<void> showOnboarding(BuildContext context) {
 }
 
 class OnboardingFlow extends StatefulWidget {
-  const OnboardingFlow({super.key, this.onDone, this.onFinish});
+  const OnboardingFlow({
+    super.key,
+    this.onDone,
+    this.onFinish,
+    this.onReady,
+  });
 
   /// Called when the user finishes (or skips). Defaults to popping the route.
   final VoidCallback? onDone;
@@ -40,6 +45,12 @@ class OnboardingFlow extends StatefulWidget {
   /// the host turns these into real tasks. Fired before [onDone]/pop. Null in
   /// previews (nothing is created).
   final ValueChanged<Map<String, ReminderDraft>>? onFinish;
+
+  /// Called on Finish with the finish screen to show next (its store is already
+  /// populated with the just-committed reminders). The host ([OnboardingGate])
+  /// renders it as the SINGLE AuthGate's child — no second gate, no route push,
+  /// so the preview shows the real items and verifying lands cleanly in the app.
+  final ValueChanged<Widget>? onReady;
 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
@@ -150,9 +161,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     unawaited(commit);
 
     if (!mounted) return;
-    await _leaveToAuth(
-      child: OnboardingFinishScreen(store: store),
-    );
+    // Hand the finish screen (with its populated store) UP to OnboardingGate,
+    // which renders it as the single root AuthGate's child. If the host didn't
+    // wire onReady (older callers), fall back to the route-push path.
+    if (widget.onReady != null) {
+      OnboardingStore.instance.markComplete();
+      widget.onReady!(OnboardingFinishScreen(store: store));
+    } else {
+      await _leaveToAuth(child: OnboardingFinishScreen(store: store));
+    }
   }
 
   void _toggle(String key) => setState(() {

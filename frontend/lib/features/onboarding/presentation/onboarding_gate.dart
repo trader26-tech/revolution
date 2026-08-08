@@ -11,32 +11,42 @@ import 'onboarding_flow.dart';
 ///
 /// So the sequence is exactly: **Onboarding → Phone number → Home**, and the
 /// intro is only ever shown once.
-class OnboardingGate extends StatelessWidget {
+class OnboardingGate extends StatefulWidget {
   const OnboardingGate({super.key, this.store});
 
   final OnboardingStore? store;
 
   @override
+  State<OnboardingGate> createState() => _OnboardingGateState();
+}
+
+class _OnboardingGateState extends State<OnboardingGate> {
+  OnboardingStore get _onboarding => widget.store ?? OnboardingStore.instance;
+
+  /// The finish screen captured from the flow's `onReady`, so it becomes the
+  /// SINGLE AuthGate's child once onboarding completes — the real Home preview
+  /// (populated store) + name/phone claim. Null on a normal relaunch (already
+  /// onboarded), where the gate just shows the plain login/app.
+  Widget? _finishChild;
+
+  @override
   Widget build(BuildContext context) {
-    final onboarding = store ?? OnboardingStore.instance;
     return AnimatedBuilder(
-      animation: onboarding,
+      animation: _onboarding,
       builder: (context, _) {
-        if (!onboarding.isComplete) {
-          // Show the intro inline; finishing it marks complete, which rebuilds
-          // this gate into the AuthGate (phone → home).
-          //
-          // NOTE: onboarding runs BEFORE phone login, and login changes the API
-          // owner-id (AuthStore.setOwnerId). So we deliberately do NOT pass
-          // [OnboardingFlow.onFinish] here — creating tasks now would scope them
-          // to the pre-login owner and they'd vanish once the user logs in.
-          // The schedule step still collects the drafts fully (preview); to make
-          // them real, stash the drafts on finish and replay them into TaskStore
-          // on the first post-login app open (correct owner). Hook it up by
-          // passing onFinish once that stash-then-create flow exists.
-          return OnboardingFlow(onDone: onboarding.markComplete);
+        if (!_onboarding.isComplete) {
+          // Show the intro inline; finishing it hands us the finish screen via
+          // onReady AND marks complete, so this gate rebuilds into ONE AuthGate
+          // whose child is that finish screen — no second gate, no route push.
+          return OnboardingFlow(
+            onDone: _onboarding.markComplete,
+            onReady: (child) => setState(() => _finishChild = child),
+          );
         }
-        return const AuthGate();
+        // A single AuthGate. Its logged-out child is the onboarding finish
+        // screen (real preview + claim) when we just finished; on a later
+        // relaunch there's no finishChild, so it shows the plain login/app.
+        return AuthGate(child: _finishChild);
       },
     );
   }

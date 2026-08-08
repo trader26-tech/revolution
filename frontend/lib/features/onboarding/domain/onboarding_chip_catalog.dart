@@ -35,12 +35,20 @@ class OnboardingChipItem {
     required this.defaultName,
     required this.defaultDay,
     required this.defaultFrequency,
+    this.domain,
     this.preselected = false,
   });
 
   final String key;
   final String label;
+
+  /// The Material fallback icon — shown when there's no [domain] brand logo (or
+  /// the logo fails to load). A clean, uniform glyph for generic items.
   final IconData icon;
+
+  /// Optional real-brand domain (e.g. 'netflix.com'). When set, the card shows
+  /// the brand's actual logo via [BrandLogo]; otherwise it uses [icon].
+  final String? domain;
 
   /// Pre-filled reminder name (editable later).
   final String defaultName;

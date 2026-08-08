@@ -32,11 +32,9 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
   CountryCode _country = kCountryCodes.first; // India
   bool _submitting = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(() => setState(() {}));
-  }
+  // We don't setState on every keystroke — that rebuilt the whole page per
+  // character and felt jumpy. Only the Continue button reacts to typing, via a
+  // ListenableBuilder on the controller (see build), so entry stays smooth.
 
   @override
   void dispose() {
@@ -144,10 +142,14 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                 // --- Continue button, pinned at the bottom (matches onboarding) ---
                 Padding(
                   padding: EdgeInsets.fromLTRB(24, 8, 24, widget.onSkip == null ? 20 : 8),
-                  child: _ContinueButton(
-                    enabled: _valid && !_submitting,
-                    loading: _submitting,
-                    onTap: _submit,
+                  // Only the button rebuilds as you type — the page stays put.
+                  child: ListenableBuilder(
+                    listenable: _controller,
+                    builder: (context, _) => _ContinueButton(
+                      enabled: _valid && !_submitting,
+                      loading: _submitting,
+                      onTap: _submit,
+                    ),
                   ),
                 ),
                 // DEV: a way straight into the app while login is being fixed.
@@ -350,7 +352,8 @@ class _ContinueButton extends StatelessWidget {
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 130),
+        curve: Curves.easeOut,
         height: 58,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),

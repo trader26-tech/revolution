@@ -30,15 +30,15 @@ String _questionFor(OnboardingChipSection s) => switch (s.key) {
 /// are your family's special days?"). No separate category label or sub-copy;
 /// the question carries the context.
 ///
-/// Each picked item is a compact one-line card that reads like a form field:
-/// the NAME on the left, and on the SAME line two small settable buttons — the
-/// DAY ("15th") and HOW OFTEN ("Monthly"). Tapping the day opens a calendar
-/// grid; tapping the frequency opens a preset list. Both arrive pre-filled from
-/// the catalog's smart defaults, so the user usually just glances, taps the odd
-/// value, and continues. Above the button, a momentum line ("3 more to go" …
-/// "Last one") mirrors the wizard; the button fills as they advance the
-/// categories, reading "Finish" on the last one and firing [onFinish] with a
-/// ready-to-save draft per picked item.
+/// Each picked item reads as a plain-English SENTENCE you skim, not a form:
+/// "Netflix — Every month · Mid-month", already filled from smart defaults.
+/// Tapping the card opens ONE simple sheet with plain-English how-often options
+/// (Every month / 3 months / 6 months / Once a year) and Start / Mid / End
+/// day-of-month presets (with a "Pick exact day" escape hatch to the calendar
+/// grid). Glance and go — the user only touches what's wrong. Above the button,
+/// a momentum line ("3 more to go" … "Last one") mirrors the wizard; the button
+/// fills as they advance the categories, reading "Finish" on the last one and
+/// firing [onFinish] with a ready-to-save draft per picked item.
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({
     super.key,
@@ -314,20 +314,39 @@ String _ordinal(int d) {
   }
 }
 
-/// A short label for a "times per year" preset — shown on the frequency button.
-String _freqShort(int timesPerYear) => switch (timesPerYear) {
-      1 => 'Yearly',
-      2 => 'Twice a yr',
-      4 => 'Quarterly',
-      6 => 'Every 2 mo',
-      _ => 'Monthly',
+/// Plain-English "how often" for a times-per-year value — the same words used
+/// in the picker, so the card sentence and the options always match.
+String _freqLabel(int timesPerYear) => switch (timesPerYear) {
+      1 => 'Once a year',
+      2 => 'Every 6 months',
+      4 => 'Every 3 months',
+      6 => 'Every 2 months',
+      _ => 'Every month',
     };
 
-/// One picked item's schedule card — designed to read like a form field the
-/// user just fills: the NAME on the left, and on the SAME line two compact
-/// value buttons on the right — the DAY ("15th") and HOW OFTEN ("Monthly").
-/// Tapping either opens a focused picker (a calendar-grid for the day, a preset
-/// list for the frequency). Minimal height, both settings at a glance.
+/// Which third of the month a day falls in — Start / Mid / End — the human way
+/// to think about "when in the month" without staring at 31 numbers.
+String _dayPartLabel(int day) {
+  if (day <= 10) return 'Start of month';
+  if (day <= 20) return 'Mid-month';
+  return 'End of month';
+}
+
+/// The canonical day for each part, used when the user taps a preset.
+int _dayForPart(String part) => switch (part) {
+      'Start of month' => 1,
+      'Mid-month' => 15,
+      _ => 28,
+    };
+
+/// The three day-part presets, in order.
+const _dayParts = ['Start of month', 'Mid-month', 'End of month'];
+
+/// One picked item, shown as a plain-English SENTENCE you skim — the icon and
+/// name on top, and under it "Every month · Mid-month", already filled from
+/// smart defaults. Tapping the whole card opens one simple sheet to tweak both
+/// the how-often and the when-in-the-month. Glance and go: you only touch what's
+/// wrong.
 class _ItemScheduleCard extends StatelessWidget {
   const _ItemScheduleCard({
     super.key,
@@ -340,132 +359,376 @@ class _ItemScheduleCard extends StatelessWidget {
   final ReminderDraft draft;
   final VoidCallback onChanged;
 
-  Future<void> _editDay(BuildContext context) async {
+  Future<void> _edit(BuildContext context) async {
     HapticFeedback.selectionClick();
-    final picked = await showModalBottomSheet<int>(
+    final changed = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: AppColors.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (_) => _DayPickerSheet(name: item.label, initial: draft.day),
+      builder: (_) => _ScheduleSheet(name: item.label, draft: draft),
     );
-    if (picked != null) {
-      draft.day = picked;
-      onChanged();
-    }
-  }
-
-  Future<void> _editFreq(BuildContext context) async {
-    HapticFeedback.selectionClick();
-    final picked = await showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: AppColors.card,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (_) =>
-          _FreqPickerSheet(name: item.label, initial: draft.timesPerYear),
-    );
-    if (picked != null) {
-      draft.timesPerYear = picked;
-      onChanged();
-    }
+    if (changed == true) onChanged();
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.glassBorder),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: () => _edit(context),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(item.icon, size: 20, color: AppColors.ink),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      // The plain-English summary — the whole point.
+                      Text(
+                        '${_freqLabel(draft.timesPerYear)} · ${_dayPartLabel(draft.day)}',
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.inkSoft,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.inkFaint.withValues(alpha: 0.8),
+                ),
+              ],
             ),
-            child: Icon(item.icon, size: 19, color: AppColors.ink),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // The two settable buttons, on one line.
-          _ValueButton(
-            icon: Icons.event_rounded,
-            value: _ordinal(draft.day),
-            onTap: () => _editDay(context),
-          ),
-          const SizedBox(width: 6),
-          _ValueButton(
-            icon: Icons.repeat_rounded,
-            value: _freqShort(draft.timesPerYear),
-            onTap: () => _editFreq(context),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// A compact settable pill — an icon + its current value — that opens a picker
-/// on tap. Two of these sit on one line (day + how-often) per item.
-class _ValueButton extends StatelessWidget {
-  const _ValueButton({
-    required this.icon,
-    required this.value,
-    required this.onTap,
-  });
+/// The single edit sheet for one item — how often (plain-English options) and
+/// when in the month (Start / Mid / End, with an escape hatch to an exact day).
+/// One sheet, both settings, so a tweak is one tap in and out.
+class _ScheduleSheet extends StatefulWidget {
+  const _ScheduleSheet({required this.name, required this.draft});
+  final String name;
+  final ReminderDraft draft;
 
-  final IconData icon;
-  final String value;
-  final VoidCallback onTap;
+  @override
+  State<_ScheduleSheet> createState() => _ScheduleSheetState();
+}
+
+class _ScheduleSheetState extends State<_ScheduleSheet> {
+  late int _times = widget.draft.timesPerYear;
+  late int _day = widget.draft.day;
+
+  static const _freqOptions = <(int, String)>[
+    (12, 'Every month'),
+    (4, 'Every 3 months'),
+    (2, 'Every 6 months'),
+    (1, 'Once a year'),
+  ];
+
+  void _save() {
+    widget.draft
+      ..timesPerYear = _times
+      ..day = _day;
+    Navigator.of(context).pop(true);
+  }
+
+  Future<void> _pickExactDay() async {
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: AppColors.card,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => _DayPickerSheet(name: widget.name, initial: _day),
+    );
+    if (picked != null) setState(() => _day = picked);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.accent.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(11),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
+    final part = _dayPartLabel(_day);
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 14, color: AppColors.accent),
-              const SizedBox(width: 5),
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBorder,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
-                value,
+                widget.name,
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: 20,
                   fontWeight: FontWeight.w800,
                   color: AppColors.ink,
                 ),
               ),
+              const SizedBox(height: 20),
+              // How often.
+              const _SheetLabel('How often?'),
+              const SizedBox(height: 10),
+              for (final (times, label) in _freqOptions)
+                _OptionRow(
+                  label: label,
+                  selected: _times == times,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _times = times);
+                  },
+                ),
+              const SizedBox(height: 20),
+              // When in the month.
+              Row(
+                children: [
+                  const _SheetLabel('When in the month?'),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _pickExactDay,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Pick exact day (${_ordinal(_day)})',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded,
+                            size: 16, color: AppColors.accent),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  for (final p in _dayParts) ...[
+                    Expanded(
+                      child: _PartChip(
+                        label: p,
+                        selected: part == p,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _day = _dayForPart(p));
+                        },
+                      ),
+                    ),
+                    if (p != _dayParts.last) const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  onPressed: _save,
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small muted section label inside the edit sheet.
+class _SheetLabel extends StatelessWidget {
+  const _SheetLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: AppColors.inkSoft,
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+}
+
+/// A full-width radio row for the how-often options.
+class _OptionRow extends StatelessWidget {
+  const _OptionRow({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: selected
+            ? AppColors.accent.withValues(alpha: 0.16)
+            : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? AppColors.accent : AppColors.cardBorder,
+                width: selected ? 1.6 : 1,
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? AppColors.accent : Colors.transparent,
+                    border: Border.all(
+                      color: selected
+                          ? AppColors.accent
+                          : AppColors.inkFaint.withValues(alpha: 0.7),
+                      width: 2,
+                    ),
+                  ),
+                  child: selected
+                      ? const Icon(Icons.check_rounded,
+                          size: 14, color: Colors.white)
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One of the three Start / Mid / End day-part chips.
+class _PartChip extends StatelessWidget {
+  const _PartChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Two-word labels look better stacked in a narrow chip: "Start\nof month".
+    final short = label.replaceFirst(' of ', '\nof ').replaceFirst('-', '\n');
+    return Material(
+      color: selected
+          ? AppColors.accent.withValues(alpha: 0.18)
+          : Colors.white.withValues(alpha: 0.04),
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          height: 60,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? AppColors.accent : AppColors.cardBorder,
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Text(
+            short,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.15,
+              fontWeight: FontWeight.w800,
+              color: selected ? AppColors.ink : AppColors.inkSoft,
+            ),
           ),
         ),
       ),
@@ -632,143 +895,6 @@ class _DayGrid extends StatelessWidget {
   }
 }
 
-/// The "how often" picker sheet — the same friendly year presets as a tidy
-/// list, each naming what it means in plain words.
-class _FreqPickerSheet extends StatefulWidget {
-  const _FreqPickerSheet({required this.name, required this.initial});
-  final String name;
-  final int initial;
-
-  @override
-  State<_FreqPickerSheet> createState() => _FreqPickerSheetState();
-}
-
-class _FreqPickerSheetState extends State<_FreqPickerSheet> {
-  late int _times = widget.initial;
-
-  static const _options = <(int, String, String)>[
-    (1, 'Once a year', 'Yearly'),
-    (2, 'Twice a year', 'Every 6 months'),
-    (4, 'Four times a year', 'Every 3 months'),
-    (6, 'Six times a year', 'Every 2 months'),
-    (12, 'Every month', '12 times a year'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    // Snap the stored value to the nearest preset for the initial highlight.
-    return _PickerSheet(
-      title: 'How often is ${widget.name}?',
-      confirmLabel: 'Done',
-      onConfirm: () => Navigator.of(context).pop(_times),
-      body: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final (times, title, sub) in _options)
-            _FreqRow(
-              title: title,
-              subtitle: sub,
-              selected: times == _times,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() => _times = times);
-              },
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FreqRow extends StatelessWidget {
-  const _FreqRow({
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: selected
-            ? AppColors.accent.withValues(alpha: 0.16)
-            : Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(14),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: selected ? AppColors.accent : AppColors.cardBorder,
-                width: selected ? 1.6 : 1,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.inkFaint,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 140),
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selected ? AppColors.accent : Colors.transparent,
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.accent
-                          : AppColors.inkFaint.withValues(alpha: 0.7),
-                      width: 2,
-                    ),
-                  ),
-                  child: selected
-                      ? const Icon(Icons.check_rounded,
-                          size: 14, color: Colors.white)
-                      : null,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The Continue/Finish button that fills left-to-right to show how far through
-/// the categories the user is — the same language as the chip wizard's button.
 class _FillButton extends StatelessWidget {
   const _FillButton({
     required this.label,

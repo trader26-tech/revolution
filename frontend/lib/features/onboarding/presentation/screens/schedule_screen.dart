@@ -300,20 +300,6 @@ class _ScheduleScreenState extends State<ScheduleScreen>
   }
 }
 
-String _ordinal(int d) {
-  if (d >= 11 && d <= 13) return '${d}th';
-  switch (d % 10) {
-    case 1:
-      return '${d}st';
-    case 2:
-      return '${d}nd';
-    case 3:
-      return '${d}rd';
-    default:
-      return '${d}th';
-  }
-}
-
 /// Plain-English "how often" for a times-per-year value — the same words used
 /// in the picker, so the card sentence and the options always match.
 String _freqLabel(int timesPerYear) => switch (timesPerYear) {
@@ -324,29 +310,27 @@ String _freqLabel(int timesPerYear) => switch (timesPerYear) {
       _ => 'Every month',
     };
 
-/// Which third of the month a day falls in — Start / Mid / End — the human way
-/// to think about "when in the month" without staring at 31 numbers.
-String _dayPartLabel(int day) {
-  if (day <= 10) return 'Start of month';
-  if (day <= 20) return 'Mid-month';
-  return 'End of month';
-}
+/// Short month names, 1-indexed via [_monthNames[m - 1]].
+const _monthNames = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
 
-/// The canonical day for each part, used when the user taps a preset.
-int _dayForPart(String part) => switch (part) {
-      'Start of month' => 1,
-      'Mid-month' => 15,
-      _ => 28,
+/// The full calendar date as a human string — "15 Mar".
+String _dateLabel(int month, int day) =>
+    '$day ${_monthNames[(month - 1).clamp(0, 11)]}';
+
+/// Days in a (non-leap) month, so the day wheel never offers the 31st of Feb.
+int _daysInMonth(int month) => switch (month) {
+      2 => 29, // allow the 29th; leap-year exactness isn't needed for a reminder
+      4 || 6 || 9 || 11 => 30,
+      _ => 31,
     };
 
-/// The three day-part presets, in order.
-const _dayParts = ['Start of month', 'Mid-month', 'End of month'];
-
 /// One picked item, shown as a plain-English SENTENCE you skim — the icon and
-/// name on top, and under it "Every month · Mid-month", already filled from
-/// smart defaults. Tapping the whole card opens one simple sheet to tweak both
-/// the how-often and the when-in-the-month. Glance and go: you only touch what's
-/// wrong.
+/// name on top, and under it "Every month · 15 Mar", already filled from smart
+/// defaults. Tapping the whole card opens one sheet: plain-English how-often
+/// options + a quick month/day wheel. Glance and go — only touch what's wrong.
 class _ItemScheduleCard extends StatelessWidget {
   const _ItemScheduleCard({
     super.key,
@@ -417,9 +401,8 @@ class _ItemScheduleCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      // The plain-English summary — the whole point.
                       Text(
-                        '${_freqLabel(draft.timesPerYear)} · ${_dayPartLabel(draft.day)}',
+                        '${_freqLabel(draft.timesPerYear)} · ${_dateLabel(draft.month, draft.day)}',
                         style: const TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w600,
@@ -444,8 +427,9 @@ class _ItemScheduleCard extends StatelessWidget {
 }
 
 /// The single edit sheet for one item — how often (plain-English options) and
-/// when in the month (Start / Mid / End, with an escape hatch to an exact day).
-/// One sheet, both settings, so a tweak is one tap in and out.
+/// the date on a quick MONTH + DAY wheel. Full calendar date so it reads the
+/// same for monthly ("the 15th") and yearly ("15 March") — one consistent,
+/// flick-to-set control. One sheet, both settings.
 class _ScheduleSheet extends StatefulWidget {
   const _ScheduleSheet({required this.name, required this.draft});
   final String name;
@@ -457,7 +441,8 @@ class _ScheduleSheet extends StatefulWidget {
 
 class _ScheduleSheetState extends State<_ScheduleSheet> {
   late int _times = widget.draft.timesPerYear;
-  late int _day = widget.draft.day;
+  late int _month = widget.draft.month.clamp(1, 12);
+  late int _day = widget.draft.day.clamp(1, 31);
 
   static const _freqOptions = <(int, String)>[
     (12, 'Every month'),
@@ -469,26 +454,13 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
   void _save() {
     widget.draft
       ..timesPerYear = _times
-      ..day = _day;
+      ..month = _month
+      ..day = _day.clamp(1, _daysInMonth(_month));
     Navigator.of(context).pop(true);
-  }
-
-  Future<void> _pickExactDay() async {
-    final picked = await showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: AppColors.card,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (_) => _DayPickerSheet(name: widget.name, initial: _day),
-    );
-    if (picked != null) setState(() => _day = picked);
   }
 
   @override
   Widget build(BuildContext context) {
-    final part = _dayPartLabel(_day);
     return SafeArea(
       top: false,
       child: SingleChildScrollView(
@@ -517,64 +489,50 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
                   color: AppColors.ink,
                 ),
               ),
+              const SizedBox(height: 4),
+              // A live echo of the full choice so the meaning is always spelled
+              // out as they spin — "Every month · 15 Mar".
+              Text(
+                '${_freqLabel(_times)} · ${_dateLabel(_month, _day)}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accent.withValues(alpha: 0.95),
+                ),
+              ),
               const SizedBox(height: 20),
-              // How often.
               const _SheetLabel('How often?'),
               const SizedBox(height: 10),
-              for (final (times, label) in _freqOptions)
-                _OptionRow(
-                  label: label,
-                  selected: _times == times,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() => _times = times);
-                  },
-                ),
+              // How often — a compact wrap of pill options (quick to tap).
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final (times, label) in _freqOptions)
+                    _FreqPill(
+                      label: label,
+                      selected: _times == times,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _times = times);
+                      },
+                    ),
+                ],
+              ),
               const SizedBox(height: 20),
-              // When in the month.
-              Row(
-                children: [
-                  const _SheetLabel('When in the month?'),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: _pickExactDay,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Pick exact day (${_ordinal(_day)})',
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right_rounded,
-                            size: 16, color: AppColors.accent),
-                      ],
-                    ),
-                  ),
-                ],
+              const _SheetLabel('On this date'),
+              const SizedBox(height: 6),
+              // The month + day wheels — flick to set. Clamped so the day never
+              // exceeds the month's length.
+              _DateWheels(
+                month: _month,
+                day: _day,
+                onChanged: (m, d) => setState(() {
+                  _month = m;
+                  _day = d;
+                }),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  for (final p in _dayParts) ...[
-                    Expanded(
-                      child: _PartChip(
-                        label: p,
-                        selected: part == p,
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          setState(() => _day = _dayForPart(p));
-                        },
-                      ),
-                    ),
-                    if (p != _dayParts.last) const SizedBox(width: 8),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -589,6 +547,159 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The month + day scroll wheels — an iOS-style flick-to-set date control. Two
+/// side-by-side wheels; changing the month re-clamps the day so you can never
+/// land on the 31st of a 30-day month.
+class _DateWheels extends StatefulWidget {
+  const _DateWheels({
+    required this.month,
+    required this.day,
+    required this.onChanged,
+  });
+
+  final int month; // 1..12
+  final int day; // 1..31
+  final void Function(int month, int day) onChanged;
+
+  @override
+  State<_DateWheels> createState() => _DateWheelsState();
+}
+
+class _DateWheelsState extends State<_DateWheels> {
+  late FixedExtentScrollController _monthCtrl;
+  late FixedExtentScrollController _dayCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _monthCtrl = FixedExtentScrollController(initialItem: widget.month - 1);
+    _dayCtrl = FixedExtentScrollController(initialItem: widget.day - 1);
+  }
+
+  @override
+  void dispose() {
+    _monthCtrl.dispose();
+    _dayCtrl.dispose();
+    super.dispose();
+  }
+
+  void _emit() {
+    final month = _monthCtrl.selectedItem + 1;
+    final maxDay = _daysInMonth(month);
+    var day = _dayCtrl.selectedItem + 1;
+    if (day > maxDay) {
+      day = maxDay;
+      // Snap the day wheel back into range for the shorter month.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _dayCtrl.jumpToItem(day - 1);
+      });
+    }
+    widget.onChanged(month, day);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxDay = _daysInMonth(_monthCtrl.hasClients
+        ? _monthCtrl.selectedItem + 1
+        : widget.month);
+    return Container(
+      height: 168,
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // The selection band — a soft accent row the centred value sits in.
+          Center(
+            child: Container(
+              height: 40,
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: _Wheel(
+                  controller: _monthCtrl,
+                  count: 12,
+                  onSelected: (_) {
+                    HapticFeedback.selectionClick();
+                    _emit();
+                  },
+                  labelFor: (i) => _monthNames[i],
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: _Wheel(
+                  controller: _dayCtrl,
+                  count: maxDay,
+                  onSelected: (_) {
+                    HapticFeedback.selectionClick();
+                    _emit();
+                  },
+                  labelFor: (i) => '${i + 1}',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One scroll wheel column used inside [_DateWheels].
+class _Wheel extends StatelessWidget {
+  const _Wheel({
+    required this.controller,
+    required this.count,
+    required this.onSelected,
+    required this.labelFor,
+  });
+
+  final FixedExtentScrollController controller;
+  final int count;
+  final ValueChanged<int> onSelected;
+  final String Function(int index) labelFor;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListWheelScrollView.useDelegate(
+      controller: controller,
+      itemExtent: 40,
+      perspective: 0.004,
+      diameterRatio: 1.4,
+      physics: const FixedExtentScrollPhysics(),
+      onSelectedItemChanged: onSelected,
+      childDelegate: ListWheelChildBuilderDelegate(
+        childCount: count,
+        builder: (context, i) {
+          if (i < 0 || i >= count) return null;
+          return Center(
+            child: Text(
+              labelFor(i),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -613,9 +724,9 @@ class _SheetLabel extends StatelessWidget {
   }
 }
 
-/// A full-width radio row for the how-often options.
-class _OptionRow extends StatelessWidget {
-  const _OptionRow({
+/// A pill option for the how-often choice.
+class _FreqPill extends StatelessWidget {
+  const _FreqPill({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -627,270 +738,33 @@ class _OptionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: selected
-            ? AppColors.accent.withValues(alpha: 0.16)
-            : Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(14),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: selected ? AppColors.accent : AppColors.cardBorder,
-                width: selected ? 1.6 : 1,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 140),
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selected ? AppColors.accent : Colors.transparent,
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.accent
-                          : AppColors.inkFaint.withValues(alpha: 0.7),
-                      width: 2,
-                    ),
-                  ),
-                  child: selected
-                      ? const Icon(Icons.check_rounded,
-                          size: 14, color: Colors.white)
-                      : null,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// One of the three Start / Mid / End day-part chips.
-class _PartChip extends StatelessWidget {
-  const _PartChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // Two-word labels look better stacked in a narrow chip: "Start\nof month".
-    final short = label.replaceFirst(' of ', '\nof ').replaceFirst('-', '\n');
     return Material(
       color: selected
-          ? AppColors.accent.withValues(alpha: 0.18)
+          ? AppColors.accent
           : Colors.white.withValues(alpha: 0.04),
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
-          height: 60,
-          alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: selected ? AppColors.accent : AppColors.cardBorder,
               width: selected ? 1.6 : 1,
             ),
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Text(
-            short,
-            textAlign: TextAlign.center,
+            label,
             style: TextStyle(
-              fontSize: 13,
-              height: 1.15,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: selected ? AppColors.ink : AppColors.inkSoft,
+              color: selected ? Colors.white : AppColors.inkSoft,
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-/// A small shared sheet chrome — grab handle, a title that names the item so
-/// the user always knows WHAT they're setting, and the given body + confirm.
-class _PickerSheet extends StatelessWidget {
-  const _PickerSheet({
-    required this.title,
-    required this.body,
-    required this.onConfirm,
-    this.confirmLabel = 'Done',
-  });
-
-  final String title;
-  final Widget body;
-  final VoidCallback onConfirm;
-  final String confirmLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.cardBorder,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink,
-              ),
-            ),
-            const SizedBox(height: 16),
-            body,
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton(
-                onPressed: onConfirm,
-                child: Text(
-                  confirmLabel,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The day-of-month picker — a clean CALENDAR GRID (1–31 in 7 columns). The
-/// chosen day is a filled accent circle; tapping any day selects it with a
-/// haptic tick. Reads like a real calendar, not an abstract dial.
-class _DayPickerSheet extends StatefulWidget {
-  const _DayPickerSheet({required this.name, required this.initial});
-  final String name;
-  final int initial;
-
-  @override
-  State<_DayPickerSheet> createState() => _DayPickerSheetState();
-}
-
-class _DayPickerSheetState extends State<_DayPickerSheet> {
-  late int _day = widget.initial;
-
-  @override
-  Widget build(BuildContext context) {
-    return _PickerSheet(
-      title: 'What day is ${widget.name}?',
-      confirmLabel: 'Set to ${_ordinal(_day)}',
-      onConfirm: () => Navigator.of(context).pop(_day),
-      body: _DayGrid(
-        selected: _day,
-        onPick: (d) {
-          HapticFeedback.selectionClick();
-          setState(() => _day = d);
-        },
-      ),
-    );
-  }
-}
-
-/// The 1–31 calendar grid.
-class _DayGrid extends StatelessWidget {
-  const _DayGrid({required this.selected, required this.onPick});
-  final int selected;
-  final ValueChanged<int> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      itemCount: 31,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 1,
-      ),
-      itemBuilder: (context, i) {
-        final day = i + 1;
-        final isSel = day == selected;
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => onPick(day),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isSel
-                  ? AppColors.accent
-                  : Colors.white.withValues(alpha: 0.04),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSel ? AppColors.accent : AppColors.cardBorder,
-              ),
-              boxShadow: isSel
-                  ? [
-                      BoxShadow(
-                        color: AppColors.accent.withValues(alpha: 0.4),
-                        blurRadius: 12,
-                        spreadRadius: -2,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Text(
-              '$day',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: isSel ? Colors.white : AppColors.inkSoft,
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

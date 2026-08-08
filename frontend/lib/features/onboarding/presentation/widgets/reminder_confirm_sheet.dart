@@ -12,11 +12,17 @@ class ReminderDraft {
     required this.name,
     required this.day,
     required this.frequency,
+    this.month = 1,
     this.every = 1,
   });
 
   String name;
   int day; // day-of-month 1–31
+
+  /// Month 1–12. Meaningful for yearly reminders (the actual date, "15 March");
+  /// for monthly it just seeds which month the first reminder lands in.
+  int month;
+
   RepeatCadence frequency;
 
   /// The interval multiplier for [frequency] — "every N weeks/months/…". 1 is

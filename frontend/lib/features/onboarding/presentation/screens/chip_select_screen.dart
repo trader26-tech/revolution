@@ -129,6 +129,9 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
 
   /// Fade + slide-up for a fixed-phase element starting at [startMs].
   Widget _reveal(num startMs, Widget child, {num window = _beatWindow}) {
+    // Entrance over → everything is simply, permanently visible. This also
+    // guarantees nothing can ever fade back out after the intro.
+    if (_intro.isCompleted) return child;
     final t = Curves.easeOutCubic.transform(_win(startMs, startMs + window));
     return Opacity(
       opacity: t,
@@ -139,6 +142,7 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
   /// A chip/header's own entrance in the waterfall: fade + lift + a springy
   /// scale-in, starting at absolute [startMs].
   Widget _beatReveal(num startMs, Widget child) {
+    if (_intro.isCompleted) return child;
     final raw = _win(startMs, startMs + _beatWindow);
     final ease = Curves.easeOutCubic.transform(raw);
     final spring = Curves.easeOutBack.transform(raw);
@@ -157,20 +161,24 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
 
   @override
   Widget build(BuildContext context) {
-    // A single cursor that walks DOWN the tree, handing each row (header, then
-    // each chip) the next start time — so the cascade is a strict top-to-bottom
-    // waterfall in reading order, a fixed [_beatGap] apart.
-    var beat = 0;
-    num nextStart() => _cascadeStartMs + (beat++) * _beatGap;
+    // Each row's beat is derived STATICALLY from its position in the catalog
+    // (sections in order: one header + its chips each), NOT from build order.
+    // ListView builds/rebuilds lazily while scrolling, so a build-order cursor
+    // hands rebuilt rows the wrong start times — which made top rows vanish
+    // after scrolling. Position-derived beats are stable forever.
+    final sectionBaseBeat = <int>[];
+    var acc = 0;
+    for (final s in _sections) {
+      sectionBaseBeat.add(acc);
+      acc += 1 + s.items.length;
+    }
+    num startOf(int beat) => _cascadeStartMs + beat * _beatGap;
 
     // No Scaffold/Starfield/SafeArea here — this renders inside OnboardingFlow,
     // which already provides the sky and safe area.
     return AnimatedBuilder(
       animation: _intro,
       builder: (context, _) {
-        // Reset the cursor each frame so the staggered starts stay stable while
-        // the controller ticks.
-        beat = 0;
         return Column(
           children: [
             Expanded(

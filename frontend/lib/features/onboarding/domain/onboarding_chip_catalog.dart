@@ -177,9 +177,11 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
       ),
     ],
   ),
+  // The documents people actually track (passport, licence) plus the property
+  // taxes that renew on a schedule — one "paperwork" home for both.
   OnboardingChipSection(
     key: 'docs',
-    title: 'Document renewals',
+    title: 'Documents & taxes',
     icon: Icons.badge_rounded,
     color: Color(0xFF6366F1),
     items: [
@@ -202,21 +204,21 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
         preselected: true,
       ),
       OnboardingChipItem(
-        key: 'docs_pan',
-        label: 'PAN',
-        icon: Icons.credit_card_rounded,
-        defaultName: 'PAN card',
-        defaultDay: 1,
-        defaultFrequency: RepeatCadence.none,
+        key: 'bills_land',
+        label: 'Land tax',
+        icon: Icons.landscape_rounded,
+        defaultName: 'Land / property tax',
+        defaultDay: 25,
+        defaultFrequency: RepeatCadence.yearly,
         preselected: true,
       ),
       OnboardingChipItem(
-        key: 'docs_voter',
-        label: 'Voter ID',
-        icon: Icons.how_to_vote_rounded,
-        defaultName: 'Voter ID update',
-        defaultDay: 1,
-        defaultFrequency: RepeatCadence.none,
+        key: 'bills_water',
+        label: 'Water tax',
+        icon: Icons.water_drop_rounded,
+        defaultName: 'Water tax',
+        defaultDay: 15,
+        defaultFrequency: RepeatCadence.yearly,
         preselected: true,
       ),
       OnboardingChipItem(
@@ -313,7 +315,7 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
       ),
       OnboardingChipItem(
         key: 'insure_life',
-        label: 'Life / LIC',
+        label: 'Life',
         icon: Icons.shield_rounded,
         defaultName: 'Life insurance premium',
         defaultDay: 20,

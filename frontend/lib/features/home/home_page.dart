@@ -15,6 +15,7 @@ import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
 import 'domain/home_groups.dart';
 import 'presentation/widgets/home_loading.dart';
+import 'presentation/widgets/revo_hero.dart';
 import 'presentation/widgets/task_section.dart';
 
 /// The Home screen.
@@ -172,6 +173,20 @@ class _HomePageState extends State<HomePage> {
                 filterActive: _filter.isActive,
               ),
               const SizedBox(height: 12),
+              // Revo hero — reacts to the day: panicking (due today), sad
+              // (overdue pending), or happy (all clear). Only once real tasks
+              // have loaded, so it never flashes during the initial fetch or on
+              // the empty state.
+              AnimatedBuilder(
+                animation: widget.store,
+                builder: (context, _) {
+                  final tasks = widget.store.tasks;
+                  if (widget.store.isInitialLoad || tasks.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return RevoHero(tasks: tasks);
+                },
+              ),
               Expanded(
                 child: AnimatedBuilder(
                   animation: widget.store,

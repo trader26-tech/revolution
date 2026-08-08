@@ -12,10 +12,15 @@ import 'widgets/country_flag.dart';
 /// country-aware digit grouping (India → "98765 43210"). On Continue it hands
 /// the full E.164 number back via [onSubmit]. No verification yet.
 class PhoneLoginPage extends StatefulWidget {
-  const PhoneLoginPage({super.key, required this.onSubmit});
+  const PhoneLoginPage({super.key, required this.onSubmit, this.onSkip});
 
   /// Called with the full E.164 number (e.g. '+919876543210').
   final Future<void> Function(String phoneE164) onSubmit;
+
+  /// DEV shortcut: skip phone verification and go straight to Home. Wired while
+  /// login is being sorted out so the app itself can be worked on. When null the
+  /// skip affordance is hidden.
+  final VoidCallback? onSkip;
 
   @override
   State<PhoneLoginPage> createState() => _PhoneLoginPageState();
@@ -138,13 +143,31 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                 ),
                 // --- Continue button, pinned at the bottom (matches onboarding) ---
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                  padding: EdgeInsets.fromLTRB(24, 8, 24, widget.onSkip == null ? 20 : 8),
                   child: _ContinueButton(
                     enabled: _valid && !_submitting,
                     loading: _submitting,
                     onTap: _submit,
                   ),
                 ),
+                // DEV: a way straight into the app while login is being fixed.
+                if (widget.onSkip != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: TextButton(
+                      onPressed: _submitting ? null : widget.onSkip,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.inkSoft,
+                      ),
+                      child: const Text(
+                        'Skip for now → Home',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

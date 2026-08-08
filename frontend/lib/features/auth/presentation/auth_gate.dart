@@ -55,7 +55,10 @@ class _AuthGateState extends State<AuthGate> {
         return AuthGateController(
           verify: _startVerification,
           child: widget.child ??
-              PhoneLoginPage(onSubmit: (e164) => _startVerification(e164)),
+              PhoneLoginPage(
+                onSubmit: (e164) => _startVerification(e164),
+                onSkip: _skipToHome,
+              ),
         );
       },
     );
@@ -74,6 +77,15 @@ class _AuthGateState extends State<AuthGate> {
   /// that when Firebase's [onCodeSent] lands (a beat later, after Play
   /// Integrity/reCAPTCHA), the screen flips from "sending…" to ready.
   void Function(String verificationId)? _onCodeArrived;
+
+  /// DEV shortcut — bypass phone verification and go straight to Home while the
+  /// login flow is being sorted out. Logs in under a placeholder number so the
+  /// gate rebuilds into the app; any onboarding data on the current anonymous
+  /// owner is claimed onto it (the same path a real sign-in takes), so the Home
+  /// we land on still shows the reminders that were set up.
+  Future<void> _skipToHome() async {
+    await _auth.login('+10000000000', name: 'You');
+  }
 
   /// Kick off verification for [phoneE164]. We open the OTP screen IMMEDIATELY
   /// (in a "sending…" state) so the tap feels instant, then let Firebase resolve

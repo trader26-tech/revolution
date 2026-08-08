@@ -210,9 +210,11 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                     const Padding(
                       padding: EdgeInsets.only(left: 2),
                       child: Text(
-                        'Choose a few, add more later',
+                        'We already ticked what most people track — '
+                        'untick what isn\'t yours.',
                         style: TextStyle(
                           fontSize: 14.5,
+                          height: 1.35,
                           color: AppColors.inkSoft,
                         ),
                       ),
@@ -273,7 +275,11 @@ class _ChipSelectWizardState extends State<ChipSelectWizard>
                       ),
                     ),
                     child: Text(
-                      widget.picked.isEmpty ? 'Skip for now' : 'Continue',
+                      // The button says exactly what will happen — the count
+                      // updates live as chips are (un)ticked.
+                      widget.picked.isEmpty
+                          ? 'Skip for now'
+                          : 'Remember these ${widget.picked.length}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,

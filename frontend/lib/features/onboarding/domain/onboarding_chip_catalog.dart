@@ -4,9 +4,13 @@ import '../../tasks/domain/task.dart';
 
 /// Page 2 of onboarding: the "what should we remember?" chip picker.
 ///
-/// Five life categories, each a wrap of pill chips holding the 5–8 most common
-/// items (India-first). The near-universal ones ship [preselected] so the page
-/// arrives mostly done — the user mostly just untaps what isn't theirs.
+/// Six life categories, each a wrap of pill chips holding the most common
+/// repeatable payments/renewals (India-first). The page arrives MOSTLY DONE:
+/// every near-universal item ships [preselected] — subscriptions people
+/// actually have, the bills everyone pays (electricity, water tax, land tax),
+/// document renewals, parents' birthdays, core insurance — so the user mostly
+/// just unticks what isn't theirs. That's the point of the page: show them
+/// what the app remembers, pre-picked, instead of an empty quiz.
 class OnboardingChipSection {
   const OnboardingChipSection({
     required this.key,
@@ -82,6 +86,7 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
         defaultName: 'Spotify',
         defaultDay: 10,
         defaultFrequency: RepeatCadence.monthly,
+        preselected: true,
       ),
       OnboardingChipItem(
         key: 'subs_hotstar',
@@ -90,6 +95,7 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
         defaultName: 'Disney+ Hotstar',
         defaultDay: 12,
         defaultFrequency: RepeatCadence.yearly,
+        preselected: true,
       ),
       OnboardingChipItem(
         key: 'subs_youtube',
@@ -98,6 +104,7 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
         defaultName: 'YouTube Premium',
         defaultDay: 8,
         defaultFrequency: RepeatCadence.monthly,
+        preselected: true,
       ),
       OnboardingChipItem(
         key: 'subs_cloud',
@@ -117,9 +124,80 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
       ),
     ],
   ),
+  // The bills EVERYONE pays — the strongest "this app gets my life" section,
+  // so it sits right after the familiar subscription logos.
+  OnboardingChipSection(
+    key: 'bills',
+    title: 'Bills & taxes',
+    icon: Icons.receipt_long_rounded,
+    color: Color(0xFFF59E0B),
+    items: [
+      OnboardingChipItem(
+        key: 'bills_electricity',
+        label: 'Electricity bill',
+        icon: Icons.bolt_rounded,
+        defaultName: 'Electricity bill',
+        defaultDay: 5,
+        defaultFrequency: RepeatCadence.monthly,
+        preselected: true,
+      ),
+      OnboardingChipItem(
+        key: 'bills_water',
+        label: 'Water tax',
+        icon: Icons.water_drop_rounded,
+        defaultName: 'Water tax',
+        defaultDay: 15,
+        defaultFrequency: RepeatCadence.yearly,
+        preselected: true,
+      ),
+      OnboardingChipItem(
+        key: 'bills_land',
+        label: 'Land tax',
+        icon: Icons.landscape_rounded,
+        defaultName: 'Land / property tax',
+        defaultDay: 25,
+        defaultFrequency: RepeatCadence.yearly,
+        preselected: true,
+      ),
+      OnboardingChipItem(
+        key: 'bills_wifi',
+        label: 'WiFi / broadband',
+        icon: Icons.wifi_rounded,
+        defaultName: 'Broadband bill',
+        defaultDay: 5,
+        defaultFrequency: RepeatCadence.monthly,
+        preselected: true,
+      ),
+      OnboardingChipItem(
+        key: 'bills_mobile',
+        label: 'Mobile recharge',
+        icon: Icons.smartphone_rounded,
+        defaultName: 'Mobile recharge',
+        defaultDay: 1,
+        defaultFrequency: RepeatCadence.monthly,
+        preselected: true,
+      ),
+      OnboardingChipItem(
+        key: 'bills_gas',
+        label: 'Gas cylinder',
+        icon: Icons.local_fire_department_rounded,
+        defaultName: 'Gas cylinder booking',
+        defaultDay: 20,
+        defaultFrequency: RepeatCadence.monthly,
+      ),
+      OnboardingChipItem(
+        key: 'bills_rent',
+        label: 'House rent',
+        icon: Icons.home_rounded,
+        defaultName: 'House rent',
+        defaultDay: 1,
+        defaultFrequency: RepeatCadence.monthly,
+      ),
+    ],
+  ),
   OnboardingChipSection(
     key: 'docs',
-    title: 'Government documents',
+    title: 'Document renewals',
     icon: Icons.badge_rounded,
     color: Color(0xFF6366F1),
     items: [
@@ -142,26 +220,28 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
         preselected: true,
       ),
       OnboardingChipItem(
-        key: 'docs_aadhaar',
-        label: 'Aadhaar',
-        icon: Icons.fingerprint_rounded,
-        defaultName: 'Aadhaar update',
-        defaultDay: 1,
-        defaultFrequency: RepeatCadence.none,
-      ),
-      OnboardingChipItem(
         key: 'docs_pan',
         label: 'PAN',
         icon: Icons.credit_card_rounded,
         defaultName: 'PAN card',
         defaultDay: 1,
         defaultFrequency: RepeatCadence.none,
+        preselected: true,
       ),
       OnboardingChipItem(
         key: 'docs_voter',
         label: 'Voter ID',
         icon: Icons.how_to_vote_rounded,
         defaultName: 'Voter ID update',
+        defaultDay: 1,
+        defaultFrequency: RepeatCadence.none,
+        preselected: true,
+      ),
+      OnboardingChipItem(
+        key: 'docs_aadhaar',
+        label: 'Aadhaar',
+        icon: Icons.fingerprint_rounded,
+        defaultName: 'Aadhaar update',
         defaultDay: 1,
         defaultFrequency: RepeatCadence.none,
       ),
@@ -208,26 +288,19 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
         preselected: true,
       ),
       OnboardingChipItem(
-        key: 'family_partner',
-        label: 'Partner',
-        icon: Icons.favorite_rounded,
-        defaultName: "Partner's birthday",
-        defaultDay: 1,
-        defaultFrequency: RepeatCadence.yearly,
-      ),
-      OnboardingChipItem(
         key: 'family_sibling',
         label: 'Sibling',
         icon: Icons.cake_rounded,
         defaultName: "Sibling's birthday",
         defaultDay: 1,
         defaultFrequency: RepeatCadence.yearly,
+        preselected: true,
       ),
       OnboardingChipItem(
-        key: 'family_friend',
-        label: 'Best friend',
-        icon: Icons.cake_rounded,
-        defaultName: "Best friend's birthday",
+        key: 'family_partner',
+        label: 'Partner',
+        icon: Icons.favorite_rounded,
+        defaultName: "Partner's birthday",
         defaultDay: 1,
         defaultFrequency: RepeatCadence.yearly,
       ),
@@ -243,7 +316,7 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
   ),
   OnboardingChipSection(
     key: 'insure',
-    title: 'Insurance & renewals',
+    title: 'Insurance & vehicle',
     icon: Icons.shield_rounded,
     color: Color(0xFF10B981),
     items: [
@@ -266,20 +339,22 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
         preselected: true,
       ),
       OnboardingChipItem(
-        key: 'insure_car',
-        label: 'Car',
-        icon: Icons.directions_car_rounded,
-        defaultName: 'Car insurance renewal',
-        defaultDay: 10,
-        defaultFrequency: RepeatCadence.yearly,
-      ),
-      OnboardingChipItem(
         key: 'insure_bike',
         label: 'Bike',
         icon: Icons.two_wheeler_rounded,
         defaultName: 'Bike insurance renewal',
         defaultDay: 10,
         defaultFrequency: RepeatCadence.yearly,
+        preselected: true,
+      ),
+      OnboardingChipItem(
+        key: 'insure_car',
+        label: 'Car',
+        icon: Icons.directions_car_rounded,
+        defaultName: 'Car insurance renewal',
+        defaultDay: 10,
+        defaultFrequency: RepeatCadence.yearly,
+        preselected: true,
       ),
       OnboardingChipItem(
         key: 'insure_service',
@@ -315,28 +390,21 @@ const List<OnboardingChipSection> kOnboardingChipSections = [
         preselected: true,
       ),
       OnboardingChipItem(
-        key: 'invest_stocks',
-        label: 'Stocks',
-        icon: Icons.show_chart_rounded,
-        defaultName: 'Stocks review',
-        defaultDay: 1,
-        defaultFrequency: RepeatCadence.monthly,
-      ),
-      OnboardingChipItem(
         key: 'invest_mf',
         label: 'Mutual funds',
         icon: Icons.pie_chart_rounded,
         defaultName: 'Mutual fund review',
         defaultDay: 1,
         defaultFrequency: RepeatCadence.monthly,
+        preselected: true,
       ),
       OnboardingChipItem(
-        key: 'invest_bonds',
-        label: 'Bonds',
-        icon: Icons.receipt_long_rounded,
-        defaultName: 'Bond interest',
-        defaultDay: 15,
-        defaultFrequency: RepeatCadence.yearly,
+        key: 'invest_stocks',
+        label: 'Stocks',
+        icon: Icons.show_chart_rounded,
+        defaultName: 'Stocks review',
+        defaultDay: 1,
+        defaultFrequency: RepeatCadence.monthly,
       ),
     ],
   ),

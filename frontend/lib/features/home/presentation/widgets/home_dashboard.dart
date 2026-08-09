@@ -522,18 +522,25 @@ class UpNextStrip extends StatelessWidget {
     // All items in the 7-day window from the anchor day, soonest first.
     final shown = items.take(10).toList();
 
-    // Build the strip DAY BY DAY: a small header card before each day's items,
-    // so the flow is explicit. If the selected day itself has nothing, lead with
-    // a "nothing on <day>" card, then continue into the upcoming days.
+    // Build the strip DAY BY DAY. EVERY day opens with a friendly intro card
+    // (the same style as the "nothing on…" one) — "Tue 11 · 2 lined up" — then
+    // its items follow. Consistent lead-ins make the day-to-day flow read clearly.
     DateTime dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
     final anchorDay = dayOf(anchor);
-    final hasOnAnchor = shown.any((t) =>
-        t.dueAt != null && dayOf(t.dueAt!) == anchorDay);
+
+    // How many items fall on each day (for the intro card's count).
+    final countByDay = <DateTime, int>{};
+    for (final t in shown) {
+      if (t.dueAt == null) continue;
+      final d = dayOf(t.dueAt!);
+      countByDay[d] = (countByDay[d] ?? 0) + 1;
+    }
 
     final children = <Widget>[];
-    if (!hasOnAnchor) {
-      // Nothing scheduled on the tapped day — say so, then show what's next.
-      children.add(_EmptyDayLeadCard(day: anchorDay));
+
+    // If the selected day itself has nothing, lead with its (zero-count) intro.
+    if ((countByDay[anchorDay] ?? 0) == 0) {
+      children.add(_DayIntroCard(day: anchorDay, count: 0));
     }
 
     DateTime? lastDay;
@@ -541,9 +548,9 @@ class UpNextStrip extends StatelessWidget {
       final due = t.dueAt;
       if (due == null) continue;
       final d = dayOf(due);
-      // A day-header card each time the day changes.
+      // An intro card each time the day changes.
       if (lastDay == null || d != lastDay) {
-        children.add(_DayHeaderCard(day: d));
+        children.add(_DayIntroCard(day: d, count: countByDay[d] ?? 1));
         lastDay = d;
       }
       children.add(_UpNextCard(task: t, anchor: anchor, onTap: () => onTap(t)));
@@ -730,86 +737,39 @@ class _UpNextCard extends StatelessWidget {
   );
 }
 
-/// A slim day-header card placed before each day's items in the Up-Next strip —
-/// the signpost that separates one day's reminders from the next, so the flow
-/// reads day by day.
-class _DayHeaderCard extends StatelessWidget {
-  const _DayHeaderCard({required this.day});
+/// The intro card that opens EVERY day in the Up-Next strip — the same friendly
+/// style whether the day is busy or free. Shows the day, and either a count of
+/// what's lined up ("2 lined up") or a "nothing — you're free" note. Consistent
+/// lead-ins give the strip a clear day-by-day rhythm.
+class _DayIntroCard extends StatelessWidget {
+  const _DayIntroCard({required this.day, required this.count});
   final DateTime day;
+  final int count;
 
   @override
   Widget build(BuildContext context) {
     final p = _dayParts(day);
-    return Container(
-      width: 78,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.card.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: p.isToday
-              ? AppColors.accent.withValues(alpha: 0.5)
-              : AppColors.glassBorder,
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          RotatedBox(
-            quarterTurns: 3,
-            child: Text(
-              p.kicker,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2,
-                color: p.isToday ? AppColors.accent : AppColors.inkFaint,
-              ),
-            ),
-          ),
-          const Spacer(),
-          Text(
-            p.date.split(' ').first, // day number
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              height: 1,
-              letterSpacing: -0.5,
-              color: AppColors.ink,
-            ),
-          ),
-          Text(
-            p.date.split(' ').last, // month
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.inkSoft,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    // The day's name: "Today" or "Tue 11".
+    final dayNum = p.date.split(' ').first;
+    final title = p.isToday
+        ? 'Today'
+        : '${p.kicker[0]}${p.kicker.substring(1).toLowerCase()} $dayNum';
+    final empty = count == 0;
+    final sub = empty
+        ? "You're free — here's what's coming up."
+        : '$count ${count == 1 ? 'thing' : 'things'} lined up.';
 
-/// The lead card shown when the SELECTED day has nothing scheduled — tells the
-/// user they're free that day, then the upcoming days follow.
-class _EmptyDayLeadCard extends StatelessWidget {
-  const _EmptyDayLeadCard({required this.day});
-  final DateTime day;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = _dayParts(day);
-    final label = p.isToday ? 'today' : '${p.kicker.substring(0, 1)}${p.kicker.substring(1).toLowerCase()} ${p.date.split(' ').first}';
     return Container(
       width: 150,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
         color: AppColors.card.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.glassBorder),
+        border: Border.all(
+          color: p.isToday
+              ? AppColors.accent.withValues(alpha: 0.45)
+              : AppColors.glassBorder,
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -823,23 +783,49 @@ class _EmptyDayLeadCard extends StatelessWidget {
               color: AppColors.accent.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check_rounded,
-                size: 20, color: AppColors.accent),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Nothing on $label',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              height: 1.2,
-              color: AppColors.ink,
+            child: Icon(
+              empty ? Icons.check_rounded : Icons.wb_sunny_rounded,
+              size: 20,
+              color: AppColors.accent,
             ),
           ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.3,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+              if (p.isToday) ...[
+                const SizedBox(width: 6),
+                Text(
+                  dayNum,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ],
+            ],
+          ),
           const SizedBox(height: 3),
-          const Text(
-            "You're free — here's what's coming up.",
-            style: TextStyle(
+          Text(
+            sub,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
               height: 1.25,

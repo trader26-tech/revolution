@@ -132,6 +132,8 @@ class _PayoffScreenState extends State<PayoffScreen>
 
   /// How many times a year one picked chip fires.
   static int _firesPerYear(RepeatCadence f) => switch (f) {
+        RepeatCadence.minute => 365 * 24 * 60,
+        RepeatCadence.hour => 365 * 24,
         RepeatCadence.daily => 365,
         RepeatCadence.weekly => 52,
         RepeatCadence.monthly => 12,

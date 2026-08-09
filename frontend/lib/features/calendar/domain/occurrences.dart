@@ -41,12 +41,12 @@ List<Occurrence> expandOccurrences(
     // window start, then step until we pass the end.
     var guard = 0;
     while (d.isBefore(start) && guard < 5000) {
-      d = _next(d, t.repeat);
+      d = _next(d, t.repeat, t.repeatTimes);
       guard++;
     }
     while (!d.isAfter(end) && guard < 5000) {
       out.add(Occurrence(task: t, date: d));
-      d = _next(d, t.repeat);
+      d = _next(d, t.repeat, t.repeatTimes);
       guard++;
     }
   }
@@ -55,24 +55,31 @@ List<Occurrence> expandOccurrences(
   return out;
 }
 
-/// The next occurrence strictly after [date] for a [cadence]. Used by the day
-/// sheet to show "Renews in N days · the date" — the upcoming renewal, not the
-/// one on the tapped day. For a non-repeating item this just returns [date].
-DateTime nextOccurrenceAfter(DateTime date, RepeatCadence cadence) {
+/// The next occurrence strictly after [date] for a [cadence] repeated every
+/// [interval] units. Used by the day sheet to show "Renews in N days · the
+/// date". For a non-repeating item this just returns [date].
+DateTime nextOccurrenceAfter(DateTime date, RepeatCadence cadence,
+    [int interval = 1]) {
   if (cadence == RepeatCadence.none) return date;
-  return _next(DateTime(date.year, date.month, date.day), cadence);
+  return _next(DateTime(date.year, date.month, date.day), cadence, interval);
 }
 
-DateTime _next(DateTime d, RepeatCadence r) {
+/// Step one interval forward. This is a date-based surface, so sub-day units
+/// (minute/hour) step a single day.
+DateTime _next(DateTime d, RepeatCadence r, int interval) {
+  final n = interval < 1 ? 1 : interval;
   switch (r) {
-    case RepeatCadence.daily:
+    case RepeatCadence.minute:
+    case RepeatCadence.hour:
       return d.add(const Duration(days: 1));
+    case RepeatCadence.daily:
+      return d.add(Duration(days: n));
     case RepeatCadence.weekly:
-      return d.add(const Duration(days: 7));
+      return d.add(Duration(days: 7 * n));
     case RepeatCadence.monthly:
-      return DateTime(d.year, d.month + 1, d.day);
+      return DateTime(d.year, d.month + n, d.day);
     case RepeatCadence.yearly:
-      return DateTime(d.year + 1, d.month, d.day);
+      return DateTime(d.year + n, d.month, d.day);
     case RepeatCadence.none:
       return d; // unreachable
   }

@@ -42,6 +42,8 @@ class ReminderDraft {
       RepeatCadence.monthly => 12,
       RepeatCadence.weekly => 52,
       RepeatCadence.daily => 365,
+      RepeatCadence.hour => 365 * 24,
+      RepeatCadence.minute => 365 * 24 * 60,
       RepeatCadence.none => 1,
     };
     final n = (perYear / (every < 1 ? 1 : every)).round();

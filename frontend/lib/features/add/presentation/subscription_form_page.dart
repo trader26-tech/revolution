@@ -55,8 +55,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
   bool _iconTouched = false; // user picked a logo manually → stop auto-icon
   String _currency = 'INR'; // INR · USD · KWD
   late RepeatCadence _cycle = widget.initialCycle ?? RepeatCadence.monthly;
-  int _times = 1;
-  List<int> _days = const [];
+  int _interval = 1;
   DateTime _firstPayment = DateTime.now();
   bool _freeTrial = false;
   int _remindDaysBefore = 1; // Notification lead time
@@ -92,8 +91,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
       _cycle = edit.repeat == RepeatCadence.none
           ? RepeatCadence.monthly
           : edit.repeat;
-      _times = edit.repeatTimes;
-      _days = [...edit.repeatDays];
+      _interval = edit.repeatTimes;
       if (edit.dueAt != null) _firstPayment = edit.dueAt!;
       if (edit.subCategory != null && edit.subCategory!.trim().isNotEmpty) {
         _subCategory = edit.subCategory!.trim();
@@ -241,15 +239,13 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
   Future<void> _pickFrequency() async {
     final r = await showFrequencyPicker(
       context,
-      cycle: _cycle,
-      times: _times,
-      days: _days,
+      unit: _cycle,
+      interval: _interval,
     );
     if (r != null) {
       setState(() {
-        _cycle = r.cycle;
-        _times = r.times;
-        _days = r.days;
+        _cycle = r.unit;
+        _interval = r.interval;
         _cycleTouched = true; // a manual choice stops auto-fill
       });
     }
@@ -287,7 +283,6 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     HapticFeedback.lightImpact();
     final amount =
         double.tryParse(_amount.text.replaceAll(RegExp(r'[^0-9.]'), ''));
-    final days = _cycle == RepeatCadence.weekly ? _days : const <int>[];
     final edit = widget.editTask;
     if (edit != null) {
       // EDIT — return a copy with the same id so store.update patches it.
@@ -296,8 +291,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
           title: _name.text.trim(),
           dueAt: _firstPayment,
           repeat: _cycle,
-          repeatTimes: _times,
-          repeatDays: days,
+          repeatTimes: _interval,
           iconName: _iconName,
           iconDomain: _iconDomain,
           amount: amount,
@@ -315,8 +309,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
         title: _name.text.trim(),
         dueAt: _firstPayment,
         repeat: _cycle,
-        repeatTimes: _times,
-        repeatDays: days,
+        repeatTimes: _interval,
         iconName: _iconName,
         iconDomain: _iconDomain,
         amount: amount,
@@ -380,7 +373,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                         const _RowDivider(),
                         _NavRow(
                           label: 'Frequency',
-                          value: frequencyLabel(_cycle, _times, _days),
+                          value: frequencyLabel(_cycle, _interval),
                           onTap: _pickFrequency,
                         ),
                         const _RowDivider(),

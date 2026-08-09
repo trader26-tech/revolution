@@ -388,6 +388,8 @@ String _freqLabel(int timesPerYear) => switch (timesPerYear) {
 int _timesPerYearFrom(int count, RepeatCadence unit) {
   final n = count < 1 ? 1 : count;
   final perYear = switch (unit) {
+    RepeatCadence.minute => 365 * 24 * 60,
+    RepeatCadence.hour => 365 * 24,
     RepeatCadence.daily => 365,
     RepeatCadence.weekly => 52,
     RepeatCadence.monthly => 12,

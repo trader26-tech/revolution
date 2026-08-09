@@ -183,7 +183,7 @@ class _UpcomingRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     task.hasAmount
-                        ? '${currencyOf(task.currency).symbol}${task.amount!.toStringAsFixed(task.amount == task.amount!.roundToDouble() ? 0 : 2)} · ${task.repeat.label}'
+                        ? '${currencyOf(task.currency).symbol}${task.amount!.toStringAsFixed(task.amount == task.amount!.roundToDouble() ? 0 : 2)} · ${frequencyLabel(task.repeat, task.repeatTimes)}'
                         : cat.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

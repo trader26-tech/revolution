@@ -519,242 +519,222 @@ class OrbitCycleRow extends StatelessWidget {
   }
 }
 
-// ── Frequency field (cycle · times · weekdays) ───────────────────────────────
+// ── Frequency: "every [− N +] [unit ▾]" ──────────────────────────────────────
 
-/// A rich "Every" field: a base cycle (Weekly/Monthly/Yearly), how many TIMES
-/// per cycle (1× / 2× / 3×), and — when Weekly — a row of weekday chips to pick
-/// which days. Renders as its own rows so it fits inside a group card; the
-/// weekday row animates in only for Weekly.
+/// The "every N unit" control — a −/number/+ stepper and a unit dropdown
+/// (minute · hour · day · week · month · year). Matches the reference exactly.
 class OrbitFrequencyField extends StatelessWidget {
   const OrbitFrequencyField({
     super.key,
-    required this.cycle,
-    required this.times,
-    required this.days,
-    required this.onCycle,
-    required this.onTimes,
-    required this.onDays,
-    this.label = 'Every',
+    required this.unit,
+    required this.interval,
+    required this.onUnit,
+    required this.onInterval,
   });
 
-  final RepeatCadence cycle;
-  final int times;
-  final List<int> days; // 1=Mon … 7=Sun
-  final ValueChanged<RepeatCadence> onCycle;
-  final ValueChanged<int> onTimes;
-  final ValueChanged<List<int>> onDays;
-  final String label;
+  final RepeatCadence unit;
+  final int interval;
+  final ValueChanged<RepeatCadence> onUnit;
+  final ValueChanged<int> onInterval;
 
-  static const _cycles = [
-    (RepeatCadence.weekly, 'Weekly'),
-    (RepeatCadence.monthly, 'Monthly'),
-    (RepeatCadence.yearly, 'Yearly'),
-  ];
-  static const _dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  static const _min = 1;
+  static const _max = 99;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Row 1: the base cycle.
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          child: Row(
-            children: [
-              Text(label, style: orbitLabelStyle),
-              const Spacer(),
-              _Segmented(
-                options: [
-                  for (final (c, t) in _cycles) (c, t),
-                ],
-                isSelected: (c) => c == cycle,
-                onTap: (c) {
-                  HapticFeedback.selectionClick();
-                  onCycle(c);
-                },
-              ),
-            ],
-          ),
-        ),
-        const OrbitRowDivider(),
-        // Row 2: how many times per cycle.
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          child: Row(
-            children: [
-              const Text('Times', style: orbitLabelStyle),
-              const SizedBox(width: 6),
-              // A live hint of what the choice means.
-              Expanded(
-                child: Text(
-                  _timesHint(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkFaint,
-                  ),
-                ),
-              ),
-              _Segmented<int>(
-                options: const [(1, '1×'), (2, '2×'), (3, '3×')],
-                isSelected: (n) => n == times,
-                onTap: (n) {
-                  HapticFeedback.selectionClick();
-                  onTimes(n);
-                },
-              ),
-            ],
-          ),
-        ),
-        // Row 3: weekday chips — only for Weekly.
-        AnimatedSize(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          child: cycle == RepeatCadence.weekly
-              ? Column(
-                  children: [
-                    const OrbitRowDivider(),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 13, 18, 15),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('On days', style: orbitLabelStyle),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: [
-                              for (var d = 1; d <= 7; d++)
-                                _DayChip(
-                                  letter: _dayLetters[d - 1],
-                                  selected: days.contains(d),
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    final next = [...days];
-                                    if (next.contains(d)) {
-                                      next.remove(d);
-                                    } else {
-                                      next.add(d);
-                                    }
-                                    onDays(next);
-                                  },
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                )
-              : const SizedBox(width: double.infinity),
-        ),
-      ],
-    );
-  }
-
-  String _timesHint() {
-    if (times <= 1) return 'once a ${cycle.unit}';
-    if (times == 2) return 'twice a ${cycle.unit}';
-    return '$times times a ${cycle.unit}';
-  }
-}
-
-/// A generic segmented control used by the frequency field.
-class _Segmented<T> extends StatelessWidget {
-  const _Segmented({
-    required this.options,
-    required this.isSelected,
-    required this.onTap,
-  });
-  final List<(T, String)> options;
-  final bool Function(T) isSelected;
-  final ValueChanged<T> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.glassBorder),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          for (final (val, text) in options)
-            GestureDetector(
-              onTap: () => onTap(val),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  gradient: isSelected(val)
-                      ? const LinearGradient(
-                          colors: [AppColors.accent, AppColors.accentDeep])
-                      : null,
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: isSelected(val)
-                        ? Colors.white
-                        : AppColors.inkSoft,
+          const Text('every', style: orbitLabelStyle),
+          const Spacer(),
+          // The −/N/+ stepper.
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.glassBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _stepBtn(Icons.remove_rounded, interval > _min, () {
+                  HapticFeedback.selectionClick();
+                  onInterval(interval - 1);
+                }),
+                SizedBox(
+                  width: 42,
+                  child: Text(
+                    '$interval',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
-              ),
+                _stepBtn(Icons.add_rounded, interval < _max, () {
+                  HapticFeedback.selectionClick();
+                  onInterval(interval + 1);
+                }),
+              ],
             ),
+          ),
+          const SizedBox(width: 10),
+          // The unit dropdown pill.
+          _UnitDropdown(unit: unit, interval: interval, onUnit: onUnit),
         ],
       ),
     );
   }
+
+  Widget _stepBtn(IconData icon, bool enabled, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        child: Icon(icon,
+            size: 20,
+            color: enabled ? AppColors.accent : AppColors.inkFaint),
+      ),
+    );
+  }
 }
 
-/// A round weekday chip (M T W T F S S).
-class _DayChip extends StatelessWidget {
-  const _DayChip({
-    required this.letter,
-    required this.selected,
-    required this.onTap,
+/// The tappable "day ▾" pill that opens a unit menu.
+class _UnitDropdown extends StatelessWidget {
+  const _UnitDropdown({
+    required this.unit,
+    required this.interval,
+    required this.onUnit,
   });
-  final String letter;
-  final bool selected;
-  final VoidCallback onTap;
+  final RepeatCadence unit;
+  final int interval;
+  final ValueChanged<RepeatCadence> onUnit;
+
+  String _label() {
+    final u = unit == RepeatCadence.none ? RepeatCadence.daily : unit;
+    return interval > 1 ? '${u.unit}s' : u.unit;
+  }
+
+  Future<void> _open(BuildContext context) async {
+    final picked = await showModalBottomSheet<RepeatCadence>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _UnitSheet(selected: unit),
+    );
+    if (picked != null) onUnit(picked);
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => _open(context),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: 38,
-        height: 38,
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          gradient: selected
-              ? const LinearGradient(
-                  colors: [AppColors.accent, AppColors.accentDeep])
-              : null,
-          color: selected ? null : Colors.white.withValues(alpha: 0.05),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? AppColors.accent : AppColors.glassBorder,
-          ),
+          color: AppColors.accent.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
         ),
-        child: Text(
-          letter,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            color: selected ? Colors.white : AppColors.inkSoft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.expand_more_rounded,
+                size: 16, color: AppColors.accent),
+            const SizedBox(width: 4),
+            Text(
+              _label(),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The unit menu (minute · hour · day · week · month · year).
+class _UnitSheet extends StatelessWidget {
+  const _UnitSheet({required this.selected});
+  final RepeatCadence selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    return Container(
+      margin: EdgeInsets.only(bottom: bottomInset),
+      decoration: const BoxDecoration(
+        color: AppColors.bgTop,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: AppColors.cardBorder)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: _grabber()),
+              const SizedBox(height: 16),
+              const Text('Repeat unit',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink)),
+              const SizedBox(height: 10),
+              for (final u in kRepeatUnits)
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(u),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: u == selected
+                          ? AppColors.accent.withValues(alpha: 0.14)
+                          : AppColors.card,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: u == selected
+                              ? AppColors.accent
+                              : AppColors.cardBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            u.unit[0].toUpperCase() + u.unit.substring(1),
+                            style: const TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ),
+                        if (u == selected)
+                          const Icon(Icons.check_circle_rounded,
+                              color: AppColors.accent, size: 22),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -764,47 +744,39 @@ class _DayChip extends StatelessWidget {
 
 /// The chosen frequency returned by [showFrequencyPicker].
 class FrequencyResult {
-  const FrequencyResult(this.cycle, this.times, this.days);
-  final RepeatCadence cycle;
-  final int times;
-  final List<int> days;
+  const FrequencyResult(this.unit, this.interval);
+  final RepeatCadence unit;
+  final int interval;
 }
 
-/// Opens the Frequency picker as a bottom sheet (so it joins the same
-/// step-through flow as Category and Date). Returns the chosen frequency, or
-/// null if dismissed without confirming.
+/// Opens the Frequency picker as a bottom sheet (joins the Category/Date flow).
+/// Returns the chosen "every N unit", or null if dismissed.
 Future<FrequencyResult?> showFrequencyPicker(
   BuildContext context, {
-  required RepeatCadence cycle,
-  required int times,
-  required List<int> days,
+  required RepeatCadence unit,
+  required int interval,
 }) {
   return showModalBottomSheet<FrequencyResult>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (_) => _FrequencySheet(cycle: cycle, times: times, days: days),
+    builder: (_) => _FrequencySheet(unit: unit, interval: interval),
   );
 }
 
 class _FrequencySheet extends StatefulWidget {
-  const _FrequencySheet({
-    required this.cycle,
-    required this.times,
-    required this.days,
-  });
-  final RepeatCadence cycle;
-  final int times;
-  final List<int> days;
+  const _FrequencySheet({required this.unit, required this.interval});
+  final RepeatCadence unit;
+  final int interval;
 
   @override
   State<_FrequencySheet> createState() => _FrequencySheetState();
 }
 
 class _FrequencySheetState extends State<_FrequencySheet> {
-  late RepeatCadence _cycle = widget.cycle;
-  late int _times = widget.times;
-  late List<int> _days = [...widget.days];
+  late RepeatCadence _unit =
+      widget.unit == RepeatCadence.none ? RepeatCadence.monthly : widget.unit;
+  late int _interval = widget.interval < 1 ? 1 : widget.interval;
 
   @override
   Widget build(BuildContext context) {
@@ -832,9 +804,8 @@ class _FrequencySheetState extends State<_FrequencySheet> {
                       fontWeight: FontWeight.w800,
                       color: AppColors.ink)),
               const SizedBox(height: 4),
-              // A live, human summary of the current choice.
               Text(
-                frequencyLabel(_cycle, _times, _days),
+                frequencyLabel(_unit, _interval),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -842,7 +813,6 @@ class _FrequencySheetState extends State<_FrequencySheet> {
                 ),
               ),
               const SizedBox(height: 12),
-              // The same field, in a card for the sheet.
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.card,
@@ -850,18 +820,16 @@ class _FrequencySheetState extends State<_FrequencySheet> {
                   border: Border.all(color: AppColors.cardBorder),
                 ),
                 child: OrbitFrequencyField(
-                  cycle: _cycle,
-                  times: _times,
-                  days: _days,
-                  onCycle: (c) => setState(() => _cycle = c),
-                  onTimes: (n) => setState(() => _times = n),
-                  onDays: (d) => setState(() => _days = d),
+                  unit: _unit,
+                  interval: _interval,
+                  onUnit: (u) => setState(() => _unit = u),
+                  onInterval: (n) => setState(() => _interval = n),
                 ),
               ),
               const SizedBox(height: 16),
               GestureDetector(
-                onTap: () => Navigator.of(context).pop(
-                    FrequencyResult(_cycle, _times, _days)),
+                onTap: () => Navigator.of(context)
+                    .pop(FrequencyResult(_unit, _interval)),
                 child: Container(
                   height: 54,
                   alignment: Alignment.center,

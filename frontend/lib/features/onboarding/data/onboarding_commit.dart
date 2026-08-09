@@ -91,6 +91,8 @@ DateTime _nextOccurrence(DateTime today, ReminderDraft d) {
     case RepeatCadence.monthly:
     case RepeatCadence.weekly:
     case RepeatCadence.daily:
+    case RepeatCadence.hour:
+    case RepeatCadence.minute:
       var year = today.year;
       var month = today.month;
       var candidate = DateTime(year, month, day, 9);

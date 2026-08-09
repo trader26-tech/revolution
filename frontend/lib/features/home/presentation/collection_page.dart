@@ -24,24 +24,32 @@ DateTime nextOccurrence(Task t, {required DateTime from}) {
   if (t.dueAt == null) return DateTime(9999);
   var d = DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day);
   if (!d.isBefore(from)) return d;
+  // Step by the interval ("every N units"). This is a date-based surface, so
+  // sub-day units (minute/hour) roll forward day-by-day.
+  final n = t.repeatTimes < 1 ? 1 : t.repeatTimes;
   switch (t.repeat) {
     case RepeatCadence.none:
       // A one-off in the past has no future occurrence; keep its date.
       return d;
+    case RepeatCadence.minute:
+    case RepeatCadence.hour:
     case RepeatCadence.daily:
-      final days = from.difference(d).inDays;
-      return d.add(Duration(days: days));
+      final step = t.repeat == RepeatCadence.daily ? n : 1;
+      final elapsed = from.difference(d).inDays;
+      final jumps = (elapsed / step).ceil();
+      return d.add(Duration(days: jumps * step));
     case RepeatCadence.weekly:
-      final weeks = (from.difference(d).inDays / 7).ceil();
-      return d.add(Duration(days: weeks * 7));
+      final elapsed = from.difference(d).inDays;
+      final jumps = (elapsed / (7 * n)).ceil();
+      return d.add(Duration(days: jumps * 7 * n));
     case RepeatCadence.monthly:
       while (d.isBefore(from)) {
-        d = DateTime(d.year, d.month + 1, d.day);
+        d = DateTime(d.year, d.month + n, d.day);
       }
       return d;
     case RepeatCadence.yearly:
       while (d.isBefore(from)) {
-        d = DateTime(d.year + 1, d.month, d.day);
+        d = DateTime(d.year + n, d.month, d.day);
       }
       return d;
   }
@@ -203,7 +211,9 @@ class _CollectionPageState extends State<CollectionPage> {
         spend.update(t.currency, (v) => v + t.amount!, ifAbsent: () => t.amount!);
         // Monthly-equivalent only mixes same-currency (INR) amounts to stay
         // meaningful; other currencies are shown separately in `spend`.
-        if (t.currency == 'INR') monthlyEq += _toMonthly(t.amount!, t.repeat);
+        if (t.currency == 'INR') {
+          monthlyEq += _toMonthly(t.amount!, t.repeat, t.repeatTimes);
+        }
       }
       if (t.isScheduled) {
         final d = nextOccurrence(t, from: today); // rolled forward, never past
@@ -221,13 +231,22 @@ class _CollectionPageState extends State<CollectionPage> {
     );
   }
 
-  static double _toMonthly(double amount, RepeatCadence r) => switch (r) {
-        RepeatCadence.daily => amount * 30,
-        RepeatCadence.weekly => amount * 52 / 12,
-        RepeatCadence.monthly => amount,
-        RepeatCadence.yearly => amount / 12,
-        RepeatCadence.none => amount, // treat a one-off as its face value
-      };
+  /// A rough monthly-equivalent of one payment, given "every [n] [unit]".
+  static double _toMonthly(double amount, RepeatCadence r, int times) {
+    final n = times < 1 ? 1 : times;
+    // Payments per month for a single-unit cadence, then divided by the
+    // interval (every 2 months → half as often).
+    final perMonth = switch (r) {
+      RepeatCadence.minute => 30 * 24 * 60,
+      RepeatCadence.hour => 30 * 24,
+      RepeatCadence.daily => 30,
+      RepeatCadence.weekly => 52 / 12,
+      RepeatCadence.monthly => 1,
+      RepeatCadence.yearly => 1 / 12,
+      RepeatCadence.none => 1, // one-off → face value
+    };
+    return amount * perMonth / n;
+  }
 
   Future<void> _add(BuildContext context) async {
     final result = await openCategoryForm(
@@ -891,7 +910,7 @@ class _CollectionRow extends StatelessWidget {
 
   String _priceLine() {
     // Compact frequency (times but no weekday list) to keep the row tidy.
-    final freq = frequencyLabel(task.repeat, task.repeatTimes, const []);
+    final freq = frequencyLabel(task.repeat, task.repeatTimes);
     if (task.hasAmount) {
       final sym = currencyOf(task.currency).symbol;
       final amt = task.amount!.toStringAsFixed(

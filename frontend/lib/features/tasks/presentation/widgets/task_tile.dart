@@ -150,7 +150,7 @@ class _TaskTileState extends State<TaskTile> {
     // "Today", "Tomorrow", "Mon, 12 Aug" — the date, no time.
     final base = _relativeDay(d);
     if (task.repeat != RepeatCadence.none) {
-      return '$base · ${task.repeat.label}';
+      return '$base · ${frequencyLabel(task.repeat, task.repeatTimes)}';
     }
     return base;
   }

@@ -1,18 +1,23 @@
-/// How often a task repeats. `none` = a one-off.
-enum RepeatCadence { none, daily, weekly, monthly, yearly }
+/// How often a task repeats. `none` = a one-off. The repeat is an INTERVAL:
+/// "every N `unit`" where N is [Task.repeatTimes] and the unit is this cadence.
+enum RepeatCadence { none, minute, hour, daily, weekly, monthly, yearly }
 
 extension RepeatCadenceLabel on RepeatCadence {
   String get label => switch (this) {
         RepeatCadence.none => 'Never',
+        RepeatCadence.minute => 'Minutely',
+        RepeatCadence.hour => 'Hourly',
         RepeatCadence.daily => 'Daily',
         RepeatCadence.weekly => 'Weekly',
         RepeatCadence.monthly => 'Monthly',
         RepeatCadence.yearly => 'Yearly',
       };
 
-  /// The unit word for a per-cycle count, e.g. "week" → "twice a week".
+  /// The singular unit word — "every N `unit`".
   String get unit => switch (this) {
         RepeatCadence.none => '',
+        RepeatCadence.minute => 'minute',
+        RepeatCadence.hour => 'hour',
         RepeatCadence.daily => 'day',
         RepeatCadence.weekly => 'week',
         RepeatCadence.monthly => 'month',
@@ -20,25 +25,22 @@ extension RepeatCadenceLabel on RepeatCadence {
       };
 }
 
-const _weekdayShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+/// The units offered in the "every N …" repeat picker, in display order.
+const List<RepeatCadence> kRepeatUnits = [
+  RepeatCadence.minute,
+  RepeatCadence.hour,
+  RepeatCadence.daily,
+  RepeatCadence.weekly,
+  RepeatCadence.monthly,
+  RepeatCadence.yearly,
+];
 
-/// A human-readable frequency for a task — "Twice a week · Mon, Wed" etc.
-String frequencyLabel(RepeatCadence repeat, int times, List<int> days) {
+/// A human-readable frequency — "Every day", "Every 2 months", "Every 3 weeks".
+String frequencyLabel(RepeatCadence repeat, int interval) {
   if (repeat == RepeatCadence.none) return 'Never';
-  final base = times <= 1
-      ? repeat.label
-      : times == 2
-          ? 'Twice a ${repeat.unit}'
-          : '$times× a ${repeat.unit}';
-  if (repeat == RepeatCadence.weekly && days.isNotEmpty) {
-    final sorted = [...days]..sort();
-    final names = sorted
-        .where((d) => d >= 1 && d <= 7)
-        .map((d) => _weekdayShort[d - 1])
-        .join(', ');
-    return '$base · $names';
-  }
-  return base;
+  final n = interval < 1 ? 1 : interval;
+  if (n == 1) return 'Every ${repeat.unit}';
+  return 'Every $n ${repeat.unit}s';
 }
 
 /// What kind of thing a reminder is — used to group the Home into per-category

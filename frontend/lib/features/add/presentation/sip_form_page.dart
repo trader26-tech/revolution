@@ -50,8 +50,7 @@ class _SipFormPageState extends State<SipFormPage> {
 
   String _currency = 'INR';
   RepeatCadence _cycle = RepeatCadence.monthly;
-  int _times = 1;
-  List<int> _days = const [];
+  int _interval = 1;
   DateTime _nextDate = DateTime.now().add(const Duration(days: 30));
 
   String _subCategory = kOtherSipCategory; // auto-filled, editable
@@ -79,8 +78,7 @@ class _SipFormPageState extends State<SipFormPage> {
       _cycle = edit.repeat == RepeatCadence.none
           ? RepeatCadence.monthly
           : edit.repeat;
-      _times = edit.repeatTimes;
-      _days = [...edit.repeatDays];
+      _interval = edit.repeatTimes;
       if (edit.dueAt != null) _nextDate = edit.dueAt!;
       if (edit.subCategory != null && edit.subCategory!.trim().isNotEmpty) {
         _subCategory = edit.subCategory!.trim();
@@ -182,15 +180,13 @@ class _SipFormPageState extends State<SipFormPage> {
   Future<void> _pickFrequency() async {
     final r = await showFrequencyPicker(
       context,
-      cycle: _cycle,
-      times: _times,
-      days: _days,
+      unit: _cycle,
+      interval: _interval,
     );
     if (r != null) {
       setState(() {
-        _cycle = r.cycle;
-        _times = r.times;
-        _days = r.days;
+        _cycle = r.unit;
+        _interval = r.interval;
       });
     }
   }
@@ -200,8 +196,6 @@ class _SipFormPageState extends State<SipFormPage> {
     HapticFeedback.lightImpact();
     final amount =
         double.tryParse(_amount.text.replaceAll(RegExp(r'[^0-9.]'), ''));
-    // Weekdays only matter for a weekly repeat.
-    final days = _cycle == RepeatCadence.weekly ? _days : const <int>[];
     final edit = widget.editTask;
     if (edit != null) {
       Navigator.of(context).pop(
@@ -209,8 +203,7 @@ class _SipFormPageState extends State<SipFormPage> {
           title: _name.text.trim(),
           dueAt: _nextDate,
           repeat: _cycle,
-          repeatTimes: _times,
-          repeatDays: days,
+          repeatTimes: _interval,
           iconName: _iconName,
           iconDomain: _iconDomain,
           amount: amount,
@@ -228,8 +221,7 @@ class _SipFormPageState extends State<SipFormPage> {
         title: _name.text.trim(),
         dueAt: _nextDate,
         repeat: _cycle,
-        repeatTimes: _times,
-        repeatDays: days,
+        repeatTimes: _interval,
         iconName: _iconName,
         iconDomain: _iconDomain,
         amount: amount,
@@ -300,7 +292,7 @@ class _SipFormPageState extends State<SipFormPage> {
                         const OrbitRowDivider(),
                         OrbitNavRow(
                           label: 'Frequency',
-                          value: frequencyLabel(_cycle, _times, _days),
+                          value: frequencyLabel(_cycle, _interval),
                           onTap: _pickFrequency,
                         ),
                       ],

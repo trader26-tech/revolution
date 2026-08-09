@@ -305,12 +305,11 @@ class _CollectionPageState extends State<CollectionPage> {
   }
 
   Widget _buildBody() {
-    // The hero always reflects ALL items in the category (unfiltered), so its
-    // spend/overview is stable; the list below honours the filter.
     final all = category == null
         ? store.tasks.toList()
         : store.tasks.where((t) => t.category == category).toList();
     final items = _items(); // filtered + sorted
+    final filtering = _groupByCategory && _filter != null;
 
     if (all.isEmpty) {
       return _EmptyCollection(
@@ -323,9 +322,12 @@ class _CollectionPageState extends State<CollectionPage> {
 
     return _GroupedList(
       sections: _grouped(items),
-      hero: _heroStats(all),
-      icon: _icon,
-      title: _title,
+      // The hero reflects the FILTERED view — spend, count, title all change
+      // with the filter so it reads as one immersive category overview.
+      hero: _heroStats(filtering ? items : all),
+      icon: filtering ? subCategoryIcon(_filter) : _icon,
+      title: filtering ? _filter! : _title,
+      subtitle: filtering ? _title : null,
       activeFilter: _groupByCategory ? _filter : null,
       onClearFilter: () => setState(() => _filter = null),
       onTap: (t) => _edit(context, t),
@@ -364,6 +366,7 @@ class _GroupedList extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
+    this.subtitle,
     this.activeFilter,
     this.onClearFilter,
   });
@@ -372,6 +375,7 @@ class _GroupedList extends StatelessWidget {
   final _HeroStats hero;
   final IconData icon;
   final String title;
+  final String? subtitle;
   final void Function(Task) onTap;
   final String? activeFilter;
   final VoidCallback? onClearFilter;
@@ -379,9 +383,9 @@ class _GroupedList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[
-      _CategoryHero(stats: hero, icon: icon, title: title),
+      _CategoryHero(stats: hero, icon: icon, title: title, subtitle: subtitle),
     ];
-    // An active-filter banner with a clear (×) chip.
+    // A "Clear filter" pill (the hero already shows WHICH category is active).
     if (activeFilter != null) {
       children.add(Padding(
         padding: const EdgeInsets.fromLTRB(0, 16, 0, 2),
@@ -391,28 +395,24 @@ class _GroupedList extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.14),
+              color: AppColors.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(999),
               border:
                   Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(subCategoryIcon(activeFilter),
-                    size: 15, color: AppColors.accent),
-                const SizedBox(width: 6),
+                Icon(Icons.close_rounded, size: 15, color: AppColors.accent),
+                SizedBox(width: 6),
                 Text(
-                  activeFilter!,
-                  style: const TextStyle(
-                    fontSize: 13.5,
+                  'Clear filter',
+                  style: TextStyle(
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: AppColors.ink,
                   ),
                 ),
-                const SizedBox(width: 6),
-                const Icon(Icons.close_rounded,
-                    size: 15, color: AppColors.inkSoft),
               ],
             ),
           ),
@@ -472,11 +472,13 @@ class _CategoryHero extends StatelessWidget {
     required this.stats,
     required this.icon,
     required this.title,
+    this.subtitle,
   });
 
   final _HeroStats stats;
   final IconData icon;
   final String title;
+  final String? subtitle;
 
   String _fmt(double v) => v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2);
 
@@ -533,6 +535,20 @@ class _CategoryHero extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // When filtered, a small "in <Category>" eyebrow makes the
+                    // subset explicit above the big category name.
+                    if (subtitle != null) ...[
+                      Text(
+                        'in ${subtitle!}'.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.4,
+                          color: AppColors.inkFaint.withValues(alpha: 0.95),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Text(
                       title,
                       maxLines: 1,

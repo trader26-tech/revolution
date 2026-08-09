@@ -596,13 +596,18 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 174,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: children.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (_, i) => children[i],
+            height: 188,
+            // Cap the text scale for the fixed-height cards so a large system
+            // font can never push their content past the card and overflow.
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.15,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: children.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (_, i) => children[i],
+              ),
             ),
           ),
       ],
@@ -1239,13 +1244,19 @@ class _HeroCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Hero band — the value centred over its themed particle field.
+          // Hero band — the value centred over its themed particle field. The
+          // value is scaled to fit so a long amount can never overflow the band.
           SizedBox(
             height: 52,
             child: Stack(
               children: [
                 Positioned.fill(child: _ParticleStage(style: particles)),
-                Center(child: value),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Center(
+                    child: FittedBox(fit: BoxFit.scaleDown, child: value),
+                  ),
+                ),
               ],
             ),
           ),

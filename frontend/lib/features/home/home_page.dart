@@ -205,9 +205,14 @@ class _HomePageState extends State<HomePage> {
       ),
     ];
 
-    return ListView(
-      padding: const EdgeInsets.only(top: 6, bottom: 120),
-      children: rows,
+    // Cap text scale across the whole home feed so large system fonts can never
+    // push the greeting, the fixed-height cards, or the browse rows into overflow.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.2,
+      child: ListView(
+        padding: const EdgeInsets.only(top: 6, bottom: 120),
+        children: rows,
+      ),
     );
   }
 }

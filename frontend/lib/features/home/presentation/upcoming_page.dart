@@ -65,7 +65,11 @@ class _UpcomingPageState extends State<UpcomingPage> {
     return Scaffold(
       extendBody: true,
       backgroundColor: Colors.transparent,
-      body: Container(
+      // Cap text scale so a large system font can't overflow the calendar cells
+      // or the fixed-size row elements.
+      body: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.2,
+        child: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -141,9 +145,9 @@ class _UpcomingPageState extends State<UpcomingPage> {
           ),
         ),
       ),
+      ),
     );
   }
-
 }
 
 /// A day-column header in the vertical Upcoming list — the big day number, the

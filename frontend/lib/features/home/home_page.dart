@@ -206,6 +206,14 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
+        // The iPhone-style floating "+" — a large circular accent button pinned
+        // to the bottom-right. Sits above the floating nav bar, so it's always
+        // one thumb-reach away without competing with the top bar.
+        Positioned(
+          right: 20,
+          bottom: 96,
+          child: _AddFab(onTap: _startAdd),
+        ),
       ],
     );
   }
@@ -381,6 +389,60 @@ class _TopBar extends StatelessWidget {
             onTap: onSettings,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The floating "+" action button — bottom-right, iPhone-style. A large circle
+/// in the accent with a soft violet glow, so adding a reminder is always a
+/// thumb-reach away. Scales down slightly on press for a tactile feel.
+class _AddFab extends StatefulWidget {
+  const _AddFab({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  State<_AddFab> createState() => _AddFabState();
+}
+
+class _AddFabState extends State<_AddFab> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _down ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF9A80FF), AppColors.accent],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: 0.5),
+                blurRadius: 24,
+                spreadRadius: -2,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.add_rounded, color: Colors.white, size: 32),
+        ),
       ),
     );
   }

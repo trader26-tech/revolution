@@ -902,7 +902,7 @@ class _SubscriptionCard extends StatelessWidget {
       days: days,
       due: task.dueAt!,
       particles: _Particles.pulse,
-      value: _Logo(task: task, size: 54, radius: 15),
+      value: _Logo(task: task, size: 52, radius: 14, bare: true),
       title: task.title,
       subtitle: priceLine,
       highlight: _subscriptionPunch(task),
@@ -1220,23 +1220,13 @@ class _ParticleFieldPainter extends CustomPainter {
     }
   }
 
-  // Orbit: two little satellites circle the centre logo on an elliptical path —
-  // the subscription is "in rotation / recurring". Clean and clearly in motion.
+  // Orbit: two little satellites circle the centre logo on a WIDE elliptical
+  // path that stays fully OUTSIDE the ~52px logo (radius 26) — the subscription
+  // is "in rotation / recurring". Clean, and it never crosses the mark.
   void _orbit(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
-    const rx = 46.0, ry = 26.0; // ellipse radii around the logo
-    for (var i = 0; i < 2; i++) {
-      final a = t * 2 * math.pi + i * math.pi; // opposite sides
-      final p = Offset(c.dx + rx * math.cos(a), c.dy + ry * math.sin(a));
-      // Fade the satellite as it passes BEHIND (top of the ellipse) so it reads
-      // as depth and never fights the logo.
-      final front = (math.sin(a) + 1) / 2; // 0 behind, 1 front
-      final op = 0.25 + 0.55 * front;
-      final color = i == 0 ? _violet : _lilac;
-      canvas.drawCircle(p, 3.0 + 1.5 * front,
-          Paint()..color = color.withValues(alpha: op));
-    }
-    // A faint orbit track for context.
+    const rx = 58.0, ry = 29.0; // ry (29) > logo radius (26) → clears the mark
+    // Faint orbit track for context.
     canvas.drawOval(
       Rect.fromCenter(center: c, width: rx * 2, height: ry * 2),
       Paint()
@@ -1244,6 +1234,17 @@ class _ParticleFieldPainter extends CustomPainter {
         ..strokeWidth = 1
         ..color = _violet.withValues(alpha: 0.12),
     );
+    for (var i = 0; i < 2; i++) {
+      final a = t * 2 * math.pi + i * math.pi; // opposite sides
+      final p = Offset(c.dx + rx * math.cos(a), c.dy + ry * math.sin(a));
+      // Fade as it passes BEHIND (top half) so it reads as depth, never fights
+      // the logo — but it's always clear of the mark regardless.
+      final front = (math.sin(a) + 1) / 2; // 0 behind, 1 front
+      final op = 0.30 + 0.55 * front;
+      final color = i == 0 ? _violet : _lilac;
+      canvas.drawCircle(p, 2.6 + 1.6 * front,
+          Paint()..color = color.withValues(alpha: op));
+    }
   }
 
   @override
@@ -1295,11 +1296,15 @@ class _GenericCard extends StatelessWidget {
 }
 
 /// A brand logo (with local-image override) — the recognisable mark of the item.
+/// [bare] drops the dark backing tile so the mark floats freely (used on the
+/// subscription hero, where the orbit animates around it).
 class _Logo extends StatelessWidget {
-  const _Logo({required this.task, this.size = 40, this.radius = 12});
+  const _Logo(
+      {required this.task, this.size = 40, this.radius = 12, this.bare = false});
   final Task task;
   final double size;
   final double radius;
+  final bool bare;
 
   @override
   Widget build(BuildContext context) {
@@ -1318,6 +1323,7 @@ class _Logo extends StatelessWidget {
           : Brand(name: task.title, domain: ''),
       size: size,
       radius: radius,
+      bare: bare,
     );
   }
 }

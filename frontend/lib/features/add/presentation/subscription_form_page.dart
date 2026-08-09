@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/orbit_date_picker.dart';
 import '../../../core/widgets/starfield.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
@@ -86,12 +87,12 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _firstPayment,
+    final picked = await showOrbitDatePicker(
+      context,
+      initial: _firstPayment,
       firstDate: DateTime(DateTime.now().year - 1),
       lastDate: DateTime(DateTime.now().year + 30),
-      helpText: 'First payment date',
+      title: 'First payment date',
     );
     if (picked != null) setState(() => _firstPayment = picked);
   }

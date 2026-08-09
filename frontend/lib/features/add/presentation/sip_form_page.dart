@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/orbit_date_picker.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
 import '../../brand/presentation/brand_picker_sheet.dart';
@@ -74,12 +75,12 @@ class _SipFormPageState extends State<SipFormPage> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _nextDate,
+    final picked = await showOrbitDatePicker(
+      context,
+      initial: _nextDate,
       firstDate: DateTime(DateTime.now().year - 1),
       lastDate: DateTime(DateTime.now().year + 30),
-      helpText: 'Next SIP date',
+      title: 'Next SIP date',
     );
     if (picked != null) setState(() => _nextDate = picked);
   }

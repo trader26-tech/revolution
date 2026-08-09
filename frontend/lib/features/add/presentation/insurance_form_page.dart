@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/orbit_date_picker.dart';
 import '../../tasks/data/task_store.dart';
 import '../../tasks/domain/task.dart';
 import '../domain/add_category.dart';
@@ -84,12 +85,12 @@ class _InsuranceFormPageState extends State<InsuranceFormPage> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _renewal,
+    final picked = await showOrbitDatePicker(
+      context,
+      initial: _renewal,
       firstDate: DateTime(DateTime.now().year - 1),
       lastDate: DateTime(DateTime.now().year + 30),
-      helpText: 'Renewal date',
+      title: 'Renewal date',
     );
     if (picked != null) setState(() => _renewal = picked);
   }

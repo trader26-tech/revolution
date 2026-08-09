@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/orbit_date_picker.dart';
 import '../../tasks/domain/task.dart';
 import '../domain/add_category.dart';
 import 'widgets/add_scaffold.dart';
@@ -47,12 +48,13 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 2),
-      helpText: 'Birthday',
+    final picked = await showOrbitDatePicker(
+      context,
+      initial: _date,
+      // Birthdays can be decades in the past — allow a full lifetime of years.
+      firstDate: DateTime(now.year - 100),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      title: 'Birthday',
     );
     if (picked != null) setState(() => _date = picked);
   }

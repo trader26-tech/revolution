@@ -445,10 +445,18 @@ class _MiniBars extends StatelessWidget {
 
 /// A horizontally-scrolling strip of the soonest reminders as cards (image 2).
 class UpNextStrip extends StatelessWidget {
-  const UpNextStrip({super.key, required this.items, required this.onTap});
+  const UpNextStrip({
+    super.key,
+    required this.items,
+    required this.onTap,
+    this.onSeeAll,
+  });
 
   final List<Task> items;
   final void Function(Task) onTap;
+
+  /// Tapped the header → arrow opens the full upcoming list. Null hides it.
+  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -457,14 +465,35 @@ class UpNextStrip extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 26, 20, 12),
-          child: Text('Up next',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
-                  color: AppColors.ink)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 26, 12, 12),
+          child: Row(
+            children: [
+              const Text('Up next',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                      color: AppColors.ink)),
+              const Spacer(),
+              if (onSeeAll != null)
+                // The right-arrow → the full upcoming list, all of it.
+                GestureDetector(
+                  onTap: onSeeAll,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.glassBorder),
+                    ),
+                    child: const Icon(Icons.arrow_forward_rounded,
+                        size: 18, color: AppColors.inkSoft),
+                  ),
+                ),
+            ],
+          ),
         ),
         SizedBox(
           height: 132,
@@ -915,6 +944,167 @@ class _WelcomeEmptyState extends State<WelcomeEmpty>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Compact week-strip calendar ──────────────────────────────────────────────
+
+/// A small horizontal strip of dates (a scrollable running calendar starting
+/// today). Days that have a reminder show an accent dot; the selected day is a
+/// filled accent pill. Tapping a day calls [onSelect] — the Home then shows the
+/// reminders from that day onward. Takes very little vertical space.
+class WeekStripCalendar extends StatefulWidget {
+  const WeekStripCalendar({
+    super.key,
+    required this.tasks,
+    required this.selected,
+    required this.onSelect,
+    this.daysAhead = 30,
+  });
+
+  final List<Task> tasks;
+  final DateTime selected;
+  final ValueChanged<DateTime> onSelect;
+  final int daysAhead;
+
+  @override
+  State<WeekStripCalendar> createState() => _WeekStripCalendarState();
+}
+
+class _WeekStripCalendarState extends State<WeekStripCalendar> {
+  final _controller = ScrollController();
+
+  static const _wd = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  static const _mo = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// Set of day-keys that have at least one scheduled, undone reminder.
+  late Set<int> _busyDays;
+
+  int _key(DateTime d) => d.year * 10000 + d.month * 100 + d.day;
+
+  @override
+  void initState() {
+    super.initState();
+    _recompute();
+  }
+
+  @override
+  void didUpdateWidget(covariant WeekStripCalendar old) {
+    super.didUpdateWidget(old);
+    _recompute();
+  }
+
+  void _recompute() {
+    _busyDays = {
+      for (final t in widget.tasks)
+        if (t.isScheduled && !t.done) _key(_dayOf(t.dueAt!)),
+    };
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final today = _dayOf(DateTime.now());
+    final days = [
+      for (var i = 0; i < widget.daysAhead; i++)
+        today.add(Duration(days: i)),
+    ];
+    final sel = _dayOf(widget.selected);
+
+    return SizedBox(
+      height: 78,
+      child: ListView.separated(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: days.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final d = days[i];
+          final selected = _key(d) == _key(sel);
+          final busy = _busyDays.contains(_key(d));
+          final isToday = i == 0;
+          // Month label appears on the 1st of a month (and the very first cell).
+          final showMonth = i == 0 || d.day == 1;
+          return GestureDetector(
+            onTap: () => widget.onSelect(d),
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 50,
+              decoration: BoxDecoration(
+                gradient: selected
+                    ? const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [AppColors.accent, AppColors.accentDeep],
+                      )
+                    : null,
+                color: selected ? null : Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: selected
+                      ? AppColors.accent
+                      : (isToday
+                          ? AppColors.accent.withValues(alpha: 0.4)
+                          : AppColors.glassBorder),
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    showMonth ? _mo[d.month - 1] : _wd[d.weekday - 1],
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                      color: selected
+                          ? Colors.white.withValues(alpha: 0.85)
+                          : AppColors.inkFaint,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${d.day}',
+                    style: TextStyle(
+                      fontSize: 19,
+                      height: 1.0,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: selected ? Colors.white : AppColors.ink,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // A dot for days that have a reminder (hollow when selected).
+                  Container(
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: busy
+                          ? (selected ? Colors.white : AppColors.accent)
+                          : Colors.transparent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

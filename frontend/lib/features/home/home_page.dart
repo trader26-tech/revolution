@@ -7,12 +7,12 @@ import '../settings/data/profile_store.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
-import '../tasks/domain/task_filter.dart';
 import '../tasks/presentation/task_details_sheet.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
 import '../tasks/presentation/widgets/quick_add_row.dart';
 import '../tasks/presentation/widgets/task_tile.dart';
 import 'domain/home_stats.dart';
+import 'presentation/upcoming_page.dart';
 import 'presentation/widgets/home_dashboard.dart';
 
 /// The Home screen.
@@ -31,9 +31,14 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _adding = false;
-  TaskFilter _filter = TaskFilter.all;
   final _addController = TextEditingController();
   final _addFocus = FocusNode();
+
+  /// The day selected in the week-strip calendar. The task list below shows
+  /// reminders from this day onward. Defaults to today.
+  DateTime _selectedDate = DateTime.now();
+
+  DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
 
   @override
   void dispose() {
@@ -73,6 +78,21 @@ class _HomePageState extends State<HomePage> {
   Future<void> _editTask(Task task) async {
     final updated = await showTaskDetailsSheet(context, task);
     if (updated != null) widget.store.update(updated);
+  }
+
+  /// Open the full-screen list of all upcoming reminders (from the selected
+  /// day onward), reached from the "Up next" arrow.
+  void _openUpcoming() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => UpcomingPage(
+        tasks: widget.store.tasks,
+        from: _selectedDate,
+        onTap: (t) {
+          Navigator.of(context).pop();
+          _editTask(t);
+        },
+      ),
+    ));
   }
 
   /// Remove a task, with a white, auto-dismissing Undo snackbar.
@@ -127,23 +147,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Tasks shown below the calendar: scheduled reminders from the selected day
+  /// onward (soonest first), plus any unscheduled tasks so nothing is hidden.
+  List<Task> _fromSelected(List<Task> all) {
+    final start = _dayOf(_selectedDate);
+    final scheduled = all
+        .where((t) => t.isScheduled && !_dayOf(t.dueAt!).isBefore(start))
+        .toList()
+      ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
+    final unscheduled = all.where((t) => !t.isScheduled).toList();
+    return [...scheduled, ...unscheduled];
+  }
+
   Widget _buildList() {
     final allTasks = widget.store.tasks;
-    final tasks = applyFilter(allTasks, _filter);
 
     // Truly empty (no tasks at all) → the welcoming empty state is drawn as a
     // full-screen centred layer behind this (see build), so nothing here.
     if (allTasks.isEmpty && !_adding) {
       return const SizedBox.shrink();
     }
-    // Have tasks, but the current filter hides them all.
-    if (tasks.isEmpty && !_adding) {
-      return _FilteredEmpty(
-        filter: _filter,
-        onClear: () => setState(() => _filter = TaskFilter.all),
-      );
-    }
 
+    final tasks = _fromSelected(allTasks);
     final stats = computeHomeStats(allTasks);
 
     // The display name: prefer the one captured at onboarding/login
@@ -152,17 +177,24 @@ class _HomePageState extends State<HomePage> {
         ? AuthStore.instance.name!.trim()
         : ProfileStore.instance.name;
 
-    // The hero section, then the quick-add row (when active), then the tasks.
+    // Greeting, then the compact calendar, then Up Next, then the tasks from
+    // the selected day onward.
     final rows = <Widget>[
       // Greeting — Revo says "Good <time>, <name>" + "Welcome to Revolution".
       GreetingRevo(name: displayName, tasks: allTasks),
-      const SizedBox(height: 16),
-      // THE hero — everything at a glance (due today · this month · spend).
-      HeroMetricsCard(stats: stats),
-      // Up Next — the soonest reminders as cards.
-      UpNextStrip(items: stats.upNext, onTap: _editTask),
-      // Category cards.
-      CategoryCards(stats: stats, tasks: allTasks, onTapCategory: (_) {}),
+      const SizedBox(height: 14),
+      // Compact week-strip calendar — tap a day to filter the list below.
+      WeekStripCalendar(
+        tasks: allTasks,
+        selected: _selectedDate,
+        onSelect: (d) => setState(() => _selectedDate = d),
+      ),
+      // Up Next — the soonest reminders as cards; arrow → full upcoming list.
+      UpNextStrip(
+        items: stats.upNext,
+        onTap: _editTask,
+        onSeeAll: _openUpcoming,
+      ),
       const SizedBox(height: 8),
       if (_adding)
         QuickAddRow(
@@ -224,41 +256,6 @@ class _TopBar extends StatelessWidget {
             onTap: onAdd,
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// A calm, centred empty state.
-/// Shown when tasks exist but the active filter hides them all.
-class _FilteredEmpty extends StatelessWidget {
-  const _FilteredEmpty({required this.filter, required this.onClear});
-
-  final TaskFilter filter;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(filter.icon, size: 44, color: AppColors.inkFaint),
-            const SizedBox(height: 16),
-            Text(
-              'No ${filter.label.toLowerCase()} tasks',
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(onPressed: onClear, child: const Text('Show all')),
-          ],
-        ),
       ),
     );
   }

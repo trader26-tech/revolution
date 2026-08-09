@@ -289,6 +289,9 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
 }
 
 // ── Header ───────────────────────────────────────────────────────────────────
+/// Matches the home greeting: Revo on the left, a small eyebrow, and a big
+/// gradient title given room to breathe. The Suggest action lives below it as a
+/// clean full-width CTA rather than crammed into the title row.
 class _Header extends StatelessWidget {
   const _Header({required this.onPost, required this.posting});
   final VoidCallback onPost;
@@ -297,46 +300,75 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 16, 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(
-              width: 46, height: 46, child: AnimatedMascot(size: 46)),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Ideas',
-                    style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                        color: AppColors.ink)),
-                Text('Shape Revolution — anonymously.',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.inkSoft)),
-              ],
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(
+                  width: 60, height: 60, child: AnimatedMascot(size: 60)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.lightbulb_rounded,
+                            size: 13, color: AppColors.accent),
+                        const SizedBox(width: 6),
+                        Text(
+                          'IDEAS BOARD',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2.2,
+                            color: AppColors.accent.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    ShaderMask(
+                      shaderCallback: (r) => const LinearGradient(
+                        colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                      ).createShader(r),
+                      child: const Text(
+                        'Shape Revolution',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 23,
+                          height: 1.1,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.6,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
+          const SizedBox(height: 12),
+          // The Suggest CTA — its own clean, full-width action.
           GestureDetector(
             onTap: posting ? null : onPost,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+              width: double.infinity,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(vertical: 13),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                     colors: [AppColors.accent, AppColors.accentDeep]),
                 borderRadius: BorderRadius.circular(999),
                 boxShadow: [
                   BoxShadow(
-                      color: AppColors.accent.withValues(alpha: 0.4),
+                      color: AppColors.accent.withValues(alpha: 0.35),
                       blurRadius: 16,
                       offset: const Offset(0, 5)),
                 ],
@@ -351,11 +383,11 @@ class _Header extends StatelessWidget {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                   else
-                    const Icon(Icons.add_rounded, size: 18, color: Colors.white),
-                  const SizedBox(width: 6),
-                  const Text('Suggest',
+                    const Icon(Icons.add_rounded, size: 19, color: Colors.white),
+                  const SizedBox(width: 7),
+                  const Text('Suggest an idea',
                       style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 15,
                           fontWeight: FontWeight.w800,
                           color: Colors.white)),
                 ],

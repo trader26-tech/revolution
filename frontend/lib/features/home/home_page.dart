@@ -14,6 +14,7 @@ import '../tasks/presentation/widgets/delete_snackbar.dart';
 import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
 import 'domain/home_groups.dart';
+import 'presentation/search_page.dart';
 import 'presentation/widgets/home_loading.dart';
 import 'presentation/widgets/revo_hero.dart';
 import 'presentation/widgets/task_section.dart';
@@ -74,6 +75,22 @@ class _HomePageState extends State<HomePage> {
   Future<void> _openFilter() async {
     final picked = await showFilterSheet(context, current: _filter);
     if (picked != null) setState(() => _filter = picked);
+  }
+
+  /// Open full-screen search: find any item and run every operation on it —
+  /// open (read/update via the editor), toggle done, or delete with Undo. All
+  /// reuse the same handlers as the home rows.
+  void _openSearch() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SearchPage(
+          store: widget.store,
+          onOpen: _editTask,
+          onToggle: (t) => widget.store.toggleDone(t),
+          onDelete: _deleteTask,
+        ),
+      ),
+    );
   }
 
   /// Press + → pick a category (Subscription, Birthday, Insurance) → fill its
@@ -173,6 +190,23 @@ class _HomePageState extends State<HomePage> {
                 filterActive: _filter.isActive,
               ),
               const SizedBox(height: 12),
+              // Search — above the hero. Tap to open a full-screen search where
+              // any item can be found and fully edited/deleted. Only shown once
+              // there's something to search (hidden during the first load and
+              // the empty state).
+              AnimatedBuilder(
+                animation: widget.store,
+                builder: (context, _) {
+                  if (widget.store.isInitialLoad ||
+                      widget.store.tasks.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: _SearchTapBar(onTap: _openSearch),
+                  );
+                },
+              ),
               // Revo hero — always present (it's the hero): panicking (due
               // today), sad (overdue pending), or happy (all clear / nothing
               // yet). Hidden only during the very first fetch so it doesn't
@@ -368,6 +402,46 @@ class _TopBar extends StatelessWidget {
             onTap: onAdd,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The tap-to-search pill that sits above the hero. It's a lightweight decoy of
+/// a search field — tapping it opens the real full-screen [SearchPage] (with a
+/// live keyboard), rather than typing inline. Reads as a search box, behaves as
+/// a button.
+class _SearchTapBar extends StatelessWidget {
+  const _SearchTapBar({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: AppColors.card.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.search_rounded, size: 21, color: AppColors.inkSoft),
+            SizedBox(width: 10),
+            Text(
+              'Search your reminders',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: AppColors.inkFaint,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

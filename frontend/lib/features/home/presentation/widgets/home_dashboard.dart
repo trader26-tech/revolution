@@ -1292,9 +1292,10 @@ class BrowseGrid extends StatelessWidget {
 
   int _countFor(TaskCategory c) => tasks.where((t) => t.category == c).length;
 
-  /// A short info line for a category: the soonest upcoming item + when, else a
-  /// gentle prompt. Gives each row more meaning than a bare count.
-  String _subtitleFor(TaskCategory c) {
+  /// A category's info: the soonest upcoming item's name as a subtitle, plus a
+  /// short "when" tag shown separately (so it never gets cut off). Returns a
+  /// gentle prompt + no tag when there's nothing scheduled.
+  (String, String?) _infoFor(TaskCategory c) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final upcoming = tasks
@@ -1302,10 +1303,8 @@ class BrowseGrid extends StatelessWidget {
         .toList()
       ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
     if (upcoming.isEmpty) {
-      final count = _countFor(c);
-      return count == 0 ? 'Nothing yet' : 'No dates set';
+      return (_countFor(c) == 0 ? 'Nothing yet' : 'No dates set', null);
     }
-    // Nearest one on/after today (else the very next stored).
     final next = upcoming.firstWhere(
       (t) => !DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day)
           .isBefore(today),
@@ -1313,7 +1312,7 @@ class BrowseGrid extends StatelessWidget {
     );
     final d = DateTime(next.dueAt!.year, next.dueAt!.month, next.dueAt!.day);
     final days = d.difference(today).inDays;
-    final rel = days < 0
+    final when = days < 0
         ? 'soon'
         : days == 0
             ? 'today'
@@ -1322,7 +1321,7 @@ class BrowseGrid extends StatelessWidget {
                 : days < 30
                     ? 'in ${days}d'
                     : 'in ${(days / 30).round()}mo';
-    return 'Next: ${next.title} · $rel';
+    return ('Next: ${next.title}', when);
   }
 
   @override
@@ -1362,18 +1361,25 @@ class BrowseGrid extends StatelessWidget {
             ],
           ),
         ),
+        // A plain list — clean rows split by hairlines, no boxes.
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: [
-              for (final c in live)
-                _BrowseRow(
-                  icon: c.icon,
-                  label: c.label,
-                  subtitle: _subtitleFor(c),
-                  count: _countFor(c),
-                  onTap: () => onOpenCategory(c),
-                ),
+              for (var i = 0; i < live.length; i++) ...[
+                Builder(builder: (_) {
+                  final (subtitle, whenTag) = _infoFor(live[i]);
+                  return _BrowseRow(
+                    icon: live[i].icon,
+                    label: live[i].label,
+                    subtitle: subtitle,
+                    trailingWhen: whenTag,
+                    count: _countFor(live[i]),
+                    onTap: () => onOpenCategory(live[i]),
+                  );
+                }),
+                const _BrowseDivider(),
+              ],
               // The catch-all "All" row — every reminder in one place.
               _BrowseRow(
                 icon: Icons.blur_on_rounded,
@@ -1383,7 +1389,6 @@ class BrowseGrid extends StatelessWidget {
                     : 'Everything in one place',
                 count: tasks.length,
                 onTap: onOpenAll,
-                emphasise: true,
               ),
             ],
           ),
@@ -1393,9 +1398,9 @@ class BrowseGrid extends StatelessWidget {
   }
 }
 
-/// One category as a full-width LIST row — an accent icon badge, the name + an
-/// info line, a count, and a chevron. Reads as a fast, scannable launcher; a
-/// press gives a subtle scale for tactility. ONE constant accent throughout.
+/// One category as a plain LIST row (NO box) — an accent icon badge, the name +
+/// an info line, and a right-aligned "when" chip so the timing is never cut off.
+/// Reads as a fast, scannable launcher; a press subtly highlights it.
 class _BrowseRow extends StatefulWidget {
   const _BrowseRow({
     required this.icon,
@@ -1403,7 +1408,7 @@ class _BrowseRow extends StatefulWidget {
     required this.subtitle,
     required this.count,
     required this.onTap,
-    this.emphasise = false,
+    this.trailingWhen,
   });
 
   final IconData icon;
@@ -1412,8 +1417,9 @@ class _BrowseRow extends StatefulWidget {
   final int count;
   final VoidCallback onTap;
 
-  /// The "All" row gets a slightly stronger wash so it reads as the summary.
-  final bool emphasise;
+  /// A short "when" tag (e.g. "in 2d") shown as a pill on the right; null hides
+  /// it. Guaranteed visible — never truncated by the subtitle.
+  final String? trailingWhen;
 
   @override
   State<_BrowseRow> createState() => _BrowseRowState();
@@ -1424,109 +1430,116 @@ class _BrowseRowState extends State<_BrowseRow> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _down = true),
-        onTapUp: (_) => setState(() => _down = false),
-        onTapCancel: () => setState(() => _down = false),
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _down ? 0.98 : 1,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOut,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  AppColors.accent
-                      .withValues(alpha: widget.emphasise ? 0.16 : 0.10),
-                  AppColors.card,
-                ],
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapUp: (_) => setState(() => _down = false),
+      onTapCancel: () => setState(() => _down = false),
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        color: _down
+            ? AppColors.accent.withValues(alpha: 0.06)
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            // Accent icon badge.
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(13),
+                border:
+                    Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
               ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.glassBorder),
+              child: Icon(widget.icon, color: AppColors.accent, size: 22),
             ),
-            child: Row(
-              children: [
-                // Accent icon badge.
-                Container(
-                  width: 46,
-                  height: 46,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: AppColors.accent.withValues(alpha: 0.35)),
-                  ),
-                  child: Icon(widget.icon, color: AppColors.accent, size: 23),
-                ),
-                const SizedBox(width: 14),
-                // Name + info line.
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 14),
+            // Name + info line.
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        widget.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.2,
-                          color: AppColors.ink,
+                      Flexible(
+                        child: Text(
+                          widget.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            color: AppColors.ink,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(width: 8),
+                      // Count in the accent, right after the name.
                       Text(
-                        widget.subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.inkSoft,
+                        '${widget.count}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.inkFaint,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 10),
-                // Count pill.
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: AppColors.glassBorder),
-                  ),
-                  child: Text(
-                    '${widget.count}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: widget.count == 0
-                          ? AppColors.inkFaint
-                          : AppColors.ink,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkSoft,
                     ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Icon(Icons.chevron_right_rounded,
-                    size: 20,
-                    color: AppColors.inkFaint.withValues(alpha: 0.8)),
-              ],
+                ],
+              ),
             ),
-          ),
+            const SizedBox(width: 10),
+            // The "when" pill — always fully visible.
+            if (widget.trailingWhen != null)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  widget.trailingWhen!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right_rounded,
+                size: 20, color: AppColors.inkFaint.withValues(alpha: 0.8)),
+          ],
         ),
       ),
     );
   }
+}
+
+/// A hairline between browse rows.
+class _BrowseDivider extends StatelessWidget {
+  const _BrowseDivider();
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 1,
+        margin: const EdgeInsets.only(left: 58),
+        color: AppColors.hairline,
+      );
 }

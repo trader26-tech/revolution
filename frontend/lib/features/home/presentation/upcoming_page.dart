@@ -43,6 +43,34 @@ class _UpcomingPageState extends State<UpcomingPage> {
     _selected = _day(widget.from ?? DateTime.now());
   }
 
+  /// Open a month/year/day picker so the user can jump anywhere — the calendar
+  /// strip then scrolls to the chosen day and the list shows just that day.
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selected,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 2, 12, 31),
+      helpText: 'Jump to a date',
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppColors.accent,
+            onPrimary: Colors.white,
+            surface: AppColors.card,
+            onSurface: AppColors.ink,
+          ),
+          dialogTheme: const DialogThemeData(backgroundColor: AppColors.bgTop),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() => _selected = _day(picked));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
@@ -78,7 +106,7 @@ class _UpcomingPageState extends State<UpcomingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: back + title.
+              // Header: back + title + a month/year picker pill.
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: Row(
@@ -98,15 +126,24 @@ class _UpcomingPageState extends State<UpcomingPage> {
                         color: AppColors.ink,
                       ),
                     ),
+                    const Spacer(),
+                    // The month/year pill — tap to jump to any date.
+                    _MonthPill(
+                      day: _selected,
+                      onTap: _pickDate,
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 6),
-              // The week-strip calendar — pick a day to jump the list to it.
+              // The week-strip calendar — a wide window so the month picker can
+              // jump anywhere within the year. Picking a day filters the list.
               WeekStripCalendar(
                 tasks: widget.tasks,
                 selected: _selected,
                 onSelect: (d) => setState(() => _selected = _day(d)),
+                daysBefore: 30,
+                daysAhead: 365,
               ),
               const SizedBox(height: 4),
               Expanded(
@@ -142,6 +179,51 @@ class _UpcomingPageState extends State<UpcomingPage> {
           ),
         ),
       ),
+      ),
+    );
+  }
+}
+
+/// The month/year pill in the header — shows the selected month + year and
+/// opens a date picker on tap, so any month is a couple of taps away.
+class _MonthPill extends StatelessWidget {
+  const _MonthPill({required this.day, required this.onTap});
+  final DateTime day;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+      'Oct', 'Nov', 'Dec'];
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.accent.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_month_rounded,
+                size: 15, color: AppColors.accent),
+            const SizedBox(width: 6),
+            Text(
+              '${mo[day.month - 1]} ${day.year}',
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                color: AppColors.accent,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(Icons.expand_more_rounded,
+                size: 16, color: AppColors.accent),
+          ],
+        ),
       ),
     );
   }

@@ -1957,23 +1957,41 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
   void initState() {
     super.initState();
     _recompute();
-    // Align today to the LEFT edge after first layout — the user sees today +
-    // the days ahead by default; past days are a scroll-left away.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _alignTodayLeft());
+    // Bring the SELECTED day to the left edge after first layout, so whatever
+    // day is chosen (e.g. via the month picker) is what you see first.
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _alignSelectedLeft(animate: false));
   }
 
-  void _alignTodayLeft() {
+  /// Offset (from the strip start) of the selected day's cell.
+  double _selectedOffset() {
+    final today = _dayOf(DateTime.now());
+    final start = today.subtract(Duration(days: widget.daysBefore));
+    final index = _dayOf(widget.selected).difference(start).inDays;
+    return index * (_cellW + _gap);
+  }
+
+  void _alignSelectedLeft({bool animate = true}) {
     if (!_controller.hasClients) return;
-    // Today is at index `daysBefore`; put its cell start at the strip's left.
-    final todayStart = widget.daysBefore * (_cellW + _gap);
-    final max = _controller.position.maxScrollExtent;
-    _controller.jumpTo(todayStart.clamp(0.0, max));
+    final target =
+        _selectedOffset().clamp(0.0, _controller.position.maxScrollExtent);
+    if (animate) {
+      _controller.animateTo(target,
+          duration: const Duration(milliseconds: 320), curve: Curves.easeOut);
+    } else {
+      _controller.jumpTo(target);
+    }
   }
 
   @override
   void didUpdateWidget(covariant WeekStripCalendar old) {
     super.didUpdateWidget(old);
     _recompute();
+    // When the selected day changes (e.g. a month picked far away), scroll to it.
+    if (_dayOf(old.selected) != _dayOf(widget.selected)) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _alignSelectedLeft());
+    }
   }
 
   void _recompute() {

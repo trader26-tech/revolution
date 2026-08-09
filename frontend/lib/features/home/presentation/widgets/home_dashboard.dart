@@ -737,10 +737,11 @@ class _UpNextCard extends StatelessWidget {
   );
 }
 
-/// The intro card that opens EVERY day in the Up-Next strip — the same friendly
-/// style whether the day is busy or free. Shows the day, and either a count of
-/// what's lined up ("2 lined up") or a "nothing — you're free" note. Consistent
-/// lead-ins give the strip a clear day-by-day rhythm.
+/// The day-separator card that opens EVERY day in the Up-Next strip — the
+/// vertical kicker ("TODAY" / "TUE") running up the left, the big date
+/// ("10 August"), and a small line for what's on that day ("2 lined up" or
+/// "you're free"). It reads as a clear signpost that one day is ending and the
+/// next begins.
 class _DayIntroCard extends StatelessWidget {
   const _DayIntroCard({required this.day, required this.count});
   final DateTime day;
@@ -749,87 +750,86 @@ class _DayIntroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = _dayParts(day);
-    // The day's name: "Today" or "Tue 11".
-    final dayNum = p.date.split(' ').first;
-    final title = p.isToday
-        ? 'Today'
-        : '${p.kicker[0]}${p.kicker.substring(1).toLowerCase()} $dayNum';
+    final dayNum = p.date.split(' ').first; // "10"
+    final month = _monthFull(day.month); // "August"
     final empty = count == 0;
     final sub = empty
-        ? "You're free — here's what's coming up."
-        : '$count ${count == 1 ? 'thing' : 'things'} lined up.';
+        ? "you're free"
+        : '$count ${count == 1 ? 'thing' : 'things'} lined up';
 
     return Container(
       width: 150,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
       decoration: BoxDecoration(
         color: AppColors.card.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: p.isToday
-              ? AppColors.accent.withValues(alpha: 0.45)
+              ? AppColors.accent.withValues(alpha: 0.5)
               : AppColors.glassBorder,
         ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.14),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              empty ? Icons.check_rounded : Icons.wb_sunny_rounded,
-              size: 20,
-              color: AppColors.accent,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Flexible(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.3,
-                    color: AppColors.ink,
-                  ),
+          // The vertical kicker running UP the left edge — "TODAY" / "TUE".
+          RotatedBox(
+            quarterTurns: 3,
+            child: Center(
+              child: Text(
+                p.kicker,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 3,
+                  color: p.isToday ? AppColors.accent : AppColors.inkFaint,
                 ),
               ),
-              if (p.isToday) ...[
-                const SizedBox(width: 6),
+            ),
+          ),
+          const SizedBox(width: 10),
+          // The date + what's on it.
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
                   dayNum,
                   style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                    letterSpacing: -1.5,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  month,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  sub,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.inkSoft,
                   ),
                 ),
               ],
-            ],
-          ),
-          const SizedBox(height: 3),
-          Text(
-            sub,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              height: 1.25,
-              color: AppColors.inkSoft,
             ),
           ),
         ],
@@ -837,6 +837,12 @@ class _DayIntroCard extends StatelessWidget {
     );
   }
 }
+
+/// Full month name for a 1-based month index.
+String _monthFull(int m) => const [
+      'January', 'February', 'March', 'April', 'May', 'June', 'July',
+      'August', 'September', 'October', 'November', 'December'
+    ][m - 1];
 
 /// Shared shell — the violet-tinted glass card every layout is poured into, so
 /// the family reads as one system. [urgent] lifts the accent edge for ≤1 day.

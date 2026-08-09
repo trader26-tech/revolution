@@ -505,19 +505,23 @@ class UpNextStrip extends StatelessWidget {
     super.key,
     required this.items,
     required this.onTap,
+    this.windowLabel = 'next 7 days',
     this.onSeeAll,
   });
 
   final List<Task> items;
   final void Function(Task) onTap;
 
+  /// The little window hint next to the "Up next" title — reflects the anchor
+  /// day ("next 7 days" for today, else "from `Wkd D`").
+  final String windowLabel;
+
   /// Tapped the header → arrow opens the full upcoming list. Null hides it.
   final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    // All items in the next-7-day window (already bounded), soonest first.
+    // All items in the 7-day window from the anchor day, soonest first.
     final shown = items.take(10).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -533,8 +537,8 @@ class UpNextStrip extends StatelessWidget {
                       letterSpacing: -0.3,
                       color: AppColors.ink)),
               const SizedBox(width: 8),
-              // "· next 7 days" hint so the window is explicit.
-              Text('next 7 days',
+              // Window hint — reflects the selected calendar day.
+              Text(windowLabel,
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -559,17 +563,40 @@ class UpNextStrip extends StatelessWidget {
             ],
           ),
         ),
-        SizedBox(
-          height: 132,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: shown.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (_, i) =>
-                _UpNextCard(task: shown[i], onTap: () => onTap(shown[i])),
+        if (shown.isEmpty)
+          // Quiet window — keep the section (and its label) so tapping a calm
+          // day still reads as a response, not a disappearance.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 2, 20, 6),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle_outline_rounded,
+                    size: 18, color: AppColors.inkFaint.withValues(alpha: 0.8)),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Nothing in this window — you’re free.',
+                    style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.inkSoft),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          SizedBox(
+            height: 132,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: shown.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, i) =>
+                  _UpNextCard(task: shown[i], onTap: () => onTap(shown[i])),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -1155,15 +1182,32 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
                         colors: [AppColors.accent, AppColors.accentDeep],
                       )
                     : null,
-                color: selected ? null : Colors.white.withValues(alpha: 0.04),
+                // Today (when not the selected day) gets a tinted fill so it
+                // stands apart from ordinary days at a glance.
+                color: selected
+                    ? null
+                    : (isToday
+                        ? AppColors.accent.withValues(alpha: 0.14)
+                        : Colors.white.withValues(alpha: 0.04)),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: selected
                       ? AppColors.accent
                       : (isToday
-                          ? AppColors.accent.withValues(alpha: 0.4)
+                          ? AppColors.accent.withValues(alpha: 0.85)
                           : AppColors.glassBorder),
+                  width: (isToday && !selected) ? 1.5 : 1,
                 ),
+                // A soft glow on today so the eye lands on it.
+                boxShadow: (isToday && !selected)
+                    ? [
+                        BoxShadow(
+                          color: AppColors.accent.withValues(alpha: 0.35),
+                          blurRadius: 12,
+                          spreadRadius: 0.5,
+                        ),
+                      ]
+                    : null,
               ),
               child: Opacity(
                 // Past days are dimmed so today+future read as the focus.
@@ -1195,17 +1239,30 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // A dot for days that have a reminder (hollow when selected).
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: busy
-                            ? (selected ? Colors.white : AppColors.accent)
-                            : Colors.transparent,
+                    // Today shows a tiny "TODAY" tag; every other day keeps the
+                    // reminder dot (hollow/white on the selected pill).
+                    if (isToday)
+                      Text(
+                        'TODAY',
+                        style: TextStyle(
+                          fontSize: 7.5,
+                          height: 1,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.6,
+                          color: selected ? Colors.white : AppColors.accent,
+                        ),
+                      )
+                    else
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: busy
+                              ? (selected ? Colors.white : AppColors.accent)
+                              : Colors.transparent,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

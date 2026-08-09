@@ -11,7 +11,6 @@ import '../tasks/domain/task.dart';
 import '../tasks/presentation/task_details_sheet.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
 import '../tasks/presentation/widgets/task_tile.dart';
-import 'domain/home_stats.dart';
 import 'presentation/upcoming_page.dart';
 import 'presentation/widgets/home_dashboard.dart';
 
@@ -150,6 +149,32 @@ class _HomePageState extends State<HomePage> {
     return [...scheduled, ...unscheduled];
   }
 
+  /// The "Up next" cards, anchored to the SELECTED calendar day: scheduled,
+  /// unfinished reminders in the 7-day window starting on the selected day,
+  /// soonest first. Picking a day in the strip moves this window with it.
+  List<Task> _upNextFromSelected(List<Task> all) {
+    final start = _dayOf(_selectedDate);
+    final end = start.add(const Duration(days: 8)); // exclusive (7 days)
+    return all
+        .where((t) =>
+            t.isScheduled &&
+            !t.done &&
+            !_dayOf(t.dueAt!).isBefore(start) &&
+            _dayOf(t.dueAt!).isBefore(end))
+        .toList()
+      ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
+  }
+
+  /// The little window label for Up next — "next 7 days" when today is picked,
+  /// otherwise "from `Wkd D`" so the anchoring is explicit.
+  String _upNextLabel() {
+    final sel = _dayOf(_selectedDate);
+    final today = _dayOf(DateTime.now());
+    if (sel == today) return 'next 7 days';
+    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return 'from ${wd[sel.weekday - 1]} ${sel.day}';
+  }
+
   Widget _buildList() {
     final allTasks = widget.store.tasks;
 
@@ -160,7 +185,6 @@ class _HomePageState extends State<HomePage> {
     }
 
     final tasks = _fromSelected(allTasks);
-    final stats = computeHomeStats(allTasks);
 
     // The display name: prefer the one captured at onboarding/login
     // (AuthStore), fall back to the Settings profile name.
@@ -180,9 +204,11 @@ class _HomePageState extends State<HomePage> {
         selected: _selectedDate,
         onSelect: (d) => setState(() => _selectedDate = d),
       ),
-      // Up Next — the soonest reminders as cards; arrow → full upcoming list.
+      // Up Next — reminders in the 7-day window from the SELECTED calendar day
+      // (moves as you tap the strip); arrow → the full upcoming list.
       UpNextStrip(
-        items: stats.upNext,
+        items: _upNextFromSelected(allTasks),
+        windowLabel: _upNextLabel(),
         onTap: _editTask,
         onSeeAll: _openUpcoming,
       ),

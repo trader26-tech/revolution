@@ -522,27 +522,28 @@ class UpNextStrip extends StatelessWidget {
     // All items in the 7-day window from the anchor day, soonest first.
     final shown = items.take(10).toList();
 
-    // Instead of a hard on/off split, each card gets a graded EMPHASIS by how
-    // far past the selected day it falls: 0 = on the day (fully lit), easing
-    // toward ~1 across the following days. Later cards recede gently and stay
-    // fully readable and alive — a smooth depth gradient, not black-and-white.
-    int offsetOf(Task t) {
+    // Every card looks the same (consistent, full). The differentiation is an
+    // explicit DIVIDER card dropped in where the list crosses from "on the
+    // selected day" to "scheduled later" — so it's unmistakable which items are
+    // on the tapped day and which come after.
+    final anchorDay = DateTime(anchor.year, anchor.month, anchor.day);
+    bool onAnchor(Task t) {
       final d = t.dueAt;
-      if (d == null) return 0;
-      final off = _daysFromAnchor(anchor, d);
-      return off < 0 ? 0 : off;
+      if (d == null) return false;
+      return DateTime(d.year, d.month, d.day) == anchorDay;
     }
 
+    final onDay = shown.where(onAnchor).toList();
+    final later = shown.where((t) => !onAnchor(t)).toList();
+
     final children = <Widget>[
-      for (final t in shown)
-        _UpNextCard(
-          task: t,
-          anchor: anchor,
-          // Map day-offset 0..6 → emphasis 0..1 with a soft ceiling, so even
-          // the furthest card keeps most of its presence.
-          recede: (offsetOf(t) / 6).clamp(0.0, 1.0),
-          onTap: () => onTap(t),
-        ),
+      for (final t in onDay)
+        _UpNextCard(task: t, anchor: anchor, onTap: () => onTap(t)),
+      // The boundary marker — only when there are items on BOTH sides.
+      if (onDay.isNotEmpty && later.isNotEmpty)
+        _LaterMarkerCard(anchor: anchor),
+      for (final t in later)
+        _UpNextCard(task: t, anchor: anchor, onTap: () => onTap(t)),
     ];
 
     return Column(
@@ -692,28 +693,23 @@ int? _ageOnNext(Task t) {
   return year - t.birthYear!;
 }
 
-/// The Up-Next card — routes to a layout tailored to the task's category.
-/// [recede] (0 = on the selected day, → 1 = furthest out in the window) grades
-/// how much the card recedes: a smooth depth gradient, never a hard cutoff.
+/// The Up-Next card — routes to a layout tailored to the task's category. Every
+/// card looks full and consistent; the "on this day vs. later" boundary is shown
+/// by a separate [_LaterMarkerCard], not by dimming.
 class _UpNextCard extends StatelessWidget {
   const _UpNextCard(
-      {required this.task,
-      required this.anchor,
-      required this.recede,
-      required this.onTap});
+      {required this.task, required this.anchor, required this.onTap});
   final Task task;
   final DateTime anchor;
-  final double recede;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final Widget inner = switch (task.category) {
-      TaskCategory.investment => _SipCard(task: task, anchor: anchor, recede: recede),
-      TaskCategory.birthday => _OccasionCard(task: task, anchor: anchor, recede: recede),
-      TaskCategory.subscription =>
-        _SubscriptionCard(task: task, anchor: anchor, recede: recede),
-      _ => _GenericCard(task: task, anchor: anchor, recede: recede),
+      TaskCategory.investment => _SipCard(task: task, anchor: anchor),
+      TaskCategory.birthday => _OccasionCard(task: task, anchor: anchor),
+      TaskCategory.subscription => _SubscriptionCard(task: task, anchor: anchor),
+      _ => _GenericCard(task: task, anchor: anchor),
     };
     return GestureDetector(
       onTap: onTap,
@@ -723,29 +719,86 @@ class _UpNextCard extends StatelessWidget {
   }
 }
 
+/// The boundary card that sits between the "on this day" items and the ones
+/// scheduled later — a clear, friendly lead so the user knows exactly where the
+/// selected day ends and the future begins.
+class _LaterMarkerCard extends StatelessWidget {
+  const _LaterMarkerCard({required this.anchor});
+  final DateTime anchor;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final isToday = DateTime(anchor.year, anchor.month, anchor.day) ==
+        DateTime(now.year, now.month, now.day);
+    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final dayName = isToday ? 'today' : '${wd[anchor.weekday - 1]} ${anchor.day}';
+
+    return Container(
+      width: 132,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        // A dashed-feel divider card: distinct from the item cards, so it reads
+        // as a signpost, not a reminder.
+        color: AppColors.card.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.more_time_rounded,
+                size: 18, color: AppColors.accent),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            "That's all for $dayName",
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
+              color: AppColors.ink,
+            ),
+          ),
+          const SizedBox(height: 3),
+          const Text(
+            'Everything after is scheduled later →',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              height: 1.25,
+              color: AppColors.inkSoft,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Shared shell — the violet-tinted glass card every layout is poured into, so
 /// the family reads as one system. [urgent] lifts the accent edge for ≤1 day.
-/// [recede] (0 → 1) eases the accent light DOWN as the item sits further past
-/// the selected day — a smooth depth gradient, never a flat cutoff.
 class _CardShell extends StatelessWidget {
   const _CardShell({
     required this.width,
     required this.child,
     this.urgent = false,
-    this.recede = 0,
   });
   final double width;
   final Widget child;
   final bool urgent;
-  final double recede;
 
   @override
   Widget build(BuildContext context) {
-    // The accent wash + border fade smoothly with distance: an on-day card
-    // glows softly; a far card keeps a whisper of accent so it stays in the
-    // family, just quieter — a continuous gradient of "how soon".
-    final wash = (urgent ? 0.12 : 0.07) * (1 - recede) + 0.015 * recede;
-    final edge = (urgent ? 0.5 : 0.22) * (1 - recede) + 0.06 * recede;
     return Container(
       width: width,
       padding: const EdgeInsets.all(14),
@@ -754,12 +807,16 @@ class _CardShell extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppColors.accent.withValues(alpha: wash),
+            AppColors.accent.withValues(alpha: urgent ? 0.12 : 0.07),
             AppColors.card,
           ],
         ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.accent.withValues(alpha: edge)),
+        border: Border.all(
+          color: urgent
+              ? AppColors.accent.withValues(alpha: 0.5)
+              : AppColors.accent.withValues(alpha: 0.22),
+        ),
       ),
       child: child,
     );
@@ -1013,10 +1070,9 @@ String _occasionPunch(String type, String name, int? age, String whenText) {
 
 // ── Subscription card — logo centred, soft "renew" pulse behind ──────────────
 class _SubscriptionCard extends StatelessWidget {
-  const _SubscriptionCard({required this.task, this.anchor, this.recede = 0});
+  const _SubscriptionCard({required this.task, this.anchor});
   final Task task;
   final DateTime? anchor;
-  final double recede;
 
   @override
   Widget build(BuildContext context) {
@@ -1029,7 +1085,6 @@ class _SubscriptionCard extends StatelessWidget {
       days: days,
       due: task.dueAt!,
       anchor: anchor,
-      recede: recede,
       particles: _Particles.pulse,
       value: _Logo(task: task, size: 56, radius: 16, snug: true),
       title: task.title,
@@ -1042,10 +1097,9 @@ class _SubscriptionCard extends StatelessWidget {
 
 // ── SIP card — the amount centred, coins showering behind ────────────────────
 class _SipCard extends StatelessWidget {
-  const _SipCard({required this.task, this.anchor, this.recede = 0});
+  const _SipCard({required this.task, this.anchor});
   final Task task;
   final DateTime? anchor;
-  final double recede;
 
   @override
   Widget build(BuildContext context) {
@@ -1057,7 +1111,6 @@ class _SipCard extends StatelessWidget {
       days: days,
       due: task.dueAt!,
       anchor: anchor,
-      recede: recede,
       particles: _Particles.coins,
       value: has
           ? Text(
@@ -1088,10 +1141,9 @@ class _SipCard extends StatelessWidget {
 
 // ── Occasion card — the big age (the reference), confetti behind ─────────────
 class _OccasionCard extends StatelessWidget {
-  const _OccasionCard({required this.task, this.anchor, this.recede = 0});
+  const _OccasionCard({required this.task, this.anchor});
   final Task task;
   final DateTime? anchor;
-  final double recede;
 
   @override
   Widget build(BuildContext context) {
@@ -1121,7 +1173,6 @@ class _OccasionCard extends StatelessWidget {
       days: days,
       due: task.dueAt!,
       anchor: anchor,
-      recede: recede,
       particles: _Particles.confetti,
       value: value,
       title: task.title,
@@ -1151,7 +1202,6 @@ class _HeroCard extends StatelessWidget {
     required this.highlight,
     required this.highlightIcon,
     this.anchor,
-    this.recede = 0,
   });
   final int days;
   final DateTime due;
@@ -1165,27 +1215,16 @@ class _HeroCard extends StatelessWidget {
   /// The selected calendar day — makes the due-chip read relative to it.
   final DateTime? anchor;
 
-  /// How far this item sits past the selected day, 0 (on the day) → 1 (furthest
-  /// in the window). Drives a SMOOTH depth gradient: the accent light, the
-  /// opacity and the animation all ease down together as [recede] rises, so
-  /// later cards gently recede while staying fully readable and alive — a
-  /// continuation, not a hard cutoff.
-  final double recede;
-
-  bool get _lit => recede < 0.001; // exactly on the selected day
-
   @override
   Widget build(BuildContext context) {
-    final card = _CardShell(
+    return _CardShell(
       width: _kCardW,
-      urgent: _lit && days <= 1,
-      recede: recede,
+      urgent: days <= 1,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Hero band — the value centred over its themed particle field, which
-          // keeps animating on every card (just softer as it recedes).
+          // Hero band — the value centred over its themed particle field.
           SizedBox(
             height: 64,
             child: Stack(
@@ -1228,11 +1267,7 @@ class _HeroCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 1),
-                // The accent icon eases toward a soft ink as the card recedes.
-                child: Icon(highlightIcon,
-                    size: 15,
-                    color: Color.lerp(
-                        AppColors.accent, AppColors.inkSoft, recede * 0.9)),
+                child: Icon(highlightIcon, size: 15, color: AppColors.accent),
               ),
               const SizedBox(width: 7),
               Expanded(
@@ -1240,12 +1275,11 @@ class _HeroCard extends StatelessWidget {
                   highlight,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12.5,
                     height: 1.26,
                     fontWeight: FontWeight.w700,
-                    color: Color.lerp(
-                        AppColors.ink, AppColors.inkSoft, recede * 0.7),
+                    color: AppColors.ink,
                   ),
                 ),
               ),
@@ -1254,11 +1288,6 @@ class _HeroCard extends StatelessWidget {
         ],
       ),
     );
-
-    // A gentle depth fade — the furthest card only drops to ~0.8, so every card
-    // stays clearly readable. This is a gradient, not an on/off.
-    final op = 1.0 - 0.2 * recede;
-    return op >= 0.999 ? card : Opacity(opacity: op, child: card);
   }
 }
 
@@ -1273,9 +1302,10 @@ class _ParticleStage extends StatefulWidget {
 
 class _ParticleStageState extends State<_ParticleStage>
     with SingleTickerProviderStateMixin {
-  // Slow, ambient motion — background texture, not something that grabs the eye.
+  // Very slow, ambient motion — barely-there background texture. The CARD is
+  // the focus; the animation is a minor accent, so keep it minute (~24s loop).
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 8000))
+      vsync: this, duration: const Duration(milliseconds: 24000))
     ..repeat();
 
   @override
@@ -1418,10 +1448,9 @@ class _ParticleFieldPainter extends CustomPainter {
 
 // ── Generic card — insurance / bills / other ─────────────────────────────────
 class _GenericCard extends StatelessWidget {
-  const _GenericCard({required this.task, this.anchor, this.recede = 0});
+  const _GenericCard({required this.task, this.anchor});
   final Task task;
   final DateTime? anchor;
-  final double recede;
 
   @override
   Widget build(BuildContext context) {
@@ -1452,7 +1481,6 @@ class _GenericCard extends StatelessWidget {
       days: days,
       due: task.dueAt!,
       anchor: anchor,
-      recede: recede,
       particles: _Particles.drift,
       value: _Logo(task: task, size: 54, radius: 15),
       title: task.title,

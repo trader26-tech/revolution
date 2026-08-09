@@ -9,7 +9,8 @@ import '../../../brand/presentation/brand_logo.dart';
 import '../../../details/domain/currency.dart';
 import '../../../tasks/domain/task.dart';
 import '../../domain/home_stats.dart';
-import 'revo_hero.dart' show RevoMood, revoMoodFor;
+import 'revo_hero.dart'
+    show RevoMood, revoMoodFor, dueTodayCount, overdueCount;
 
 // ── Category visuals ─────────────────────────────────────────────────────────
 
@@ -75,6 +76,33 @@ class _GreetingRevoState extends State<GreetingRevo>
     return 'Good evening';
   }
 
+  /// A space-themed glyph for the time of day — sunrise/day/night, always tinted
+  /// to the app accent (never a stock yellow emoji).
+  IconData get _timeGlyph {
+    final h = DateTime.now().hour;
+    if (h < 12) return Icons.wb_twilight_rounded; // dawn
+    if (h < 17) return Icons.wb_sunny_outlined; // day
+    return Icons.nightlight_round; // night / space
+  }
+
+  /// A warm, mood-aware second line — welcoming, a little bit "mission control".
+  String get _subline {
+    final due = dueTodayCount(widget.tasks);
+    final over = overdueCount(widget.tasks);
+    if (over > 0) {
+      return '$over overdue — let’s get you caught up.';
+    }
+    if (due > 0) {
+      return due == 1
+          ? '1 reminder needs you today.'
+          : '$due reminders need you today.';
+    }
+    if (widget.tasks.isEmpty) {
+      return 'Welcome aboard Revolution.';
+    }
+    return 'All clear — you’re on top of everything.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final first =
@@ -110,25 +138,52 @@ class _GreetingRevoState extends State<GreetingRevo>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  first == null ? _timeGreeting : '$_timeGreeting, $first',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 23,
-                    height: 1.1,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                    color: AppColors.ink,
+                // A small themed eyebrow — a moon/day glyph tinted to the app,
+                // never a stock yellow emoji — with the app wordmark.
+                Row(
+                  children: [
+                    Icon(_timeGlyph, size: 13, color: AppColors.accent),
+                    const SizedBox(width: 6),
+                    Text(
+                      'REVOLUTION',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2.2,
+                        color: AppColors.accent.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                // "Good evening, <name>" — big and warm, the name in a gradient.
+                ShaderMask(
+                  shaderCallback: (r) => const LinearGradient(
+                    colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                  ).createShader(r),
+                  child: Text(
+                    first == null ? _timeGreeting : '$_timeGreeting, $first',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      height: 1.05,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.6,
+                      color: Colors.white, // masked by the gradient
+                    ),
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
-                  'Welcome to Revolution',
+                  _subline,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13.5,
+                    height: 1.15,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.accent.withValues(alpha: 0.95),
+                    color: AppColors.inkSoft.withValues(alpha: 0.95),
                   ),
                 ),
               ],

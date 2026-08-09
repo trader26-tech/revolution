@@ -142,13 +142,27 @@ class _AccentButton extends StatelessWidget {
       child: Container(
         width: size,
         height: size,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [AppColors.accent, AppColors.accentDeep],
           ),
+          // Purple glow — the "+" reads as the app's one special action.
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withValues(alpha: 0.55),
+              blurRadius: 18,
+              spreadRadius: 1,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: AppColors.accent.withValues(alpha: 0.28),
+              blurRadius: 30,
+              spreadRadius: 4,
+            ),
+          ],
         ),
         child: Icon(icon, color: Colors.white, size: size * 0.5),
       ),

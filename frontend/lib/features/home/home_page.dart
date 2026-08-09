@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
+import '../add/presentation/open_add_flow.dart';
 import '../auth/data/auth_store.dart';
 import '../settings/data/profile_store.dart';
 import '../settings/settings_page.dart';
@@ -9,7 +10,6 @@ import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
 import '../tasks/presentation/task_details_sheet.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
-import '../tasks/presentation/widgets/quick_add_row.dart';
 import '../tasks/presentation/widgets/task_tile.dart';
 import 'domain/home_stats.dart';
 import 'presentation/upcoming_page.dart';
@@ -30,22 +30,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool _adding = false;
-  final _addController = TextEditingController();
-  final _addFocus = FocusNode();
-
   /// The day selected in the week-strip calendar. The task list below shows
   /// reminders from this day onward. Defaults to today.
   DateTime _selectedDate = DateTime.now();
 
   DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
-
-  @override
-  void dispose() {
-    _addController.dispose();
-    _addFocus.dispose();
-    super.dispose();
-  }
 
   void _openSettings() {
     Navigator.of(context).push(
@@ -53,26 +42,27 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _startAdd() {
-    setState(() => _adding = true);
-    // Focus after the row mounts so the keyboard opens.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _addFocus.requestFocus());
-  }
-
-  /// Add the current text and keep the field open for the next task (the ✓).
-  void _confirmAdd() {
-    final text = _addController.text.trim();
-    if (text.isEmpty) return;
-    widget.store.add(text);
-    _addController.clear();
-    _addFocus.requestFocus(); // keep going
-  }
-
-  /// Finish adding — clear + dismiss the field and keyboard (the ✕ / tap-out).
-  void _closeAdd() {
-    _addController.clear();
-    _addFocus.unfocus();
-    setState(() => _adding = false);
+  /// The "+" — open the catalog picker (plain-icon category list). The user
+  /// browses the categories, picks one, fills the tailored form, and it's saved.
+  /// This is the only way to add, so the flow always starts here.
+  Future<void> _startAdd() async {
+    final result = await openAddFlow(context, widget.store);
+    if (result == null) return; // backed out
+    // Insurance self-saves (it needs the created id to upload); everything else
+    // hands back a ready Task we persist here.
+    final task = result.task;
+    if (task != null) {
+      await widget.store.add(
+        task.title,
+        iconName: task.iconName,
+        iconDomain: task.iconDomain,
+        dueAt: task.dueAt,
+        repeat: task.repeat,
+        amount: task.amount,
+        currency: task.currency,
+        category: task.storedCategory?.name,
+      );
+    }
   }
 
   Future<void> _editTask(Task task) async {
@@ -115,7 +105,7 @@ class _HomePageState extends State<HomePage> {
         AnimatedBuilder(
           animation: widget.store,
           builder: (context, _) {
-            final showEmpty = widget.store.tasks.isEmpty && !_adding;
+            final showEmpty = widget.store.tasks.isEmpty;
             if (!showEmpty) return const SizedBox.shrink();
             return Positioned.fill(
               child: _EmptyContent(onAdd: _startAdd),
@@ -164,7 +154,7 @@ class _HomePageState extends State<HomePage> {
 
     // Truly empty (no tasks at all) → the welcoming empty state is drawn as a
     // full-screen centred layer behind this (see build), so nothing here.
-    if (allTasks.isEmpty && !_adding) {
+    if (allTasks.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -196,16 +186,6 @@ class _HomePageState extends State<HomePage> {
         onSeeAll: _openUpcoming,
       ),
       const SizedBox(height: 8),
-      if (_adding)
-        QuickAddRow(
-          controller: _addController,
-          focusNode: _addFocus,
-          onSubmitText: _confirmAdd,
-          onTapOutsideEmpty: _closeAdd,
-          // The helper only shows on the very first add (nothing added yet).
-          // Once an item exists, the row is just the field — clean continuation.
-          showHint: tasks.isEmpty,
-        ),
       for (final t in tasks)
         TaskTile(
           task: t,
@@ -249,10 +229,12 @@ class _TopBar extends StatelessWidget {
             onTap: onSettings,
           ),
           const Spacer(),
-          // Add button, right corner.
+          // Add button, right corner — accent-filled with a purple glow so it
+          // reads as the app's one special action.
           GlassIconButton(
             icon: Icons.add_rounded,
             tooltip: 'Add reminder',
+            accent: true,
             onTap: onAdd,
           ),
         ],

@@ -371,6 +371,7 @@ class _CollectionPageState extends State<CollectionPage> {
         icon: _icon,
         accent: _accent,
         title: _title,
+        singular: category?.singular ?? 'reminder',
         onAdd: () => _add(context),
       );
     }
@@ -1026,81 +1027,134 @@ class _EmptyCollection extends StatelessWidget {
     required this.accent,
     required this.title,
     required this.onAdd,
+    required this.singular,
   });
   final IconData icon;
   final Color accent;
   final String title;
+  final String singular; // e.g. "occasion", "subscription"
   final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 88,
-              height: 88,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 38, color: accent),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'No ${title.toLowerCase()} yet',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink,
-              ),
-            ),
-            const SizedBox(height: 18),
-            GestureDetector(
-              onTap: onAdd,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [accent, accent.withValues(alpha: 0.75)],
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Add one',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+    return GestureDetector(
+      // Tapping anywhere on the empty page also starts adding.
+      onTap: onAdd,
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+      children: [
+        // A curved arrow rising from the hint up to the top-right "+" button,
+        // so it's obvious WHERE to add the first item.
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _AddArrowPainter(accent),
+          ),
         ),
+        // The prompt, tucked up-right under the arrow's tail.
+        Align(
+          alignment: const Alignment(0.35, -0.42),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'Tap  +  to add',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'your first $singular',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // A calm centred icon so the page isn't bare.
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 88,
+                height: 88,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 38, color: accent),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No ${title.toLowerCase()} yet',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
       ),
     );
   }
+}
+
+/// Draws a soft curved arrow that sweeps from the middle up toward the
+/// top-right corner (where the "+" button sits), ending in an arrowhead.
+class _AddArrowPainter extends CustomPainter {
+  const _AddArrowPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    // Start below-centre-right, curve up to just under the top-right "+".
+    final start = Offset(size.width * 0.62, size.height * 0.34);
+    final end = Offset(size.width * 0.90, size.height * 0.02);
+    final c1 = Offset(size.width * 0.92, size.height * 0.30);
+    final c2 = Offset(size.width * 0.98, size.height * 0.14);
+
+    final path = Path()
+      ..moveTo(start.dx, start.dy)
+      ..cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, end.dx, end.dy);
+    canvas.drawPath(path, paint);
+
+    // Arrowhead at the end, pointing up-right toward the "+".
+    const headLen = 15.0;
+    final dir = (end - c2);
+    final angle = dir.direction; // radians
+    const spread = 0.5;
+    final tip = end;
+    final wing1 = tip -
+        Offset.fromDirection(angle - spread, headLen);
+    final wing2 = tip -
+        Offset.fromDirection(angle + spread, headLen);
+    canvas.drawLine(tip, wing1, paint);
+    canvas.drawLine(tip, wing2, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AddArrowPainter old) => old.color != color;
 }
 
 /// The filter sheet — "All" plus the categories present, as chips. Returns '' to

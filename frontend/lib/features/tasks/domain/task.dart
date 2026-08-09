@@ -51,7 +51,7 @@ enum TaskCategory { subscription, birthday, insurance, investment, bills, other 
 extension TaskCategoryInfo on TaskCategory {
   String get label => switch (this) {
         TaskCategory.subscription => 'Subscriptions',
-        TaskCategory.birthday => 'Important dates',
+        TaskCategory.birthday => 'Occasions',
         TaskCategory.insurance => 'Insurance',
         TaskCategory.investment => 'SIPs',
         TaskCategory.bills => 'Bills',
@@ -61,7 +61,7 @@ extension TaskCategoryInfo on TaskCategory {
   /// Singular form for a card header count ("1 subscription").
   String get singular => switch (this) {
         TaskCategory.subscription => 'subscription',
-        TaskCategory.birthday => 'important date',
+        TaskCategory.birthday => 'occasion',
         TaskCategory.insurance => 'insurance item',
         TaskCategory.investment => 'SIP',
         TaskCategory.bills => 'bill',

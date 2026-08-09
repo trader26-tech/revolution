@@ -201,8 +201,8 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
             children: [
               OrbitFormHeader(
                 title: widget.editTask != null
-                    ? 'Edit important date'
-                    : 'Add important date',
+                    ? 'Edit occasion'
+                    : 'Add an occasion',
                 canSave: _valid,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,

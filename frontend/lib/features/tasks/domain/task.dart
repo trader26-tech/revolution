@@ -14,22 +14,36 @@ extension RepeatCadenceLabel on RepeatCadence {
 /// What kind of thing a reminder is — used to group the Home into per-category
 /// cards. `other` is the catch-all for anything that doesn't fit (or older
 /// tasks created before categories existed).
-enum TaskCategory { subscription, birthday, insurance, other }
+enum TaskCategory { subscription, birthday, insurance, investment, bills, other }
 
 extension TaskCategoryInfo on TaskCategory {
   String get label => switch (this) {
         TaskCategory.subscription => 'Subscriptions',
-        TaskCategory.birthday => 'Birthdays',
+        TaskCategory.birthday => 'Important dates',
         TaskCategory.insurance => 'Insurance',
+        TaskCategory.investment => 'SIPs',
+        TaskCategory.bills => 'Bills',
         TaskCategory.other => 'Other',
       };
 
   /// Singular form for a card header count ("1 subscription").
   String get singular => switch (this) {
         TaskCategory.subscription => 'subscription',
-        TaskCategory.birthday => 'birthday',
+        TaskCategory.birthday => 'important date',
         TaskCategory.insurance => 'insurance item',
+        TaskCategory.investment => 'SIP',
+        TaskCategory.bills => 'bill',
         TaskCategory.other => 'reminder',
+      };
+
+  /// A short blurb for the browse tiles.
+  String get blurb => switch (this) {
+        TaskCategory.subscription => 'Netflix, Spotify…',
+        TaskCategory.birthday => 'Birthdays & anniversaries',
+        TaskCategory.insurance => 'Policies & renewals',
+        TaskCategory.investment => 'SIPs & investments',
+        TaskCategory.bills => 'Recurring payments',
+        TaskCategory.other => 'Everything else',
       };
 }
 
@@ -51,6 +65,22 @@ TaskCategory inferCategory(Task t) {
       name.contains('policy') ||
       name.contains('renewal')) {
     return TaskCategory.insurance;
+  }
+  // SIP / mutual-fund investing.
+  if (name.contains('sip') ||
+      name.contains('mutual fund') ||
+      name.contains('mutualfund') ||
+      name.contains('invest')) {
+    return TaskCategory.investment;
+  }
+  // Recurring bills / payments.
+  if (name.contains('bill') ||
+      name.contains('recharge') ||
+      name.contains('electricity') ||
+      name.contains('rent') ||
+      name.contains('emi') ||
+      name.contains('payment')) {
+    return TaskCategory.bills;
   }
   // A recurring paid item reads as a subscription.
   if (t.hasAmount && t.repeat == RepeatCadence.monthly) {

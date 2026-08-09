@@ -103,7 +103,7 @@ class _SipFormPageState extends State<SipFormPage> {
         // The platform doubles as the task's logo.
         iconName: _platformName,
         iconDomain: _platformDomain,
-        storedCategory: TaskCategory.other,
+        storedCategory: TaskCategory.investment,
       ),
     );
   }

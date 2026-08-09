@@ -8,26 +8,17 @@ import '../../../../core/widgets/mascot.dart';
 import '../../../brand/domain/brand.dart';
 import '../../../brand/presentation/brand_logo.dart';
 import '../../../details/domain/currency.dart';
+import '../../../tasks/domain/category_visuals.dart';
 import '../../../tasks/domain/task.dart';
 import '../../domain/home_stats.dart';
 import 'revo_hero.dart'
     show RevoMood, revoMoodFor, dueTodayCount, overdueCount;
 
 // ── Category visuals ─────────────────────────────────────────────────────────
+// Shared across the app — see category_visuals.dart.
 
-IconData _catIcon(TaskCategory c) => switch (c) {
-      TaskCategory.subscription => Icons.subscriptions_rounded,
-      TaskCategory.birthday => Icons.cake_rounded,
-      TaskCategory.insurance => Icons.shield_rounded,
-      TaskCategory.other => Icons.push_pin_rounded,
-    };
-
-Color _catColor(TaskCategory c) => switch (c) {
-      TaskCategory.subscription => AppColors.accent,
-      TaskCategory.birthday => const Color(0xFFFF6FB5),
-      TaskCategory.insurance => const Color(0xFF34D399),
-      TaskCategory.other => const Color(0xFFA5B4FC),
-    };
+IconData _catIcon(TaskCategory c) => c.icon;
+Color _catColor(TaskCategory c) => c.color;
 
 // ── 1 · Greeting with Revo ───────────────────────────────────────────────────
 
@@ -1269,6 +1260,239 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// ── Browse grid — easy access to every product ───────────────────────────────
+
+/// The heart of the Home screen: a grid of "product" tiles (Subscriptions,
+/// Important dates, SIPs, Insurance, Bills) plus an "All" tile — each a glowing
+/// orb, a name, and a live count. Tapping one opens that category's collection.
+///
+/// Space-themed: every tile is a dark glass panel with a category-tinted glow
+/// orb (a little planet), consistent with the Orbit palette. Counts come from
+/// the task list so the grid always reflects reality.
+class BrowseGrid extends StatelessWidget {
+  const BrowseGrid({
+    super.key,
+    required this.tasks,
+    required this.onOpenCategory,
+    required this.onOpenAll,
+  });
+
+  final List<Task> tasks;
+
+  /// Tap a category tile → open its collection page.
+  final void Function(TaskCategory) onOpenCategory;
+
+  /// Tap the "All" tile → open the full collection.
+  final VoidCallback onOpenAll;
+
+  int _countFor(TaskCategory c) => tasks.where((t) => t.category == c).length;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 26, 20, 14),
+          child: Row(
+            children: [
+              const Text(
+                'Browse',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'your orbit',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkFaint.withValues(alpha: 0.9),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.55,
+            children: [
+              for (final c in kBrowseCategories)
+                _BrowseTile(
+                  icon: c.icon,
+                  tint: c.color,
+                  label: c.label,
+                  blurb: c.blurb,
+                  count: _countFor(c),
+                  onTap: () => onOpenCategory(c),
+                ),
+              // The catch-all "All" tile — every reminder in one place.
+              _BrowseTile(
+                icon: Icons.grid_view_rounded,
+                tint: AppColors.accent,
+                label: 'All',
+                blurb: 'Everything you track',
+                count: tasks.length,
+                onTap: onOpenAll,
+                isAll: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One tile — a dark glass panel with a glowing category orb, name, blurb, and
+/// a count chip. Pressed state gives a subtle scale for tactility.
+class _BrowseTile extends StatefulWidget {
+  const _BrowseTile({
+    required this.icon,
+    required this.tint,
+    required this.label,
+    required this.blurb,
+    required this.count,
+    required this.onTap,
+    this.isAll = false,
+  });
+
+  final IconData icon;
+  final Color tint;
+  final String label;
+  final String blurb;
+  final int count;
+  final VoidCallback onTap;
+  final bool isAll;
+
+  @override
+  State<_BrowseTile> createState() => _BrowseTileState();
+}
+
+class _BrowseTileState extends State<_BrowseTile> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = widget.tint;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapUp: (_) => setState(() => _down = false),
+      onTapCancel: () => setState(() => _down = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            // A faint tinted wash over the card — the tile's own colour, kept
+            // subtle so the grid reads as one calm constellation.
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                tint.withValues(alpha: 0.14),
+                AppColors.card,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.glassBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // The glowing orb — a little planet in the tile's colour.
+                  Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          tint.withValues(alpha: 0.9),
+                          tint.withValues(alpha: 0.55),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: tint.withValues(alpha: 0.45),
+                          blurRadius: 14,
+                          spreadRadius: 0.5,
+                        ),
+                      ],
+                    ),
+                    child: Icon(widget.icon, color: Colors.white, size: 21),
+                  ),
+                  const Spacer(),
+                  // Count chip.
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppColors.glassBorder),
+                    ),
+                    child: Text(
+                      '${widget.count}',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: widget.count == 0
+                            ? AppColors.inkFaint
+                            : AppColors.ink,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                widget.blurb,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

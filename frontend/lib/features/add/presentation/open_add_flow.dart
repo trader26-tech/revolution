@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../tasks/data/task_store.dart';
+import '../../tasks/domain/category_visuals.dart';
 import '../../tasks/domain/task.dart';
 import 'add_picker_page.dart';
 import 'birthday_form_page.dart';
+import 'insurance_form_page.dart';
 import 'sip_form_page.dart';
 import 'subscription_form_page.dart';
 
@@ -79,4 +81,75 @@ Future<AddResult?> openAddFlow(BuildContext context, TaskStore store) async {
     ),
   );
   return task == null ? null : AddResult(task: task);
+}
+
+/// Jump STRAIGHT into a category's tailored form (skipping the catalog picker) —
+/// used by a category collection page's "+", so adding a subscription from the
+/// Subscriptions page lands right on the subscription form. Returns an
+/// [AddResult] or null if cancelled.
+Future<AddResult?> openCategoryForm(
+  BuildContext context,
+  TaskStore store,
+  TaskCategory category,
+) async {
+  switch (category) {
+    case TaskCategory.birthday:
+      final task = await Navigator.of(context).push<Task>(MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const BirthdayFormPage(),
+      ));
+      return task == null ? null : AddResult(task: task);
+
+    case TaskCategory.investment:
+      final task = await Navigator.of(context).push<Task>(MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => SipFormPage(accent: category.color),
+      ));
+      return task == null ? null : AddResult(task: task);
+
+    case TaskCategory.insurance:
+      // Insurance self-saves (uploads a document to the new task's id).
+      final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => InsuranceFormPage(store: store),
+      ));
+      return saved == true ? const AddResult(selfSaved: true) : null;
+
+    case TaskCategory.subscription:
+    case TaskCategory.bills:
+    case TaskCategory.other:
+      final task = await Navigator.of(context).push<Task>(MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => SubscriptionFormPage(
+          title: category == TaskCategory.bills ? 'New bill' : 'New subscription',
+          accent: category.color,
+        ),
+      ));
+      if (task == null) return null;
+      // A bill from the bills page keeps the bills category.
+      if (category == TaskCategory.bills) {
+        task.storedCategory = TaskCategory.bills;
+      }
+      return AddResult(task: task);
+  }
+}
+
+/// Persist an [AddResult] to the store (the one place add-persistence lives, so
+/// Home and every collection page save identically). Insurance already saved
+/// itself, so [AddResult.selfSaved] is a no-op here.
+Future<void> persistAddResult(TaskStore store, AddResult? result) async {
+  if (result == null) return;
+  final task = result.task;
+  if (task == null) return; // selfSaved (insurance) — nothing to do
+  await store.add(
+    task.title,
+    iconName: task.iconName,
+    iconDomain: task.iconDomain,
+    dueAt: task.dueAt,
+    repeat: task.repeat,
+    amount: task.amount,
+    currency: task.currency,
+    category: task.storedCategory?.name,
+    imagePath: task.imagePath,
+  );
 }

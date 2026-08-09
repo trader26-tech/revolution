@@ -7,6 +7,7 @@ import '../../../core/widgets/glass.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
 import '../../details/domain/currency.dart';
+import '../../tasks/domain/category_visuals.dart';
 import '../../tasks/domain/task.dart';
 
 /// The full upcoming list — every scheduled, unfinished reminder from [from]
@@ -142,19 +143,8 @@ class UpcomingPage extends StatelessWidget {
   }
 }
 
-Color _catColor(TaskCategory c) => switch (c) {
-      TaskCategory.subscription => AppColors.accent,
-      TaskCategory.birthday => const Color(0xFFFF6FB5),
-      TaskCategory.insurance => const Color(0xFF34D399),
-      TaskCategory.other => const Color(0xFFA5B4FC),
-    };
-
-IconData _catIcon(TaskCategory c) => switch (c) {
-      TaskCategory.subscription => Icons.subscriptions_rounded,
-      TaskCategory.birthday => Icons.cake_rounded,
-      TaskCategory.insurance => Icons.shield_rounded,
-      TaskCategory.other => Icons.push_pin_rounded,
-    };
+Color _catColor(TaskCategory c) => c.color;
+IconData _catIcon(TaskCategory c) => c.icon;
 
 /// One upcoming reminder as a full-width glass row.
 class _UpcomingRow extends StatelessWidget {

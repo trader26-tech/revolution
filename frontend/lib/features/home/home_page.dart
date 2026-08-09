@@ -9,8 +9,7 @@ import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
 import '../tasks/presentation/task_details_sheet.dart';
-import '../tasks/presentation/widgets/delete_snackbar.dart';
-import '../tasks/presentation/widgets/task_tile.dart';
+import 'presentation/collection_page.dart';
 import 'presentation/upcoming_page.dart';
 import 'presentation/widgets/home_dashboard.dart';
 
@@ -43,26 +42,9 @@ class _HomePageState extends State<HomePage> {
 
   /// The "+" — open the catalog picker (plain-icon category list). The user
   /// browses the categories, picks one, fills the tailored form, and it's saved.
-  /// This is the only way to add, so the flow always starts here.
   Future<void> _startAdd() async {
     final result = await openAddFlow(context, widget.store);
-    if (result == null) return; // backed out
-    // Insurance self-saves (it needs the created id to upload); everything else
-    // hands back a ready Task we persist here.
-    final task = result.task;
-    if (task != null) {
-      await widget.store.add(
-        task.title,
-        iconName: task.iconName,
-        iconDomain: task.iconDomain,
-        dueAt: task.dueAt,
-        repeat: task.repeat,
-        amount: task.amount,
-        currency: task.currency,
-        category: task.storedCategory?.name,
-        imagePath: task.imagePath,
-      );
-    }
+    await persistAddResult(widget.store, result);
   }
 
   Future<void> _editTask(Task task) async {
@@ -85,14 +67,12 @@ class _HomePageState extends State<HomePage> {
     ));
   }
 
-  /// Remove a task, with a white, auto-dismissing Undo snackbar.
-  void _deleteTask(Task task) {
-    widget.store.remove(task);
-    showDeleteSnackBar(
-      context,
-      title: task.title,
-      onUndo: () => widget.store.restore(task),
-    );
+  /// Open a category's collection page (all Subscriptions, all SIPs…), or the
+  /// full "All" collection when [category] is null.
+  void _openCollection(TaskCategory? category) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => CollectionPage(store: widget.store, category: category),
+    ));
   }
 
   @override
@@ -137,18 +117,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Tasks shown below the calendar: scheduled reminders from the selected day
-  /// onward (soonest first), plus any unscheduled tasks so nothing is hidden.
-  List<Task> _fromSelected(List<Task> all) {
-    final start = _dayOf(_selectedDate);
-    final scheduled = all
-        .where((t) => t.isScheduled && !_dayOf(t.dueAt!).isBefore(start))
-        .toList()
-      ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
-    final unscheduled = all.where((t) => !t.isScheduled).toList();
-    return [...scheduled, ...unscheduled];
-  }
-
   /// The "Up next" cards, anchored to the SELECTED calendar day: scheduled,
   /// unfinished reminders in the 7-day window starting on the selected day,
   /// soonest first. Picking a day in the strip moves this window with it.
@@ -184,21 +152,19 @@ class _HomePageState extends State<HomePage> {
       return const SizedBox.shrink();
     }
 
-    final tasks = _fromSelected(allTasks);
-
     // The display name: prefer the one captured at onboarding/login
     // (AuthStore), fall back to the Settings profile name.
     final displayName = (AuthStore.instance.name?.trim().isNotEmpty ?? false)
         ? AuthStore.instance.name!.trim()
         : ProfileStore.instance.name;
 
-    // Greeting, then the compact calendar, then Up Next, then the tasks from
-    // the selected day onward.
+    // Greeting → calendar → Up Next (from the selected day) → the Browse grid,
+    // which is the easy-access launcher to every product (no raw task dump).
     final rows = <Widget>[
       // Greeting — Revo says "Good <time>, <name>" + "Welcome to Revolution".
       GreetingRevo(name: displayName, tasks: allTasks),
       const SizedBox(height: 14),
-      // Compact week-strip calendar — tap a day to filter the list below.
+      // Compact week-strip calendar — tap a day to move the Up Next window.
       WeekStripCalendar(
         tasks: allTasks,
         selected: _selectedDate,
@@ -212,18 +178,14 @@ class _HomePageState extends State<HomePage> {
         onTap: _editTask,
         onSeeAll: _openUpcoming,
       ),
-      const SizedBox(height: 8),
-      for (final t in tasks)
-        TaskTile(
-          task: t,
-          onToggle: () => widget.store.toggleDone(t),
-          onOpenDetails: () => _editTask(t),
-          onDelete: () => _deleteTask(t),
-        ),
+      // Browse — the launcher to every category's collection page.
+      BrowseGrid(
+        tasks: allTasks,
+        onOpenCategory: _openCollection,
+        onOpenAll: () => _openCollection(null),
+      ),
     ];
 
-    // Cards carry their own vertical margins, so the list is a plain ListView
-    // (no dividers) — each task reads as its own rounded card.
     return ListView(
       padding: const EdgeInsets.only(top: 6, bottom: 120),
       children: rows,

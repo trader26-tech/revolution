@@ -158,15 +158,16 @@ class _GreetMascot extends StatelessWidget {
       return d > 0.02 ? 0 : 1 - d / 0.02;
     }
 
+    late final Widget mascot;
     switch (mood) {
       case RevoMood.happy:
         final breath = math.sin(phase);
-        return Transform.translate(
+        mascot = Transform.translate(
           offset: Offset(0, breath * 1.6),
           child: Mascot(
             size: size,
             blink: blink(),
-            look: Offset(0.30 + math.sin(phase + 1) * 0.14,
+            look: Offset(-0.30 + math.sin(phase + 1) * 0.14,
                 math.cos(phase * 2) * 0.1),
             squash: breath * 0.04,
             tilt: math.sin(phase + 2) * 0.03,
@@ -175,12 +176,12 @@ class _GreetMascot extends StatelessWidget {
         );
       case RevoMood.sad:
         final drift = math.sin(phase * 0.6);
-        return Transform.translate(
+        mascot = Transform.translate(
           offset: Offset(0, 3 + drift),
           child: Mascot(
             size: size * 0.95,
             blink: blink(),
-            look: Offset(0.1 + drift * 0.08, 0.5),
+            look: Offset(-0.1 + drift * 0.08, 0.5),
             tilt: -0.1,
             glow: false,
           ),
@@ -188,18 +189,20 @@ class _GreetMascot extends StatelessWidget {
       case RevoMood.panicking:
         // A GENTLE alert bob for the greeting — attentive, not frantic. (The
         // urgency read lives in the hero's numbers, not a shaking mascot.)
-        final phase = t * 2 * math.pi;
-        return Transform.translate(
+        mascot = Transform.translate(
           offset: Offset(0, math.sin(phase * 2) * 2.2),
           child: Mascot(
             size: size,
-            look: Offset(0.15 + math.sin(phase) * 0.18, -0.1),
+            look: Offset(-0.15 + math.sin(phase) * 0.18, -0.1),
             squash: math.sin(phase * 2) * 0.05,
             tilt: math.sin(phase) * 0.05,
             glow: true,
           ),
         );
     }
+    // Revo is talking toward the greeting on his RIGHT, so his tail points LEFT
+    // — mirror the base mascot (whose tail is bottom-right).
+    return Transform.flip(flipX: true, child: mascot);
   }
 }
 

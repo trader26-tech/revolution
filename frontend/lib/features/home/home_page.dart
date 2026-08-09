@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
+import '../auth/data/auth_store.dart';
 import '../settings/data/profile_store.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
@@ -86,13 +87,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Keyboard height — the FAB rides just above it while adding, and sits above
-    // the floating nav bar when idle.
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    // Just enough to clear the floating nav bar (~64h + 16 margin) — the FAB
-    // rests low, right above the nav, not high up the screen.
-    const navBarClearance = 44.0;
-
     return Stack(
       children: [
         // The empty state is centred against the WHOLE screen (behind the top
@@ -127,23 +121,8 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        // The single morphing + / ✓ button, bottom-right. It slides up to sit
-        // above the keyboard while adding, and rests above the nav when idle.
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-          right: 0,
-          bottom: _adding ? keyboardInset : navBarClearance,
-          child: SafeArea(
-            top: false,
-            child: QuickAddBar(
-              adding: _adding,
-              onStart: _startAdd,
-              onConfirm: _confirmAdd,
-              onClose: _closeAdd,
-            ),
-          ),
-        ),
+        // (No floating + button — adding is started from the top-right "+".
+        // The inline quick-add row confirms on the keyboard's "done".)
       ],
     );
   }
@@ -167,10 +146,16 @@ class _HomePageState extends State<HomePage> {
 
     final stats = computeHomeStats(allTasks);
 
+    // The display name: prefer the one captured at onboarding/login
+    // (AuthStore), fall back to the Settings profile name.
+    final displayName = (AuthStore.instance.name?.trim().isNotEmpty ?? false)
+        ? AuthStore.instance.name!.trim()
+        : ProfileStore.instance.name;
+
     // The hero section, then the quick-add row (when active), then the tasks.
     final rows = <Widget>[
       // Greeting — Revo says "Good <time>, <name>" + "Welcome to Revolution".
-      GreetingRevo(name: ProfileStore.instance.name, tasks: allTasks),
+      GreetingRevo(name: displayName, tasks: allTasks),
       const SizedBox(height: 16),
       // THE hero — everything at a glance (due today · this month · spend).
       HeroMetricsCard(stats: stats),

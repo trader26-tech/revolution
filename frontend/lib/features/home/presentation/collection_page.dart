@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../../add/domain/subscription_categories.dart';
 import '../../add/presentation/open_add_flow.dart';
+import '../../add/presentation/sip_form_page.dart';
 import '../../add/presentation/subscription_form_page.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
@@ -73,9 +74,11 @@ class _CollectionPageState extends State<CollectionPage> {
   IconData get _icon => category?.icon ?? Icons.blur_on_rounded;
   Color get _accent => AppColors.accent;
 
-  /// Subscriptions group by their sub-category; other collections keep the
-  /// time-window grouping.
-  bool get _groupByCategory => category == TaskCategory.subscription;
+  /// Subscriptions and SIPs group by their sub-category (with a filter); other
+  /// collections keep the time-window grouping.
+  bool get _groupByCategory =>
+      category == TaskCategory.subscription ||
+      category == TaskCategory.investment;
 
   List<Task> _items() {
     var list = category == null
@@ -94,27 +97,35 @@ class _CollectionPageState extends State<CollectionPage> {
     return list;
   }
 
-  String _subOf(Task t) =>
-      (t.subCategory == null || t.subCategory!.trim().isEmpty)
-          ? kOtherSubCategory
-          : t.subCategory!.trim();
+  /// The built-in category set for the current collection (subs vs SIP).
+  List<SubCategory> get _catSet =>
+      category == TaskCategory.investment ? kSipCategories : kSubCategories;
+
+  String _subOf(Task t) {
+    final def = category == TaskCategory.investment
+        ? kOtherSipCategory
+        : kOtherSubCategory;
+    return (t.subCategory == null || t.subCategory!.trim().isEmpty)
+        ? def
+        : t.subCategory!.trim();
+  }
 
   /// The category names present in the current items (for the filter sheet),
   /// ordered by the built-in order then any custom ones.
   List<String> _presentCategories(List<Task> all) {
     final present = <String>{for (final t in all) _subOf(t)};
     final ordered = <String>[
-      for (final c in kSubCategories)
+      for (final c in _catSet)
         if (present.contains(c.name)) c.name,
     ];
     final customs = present
-        .where((c) => !kSubCategories.any((b) => b.name == c))
+        .where((c) => !_catSet.any((b) => b.name == c))
         .toList()
       ..sort();
     return [...ordered, ...customs];
   }
 
-  /// Group the items — by sub-category for subscriptions, else by time window.
+  /// Group the items — by sub-category for subscriptions/SIPs, else by window.
   List<_Section> _grouped(List<Task> items) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -129,11 +140,11 @@ class _CollectionPageState extends State<CollectionPage> {
         buckets.putIfAbsent(_subOf(t), () => []).add(t);
       }
       final order = <String>[
-        for (final c in kSubCategories)
+        for (final c in _catSet)
           if (buckets.containsKey(c.name)) c.name,
       ];
       final customs = buckets.keys
-          .where((k) => !kSubCategories.any((c) => c.name == k))
+          .where((k) => !_catSet.any((c) => c.name == k))
           .toList()
         ..sort();
       return [
@@ -226,12 +237,20 @@ class _CollectionPageState extends State<CollectionPage> {
   }
 
   Future<void> _edit(BuildContext context, Task task) async {
-    // Subscriptions edit in the SAME orbit form (prefilled) as adding, so the
-    // category and every field save consistently. Others keep the quick sheet.
+    // Subscriptions & SIPs edit in the SAME orbit form (prefilled) as adding,
+    // so the category and every field save consistently. Others keep the sheet.
     if (task.category == TaskCategory.subscription) {
       final updated = await Navigator.of(context).push<Task>(MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => SubscriptionFormPage(editTask: task),
+      ));
+      if (updated != null) store.update(updated);
+      return;
+    }
+    if (task.category == TaskCategory.investment) {
+      final updated = await Navigator.of(context).push<Task>(MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => SipFormPage(editTask: task),
       ));
       if (updated != null) store.update(updated);
       return;

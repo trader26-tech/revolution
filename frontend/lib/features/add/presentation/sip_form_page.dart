@@ -3,46 +3,57 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/orbit_date_picker.dart';
-import '../../brand/domain/brand.dart';
-import '../../brand/presentation/brand_logo.dart';
+import '../../../core/widgets/starfield.dart';
 import '../../brand/presentation/brand_picker_sheet.dart';
 import '../../tasks/domain/task.dart';
-import 'widgets/add_scaffold.dart';
-import 'widgets/repeat_cycle_field.dart';
+import '../domain/subscription_categories.dart';
+import 'widgets/orbit_form.dart';
 
-/// The Money & Investments (SIP) form — a SIP has three things a reminder needs:
-/// how MUCH you invest, WHERE (the platform — Groww, Zerodha, Kuvera…, picked
-/// as a logo), and WHEN the next instalment lands (+ how often). No documents,
-/// no person.
+/// The Money & Investments (SIP) form — same orbit design language as the
+/// subscription form: an identity card (platform logo · name · amount +
+/// currency), a grouped details card (category · next date · cycle). The
+/// category (Stocks / Mutual Funds / Bonds / Gold / Goal) auto-fills from the
+/// name and can be changed or made custom.
 ///
-/// Returns a ready-to-save [Task] in the `subscription`… no — the `other`
-/// category flagged as money, or null if cancelled.
+/// Returns a ready-to-save [Task] (category `investment`), or the edited copy in
+/// edit mode, or null if cancelled.
 class SipFormPage extends StatefulWidget {
-  const SipFormPage({super.key, this.initialName, this.accent});
+  const SipFormPage({
+    super.key,
+    this.initialName,
+    this.accent, // kept for call-site compatibility; the form is always accent
+    this.editTask,
+  });
 
-  /// Seed the SIP name (e.g. the catalog item "SIP investment").
   final String? initialName;
-
-  /// The category accent, carried into the form.
   final Color? accent;
+
+  /// When set, opens in EDIT mode pre-filled from this task; Save returns an
+  /// updated copy (same id).
+  final Task? editTask;
 
   @override
   State<SipFormPage> createState() => _SipFormPageState();
 }
 
 class _SipFormPageState extends State<SipFormPage> {
-  static const _green = Color(0xFF4ADE80);
-  Color get _accent => widget.accent ?? _green;
-
   final _name = TextEditingController();
   final _amount = TextEditingController();
+  final _nameFocus = FocusNode();
+  final _amountFocus = FocusNode();
 
-  // The platform, picked as a brand logo (Groww, Zerodha, Kuvera…).
-  String? _platformName;
-  String? _platformDomain;
+  // The platform, picked as a brand logo (Groww, Zerodha, Kuvera…) — doubles as
+  // the task icon.
+  String? _iconName;
+  String? _iconDomain;
 
+  String _currency = 'INR';
   RepeatCadence _cycle = RepeatCadence.monthly;
   DateTime _nextDate = DateTime.now().add(const Duration(days: 30));
+
+  String _subCategory = kOtherSipCategory; // auto-filled, editable
+  bool _categoryTouched = false;
+  final Set<String> _customCategories = {};
 
   bool get _valid =>
       _name.text.trim().isNotEmpty && _amount.text.trim().isNotEmpty;
@@ -50,26 +61,85 @@ class _SipFormPageState extends State<SipFormPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialName != null && widget.initialName!.trim().isNotEmpty) {
+    final edit = widget.editTask;
+    if (edit != null) {
+      _name.text = edit.title;
+      _iconName = edit.iconName;
+      _iconDomain = edit.iconDomain;
+      if (edit.hasAmount) {
+        _amount.text = edit.amount!.toStringAsFixed(
+            edit.amount == edit.amount!.roundToDouble() ? 0 : 2);
+      }
+      _currency = edit.currency;
+      _cycle = edit.repeat == RepeatCadence.none
+          ? RepeatCadence.monthly
+          : edit.repeat;
+      if (edit.dueAt != null) _nextDate = edit.dueAt!;
+      if (edit.subCategory != null && edit.subCategory!.trim().isNotEmpty) {
+        _subCategory = edit.subCategory!.trim();
+        _categoryTouched = true;
+        if (![...kSipCategories]
+            .any((c) => c.name.toLowerCase() == _subCategory.toLowerCase())) {
+          _customCategories.add(_subCategory);
+        }
+      }
+    } else if (widget.initialName != null &&
+        widget.initialName!.trim().isNotEmpty) {
       _name.text = widget.initialName!.trim();
+      _autoCategorise();
     }
-    _name.addListener(() => setState(() {}));
+    _name.addListener(() {
+      _autoCategorise();
+      setState(() {});
+    });
     _amount.addListener(() => setState(() {}));
+  }
+
+  void _autoCategorise() {
+    if (_categoryTouched) return;
+    final guess = sipCategoryFor(_name.text.trim());
+    if (guess != _subCategory) _subCategory = guess;
   }
 
   @override
   void dispose() {
     _name.dispose();
     _amount.dispose();
+    _nameFocus.dispose();
+    _amountFocus.dispose();
     super.dispose();
   }
 
   Future<void> _pickPlatform() async {
-    final Brand? brand = await showBrandPicker(context);
+    // The general brand picker (banks/brokers live there), not subs-only.
+    final brand = await showBrandPicker(context);
     if (brand != null) {
       setState(() {
-        _platformName = brand.name;
-        _platformDomain = brand.domain;
+        _iconName = brand.name;
+        _iconDomain = brand.domain;
+      });
+    }
+  }
+
+  Future<void> _pickCurrency() async {
+    final picked = await showCurrencyPicker(context, _currency);
+    if (picked != null) setState(() => _currency = picked);
+  }
+
+  Future<void> _pickCategory() async {
+    final picked = await showCategoryPicker(
+      context,
+      categories: kSipCategories,
+      selected: _subCategory,
+      custom: _customCategories.toList(),
+    );
+    if (picked != null && picked.trim().isNotEmpty) {
+      setState(() {
+        _subCategory = picked.trim();
+        _categoryTouched = true;
+        final isBuiltIn = kSipCategories
+            .any((c) => c.name.toLowerCase() == picked.trim().toLowerCase());
+        if (!isBuiltIn) _customCategories.add(picked.trim());
       });
     }
   }
@@ -87,160 +157,125 @@ class _SipFormPageState extends State<SipFormPage> {
 
   void _save() {
     if (!_valid) return;
+    HapticFeedback.lightImpact();
     final amount =
         double.tryParse(_amount.text.replaceAll(RegExp(r'[^0-9.]'), ''));
-    // Title reads naturally, e.g. "Index fund SIP · Groww".
-    final base = _name.text.trim();
-    final title =
-        _platformName != null ? '$base · $_platformName' : base;
+    final edit = widget.editTask;
+    if (edit != null) {
+      Navigator.of(context).pop(
+        edit.copyWith(
+          title: _name.text.trim(),
+          dueAt: _nextDate,
+          repeat: _cycle,
+          iconName: _iconName,
+          iconDomain: _iconDomain,
+          amount: amount,
+          clearAmount: amount == null,
+          currency: _currency,
+          category: TaskCategory.investment,
+          subCategory: _subCategory,
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pop(
       Task(
         id: 'new',
-        title: title,
+        title: _name.text.trim(),
         dueAt: _nextDate,
         repeat: _cycle,
+        iconName: _iconName,
+        iconDomain: _iconDomain,
         amount: amount,
-        currency: 'INR',
-        // The platform doubles as the task's logo.
-        iconName: _platformName,
-        iconDomain: _platformDomain,
+        currency: _currency,
         storedCategory: TaskCategory.investment,
+        subCategory: _subCategory,
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AddScaffold(
-      title: widget.initialName ?? 'New SIP',
-      accent: _accent,
-      icon: Icons.savings_rounded,
-      canSave: _valid,
-      onSave: _save,
-      children: [
-        // What SIP is this.
-        const AddFieldLabel('WHAT ARE YOU INVESTING IN?'),
-        const SizedBox(height: 10),
-        AddTextField(
-          controller: _name,
-          hint: 'Index fund, Nifty 50, my ELSS…',
-          accent: _accent,
-          textCapitalization: TextCapitalization.words,
-        ),
-        const SizedBox(height: 22),
-
-        // SIP amount.
-        const AddFieldLabel('SIP AMOUNT'),
-        const SizedBox(height: 10),
-        AddTextField(
-          controller: _amount,
-          hint: '5000',
-          accent: _accent,
-          prefix: '₹',
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-          ],
-        ),
-        const SizedBox(height: 22),
-
-        // Platform (brand logo).
-        const AddFieldLabel('PLATFORM'),
-        const SizedBox(height: 10),
-        _PlatformField(
-          name: _platformName,
-          domain: _platformDomain,
-          accent: _accent,
-          onTap: _pickPlatform,
-        ),
-        const SizedBox(height: 22),
-
-        // How often.
-        const AddFieldLabel('EVERY'),
-        const SizedBox(height: 10),
-        RepeatCycleField(
-          value: _cycle,
-          accent: _accent,
-          onChanged: (c) {
-            HapticFeedback.selectionClick();
-            setState(() => _cycle = c);
-          },
-        ),
-        const SizedBox(height: 22),
-
-        // Next date.
-        const AddFieldLabel('NEXT SIP DATE'),
-        const SizedBox(height: 10),
-        AddDateField(
-          date: _nextDate,
-          accent: _accent,
-          onTap: _pickDate,
-        ),
-      ],
-    );
-  }
-}
-
-/// The platform row — shows the chosen brand logo + name, or a prompt to pick.
-class _PlatformField extends StatelessWidget {
-  const _PlatformField({
-    required this.name,
-    required this.domain,
-    required this.accent,
-    required this.onTap,
-  });
-
-  final String? name;
-  final String? domain;
-  final Color accent;
-  final VoidCallback onTap;
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  String _dateLabel(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 
   @override
   Widget build(BuildContext context) {
-    final has = name != null && name!.isNotEmpty;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 62,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: AppColors.bg,
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: AppColors.cardBorder),
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      resizeToAvoidBottomInset: true,
+      body: Starfield(
+        intensity: 0.5,
+        child: SafeArea(
+          child: Column(
+            children: [
+              OrbitFormHeader(
+                title: widget.editTask != null ? 'Edit SIP' : 'New SIP',
+                canSave: _valid,
+                onBack: () => Navigator.of(context).maybePop(),
+                onSave: _save,
               ),
-              child: has
-                  ? BrandLogo(
-                      brand: Brand(name: name!, domain: domain ?? ''),
-                      size: 26,
-                    )
-                  : Icon(Icons.account_balance_rounded,
-                      color: accent, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                has ? name! : 'Groww, Zerodha, Kuvera…',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: has ? AppColors.ink : AppColors.inkFaint,
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+                  children: [
+                    // Identity: platform logo · name · SIP amount + currency.
+                    OrbitIdentityCard(
+                      iconName: _iconName,
+                      iconDomain: _iconDomain,
+                      nameController: _name,
+                      nameFocus: _nameFocus,
+                      amountController: _amount,
+                      amountFocus: _amountFocus,
+                      onPickIcon: _pickPlatform,
+                      currency: _currency,
+                      onPickCurrency: _pickCurrency,
+                      nameHint: 'What are you investing in?',
+                      amountHint: '5000',
+                      emptyIcon: Icons.account_balance_rounded,
+                    ),
+                    const SizedBox(height: 22),
+
+                    // Details: category · next date · cycle.
+                    OrbitGroupCard(
+                      children: [
+                        OrbitCategoryRow(
+                          value: _subCategory,
+                          onTap: _pickCategory,
+                        ),
+                        const OrbitRowDivider(),
+                        OrbitNavRow(
+                          label: 'Next SIP date',
+                          value: _dateLabel(_nextDate),
+                          onTap: _pickDate,
+                        ),
+                        const OrbitRowDivider(),
+                        OrbitCycleRow(
+                          label: 'Every',
+                          value: _cycle,
+                          onChanged: (c) => setState(() => _cycle = c),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        'We’ll remind you before each instalment so you never miss a SIP.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.inkFaint,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            Icon(has ? Icons.edit_rounded : Icons.add_rounded,
-                size: 20, color: accent),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -23,17 +23,79 @@ const List<SubCategory> kSubCategories = [
   SubCategory('Other', Icons.category_rounded),
 ];
 
-/// Look up the icon for a category name (built-in or custom → a default).
+/// The 5 built-in SIP / investment categories, in display order.
+const List<SubCategory> kSipCategories = [
+  SubCategory('Stocks', Icons.trending_up_rounded),
+  SubCategory('Mutual Funds', Icons.pie_chart_rounded),
+  SubCategory('Bonds', Icons.account_balance_rounded),
+  SubCategory('Gold', Icons.diamond_rounded),
+  SubCategory('Goal', Icons.flag_rounded),
+];
+
+/// Look up the icon for a category name across ALL known category sets (subs +
+/// SIP), or a default for a custom one.
 IconData subCategoryIcon(String? name) {
   if (name == null) return Icons.category_rounded;
-  for (final c in kSubCategories) {
-    if (c.name.toLowerCase() == name.toLowerCase()) return c.icon;
+  final lower = name.toLowerCase();
+  for (final c in [...kSubCategories, ...kSipCategories]) {
+    if (c.name.toLowerCase() == lower) return c.icon;
   }
   return Icons.bookmark_rounded; // a custom category
 }
 
 /// The default category name.
 const String kOtherSubCategory = 'Other';
+
+/// The default SIP category.
+const String kOtherSipCategory = 'Mutual Funds';
+
+/// Auto-categorise a SIP/investment from its name (case-insensitive contains).
+/// Returns one of [kSipCategories] names, else 'Mutual Funds' (the commonest
+/// SIP type) as a sensible default.
+String sipCategoryFor(String name) {
+  final n = name.toLowerCase();
+  for (final entry in _sipRules) {
+    for (final key in entry.$2) {
+      if (n.contains(key)) return entry.$1;
+    }
+  }
+  return kOtherSipCategory;
+}
+
+const List<(String, List<String>)> _sipRules = [
+  (
+    'Goal',
+    [
+      'goal', 'retirement', 'house', 'home', 'car', 'wedding', 'marriage',
+      'education', 'child', 'vacation', 'travel', 'emergency', 'dream',
+    ]
+  ),
+  (
+    'Gold',
+    ['gold', 'sgb', 'silver', 'sovereign', 'digital gold', 'commodity'],
+  ),
+  (
+    'Bonds',
+    [
+      'bond', 'debt', 'fd', 'fixed deposit', 'rd', 'ppf', 'g-sec', 'gsec',
+      'treasury', 'nsc', 'debenture',
+    ]
+  ),
+  (
+    'Stocks',
+    [
+      'stock', 'equity', 'share', 'nifty', 'sensex', 'index', 'etf', 'nasdaq',
+      'blue chip', 'bluechip', 'small cap', 'mid cap', 'large cap', 'us stock',
+    ]
+  ),
+  (
+    'Mutual Funds',
+    [
+      'mutual fund', 'mutualfund', 'mf', 'elss', 'sip', 'fund', 'flexi',
+      'hybrid', 'liquid fund', 'balanced',
+    ]
+  ),
+];
 
 /// Auto-categorise a subscription from its name (case-insensitive contains).
 /// Returns one of [kSubCategories] names, or 'Other' if unknown. Covers the

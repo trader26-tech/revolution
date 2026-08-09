@@ -369,7 +369,8 @@ class _IdentityCard extends StatelessWidget {
               child: hasIcon
                   ? BrandLogo(
                       brand: Brand(name: iconName!, domain: iconDomain ?? ''),
-                      size: 40,
+                      size: 62,
+                      bare: true, // no white tile — fills the round badge
                       circular: true,
                     )
                   : const Icon(Icons.add_rounded,

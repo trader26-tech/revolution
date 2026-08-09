@@ -108,7 +108,9 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
                   : Column(
                       children: [
                         _sectionLabel('Results'),
-                        Expanded(child: _resultsList(_results)),
+                        Expanded(
+                            child: _resultsList(_results,
+                                circular: widget.subscriptionsOnly)),
                       ],
                     ),
             ),
@@ -158,6 +160,7 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
       itemCount: subs.length,
       itemBuilder: (_, i) => _BrandCell(
         brand: subs[i],
+        circular: true, // clean circular badge, no white square
         onTap: () => Navigator.pop(context, subs[i]),
       ),
     );
@@ -218,7 +221,7 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
 
   /// The search results as a clean vertical list — one row per app, a single
   /// logo each (multi-source fallback under the hood), no duplicates.
-  Widget _resultsList(List<Brand> brands) {
+  Widget _resultsList(List<Brand> brands, {bool circular = false}) {
     if (brands.isEmpty) {
       return const Center(
         child: Text('Type any app or company name',
@@ -231,7 +234,10 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
         final b = brands[i];
-        return _BrandRow(brand: b, onTap: () => Navigator.pop(context, b));
+        return _BrandRow(
+            brand: b,
+            circular: circular,
+            onTap: () => Navigator.pop(context, b));
       },
     );
   }
@@ -239,10 +245,15 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
 
 /// One app in the search results: logo on the left, name, tap to add.
 class _BrandRow extends StatelessWidget {
-  const _BrandRow({required this.brand, required this.onTap});
+  const _BrandRow({
+    required this.brand,
+    required this.onTap,
+    this.circular = false,
+  });
 
   final Brand brand;
   final VoidCallback onTap;
+  final bool circular;
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +271,12 @@ class _BrandRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              BrandLogo(brand: brand, size: 44, radius: 12),
+              BrandLogo(
+                  brand: brand,
+                  size: 44,
+                  radius: 12,
+                  bare: circular,
+                  circular: circular),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
@@ -331,10 +347,18 @@ class _SearchField extends StatelessWidget {
 }
 
 class _BrandCell extends StatelessWidget {
-  const _BrandCell({required this.brand, required this.onTap});
+  const _BrandCell({
+    required this.brand,
+    required this.onTap,
+    this.circular = false,
+  });
 
   final Brand brand;
   final VoidCallback onTap;
+
+  /// Draw the logo as a clean circular badge (no white square) — used on the
+  /// subscriptions shelf so tiles read as part of the orbit theme.
+  final bool circular;
 
   @override
   Widget build(BuildContext context) {
@@ -344,7 +368,13 @@ class _BrandCell extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          BrandLogo(brand: brand, size: 52, radius: 14),
+          BrandLogo(
+            brand: brand,
+            size: 52,
+            radius: 14,
+            bare: circular,
+            circular: circular,
+          ),
           const SizedBox(height: 6),
           Flexible(
             child: Text(

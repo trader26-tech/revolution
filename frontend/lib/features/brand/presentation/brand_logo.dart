@@ -44,6 +44,7 @@ class BrandLogo extends StatelessWidget {
       size: size,
       radius: radius,
       seed: brand.name,
+      circular: circular,
     );
 
     // A bundled logo wins over everything: it's already on device, so it
@@ -162,24 +163,27 @@ class _LetterAvatar extends StatelessWidget {
     required this.size,
     required this.radius,
     required this.seed,
+    this.circular = false,
   });
 
   final String letter;
   final double size;
   final double radius;
   final String seed;
+  final bool circular;
 
   @override
   Widget build(BuildContext context) {
-    // Neutral tile for logo-less tasks — matches the real brand logos (white
-    // surface, subtle border) so the whole list looks consistent. The letter is
-    // a calm ash grey, not blue.
+    // Neutral tile for logo-less brands — a dark Orbit card surface (NOT white)
+    // with a subtle border, so it reads as part of the theme. The letter is a
+    // calm ash grey.
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.card, // white
-        borderRadius: BorderRadius.circular(radius),
+        color: AppColors.card,
+        shape: circular ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: circular ? null : BorderRadius.circular(radius),
         border: Border.all(color: AppColors.cardBorder),
       ),
       alignment: Alignment.center,

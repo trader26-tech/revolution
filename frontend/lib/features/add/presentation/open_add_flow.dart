@@ -147,10 +147,14 @@ Future<void> persistAddResult(TaskStore store, AddResult? result) async {
     iconDomain: task.iconDomain,
     dueAt: task.dueAt,
     repeat: task.repeat,
+    repeatTimes: task.repeatTimes,
+    repeatDays: task.repeatDays,
     amount: task.amount,
     currency: task.currency,
     category: task.storedCategory?.name,
     imagePath: task.imagePath,
     subCategory: task.subCategory,
+    birthYear: task.birthYear,
+    remindDaysBefore: task.remindDaysBefore,
   );
 }

@@ -140,6 +140,8 @@ class Task {
     this.imagePath,
     this.storedCategory,
     this.subCategory,
+    this.birthYear,
+    this.remindDaysBefore = 0,
   });
 
   final String id;
@@ -191,6 +193,13 @@ class Task {
   /// custom label the user typed). Null = uncategorised → "Other".
   String? subCategory;
 
+  /// For a birthday/anniversary: the person's birth year, when known. Null =
+  /// year unknown (we only track the day/month). Drives the "turns N" age.
+  int? birthYear;
+
+  /// How many days before the due date to remind (0 = on the day).
+  int remindDaysBefore;
+
   bool get isScheduled => dueAt != null;
   bool get hasIcon => (iconName != null && iconName!.isNotEmpty);
   bool get hasAmount => amount != null;
@@ -221,6 +230,9 @@ class Task {
     bool clearImage = false,
     TaskCategory? category,
     String? subCategory,
+    int? birthYear,
+    bool clearBirthYear = false,
+    int? remindDaysBefore,
   }) {
     return Task(
       id: id,
@@ -239,6 +251,8 @@ class Task {
       imagePath: clearImage ? null : (imagePath ?? this.imagePath),
       storedCategory: category ?? storedCategory,
       subCategory: subCategory ?? this.subCategory,
+      birthYear: clearBirthYear ? null : (birthYear ?? this.birthYear),
+      remindDaysBefore: remindDaysBefore ?? this.remindDaysBefore,
     );
   }
 
@@ -263,6 +277,8 @@ class Task {
         'image_path': imagePath,
         if (storedCategory != null) 'category': storedCategory!.name,
         if (subCategory != null) 'sub_category': subCategory,
+        if (birthYear != null) 'birth_year': birthYear,
+        'remind_days_before': remindDaysBefore,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -294,5 +310,7 @@ class Task {
                 orElse: () => TaskCategory.other,
               ),
         subCategory: j['sub_category'] as String?,
+        birthYear: (j['birth_year'] as num?)?.toInt(),
+        remindDaysBefore: (j['remind_days_before'] as num?)?.toInt() ?? 0,
       );
 }

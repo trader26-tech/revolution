@@ -167,6 +167,8 @@ class TaskStore extends ChangeNotifier {
     String? source,
     String? imagePath,
     String? subCategory,
+    int? birthYear,
+    int remindDaysBefore = 0,
   }) async {
     final body = {
       'title': title.trim(),
@@ -201,6 +203,10 @@ class TaskStore extends ChangeNotifier {
     if (created.repeatDays.isEmpty && repeatDays.isNotEmpty) {
       created.repeatDays = repeatDays;
     }
+    created.birthYear ??= birthYear;
+    if (created.remindDaysBefore == 0 && remindDaysBefore != 0) {
+      created.remindDaysBefore = remindDaysBefore;
+    }
     _tasks.insert(0, created);
     notifyListeners();
     unawaited(_writeCache(_tasks));
@@ -217,11 +223,15 @@ class TaskStore extends ChangeNotifier {
     // round-trip — carry them over from what the caller intended to save.
     saved.subCategory ??= updated.subCategory;
     saved.imagePath ??= updated.imagePath;
+    saved.birthYear ??= updated.birthYear;
     if (saved.repeatTimes == 1 && updated.repeatTimes != 1) {
       saved.repeatTimes = updated.repeatTimes;
     }
     if (saved.repeatDays.isEmpty && updated.repeatDays.isNotEmpty) {
       saved.repeatDays = updated.repeatDays;
+    }
+    if (saved.remindDaysBefore == 0 && updated.remindDaysBefore != 0) {
+      saved.remindDaysBefore = updated.remindDaysBefore;
     }
     final i = _tasks.indexWhere((t) => t.id == saved.id);
     if (i != -1) _tasks[i] = saved;

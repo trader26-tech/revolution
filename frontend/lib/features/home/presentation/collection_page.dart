@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../../add/domain/subscription_categories.dart';
 import '../../add/presentation/open_add_flow.dart';
+import '../../add/presentation/birthday_form_page.dart';
 import '../../add/presentation/sip_form_page.dart';
 import '../../add/presentation/subscription_form_page.dart';
 import '../../brand/domain/brand.dart';
@@ -84,11 +85,12 @@ class _CollectionPageState extends State<CollectionPage> {
   IconData get _icon => category?.icon ?? Icons.blur_on_rounded;
   Color get _accent => AppColors.accent;
 
-  /// Subscriptions and SIPs group by their sub-category (with a filter); other
-  /// collections keep the time-window grouping.
+  /// Subscriptions, SIPs and Birthdays group by their sub-category (with a
+  /// filter); other collections keep the time-window grouping.
   bool get _groupByCategory =>
       category == TaskCategory.subscription ||
-      category == TaskCategory.investment;
+      category == TaskCategory.investment ||
+      category == TaskCategory.birthday;
 
   List<Task> _items() {
     var list = category == null
@@ -107,14 +109,19 @@ class _CollectionPageState extends State<CollectionPage> {
     return list;
   }
 
-  /// The built-in category set for the current collection (subs vs SIP).
-  List<SubCategory> get _catSet =>
-      category == TaskCategory.investment ? kSipCategories : kSubCategories;
+  /// The built-in category set for the current collection.
+  List<SubCategory> get _catSet => switch (category) {
+        TaskCategory.investment => kSipCategories,
+        TaskCategory.birthday => kRelationships,
+        _ => kSubCategories,
+      };
 
   String _subOf(Task t) {
-    final def = category == TaskCategory.investment
-        ? kOtherSipCategory
-        : kOtherSubCategory;
+    final def = switch (category) {
+      TaskCategory.investment => kOtherSipCategory,
+      TaskCategory.birthday => kDefaultRelationship,
+      _ => kOtherSubCategory,
+    };
     return (t.subCategory == null || t.subCategory!.trim().isEmpty)
         ? def
         : t.subCategory!.trim();
@@ -272,6 +279,14 @@ class _CollectionPageState extends State<CollectionPage> {
       final updated = await Navigator.of(context).push<Task>(MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => SipFormPage(editTask: task),
+      ));
+      if (updated != null) store.update(updated);
+      return;
+    }
+    if (task.category == TaskCategory.birthday) {
+      final updated = await Navigator.of(context).push<Task>(MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => BirthdayFormPage(editTask: task),
       ));
       if (updated != null) store.update(updated);
       return;

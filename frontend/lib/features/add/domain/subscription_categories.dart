@@ -32,12 +32,24 @@ const List<SubCategory> kSipCategories = [
   SubCategory('Goal', Icons.flag_rounded),
 ];
 
-/// Look up the icon for a category name across ALL known category sets (subs +
-/// SIP), or a default for a custom one.
+/// The built-in relationships for important dates / birthdays, in display order.
+const List<SubCategory> kRelationships = [
+  SubCategory('Family', Icons.family_restroom_rounded),
+  SubCategory('Friend', Icons.people_rounded),
+  SubCategory('Partner', Icons.favorite_rounded),
+  SubCategory('Colleague', Icons.work_rounded),
+  SubCategory('Other', Icons.person_rounded),
+];
+
+/// The default relationship.
+const String kDefaultRelationship = 'Friend';
+
+/// Look up the icon for a category name across ALL known category sets, or a
+/// default for a custom one.
 IconData subCategoryIcon(String? name) {
   if (name == null) return Icons.category_rounded;
   final lower = name.toLowerCase();
-  for (final c in [...kSubCategories, ...kSipCategories]) {
+  for (final c in [...kSubCategories, ...kSipCategories, ...kRelationships]) {
     if (c.name.toLowerCase() == lower) return c.icon;
   }
   return Icons.bookmark_rounded; // a custom category

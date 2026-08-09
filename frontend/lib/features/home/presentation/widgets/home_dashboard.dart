@@ -578,7 +578,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 184,
+            height: 190,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -881,7 +881,12 @@ String _subscriptionPunch(Task t) {
   return 'Keep it funded so it never blinks out on you.';
 }
 
-// ── Subscription card — logo hero + "what it keeps alive" highlight ───────────
+// The card ideology (from the birthday card you liked): a big MAIN VALUE sits
+// centred and fully visible; a themed particle field animates BEHIND it, never
+// on top. Every category follows this — only the particle style + the value +
+// the copy change.
+
+// ── Subscription card — logo centred, soft "renew" pulse behind ──────────────
 class _SubscriptionCard extends StatelessWidget {
   const _SubscriptionCard({required this.task});
   final Task task;
@@ -896,9 +901,8 @@ class _SubscriptionCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
-      hero: _SubHero(
-        child: _Logo(task: task, size: 52, radius: 14),
-      ),
+      particles: _Particles.pulse,
+      value: _Logo(task: task, size: 54, radius: 15),
       title: task.title,
       subtitle: priceLine,
       highlight: _subscriptionPunch(task),
@@ -907,7 +911,7 @@ class _SubscriptionCard extends StatelessWidget {
   }
 }
 
-// ── SIP card — the amount is the hero, "keep it ready" is the highlight ───────
+// ── SIP card — the amount centred, coins showering behind ────────────────────
 class _SipCard extends StatelessWidget {
   const _SipCard({required this.task});
   final Task task;
@@ -921,25 +925,20 @@ class _SipCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
-      hero: _SipHero(
-        amount: has
-            ? FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _amountStr(task),
-                  maxLines: 1,
-                  style: const TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -1,
-                    color: AppColors.ink,
-                  ),
-                ),
-              )
-            : const Icon(Icons.trending_up_rounded,
-                size: 46, color: AppColors.accent),
-      ),
+      particles: _Particles.coins,
+      value: has
+          ? Text(
+              _amountStr(task),
+              maxLines: 1,
+              style: const TextStyle(
+                fontSize: 34,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1,
+                color: AppColors.ink,
+              ),
+            )
+          : const Icon(Icons.trending_up_rounded,
+              size: 46, color: AppColors.accent),
       title: task.title,
       subtitle: has ? 'SIP · every instalment' : 'SIP instalment',
       highlight: has
@@ -950,7 +949,7 @@ class _SipCard extends StatelessWidget {
   }
 }
 
-// ── Occasion card — the big age burst (the reference), warm highlight ─────────
+// ── Occasion card — the big age (the reference), confetti behind ─────────────
 class _OccasionCard extends StatelessWidget {
   const _OccasionCard({required this.task});
   final Task task;
@@ -965,21 +964,17 @@ class _OccasionCard extends StatelessWidget {
     final whenText =
         days <= 0 ? 'today' : (days == 1 ? 'tomorrow' : 'in $days days');
 
-    // Hero: the big age "41" with drifting confetti when we know it; otherwise
-    // the person's face amid the same gentle confetti.
-    final Widget hero = age != null
-        ? _OccasionHeroFx(
-            child: Text(
-              '$age',
-              style: const TextStyle(
-                fontSize: 46,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1,
-                color: AppColors.ink,
-              ),
+    final Widget value = age != null
+        ? Text(
+            '$age',
+            style: const TextStyle(
+              fontSize: 46,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -1,
+              color: AppColors.ink,
             ),
           )
-        : _OccasionHeroFx(child: _RoundFace(task: task, size: 56));
+        : _RoundFace(task: task, size: 56);
 
     final String highlight = age != null
         ? (isBday
@@ -990,7 +985,8 @@ class _OccasionCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
-      hero: hero,
+      particles: _Particles.confetti,
+      value: value,
       title: task.title,
       subtitle: type,
       highlight: highlight,
@@ -1000,14 +996,19 @@ class _OccasionCard extends StatelessWidget {
   }
 }
 
-/// The shared HERO card layout — a big animated hero on top, then title +
-/// subtitle, then the description as the highlighted line. One structure across
-/// every category (consistent); the hero + copy each card passes in (unique).
+/// The themed particle style painted BEHIND a card's value.
+enum _Particles { confetti, coins, pulse, drift }
+
+/// The one shared card layout, following the birthday ideology: the [value]
+/// sits large and CENTRED and fully visible; a themed particle field animates
+/// behind it (never over it); the countdown chip floats top-right; then title,
+/// subtitle and the highlighted description fill the width below.
 class _HeroCard extends StatelessWidget {
   const _HeroCard({
     required this.days,
     required this.due,
-    required this.hero,
+    required this.particles,
+    required this.value,
     required this.title,
     required this.subtitle,
     required this.highlight,
@@ -1015,7 +1016,8 @@ class _HeroCard extends StatelessWidget {
   });
   final int days;
   final DateTime due;
-  final Widget hero;
+  final _Particles particles;
+  final Widget value;
   final String title;
   final String subtitle;
   final String highlight;
@@ -1030,14 +1032,15 @@ class _HeroCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // The hero band: the animated hero sits LEFT, the countdown chip
-          // floats TOP-RIGHT. The hero is width-capped (see each _*Hero) so it
-          // never reaches the chip — no overlap either way.
+          // Hero band — value centred over a themed particle field, chip
+          // floating top-right. The field is painted behind, so it never
+          // obstructs the value.
           SizedBox(
-            height: 66,
+            height: 72,
             child: Stack(
               children: [
-                Align(alignment: Alignment.centerLeft, child: hero),
+                Positioned.fill(child: _ParticleStage(style: particles)),
+                Center(child: value),
                 Positioned(
                   top: 0,
                   right: 0,
@@ -1064,7 +1067,6 @@ class _HeroCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   color: AppColors.inkSoft)),
           const SizedBox(height: 8),
-          // The DESCRIPTION — the highlight. Two full lines, nothing cut off.
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1094,29 +1096,19 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-/// The hero stage — a fixed 120×72 band that runs one slow loop and paints a
-/// category-specific animation BEHIND the child. Each category passes its own
-/// [painter] builder, so every card animates differently. Cheap by design: one
-/// controller, a RepaintBoundary, painter-only, 3.4s period.
-class _HeroStage extends StatefulWidget {
-  const _HeroStage({
-    required this.child,
-    required this.painter,
-    this.width = 120,
-    this.alignment = Alignment.center,
-  });
-  final Widget child;
-  final CustomPainter Function(double t) painter;
-  final double width;
-  final Alignment alignment;
+/// Runs one slow loop and paints a themed particle field across the whole hero
+/// band, behind the value. Cheap: one controller, RepaintBoundary, painter-only.
+class _ParticleStage extends StatefulWidget {
+  const _ParticleStage({required this.style});
+  final _Particles style;
   @override
-  State<_HeroStage> createState() => _HeroStageState();
+  State<_ParticleStage> createState() => _ParticleStageState();
 }
 
-class _HeroStageState extends State<_HeroStage>
+class _ParticleStageState extends State<_ParticleStage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 3400))
+      vsync: this, duration: const Duration(milliseconds: 3600))
     ..repeat();
 
   @override
@@ -1128,231 +1120,117 @@ class _HeroStageState extends State<_HeroStage>
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: SizedBox(
-        width: widget.width,
-        height: 60,
-        child: AnimatedBuilder(
-          animation: _c,
-          builder: (context, child) => CustomPaint(
-            painter: widget.painter(_c.value),
-            child: Align(alignment: widget.alignment, child: child),
-          ),
-          child: widget.child,
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) => CustomPaint(
+          painter: _ParticleFieldPainter(_c.value, widget.style),
+          size: Size.infinite,
         ),
       ),
     );
   }
 }
 
-// Category-specific heroes — distinct motion, each kept clear of the chip/text.
-
-/// Subscription → the logo is the hero, with clear "active-service" pulse rings
-/// radiating out from it (like a live signal — the service is running/renewing).
-/// Visible but tasteful. The stage is wide enough that the rings never reach the
-/// countdown chip.
-class _SubHero extends StatelessWidget {
-  const _SubHero({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => _HeroStage(
-        width: 108,
-        alignment: Alignment.centerLeft,
-        painter: (t) => _PulseRingsPainter(t),
-        child: child,
-      );
-}
-
-/// Two rings that expand + fade outward from the left mark, on staggered
-/// phases — a steady "it's live" pulse.
-class _PulseRingsPainter extends CustomPainter {
-  _PulseRingsPainter(this.t);
+/// Paints the four themed fields. All keep clear of the very centre (where the
+/// value sits) and of the top-right (where the chip sits), so nothing is
+/// obscured — the motion frames the value rather than covering it.
+class _ParticleFieldPainter extends CustomPainter {
+  _ParticleFieldPainter(this.t, this.style);
   final double t;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = Offset(size.height / 2, size.height / 2); // centre of the mark
-    for (var i = 0; i < 2; i++) {
-      final phase = (t + i * 0.5) % 1.0;
-      final r = 28.0 + phase * 20.0; // from just outside the logo, outward
-      final op = (1 - phase) * 0.5; // bright when small, fades as it grows
-      canvas.drawCircle(
-        c,
-        r,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.2
-          ..color = AppColors.accent.withValues(alpha: op),
-      );
-    }
-  }
+  final _Particles style;
 
-  @override
-  bool shouldRepaint(covariant _PulseRingsPainter old) => old.t != t;
-}
+  static const _violet = AppColors.accent;
+  static const _lilac = Color(0xFFB9A8FF);
 
-/// SIP → the amount is the hero, left-aligned and unobstructed; a small set of
-/// rising "growth" bars sits to its RIGHT (never over the number), climbing in
-/// sequence — wealth compounding. Width-capped so it stays clear of the chip.
-class _SipHero extends StatelessWidget {
-  const _SipHero({required this.amount});
-  final Widget amount;
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 160,
-      height: 60,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // The amount, clear and prominent — takes the space it needs.
-          Expanded(child: Align(alignment: Alignment.centerLeft, child: amount)),
-          const SizedBox(width: 10),
-          // Growth bars, off to the side.
-          const _GrowthBars(),
-        ],
-      ),
-    );
-  }
-}
-
-class _GrowthBars extends StatefulWidget {
-  const _GrowthBars();
-  @override
-  State<_GrowthBars> createState() => _GrowthBarsState();
-}
-
-class _GrowthBarsState extends State<_GrowthBars>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2600))
-    ..repeat();
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: SizedBox(
-        width: 34,
-        height: 36,
-        child: AnimatedBuilder(
-          animation: _c,
-          builder: (context, _) =>
-              CustomPaint(painter: _BarsPainter(_c.value)),
-        ),
-      ),
-    );
-  }
-}
-
-class _BarsPainter extends CustomPainter {
-  _BarsPainter(this.t);
-  final double t;
-  static const _heights = [0.45, 0.72, 1.0]; // ascending — growth
-  @override
-  void paint(Canvas canvas, Size size) {
-    const n = 3;
-    const gap = 4.0;
-    final bw = (size.width - gap * (n - 1)) / n;
-    for (var i = 0; i < n; i++) {
-      // Each bar grows into its height on a staggered phase, then holds.
-      final phase = (t * 2 - i * 0.25).clamp(0.0, 1.0);
-      final grow = Curves.easeOut.transform(phase);
-      final h = size.height * _heights[i] * (0.5 + 0.5 * grow);
-      final x = i * (bw + gap);
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, size.height - h, bw, h),
-        const Radius.circular(2),
-      );
-      canvas.drawRRect(
-        rect,
-        Paint()
-          ..color = (i == n - 1 ? AppColors.accent : const Color(0xFFB9A8FF))
-              .withValues(alpha: 0.55 + 0.35 * grow),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BarsPainter old) => old.t != t;
-}
-
-/// Occasion → a birthday feel: a soft candle glow above the hero plus a few
-/// confetti dots drifting down. Gentle, not flashy.
-class _OccasionHeroFx extends StatelessWidget {
-  const _OccasionHeroFx({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) =>
-      _HeroStage(painter: (t) => _ConfettiPainter(t), child: child);
-}
-
-class _ConfettiPainter extends CustomPainter {
-  _ConfettiPainter(this.t);
-  final double t;
-  // Fixed confetti seeds (x fraction, colour pick, phase offset).
+  // Deterministic seeds so the field is stable frame-to-frame (x fraction,
+  // colour pick 0/1, phase offset). No Random (breaks resume/perf).
   static const _seeds = [
-    [0.16, 0.0, 0.0],
-    [0.34, 1.0, 0.45],
-    [0.62, 0.0, 0.2],
-    [0.80, 1.0, 0.7],
-    [0.48, 1.0, 0.9],
+    [0.10, 0.0, 0.00],
+    [0.24, 1.0, 0.55],
+    [0.40, 0.0, 0.22],
+    [0.60, 1.0, 0.78],
+    [0.76, 0.0, 0.40],
+    [0.90, 1.0, 0.15],
   ];
+
+  bool _nearChip(double x, double y, Size s) =>
+      x > s.width - 92 && y < 30; // the top-right chip zone
+
   @override
   void paint(Canvas canvas, Size size) {
+    switch (style) {
+      case _Particles.confetti:
+        _falling(canvas, size, dot: true);
+      case _Particles.coins:
+        _falling(canvas, size, dot: false); // little coin ovals
+      case _Particles.drift:
+        _driftUp(canvas, size);
+      case _Particles.pulse:
+        _pulse(canvas, size);
+    }
+  }
+
+  // Confetti / coins: seeds fall top→bottom, fading in then out.
+  void _falling(Canvas canvas, Size size, {required bool dot}) {
     for (final s in _seeds) {
       final x = s[0] * size.width;
       final phase = (t + s[2]) % 1.0;
       final y = phase * size.height;
-      final op = (math.sin(phase * math.pi)) * 0.7; // fade in then out
-      final color =
-          s[1] == 0.0 ? AppColors.accent : const Color(0xFFB9A8FF);
-      canvas.drawCircle(
-        Offset(x, y),
-        2.2,
-        Paint()..color = color.withValues(alpha: op.clamp(0.0, 1.0)),
-      );
+      if (_nearChip(x, y, size)) continue;
+      final op = math.sin(phase * math.pi) * 0.6;
+      if (op <= 0) continue;
+      final color = (s[1] == 0.0 ? _violet : _lilac).withValues(alpha: op);
+      if (dot) {
+        canvas.drawCircle(Offset(x, y), 2.4, Paint()..color = color);
+      } else {
+        // a small coin: filled oval + rim
+        final r = Rect.fromCenter(center: Offset(x, y), width: 9, height: 6);
+        canvas.drawOval(r, Paint()..color = color.withValues(alpha: op * 0.6));
+        canvas.drawOval(
+            r,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.3
+              ..color = color);
+      }
     }
   }
 
-  @override
-  bool shouldRepaint(covariant _ConfettiPainter old) => old.t != t;
-}
+  // Drift: gentle dots floating upward — calm, for generic cards.
+  void _driftUp(Canvas canvas, Size size) {
+    for (final s in _seeds) {
+      final x = s[0] * size.width;
+      final phase = (t + s[2]) % 1.0;
+      final y = size.height - phase * size.height;
+      if (_nearChip(x, y, size)) continue;
+      final op = math.sin(phase * math.pi) * 0.45;
+      if (op <= 0) continue;
+      canvas.drawCircle(Offset(x, y), 2.0,
+          Paint()..color = (s[1] == 0.0 ? _violet : _lilac).withValues(alpha: op));
+    }
+  }
 
-/// Generic (bills / insurance / other) → a calm single ripple expanding out.
-class _CalmHero extends StatelessWidget {
-  const _CalmHero({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) =>
-      _HeroStage(painter: (t) => _RipplePainter(t), child: child);
-}
-
-class _RipplePainter extends CustomPainter {
-  _RipplePainter(this.t);
-  final double t;
-  @override
-  void paint(Canvas canvas, Size size) {
+  // Pulse: soft rings breathing out from behind the centre value — "it's live".
+  void _pulse(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
     for (var i = 0; i < 2; i++) {
       final phase = (t + i * 0.5) % 1.0;
-      final r = 26 + phase * 22;
-      final op = (1 - phase) * 0.35;
+      final r = 34 + phase * 26;
+      final op = (1 - phase) * 0.4;
       canvas.drawCircle(
         c,
         r,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.8
-          ..color = AppColors.accent.withValues(alpha: op),
+          ..strokeWidth = 2
+          ..color = _violet.withValues(alpha: op),
       );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _RipplePainter old) => old.t != t;
+  bool shouldRepaint(covariant _ParticleFieldPainter old) =>
+      old.t != t || old.style != style;
 }
 
 // ── Generic card — insurance / bills / other ─────────────────────────────────
@@ -1388,7 +1266,8 @@ class _GenericCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
-      hero: _CalmHero(child: _Logo(task: task, size: 54, radius: 15)),
+      particles: _Particles.drift,
+      value: _Logo(task: task, size: 54, radius: 15),
       title: task.title,
       subtitle: subtitle,
       highlight: highlight,

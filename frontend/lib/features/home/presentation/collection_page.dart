@@ -447,10 +447,16 @@ class _GroupedList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[
-      // Occasions get a people/countdown hero (no money); everything else the
-      // spend hero.
+      // Occasions get a count hero (no money) that toggles All → each type;
+      // everything else gets the spend hero.
       if (isOccasions)
-        _OccasionHero(stats: hero, icon: icon, title: title, onTap: onTap)
+        _OccasionHero(
+          title: title,
+          icon: icon,
+          total: hero.total,
+          // Per-type counts come straight from the grouped sections.
+          byType: [for (final s in sections) (s.label, s.items.length)],
+        )
       else
         _CategoryHero(stats: hero, icon: icon, title: title, subtitle: subtitle),
     ];
@@ -750,40 +756,50 @@ class _CategoryHeroState extends State<_CategoryHero> {
   }
 }
 
-/// The Occasions hero — a warm, people-focused overview (no money): the big
-/// "Occasions" title, and the NEXT occasion highlighted with its photo/avatar,
-/// who + type, and a live countdown. A three-up sub-stat row finishes it.
-class _OccasionHero extends StatelessWidget {
+
+/// The Occasions hero — one big COUNT that toggles through the types. Tap the
+/// number to cycle: "3 occasions" → "2 birthdays" → "1 wedding" → …, so you see
+/// how many of each you have. Same shape as the other heroes (title + orbit
+/// badge), just a count instead of a spend figure.
+class _OccasionHero extends StatefulWidget {
   const _OccasionHero({
-    required this.stats,
-    required this.icon,
     required this.title,
-    required this.onTap,
+    required this.icon,
+    required this.total,
+    required this.byType,
   });
 
-  final _HeroStats stats;
-  final IconData icon;
   final String title;
-  final void Function(Task) onTap;
+  final IconData icon;
+  final int total;
+  final List<(String, int)> byType; // (type label, count)
 
-  static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
+  @override
+  State<_OccasionHero> createState() => _OccasionHeroState();
+}
 
-  int _daysTo(DateTime d) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return DateTime(d.year, d.month, d.day).difference(today).inDays;
+class _OccasionHeroState extends State<_OccasionHero> {
+  // 0 = "All"; 1..N = each type. Tapping the figure advances the view.
+  int _view = 0;
+
+  /// The views to cycle: All first, then every type present. Each is
+  /// (count, noun) e.g. (3, "occasions"), (2, "birthdays"), (1, "wedding").
+  List<(int, String)> get _views {
+    final total = widget.total;
+    final all = (total, total == 1 ? 'occasion' : 'occasions');
+    final types = [
+      for (final (label, count) in widget.byType)
+        (count, count == 1 ? label.toLowerCase() : '${label.toLowerCase()}s'),
+    ];
+    return [all, ...types];
   }
 
   @override
   Widget build(BuildContext context) {
-    final next = stats.nextTask;
-    final nextDate = stats.nextDate;
-    final days = nextDate == null ? null : _daysTo(nextDate);
-    // Count occasions in the coming month.
-    final thisMonth = stats.dueThisWeek; // reused: within the next 7 days
+    final views = _views;
+    final i = _view % views.length;
+    final (count, noun) = views[i];
+    final canToggle = views.length > 1;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -792,7 +808,7 @@ class _OccasionHero extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF2A1A3E), Color(0xFF1A1330)],
+          colors: [Color(0xFF241A44), Color(0xFF1A1330)],
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
@@ -811,200 +827,74 @@ class _OccasionHero extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        height: 1.05,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.6,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      stats.total == 1 ? '1 saved' : '${stats.total} saved',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.3,
-                        color: AppColors.accent.withValues(alpha: 0.95),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    height: 1.05,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.6,
+                    color: AppColors.ink,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
-              _OrbitBadge(icon: icon),
+              _OrbitBadge(icon: widget.icon),
             ],
           ),
           const SizedBox(height: 16),
 
-          // The next occasion — the emotional centrepiece.
-          if (next != null && days != null)
-            GestureDetector(
-              onTap: () => onTap(next),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.glassBorder),
-                ),
-                child: Row(
-                  children: [
-                    _Avatar(task: next, tint: AppColors.accent),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'NEXT UP',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.4,
-                              color: AppColors.accent.withValues(alpha: 0.9),
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            next.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${nextDate!.day} ${_months[nextDate.month - 1]}',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.inkSoft,
-                            ),
-                          ),
-                        ],
-                      ),
+          // The one big count — tap to cycle All → each type.
+          GestureDetector(
+            onTap: canToggle
+                ? () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _view = (_view + 1) % views.length);
+                  }
+                : null,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                ShaderMask(
+                  shaderCallback: (r) => const LinearGradient(
+                    colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                  ).createShader(r),
+                  child: Text(
+                    '$count',
+                    style: const TextStyle(
+                      fontSize: 44,
+                      height: 1.0,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1.5,
+                      color: Colors.white,
                     ),
-                    const SizedBox(width: 10),
-                    // The big countdown.
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        ShaderMask(
-                          shaderCallback: (r) => const LinearGradient(
-                            colors: [AppColors.ink, Color(0xFFB9A8FF)],
-                          ).createShader(r),
-                          child: Text(
-                            days == 0 ? 'Today' : '$days',
-                            style: TextStyle(
-                              fontSize: days == 0 ? 22 : 32,
-                              height: 1.0,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        if (days != 0)
-                          Text(
-                            days == 1 ? 'day' : 'days',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.inkSoft,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            )
-          else
-            Text(
-              'No dates yet — add your first occasion.',
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.inkSoft,
-              ),
-            ),
-
-          const SizedBox(height: 14),
-          // Three-up sub-stats.
-          Row(
-            children: [
-              _OccStat(value: '${stats.total}', label: 'occasions'),
-              _divider(),
-              _OccStat(
-                value: '$thisMonth',
-                label: 'this week',
-                highlight: thisMonth > 0,
-              ),
-              _divider(),
-              _OccStat(
-                value: days == null ? '—' : (days == 0 ? '🎉' : '${days}d'),
-                label: 'to next',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _divider() => Container(
-        width: 1,
-        height: 30,
-        color: Colors.white.withValues(alpha: 0.08),
-      );
-}
-
-class _OccStat extends StatelessWidget {
-  const _OccStat({
-    required this.value,
-    required this.label,
-    this.highlight = false,
-  });
-  final String value;
-  final String label;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: highlight ? AppColors.accent : AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.inkSoft,
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    noun,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkSoft,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (canToggle)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Icon(Icons.swap_horiz_rounded,
+                        size: 18,
+                        color: AppColors.accent.withValues(alpha: 0.9)),
+                  ),
+              ],
             ),
           ),
         ],

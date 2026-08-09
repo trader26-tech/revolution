@@ -86,17 +86,49 @@ class CollectionPage extends StatelessWidget {
     ];
   }
 
-  /// Sum of amounts on scheduled items, grouped by currency, for the overview.
-  Map<String, double> _spendByCurrency(List<Task> items) {
-    final out = <String, double>{};
+  /// Everything the hero shows, computed in one pass.
+  _HeroStats _heroStats(List<Task> items) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekEnd = today.add(const Duration(days: 7));
+
+    final spend = <String, double>{}; // currency → summed amount (as billed)
+    var monthlyEq = 0.0; // ₹-equivalent normalised to /month (INR amounts only)
+    var dueThisWeek = 0;
+    Task? next;
+
     for (final t in items) {
       if (t.hasAmount) {
-        out.update(t.currency, (v) => v + t.amount!,
-            ifAbsent: () => t.amount!);
+        spend.update(t.currency, (v) => v + t.amount!, ifAbsent: () => t.amount!);
+        // Monthly-equivalent only mixes same-currency (INR) amounts to stay
+        // meaningful; other currencies are shown separately in `spend`.
+        if (t.currency == 'INR') monthlyEq += _toMonthly(t.amount!, t.repeat);
+      }
+      if (t.isScheduled) {
+        final d = DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day);
+        if (!d.isBefore(today) && d.isBefore(weekEnd)) dueThisWeek++;
+        if (!d.isBefore(today)) {
+          if (next == null || t.dueAt!.isBefore(next.dueAt!)) next = t;
+        }
       }
     }
-    return out;
+
+    return _HeroStats(
+      total: items.length,
+      spend: spend,
+      monthlyEqInr: monthlyEq,
+      dueThisWeek: dueThisWeek,
+      next: next,
+    );
   }
+
+  static double _toMonthly(double amount, RepeatCadence r) => switch (r) {
+        RepeatCadence.daily => amount * 30,
+        RepeatCadence.weekly => amount * 52 / 12,
+        RepeatCadence.monthly => amount,
+        RepeatCadence.yearly => amount / 12,
+        RepeatCadence.none => amount, // treat a one-off as its face value
+      };
 
   Future<void> _add(BuildContext context) async {
     final result = await openCategoryForm(
@@ -133,7 +165,8 @@ class CollectionPage extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header: back · icon · title+count · add.
+                  // Slim nav bar: back · title · add. The rich identity + stats
+                  // live in the hero below, so this stays clean.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 8, 16, 6),
                     child: Row(
@@ -143,43 +176,18 @@ class CollectionPage extends StatelessWidget {
                           tooltip: 'Back',
                           onTap: () => Navigator.of(context).maybePop(),
                         ),
-                        const SizedBox(width: 12),
-                        Container(
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: _accent.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(_icon, color: _accent, size: 22),
-                        ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 14),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.4,
-                                  color: AppColors.ink,
-                                ),
-                              ),
-                              Text(
-                                _countLabel(items.length),
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.inkSoft,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            _title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                              color: AppColors.ink,
+                            ),
                           ),
                         ),
                         GlassIconButton(
@@ -201,7 +209,9 @@ class CollectionPage extends StatelessWidget {
                           )
                         : _GroupedList(
                             sections: _grouped(items),
-                            spend: _spendByCurrency(items),
+                            hero: _heroStats(items),
+                            icon: _icon,
+                            title: _title,
                             onTap: (t) => _edit(context, t),
                           ),
                   ),
@@ -214,11 +224,6 @@ class CollectionPage extends StatelessWidget {
     );
   }
 
-  String _countLabel(int n) {
-    if (n == 0) return 'Nothing here yet';
-    final noun = category?.singular ?? 'reminder';
-    return n == 1 ? '1 $noun' : '$n ${noun}s';
-  }
 }
 
 /// A time-window section: a label and the items that fall in it.
@@ -228,25 +233,27 @@ class _Section {
   final List<Task> items;
 }
 
-/// The grouped list — an overview summary card, then time-window sections, each
-/// with a header and its rows. Reads as a clean "what's coming, and when".
+/// The grouped list — the orbit hero card up top, then time-window sections,
+/// each with a header and its rows. Reads as a clean "what's coming, and when".
 class _GroupedList extends StatelessWidget {
   const _GroupedList({
     required this.sections,
-    required this.spend,
+    required this.hero,
+    required this.icon,
+    required this.title,
     required this.onTap,
   });
 
   final List<_Section> sections;
-  final Map<String, double> spend; // currency code → total
+  final _HeroStats hero;
+  final IconData icon;
+  final String title;
   final void Function(Task) onTap;
 
   @override
   Widget build(BuildContext context) {
-    // Flatten into a single row list: [summary, header, row, row, header, …].
     final children = <Widget>[
-      _Overview(spend: spend, total: sections.fold(0, (n, s) => n + s.items.length)),
-      const SizedBox(height: 6),
+      _CategoryHero(stats: hero, icon: icon, title: title, onTapNext: onTap),
     ];
     for (final s in sections) {
       children.add(_SectionHeader(label: s.label, count: s.items.length));
@@ -268,75 +275,371 @@ class _GroupedList extends StatelessWidget {
   }
 }
 
-/// A compact overview strip — total per month/cycle spend + item count.
-class _Overview extends StatelessWidget {
-  const _Overview({required this.spend, required this.total});
-  final Map<String, double> spend;
+/// Everything the hero shows.
+class _HeroStats {
+  const _HeroStats({
+    required this.total,
+    required this.spend,
+    required this.monthlyEqInr,
+    required this.dueThisWeek,
+    required this.next,
+  });
   final int total;
+  final Map<String, double> spend; // currency → total (as billed)
+  final double monthlyEqInr; // INR items normalised to /month
+  final int dueThisWeek;
+  final Task? next;
+}
 
-  String _fmt(double v) =>
-      v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2);
+/// The orbit-themed hero — an at-a-glance overview of everything about this
+/// category: the headline monthly spend (with a little orbiting planet), the
+/// next renewal, and a three-up sub-stat row.
+class _CategoryHero extends StatelessWidget {
+  const _CategoryHero({
+    required this.stats,
+    required this.icon,
+    required this.title,
+    required this.onTapNext,
+  });
+
+  final _HeroStats stats;
+  final IconData icon;
+  final String title;
+  final void Function(Task) onTapNext;
+
+  String _fmt(double v) => v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2);
+
+  /// The headline figure — INR monthly-equivalent if any INR items exist, else
+  /// the first currency's raw total. Returns (symbol, value, caption).
+  (String, String, String) _headline() {
+    if (stats.monthlyEqInr > 0) {
+      return ('₹', _fmt(stats.monthlyEqInr), 'per month');
+    }
+    if (stats.spend.isNotEmpty) {
+      final e = stats.spend.entries.first;
+      return (currencyOf(e.key).symbol, _fmt(e.value), 'total');
+    }
+    return ('', '—', 'no prices yet');
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (spend.isEmpty) return const SizedBox(height: 4);
-    // Build a "₹1,234 · $9" style string across currencies.
-    final parts = spend.entries
+    final (sym, value, caption) = _headline();
+    // Other-currency chips (anything beyond the INR headline).
+    final others = stats.spend.entries
+        .where((e) => !(e.key == 'INR' && stats.monthlyEqInr > 0))
         .map((e) => '${currencyOf(e.key).symbol}${_fmt(e.value)}')
-        .join('  ·  ');
+        .toList();
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            AppColors.accent.withValues(alpha: 0.14),
-            AppColors.card,
-          ],
+          colors: [Color(0xFF241A44), Color(0xFF1A1330)],
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.glassBorder),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.payments_rounded,
-                color: AppColors.accent, size: 21),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.18),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  parts,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row: category label + the orbiting planet motif.
+          Row(
+            children: [
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.6,
+                  color: AppColors.accent.withValues(alpha: 0.95),
+                ),
+              ),
+              const Spacer(),
+              _OrbitBadge(icon: icon),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Headline spend figure.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                sym,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(width: 2),
+              ShaderMask(
+                shaderCallback: (r) => const LinearGradient(
+                  colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                ).createShader(r),
+                child: Text(
+                  value,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 40,
+                    height: 1.0,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                    color: AppColors.ink,
+                    letterSpacing: -1.5,
+                    color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'across $total active',
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Text(
+                  caption,
                   style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.inkSoft,
                   ),
                 ),
+              ),
+            ],
+          ),
+          if (others.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              '+ ${others.join('  ·  ')} in other currencies',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkFaint,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+
+          // Next renewal highlight.
+          if (stats.next != null) _NextRenewal(task: stats.next!, onTap: onTapNext),
+
+          const SizedBox(height: 14),
+          // Three-up sub-stats.
+          Row(
+            children: [
+              _HeroStat(
+                value: '${stats.total}',
+                label: 'active',
+              ),
+              _statDivider(),
+              _HeroStat(
+                value: '${stats.dueThisWeek}',
+                label: 'due this week',
+                highlight: stats.dueThisWeek > 0,
+              ),
+              _statDivider(),
+              _HeroStat(
+                value: stats.next == null
+                    ? '—'
+                    : '${_days(stats.next!.dueAt!)}d',
+                label: 'to next',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statDivider() => Container(
+        width: 1,
+        height: 30,
+        color: Colors.white.withValues(alpha: 0.08),
+      );
+
+  int _days(DateTime due) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = DateTime(due.year, due.month, due.day);
+    return d.difference(today).inDays;
+  }
+}
+
+/// The little orbiting-planet emblem — a category icon with a ring + a moon,
+/// echoing the app's orbit identity.
+class _OrbitBadge extends StatelessWidget {
+  const _OrbitBadge({required this.icon});
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 46,
+      height: 46,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Orbit ring.
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.35),
+              ),
+            ),
+          ),
+          // The planet.
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const RadialGradient(
+                colors: [AppColors.accent, AppColors.accentDeep],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.accent.withValues(alpha: 0.5),
+                  blurRadius: 12,
+                ),
               ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 17),
+          ),
+          // A tiny moon on the ring.
+          Positioned(
+            top: 1,
+            right: 6,
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.ink.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The "next renewal" highlight strip inside the hero.
+class _NextRenewal extends StatelessWidget {
+  const _NextRenewal({required this.task, required this.onTap});
+  final Task task;
+  final void Function(Task) onTap;
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = DateTime(task.dueAt!.year, task.dueAt!.month, task.dueAt!.day);
+    final days = d.difference(today).inDays;
+    final rel = days == 0
+        ? 'today'
+        : days == 1
+            ? 'tomorrow'
+            : 'in $days days';
+
+    return GestureDetector(
+      onTap: () => onTap(task),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.glassBorder),
+        ),
+        child: Row(
+          children: [
+            _Avatar(task: task, tint: AppColors.accent),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Next: ${task.title}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${d.day} ${_months[d.month - 1]} · renews $rel',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkSoft,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: AppColors.inkFaint, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroStat extends StatelessWidget {
+  const _HeroStat({
+    required this.value,
+    required this.label,
+    this.highlight = false,
+  });
+  final String value;
+  final String label;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: highlight ? AppColors.accent : AppColors.ink,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.inkSoft,
             ),
           ),
         ],

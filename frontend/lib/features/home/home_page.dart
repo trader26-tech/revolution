@@ -29,10 +29,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  /// The day selected in the week-strip calendar. The task list below shows
-  /// reminders from this day onward. Defaults to today.
-  DateTime _selectedDate = DateTime.now();
-
   DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
 
   void _openSettings() {
@@ -80,13 +76,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Open the full-screen list of all upcoming reminders (from the selected
-  /// day onward), reached from the "Up next" arrow.
+  /// Open the full-screen vertical list of all upcoming reminders (from today
+  /// onward, grouped day by day), reached from the "Up next" arrow.
   void _openUpcoming() {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => UpcomingPage(
         tasks: widget.store.tasks,
-        from: _selectedDate,
         onTap: (t) {
           Navigator.of(context).pop();
           _editTask(t);
@@ -156,11 +151,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// The "Up next" cards, anchored to the SELECTED calendar day: scheduled,
-  /// unfinished reminders in the 7-day window starting on the selected day,
-  /// soonest first. Picking a day in the strip moves this window with it.
-  List<Task> _upNextFromSelected(List<Task> all) {
-    final start = _dayOf(_selectedDate);
+  /// The "Up next" cards: scheduled, unfinished reminders in the 7-day window
+  /// from today, soonest first.
+  List<Task> _upNextFromToday(List<Task> all) {
+    final start = _dayOf(DateTime.now());
     final end = start.add(const Duration(days: 8)); // exclusive (7 days)
     return all
         .where((t) =>
@@ -170,16 +164,6 @@ class _HomePageState extends State<HomePage> {
             _dayOf(t.dueAt!).isBefore(end))
         .toList()
       ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
-  }
-
-  /// The little window label for Up next — "next 7 days" when today is picked,
-  /// otherwise "from `Wkd D`" so the anchoring is explicit.
-  String _upNextLabel() {
-    final sel = _dayOf(_selectedDate);
-    final today = _dayOf(DateTime.now());
-    if (sel == today) return 'next 7 days';
-    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return 'from ${wd[sel.weekday - 1]} ${sel.day}';
   }
 
   Widget _buildList() {
@@ -197,24 +181,19 @@ class _HomePageState extends State<HomePage> {
         ? AuthStore.instance.name!.trim()
         : ProfileStore.instance.name;
 
-    // Greeting → calendar → Up Next (from the selected day) → the Browse grid,
-    // which is the easy-access launcher to every product (no raw task dump).
+    // Greeting → Up Next (from today) → the Browse grid, which is the easy-access
+    // launcher to every product (no calendar, no raw task dump).
+    final today = _dayOf(DateTime.now());
     final rows = <Widget>[
       // Greeting — Revo says "Good <time>, <name>" + "Welcome to Revolution".
       GreetingRevo(name: displayName, tasks: allTasks),
-      const SizedBox(height: 14),
-      // Compact week-strip calendar — tap a day to move the Up Next window.
-      WeekStripCalendar(
-        tasks: allTasks,
-        selected: _selectedDate,
-        onSelect: (d) => setState(() => _selectedDate = d),
-      ),
-      // Up Next — reminders in the 7-day window from the SELECTED calendar day
-      // (moves as you tap the strip); arrow → the full upcoming list.
+      const SizedBox(height: 6),
+      // Up Next — the next 7 days from today, day by day. The arrow opens the
+      // full vertical upcoming list.
       UpNextStrip(
-        items: _upNextFromSelected(allTasks),
-        anchor: _selectedDate,
-        windowLabel: _upNextLabel(),
+        items: _upNextFromToday(allTasks),
+        anchor: today,
+        windowLabel: 'next 7 days',
         onTap: _editTask,
         onSeeAll: _openUpcoming,
       ),

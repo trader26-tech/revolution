@@ -99,17 +99,10 @@ class UpcomingPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding:
-                                    EdgeInsets.only(top: i == 0 ? 8 : 22, bottom: 10),
-                                child: Text(
-                                  _dateHeader(day, now),
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.4,
-                                    color: AppColors.accent,
-                                  ),
-                                ),
+                                padding: EdgeInsets.only(
+                                    top: i == 0 ? 8 : 24, bottom: 12),
+                                child: _DayHeader(
+                                    day: day, now: now, count: items.length),
                               ),
                               for (final t in items)
                                 Padding(
@@ -129,17 +122,84 @@ class UpcomingPage extends StatelessWidget {
     );
   }
 
-  String _dateHeader(DateTime day, DateTime now) {
+}
+
+/// A day-column header in the vertical Upcoming list — the big day number, the
+/// weekday + month, and a count of what's on that day. Only the current day is
+/// called "Today"; every other day shows its exact date.
+class _DayHeader extends StatelessWidget {
+  const _DayHeader(
+      {required this.day, required this.now, required this.count});
+  final DateTime day;
+  final DateTime now;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
     final today = DateTime(now.year, now.month, now.day);
-    final diff = day.difference(today).inDays;
-    if (diff == 0) return 'TODAY';
-    if (diff == 1) return 'TOMORROW';
+    final isToday = day == today;
     const wd = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    const mo = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${wd[day.weekday - 1]} · ${day.day} ${mo[day.month - 1]}';
+    const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+      'Oct', 'Nov', 'Dec'];
+    final kicker = isToday ? 'TODAY' : wd[day.weekday - 1];
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Big day number.
+        Text(
+          '${day.day}',
+          style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w900,
+            height: 1,
+            letterSpacing: -1,
+            color: isToday ? AppColors.accent : AppColors.ink,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              kicker,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+                color: isToday ? AppColors.accent : AppColors.inkFaint,
+              ),
+            ),
+            Text(
+              mo[day.month - 1],
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.inkSoft,
+              ),
+            ),
+          ],
+        ),
+        const Spacer(),
+        // Count pill.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.accent.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            '$count ${count == 1 ? 'item' : 'items'}',
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              color: AppColors.accent,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

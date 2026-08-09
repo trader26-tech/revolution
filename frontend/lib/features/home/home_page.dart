@@ -352,11 +352,12 @@ class _TopBar extends StatelessWidget {
                 icon: Icons.filter_alt_outlined,
                 tooltip: 'Filter',
                 onTap: onFilter,
+                size: 52,
               ),
               if (filterActive)
                 Positioned(
-                  right: 2,
-                  top: 2,
+                  right: 3,
+                  top: 3,
                   child: Container(
                     width: 12,
                     height: 12,
@@ -369,11 +370,12 @@ class _TopBar extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           GlassIconButton(
             icon: Icons.settings_outlined,
             tooltip: 'Settings',
             onTap: onSettings,
+            size: 52,
           ),
         ],
       ),

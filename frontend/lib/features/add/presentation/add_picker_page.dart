@@ -200,14 +200,15 @@ class _Browse extends StatelessWidget {
       padding: const EdgeInsets.only(top: 6, bottom: 16),
       children: [
         // Pick a category — one clean, tappable row each. Each keeps its OWN
-        // distinctive icon + accent, and shows how many items it holds (a small
-        // count pill) so the user can gauge each at a glance.
+        // distinctive icon (different shapes) but a UNIFORM neutral colour — no
+        // per-category tint anywhere on this page — with a count pill showing
+        // how many items it holds.
         for (final cat in kReminderCatalog)
           _CategoryRow(
             title: cat.title,
             blurb: _blurbFor(cat.key),
             icon: cat.icon,
-            color: cat.color,
+            color: AppColors.inkSoft,
             count: cat.items.where((i) => !i.isOther).length,
             onTap: () => onPickCategory(cat),
           ),
@@ -350,24 +351,21 @@ class _ItemRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
         child: Row(
           children: [
-            // Each item keeps its OWN distinctive icon + the category's accent;
-            // the "Something else" row stays a quiet neutral add affordance.
+            // Each item keeps its OWN distinctive icon, but a UNIFORM neutral
+            // colour — no per-category tint on this page.
             Container(
               width: 40,
               height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: other
-                    ? Colors.white.withValues(alpha: 0.04)
-                    : cat.color.withValues(alpha: 0.14),
+                color: Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(12),
-                border:
-                    other ? Border.all(color: AppColors.cardBorder) : null,
+                border: Border.all(color: AppColors.cardBorder),
               ),
               child: Icon(
                 item.icon,
                 size: 20,
-                color: other ? AppColors.inkSoft : cat.color,
+                color: AppColors.inkSoft,
               ),
             ),
             const SizedBox(width: 14),

@@ -11,6 +11,7 @@ from app.api.routes import (
     claim,
     prefs,
     reminders,
+    suggestions,
     tasks,
     users,
 )
@@ -32,6 +33,7 @@ app.include_router(prefs.router)
 app.include_router(claim.router)
 app.include_router(app_version.router)
 app.include_router(reminders.router)
+app.include_router(suggestions.router)
 app.include_router(users.router)
 
 

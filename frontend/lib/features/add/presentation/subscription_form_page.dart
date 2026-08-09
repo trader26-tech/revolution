@@ -229,11 +229,30 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     }
   }
 
-  /// The keyboard flow after the amount: open Category, then the date picker.
+  /// The keyboard flow after the amount: Category → Date → Frequency.
   Future<void> _flowAfterAmount() async {
     await _pickCategory();
     if (!mounted) return;
     await _pickDate();
+    if (!mounted) return;
+    await _pickFrequency();
+  }
+
+  Future<void> _pickFrequency() async {
+    final r = await showFrequencyPicker(
+      context,
+      cycle: _cycle,
+      times: _times,
+      days: _days,
+    );
+    if (r != null) {
+      setState(() {
+        _cycle = r.cycle;
+        _times = r.times;
+        _days = r.days;
+        _cycleTouched = true; // a manual choice stops auto-fill
+      });
+    }
   }
 
   Future<void> _pickCurrency() async {
@@ -359,17 +378,10 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                           onTap: _pickDate,
                         ),
                         const _RowDivider(),
-                        OrbitFrequencyField(
-                          label: 'Every',
-                          cycle: _cycle,
-                          times: _times,
-                          days: _days,
-                          onCycle: (c) => setState(() {
-                            _cycle = c;
-                            _cycleTouched = true; // stop auto-filling the cycle
-                          }),
-                          onTimes: (n) => setState(() => _times = n),
-                          onDays: (d) => setState(() => _days = d),
+                        _NavRow(
+                          label: 'Frequency',
+                          value: frequencyLabel(_cycle, _times, _days),
+                          onTap: _pickFrequency,
                         ),
                         const _RowDivider(),
                         _ToggleRow(

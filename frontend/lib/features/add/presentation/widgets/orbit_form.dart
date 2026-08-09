@@ -762,6 +762,136 @@ class _DayChip extends StatelessWidget {
   }
 }
 
+/// The chosen frequency returned by [showFrequencyPicker].
+class FrequencyResult {
+  const FrequencyResult(this.cycle, this.times, this.days);
+  final RepeatCadence cycle;
+  final int times;
+  final List<int> days;
+}
+
+/// Opens the Frequency picker as a bottom sheet (so it joins the same
+/// step-through flow as Category and Date). Returns the chosen frequency, or
+/// null if dismissed without confirming.
+Future<FrequencyResult?> showFrequencyPicker(
+  BuildContext context, {
+  required RepeatCadence cycle,
+  required int times,
+  required List<int> days,
+}) {
+  return showModalBottomSheet<FrequencyResult>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (_) => _FrequencySheet(cycle: cycle, times: times, days: days),
+  );
+}
+
+class _FrequencySheet extends StatefulWidget {
+  const _FrequencySheet({
+    required this.cycle,
+    required this.times,
+    required this.days,
+  });
+  final RepeatCadence cycle;
+  final int times;
+  final List<int> days;
+
+  @override
+  State<_FrequencySheet> createState() => _FrequencySheetState();
+}
+
+class _FrequencySheetState extends State<_FrequencySheet> {
+  late RepeatCadence _cycle = widget.cycle;
+  late int _times = widget.times;
+  late List<int> _days = [...widget.days];
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    return Container(
+      margin: EdgeInsets.only(bottom: bottomInset),
+      decoration: const BoxDecoration(
+        color: AppColors.bgTop,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: AppColors.cardBorder)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: _grabber()),
+              const SizedBox(height: 16),
+              const Text('Frequency',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink)),
+              const SizedBox(height: 4),
+              // A live, human summary of the current choice.
+              Text(
+                frequencyLabel(_cycle, _times, _days),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accent.withValues(alpha: 0.95),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // The same field, in a card for the sheet.
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: OrbitFrequencyField(
+                  cycle: _cycle,
+                  times: _times,
+                  days: _days,
+                  onCycle: (c) => setState(() => _cycle = c),
+                  onTimes: (n) => setState(() => _times = n),
+                  onDays: (d) => setState(() => _days = d),
+                ),
+              ),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(
+                    FrequencyResult(_cycle, _times, _days)),
+                child: Container(
+                  height: 54,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                        colors: [AppColors.accent, AppColors.accentDeep]),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.4),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Text('Done',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Currency picker ──────────────────────────────────────────────────────────
 
 /// Opens the currency picker; returns the chosen code (INR/USD/KWD) or null.

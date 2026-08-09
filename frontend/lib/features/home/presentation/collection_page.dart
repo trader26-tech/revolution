@@ -20,6 +20,8 @@ import '../../tasks/presentation/task_details_sheet.dart';
 /// whose stored date is in the past is rolled forward by its cadence, so we
 /// never show a "past" renewal — there's no completion, dates just recur.
 DateTime nextOccurrence(Task t, {required DateTime from}) {
+  // Unscheduled tasks have no date — sort them last (far future), never crash.
+  if (t.dueAt == null) return DateTime(9999);
   var d = DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day);
   if (!d.isBefore(from)) return d;
   switch (t.repeat) {

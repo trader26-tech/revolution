@@ -158,12 +158,14 @@ class _SipFormPageState extends State<SipFormPage> {
     }
   }
 
-  /// The keyboard flow after the amount: open Category, then the date picker —
-  /// so pressing "next" walks the user through every remaining step.
+  /// The keyboard flow after the amount: Category → Date → Frequency — so
+  /// pressing "next" walks the user through every remaining step in one go.
   Future<void> _flowAfterAmount() async {
     await _pickCategory();
     if (!mounted) return;
     await _pickDate();
+    if (!mounted) return;
+    await _pickFrequency();
   }
 
   Future<void> _pickDate() async {
@@ -175,6 +177,22 @@ class _SipFormPageState extends State<SipFormPage> {
       title: 'Next SIP date',
     );
     if (picked != null) setState(() => _nextDate = picked);
+  }
+
+  Future<void> _pickFrequency() async {
+    final r = await showFrequencyPicker(
+      context,
+      cycle: _cycle,
+      times: _times,
+      days: _days,
+    );
+    if (r != null) {
+      setState(() {
+        _cycle = r.cycle;
+        _times = r.times;
+        _days = r.days;
+      });
+    }
   }
 
   void _save() {
@@ -280,14 +298,10 @@ class _SipFormPageState extends State<SipFormPage> {
                           onTap: _pickDate,
                         ),
                         const OrbitRowDivider(),
-                        OrbitFrequencyField(
-                          label: 'Every',
-                          cycle: _cycle,
-                          times: _times,
-                          days: _days,
-                          onCycle: (c) => setState(() => _cycle = c),
-                          onTimes: (n) => setState(() => _times = n),
-                          onDays: (d) => setState(() => _days = d),
+                        OrbitNavRow(
+                          label: 'Frequency',
+                          value: frequencyLabel(_cycle, _times, _days),
+                          onTap: _pickFrequency,
                         ),
                       ],
                     ),

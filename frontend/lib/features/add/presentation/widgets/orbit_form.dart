@@ -137,6 +137,7 @@ class OrbitIdentityCard extends StatelessWidget {
     this.nameHint = 'Name',
     this.amountHint = '0.00',
     this.emptyIcon = Icons.add_rounded,
+    this.onAmountSubmitted,
   });
 
   final String? iconName;
@@ -151,6 +152,11 @@ class OrbitIdentityCard extends StatelessWidget {
   final String nameHint;
   final String amountHint;
   final IconData emptyIcon;
+
+  /// Called when the user presses the keyboard action on the amount field —
+  /// the form uses it to continue the flow (e.g. open the category picker).
+  /// When null, the amount's action just dismisses the keyboard.
+  final VoidCallback? onAmountSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -265,11 +271,16 @@ class OrbitIdentityCard extends StatelessWidget {
                         focusNode: amountFocus,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
-                        // The last typed field — "Done" closes the keyboard (the
-                        // remaining fields are taps: date, cycle, category).
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) =>
-                            FocusScope.of(context).unfocus(),
+                        // If the form wants to continue the flow after the
+                        // amount (open the category picker), show "Next" and
+                        // hand off; otherwise "Done" just closes the keyboard.
+                        textInputAction: onAmountSubmitted != null
+                            ? TextInputAction.next
+                            : TextInputAction.done,
+                        onSubmitted: (_) {
+                          FocusScope.of(context).unfocus();
+                          onAmountSubmitted?.call();
+                        },
                         onTapOutside: (_) => FocusScope.of(context).unfocus(),
                         inputFormatters: [
                           // Live grouping per the chosen currency (Indian for

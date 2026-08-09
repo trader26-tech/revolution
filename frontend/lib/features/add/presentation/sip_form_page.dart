@@ -154,6 +154,14 @@ class _SipFormPageState extends State<SipFormPage> {
     }
   }
 
+  /// The keyboard flow after the amount: open Category, then the date picker —
+  /// so pressing "next" walks the user through every remaining step.
+  Future<void> _flowAfterAmount() async {
+    await _pickCategory();
+    if (!mounted) return;
+    await _pickDate();
+  }
+
   Future<void> _pickDate() async {
     final picked = await showOrbitDatePicker(
       context,
@@ -244,6 +252,7 @@ class _SipFormPageState extends State<SipFormPage> {
                       nameHint: 'What are you investing in?',
                       amountHint: '5000',
                       emptyIcon: Icons.account_balance_rounded,
+                      onAmountSubmitted: _flowAfterAmount,
                     ),
                     const SizedBox(height: 22),
 

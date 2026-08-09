@@ -225,6 +225,13 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     }
   }
 
+  /// The keyboard flow after the amount: open Category, then the date picker.
+  Future<void> _flowAfterAmount() async {
+    await _pickCategory();
+    if (!mounted) return;
+    await _pickDate();
+  }
+
   Future<void> _pickCurrency() async {
     final picked = await showModalBottomSheet<String>(
       context: context,
@@ -325,6 +332,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                       onPickIcon: _pickIcon,
                       currency: _currency,
                       onPickCurrency: _pickCurrency,
+                      onAmountSubmitted: _flowAfterAmount,
                     ),
                     const SizedBox(height: 22),
 

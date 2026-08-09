@@ -578,7 +578,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 216,
+            height: 184,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1028,23 +1028,25 @@ class _HeroCard extends StatelessWidget {
       urgent: days <= 1,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // The when-chip owns the top-right corner on its own row, so nothing
-          // can ever overlap it. The hero then sits in its own band below.
-          Align(
-            alignment: Alignment.centerRight,
-            child: _WhenChip(days: days, due: due),
-          ),
-          const SizedBox(height: 6),
+          // The hero band: the animated hero sits LEFT, the countdown chip
+          // floats TOP-RIGHT. The hero is width-capped (see each _*Hero) so it
+          // never reaches the chip — no overlap either way.
           SizedBox(
-            height: 60,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: hero,
+            height: 66,
+            child: Stack(
+              children: [
+                Align(alignment: Alignment.centerLeft, child: hero),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: _WhenChip(days: days, due: due),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
-          // Title — allowed to wrap to two lines so nothing gets cut off.
           Text(title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1061,8 +1063,8 @@ class _HeroCard extends StatelessWidget {
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                   color: AppColors.inkSoft)),
-          const SizedBox(height: 9),
-          // The DESCRIPTION — the highlight. Big, ink, up to two full lines.
+          const SizedBox(height: 8),
+          // The DESCRIPTION — the highlight. Two full lines, nothing cut off.
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1077,8 +1079,8 @@ class _HeroCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.28,
+                    fontSize: 12.5,
+                    height: 1.26,
                     fontWeight: FontWeight.w700,
                     color: AppColors.ink,
                   ),
@@ -1144,59 +1146,65 @@ class _HeroStageState extends State<_HeroStage>
 
 // Category-specific heroes — distinct motion, each kept clear of the chip/text.
 
-/// Subscription → the logo IS the hero: a clean, larger mark with a soft accent
-/// glow breathing behind it. No ring, no box-in-box — just the brand, alive.
+/// Subscription → the logo is the hero, with clear "active-service" pulse rings
+/// radiating out from it (like a live signal — the service is running/renewing).
+/// Visible but tasteful. The stage is wide enough that the rings never reach the
+/// countdown chip.
 class _SubHero extends StatelessWidget {
   const _SubHero({required this.child});
   final Widget child;
   @override
   Widget build(BuildContext context) => _HeroStage(
-        width: 60,
+        width: 108,
         alignment: Alignment.centerLeft,
-        painter: (t) => _GlowPainter(t),
+        painter: (t) => _PulseRingsPainter(t),
         child: child,
       );
 }
 
-/// A soft radial glow that gently breathes behind a left-aligned mark.
-class _GlowPainter extends CustomPainter {
-  _GlowPainter(this.t);
+/// Two rings that expand + fade outward from the left mark, on staggered
+/// phases — a steady "it's live" pulse.
+class _PulseRingsPainter extends CustomPainter {
+  _PulseRingsPainter(this.t);
   final double t;
   @override
   void paint(Canvas canvas, Size size) {
-    final c = Offset(size.height / 2, size.height / 2); // behind the left mark
-    final breathe = (math.sin(t * 2 * math.pi) + 1) / 2; // 0..1
-    final r = 30.0 + 6 * breathe;
-    final paint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          AppColors.accent.withValues(alpha: 0.22 + 0.12 * breathe),
-          AppColors.accent.withValues(alpha: 0.0),
-        ],
-      ).createShader(Rect.fromCircle(center: c, radius: r));
-    canvas.drawCircle(c, r, paint);
+    final c = Offset(size.height / 2, size.height / 2); // centre of the mark
+    for (var i = 0; i < 2; i++) {
+      final phase = (t + i * 0.5) % 1.0;
+      final r = 28.0 + phase * 20.0; // from just outside the logo, outward
+      final op = (1 - phase) * 0.5; // bright when small, fades as it grows
+      canvas.drawCircle(
+        c,
+        r,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2
+          ..color = AppColors.accent.withValues(alpha: op),
+      );
+    }
   }
 
   @override
-  bool shouldRepaint(covariant _GlowPainter old) => old.t != t;
+  bool shouldRepaint(covariant _PulseRingsPainter old) => old.t != t;
 }
 
 /// SIP → the amount is the hero, left-aligned and unobstructed; a small set of
 /// rising "growth" bars sits to its RIGHT (never over the number), climbing in
-/// sequence — wealth compounding.
+/// sequence — wealth compounding. Width-capped so it stays clear of the chip.
 class _SipHero extends StatelessWidget {
   const _SipHero({required this.amount});
   final Widget amount;
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      width: 160,
       height: 60,
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // The amount, clear and prominent.
-          Flexible(child: amount),
+          // The amount, clear and prominent — takes the space it needs.
+          Expanded(child: Align(alignment: Alignment.centerLeft, child: amount)),
           const SizedBox(width: 10),
           // Growth bars, off to the side.
           const _GrowthBars(),

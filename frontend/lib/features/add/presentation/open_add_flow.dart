@@ -175,3 +175,39 @@ Future<bool> persistAddResult(TaskStore store, AddResult? result) async {
   );
   return true;
 }
+
+/// Open the RICH edit form for a task, routed by its category — the same
+/// tailored form used to add it, prefilled. This is where every detail is shown
+/// in full (no truncation) and can be changed. Subscriptions, SIPs and occasions
+/// each open their own form; anything else falls back to [fallback] (the quick
+/// details sheet). Persists the edit via [store] and returns true if it saved.
+///
+/// One place so Home and every collection page open edits identically.
+Future<bool> openEditForm(
+  BuildContext context,
+  TaskStore store,
+  Task task, {
+  Future<Task?> Function()? fallback,
+}) async {
+  Widget? form;
+  switch (task.category) {
+    case TaskCategory.subscription:
+      form = SubscriptionFormPage(editTask: task);
+    case TaskCategory.investment:
+      form = SipFormPage(editTask: task);
+    case TaskCategory.birthday:
+      form = BirthdayFormPage(editTask: task);
+    case TaskCategory.insurance:
+    case TaskCategory.bills:
+    case TaskCategory.other:
+      form = null; // no tailored form → use the fallback sheet
+  }
+
+  final Task? updated = form != null
+      ? await Navigator.of(context).push<Task>(_formRoute(form))
+      : await fallback?.call();
+
+  if (updated == null) return false;
+  store.update(updated);
+  return true;
+}

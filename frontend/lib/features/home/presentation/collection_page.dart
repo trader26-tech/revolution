@@ -8,9 +8,6 @@ import '../../../core/widgets/glass.dart';
 import '../../add/domain/subscription_categories.dart';
 import '../../add/presentation/added_success.dart';
 import '../../add/presentation/open_add_flow.dart';
-import '../../add/presentation/birthday_form_page.dart';
-import '../../add/presentation/sip_form_page.dart';
-import '../../add/presentation/subscription_form_page.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
 import '../../details/domain/currency.dart';
@@ -275,34 +272,14 @@ class _CollectionPageState extends State<CollectionPage> {
   }
 
   Future<void> _edit(BuildContext context, Task task) async {
-    // Subscriptions & SIPs edit in the SAME orbit form (prefilled) as adding,
-    // so the category and every field save consistently. Others keep the sheet.
-    if (task.category == TaskCategory.subscription) {
-      final updated = await Navigator.of(context).push<Task>(MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => SubscriptionFormPage(editTask: task),
-      ));
-      if (updated != null) store.update(updated);
-      return;
-    }
-    if (task.category == TaskCategory.investment) {
-      final updated = await Navigator.of(context).push<Task>(MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => SipFormPage(editTask: task),
-      ));
-      if (updated != null) store.update(updated);
-      return;
-    }
-    if (task.category == TaskCategory.birthday) {
-      final updated = await Navigator.of(context).push<Task>(MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => BirthdayFormPage(editTask: task),
-      ));
-      if (updated != null) store.update(updated);
-      return;
-    }
-    final updated = await showTaskDetailsSheet(context, task);
-    if (updated != null) store.update(updated);
+    // Subscriptions, SIPs & occasions edit in the SAME rich form (prefilled) as
+    // adding — every field in full, saved consistently. Others use the sheet.
+    await openEditForm(
+      context,
+      store,
+      task,
+      fallback: () => showTaskDetailsSheet(context, task),
+    );
   }
 
   @override

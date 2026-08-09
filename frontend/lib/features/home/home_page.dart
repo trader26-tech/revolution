@@ -67,9 +67,17 @@ class _HomePageState extends State<HomePage> {
     await celebration;
   }
 
+  /// Tapping a card opens its RICH edit form (routed by category), where every
+  /// detail — including the full highlight text that's clipped on the card — is
+  /// shown in full and editable. Non-form categories fall back to the quick
+  /// details sheet.
   Future<void> _editTask(Task task) async {
-    final updated = await showTaskDetailsSheet(context, task);
-    if (updated != null) widget.store.update(updated);
+    await openEditForm(
+      context,
+      widget.store,
+      task,
+      fallback: () => showTaskDetailsSheet(context, task),
+    );
   }
 
   /// Open the full-screen list of all upcoming reminders (from the selected

@@ -1366,16 +1366,23 @@ class _ParticleFieldPainter extends CustomPainter {
     }
   }
 
-  // SIP: round COINS drifting gently upward — money being put to work. Each is
-  // a filled disc with a soft rim (a proper coin, not a flat oval), fading in
-  // then out as it rises.
+  // SIP: a FEW round ₹ coins drifting gently upward — money being put to work.
+  // Each is a filled disc with a rim and a ₹ glyph. Just 4, so it stays clean.
+  static const _coinSeeds = [
+    // x fraction, colour pick 0/1, phase offset
+    [0.20, 0.0, 0.0],
+    [0.44, 1.0, 0.5],
+    [0.64, 0.0, 0.25],
+    [0.84, 1.0, 0.75],
+  ];
+
   void _coins(Canvas canvas, Size size) {
-    const radius = 5.0;
-    for (final s in _seeds) {
+    const radius = 8.0;
+    for (final s in _coinSeeds) {
       final x = s[0] * size.width;
       final phase = (t + s[2]) % 1.0;
       final y = size.height - phase * size.height; // bottom → top
-      final op = math.sin(phase * math.pi) * 0.6;
+      final op = math.sin(phase * math.pi) * 0.7;
       if (op <= 0) continue;
       final color = s[1] == 0.0 ? _violet : _lilac;
       final centre = Offset(x, y);
@@ -1383,9 +1390,9 @@ class _ParticleFieldPainter extends CustomPainter {
       canvas.drawCircle(
         centre,
         radius,
-        Paint()..color = color.withValues(alpha: op * 0.55),
+        Paint()..color = color.withValues(alpha: op * 0.5),
       );
-      // Rim, so it reads as a coin.
+      // Rim.
       canvas.drawCircle(
         centre,
         radius,
@@ -1394,6 +1401,19 @@ class _ParticleFieldPainter extends CustomPainter {
           ..strokeWidth = 1.4
           ..color = color.withValues(alpha: op),
       );
+      // The ₹ symbol, centred on the coin.
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '₹',
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            color: color.withValues(alpha: op),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, centre - Offset(tp.width / 2, tp.height / 2));
     }
   }
 

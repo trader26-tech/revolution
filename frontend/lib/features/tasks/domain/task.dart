@@ -35,16 +35,6 @@ extension TaskCategoryInfo on TaskCategory {
         TaskCategory.bills => 'bill',
         TaskCategory.other => 'reminder',
       };
-
-  /// A short blurb for the browse tiles.
-  String get blurb => switch (this) {
-        TaskCategory.subscription => 'Netflix, Spotify…',
-        TaskCategory.birthday => 'Birthdays & anniversaries',
-        TaskCategory.insurance => 'Policies & renewals',
-        TaskCategory.investment => 'SIPs & investments',
-        TaskCategory.bills => 'Recurring payments',
-        TaskCategory.other => 'Everything else',
-      };
 }
 
 /// Best-guess a category from a task's fields, for reminders that were created

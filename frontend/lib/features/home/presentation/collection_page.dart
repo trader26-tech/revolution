@@ -28,8 +28,9 @@ class CollectionPage extends StatelessWidget {
   final TaskCategory? category;
 
   String get _title => category?.label ?? 'All reminders';
-  IconData get _icon => category?.icon ?? Icons.grid_view_rounded;
-  Color get _accent => category?.color ?? AppColors.accent;
+  IconData get _icon => category?.icon ?? Icons.blur_on_rounded;
+  // ONE constant accent everywhere — categories differ by icon, not colour.
+  Color get _accent => AppColors.accent;
 
   List<Task> _items() {
     final list = category == null

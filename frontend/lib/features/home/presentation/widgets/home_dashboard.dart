@@ -1330,26 +1330,23 @@ class BrowseGrid extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.55,
+            // A little taller than wide so the icon + two text lines breathe
+            // (fixes the earlier ~6px overflow).
+            childAspectRatio: 1.42,
             children: [
               for (final c in kBrowseCategories)
                 _BrowseTile(
                   icon: c.icon,
-                  tint: c.color,
                   label: c.label,
-                  blurb: c.blurb,
                   count: _countFor(c),
                   onTap: () => onOpenCategory(c),
                 ),
               // The catch-all "All" tile — every reminder in one place.
               _BrowseTile(
-                icon: Icons.grid_view_rounded,
-                tint: AppColors.accent,
+                icon: Icons.blur_on_rounded,
                 label: 'All',
-                blurb: 'Everything you track',
                 count: tasks.length,
                 onTap: onOpenAll,
-                isAll: true,
               ),
             ],
           ),
@@ -1359,26 +1356,22 @@ class BrowseGrid extends StatelessWidget {
   }
 }
 
-/// One tile — a dark glass panel with a glowing category orb, name, blurb, and
-/// a count chip. Pressed state gives a subtle scale for tactility.
+/// One tile — a dark glass panel with a single-accent icon badge, a name, and a
+/// count. ONE constant colour across the whole grid (the Orbit accent); the
+/// categories differ only by ICON, never by colour, so the grid reads as one
+/// calm, space-consistent constellation. Pressed state adds a subtle scale.
 class _BrowseTile extends StatefulWidget {
   const _BrowseTile({
     required this.icon,
-    required this.tint,
     required this.label,
-    required this.blurb,
     required this.count,
     required this.onTap,
-    this.isAll = false,
   });
 
   final IconData icon;
-  final Color tint;
   final String label;
-  final String blurb;
   final int count;
   final VoidCallback onTap;
-  final bool isAll;
 
   @override
   State<_BrowseTile> createState() => _BrowseTileState();
@@ -1389,7 +1382,6 @@ class _BrowseTileState extends State<_BrowseTile> {
 
   @override
   Widget build(BuildContext context) {
-    final tint = widget.tint;
     return GestureDetector(
       onTapDown: (_) => setState(() => _down = true),
       onTapUp: (_) => setState(() => _down = false),
@@ -1400,15 +1392,14 @@ class _BrowseTileState extends State<_BrowseTile> {
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
-            // A faint tinted wash over the card — the tile's own colour, kept
-            // subtle so the grid reads as one calm constellation.
+            // A single, constant accent wash — same on every tile.
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                tint.withValues(alpha: 0.14),
+                AppColors.accent.withValues(alpha: 0.12),
                 AppColors.card,
               ],
             ),
@@ -1417,37 +1408,28 @@ class _BrowseTileState extends State<_BrowseTile> {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Top row: the accent icon badge + count chip.
               Row(
                 children: [
-                  // The glowing orb — a little planet in the tile's colour.
                   Container(
-                    width: 42,
-                    height: 42,
+                    width: 40,
+                    height: 40,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          tint.withValues(alpha: 0.9),
-                          tint.withValues(alpha: 0.55),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: tint.withValues(alpha: 0.45),
-                          blurRadius: 14,
-                          spreadRadius: 0.5,
-                        ),
-                      ],
+                      color: AppColors.accent.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(
+                          color: AppColors.accent.withValues(alpha: 0.35)),
                     ),
-                    child: Icon(widget.icon, color: Colors.white, size: 21),
+                    child: Icon(widget.icon,
+                        color: AppColors.accent, size: 20),
                   ),
                   const Spacer(),
-                  // Count chip.
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(999),
@@ -1456,7 +1438,7 @@ class _BrowseTileState extends State<_BrowseTile> {
                     child: Text(
                       '${widget.count}',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: widget.count == 0
                             ? AppColors.inkFaint
@@ -1467,27 +1449,16 @@ class _BrowseTileState extends State<_BrowseTile> {
                   ),
                 ],
               ),
-              const Spacer(),
+              // The label, pinned to the bottom.
               Text(
                 widget.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 15.5,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.2,
                   color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                widget.blurb,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.inkSoft,
                 ),
               ),
             ],

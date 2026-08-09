@@ -163,6 +163,146 @@ class BrandCatalog {
     Brand(name: 'Google', domain: 'google.com'),
   ];
 
+  /// India's most-subscribed services — the ONLY brands shown in the
+  /// Subscriptions add picker, so the grid is a curated, on-brand shelf (logos
+  /// auto-load by domain). The user can still type any name, but these surface
+  /// instantly. Ordered roughly by how commonly Indians subscribe.
+  static const List<Brand> topSubscriptions = [
+    // Streaming — video
+    Brand(name: 'Netflix', domain: 'netflix.com'),
+    Brand(name: 'Amazon Prime', domain: 'primevideo.com'),
+    Brand(name: 'Disney+ Hotstar', domain: 'hotstar.com'),
+    Brand(name: 'JioCinema', domain: 'jiocinema.com'),
+    Brand(name: 'SonyLIV', domain: 'sonyliv.com'),
+    Brand(name: 'ZEE5', domain: 'zee5.com'),
+    Brand(name: 'Apple TV+', domain: 'tv.apple.com'),
+    Brand(name: 'YouTube Premium', domain: 'youtube.com'),
+    Brand(name: 'Aha', domain: 'aha.video'),
+    Brand(name: 'MX Player', domain: 'mxplayer.in'),
+    Brand(name: 'Hoichoi', domain: 'hoichoi.tv'),
+    Brand(name: 'Discovery+', domain: 'discoveryplus.in'),
+    Brand(name: 'Lionsgate Play', domain: 'lionsgateplay.com'),
+    Brand(name: 'Chaupal', domain: 'chaupal.tv'),
+    Brand(name: 'ManoramaMAX', domain: 'manoramamax.com'),
+    // Streaming — music & audio
+    Brand(name: 'Spotify', domain: 'spotify.com'),
+    Brand(name: 'Apple Music', domain: 'music.apple.com'),
+    Brand(name: 'YouTube Music', domain: 'music.youtube.com'),
+    Brand(name: 'JioSaavn', domain: 'jiosaavn.com'),
+    Brand(name: 'Gaana', domain: 'gaana.com'),
+    Brand(name: 'Wynk Music', domain: 'wynk.in'),
+    Brand(name: 'Amazon Music', domain: 'music.amazon.com'),
+    Brand(name: 'Audible', domain: 'audible.in'),
+    Brand(name: 'Kuku FM', domain: 'kukufm.com'),
+    Brand(name: 'Pocket FM', domain: 'pocketfm.com'),
+    Brand(name: 'Hungama', domain: 'hungama.com'),
+    // Cloud / storage / productivity
+    Brand(name: 'Google One', domain: 'one.google.com'),
+    Brand(name: 'iCloud+', domain: 'icloud.com'),
+    Brand(name: 'Microsoft 365', domain: 'microsoft.com'),
+    Brand(name: 'Dropbox', domain: 'dropbox.com'),
+    Brand(name: 'Notion', domain: 'notion.so'),
+    Brand(name: 'Evernote', domain: 'evernote.com'),
+    Brand(name: 'Zoom', domain: 'zoom.us'),
+    Brand(name: 'Google Workspace', domain: 'workspace.google.com'),
+    // AI & creative tools
+    Brand(name: 'ChatGPT Plus', domain: 'openai.com'),
+    Brand(name: 'Claude', domain: 'claude.ai'),
+    Brand(name: 'Gemini', domain: 'gemini.google.com'),
+    Brand(name: 'Perplexity', domain: 'perplexity.ai'),
+    Brand(name: 'Canva', domain: 'canva.com'),
+    Brand(name: 'Adobe', domain: 'adobe.com'),
+    Brand(name: 'Grammarly', domain: 'grammarly.com'),
+    Brand(name: 'Figma', domain: 'figma.com'),
+    Brand(name: 'Midjourney', domain: 'midjourney.com'),
+    // Reading & news
+    Brand(name: 'Kindle Unlimited', domain: 'amazon.in'),
+    Brand(name: 'Audible', domain: 'audible.in'),
+    Brand(name: 'Times Prime', domain: 'timesprime.com'),
+    Brand(name: 'The Hindu', domain: 'thehindu.com'),
+    Brand(name: 'ET Prime', domain: 'economictimes.indiatimes.com'),
+    Brand(name: 'Inshorts Prime', domain: 'inshorts.com'),
+    // Health & fitness
+    Brand(name: 'Cult.fit', domain: 'cult.fit'),
+    Brand(name: 'HealthifyMe', domain: 'healthifyme.com'),
+    Brand(name: 'Fitbit Premium', domain: 'fitbit.com'),
+    Brand(name: 'Strava', domain: 'strava.com'),
+    Brand(name: 'Calm', domain: 'calm.com'),
+    Brand(name: 'Headspace', domain: 'headspace.com'),
+    // Learning
+    Brand(name: 'Coursera', domain: 'coursera.org'),
+    Brand(name: 'Udemy', domain: 'udemy.com'),
+    Brand(name: 'LinkedIn Premium', domain: 'linkedin.com'),
+    Brand(name: 'Unacademy', domain: 'unacademy.com'),
+    Brand(name: "BYJU'S", domain: 'byjus.com'),
+    Brand(name: 'Vedantu', domain: 'vedantu.com'),
+    Brand(name: 'Duolingo', domain: 'duolingo.com'),
+    Brand(name: 'Skillshare', domain: 'skillshare.com'),
+    // Gaming
+    Brand(name: 'PlayStation Plus', domain: 'playstation.com'),
+    Brand(name: 'Xbox Game Pass', domain: 'xbox.com'),
+    Brand(name: 'Nintendo Online', domain: 'nintendo.com'),
+    Brand(name: 'Apple Arcade', domain: 'apple.com'),
+    Brand(name: 'Steam', domain: 'steampowered.com'),
+    // Food, shopping & memberships
+    Brand(name: 'Swiggy One', domain: 'swiggy.com'),
+    Brand(name: 'Zomato Gold', domain: 'zomato.com'),
+    Brand(name: 'Amazon', domain: 'amazon.in'),
+    Brand(name: 'Flipkart Plus', domain: 'flipkart.com'),
+    Brand(name: 'Myntra Insider', domain: 'myntra.com'),
+    Brand(name: 'BigBasket', domain: 'bigbasket.com'),
+    Brand(name: 'Blinkit', domain: 'blinkit.com'),
+    Brand(name: 'Zepto Pass', domain: 'zeptonow.com'),
+    Brand(name: 'Tata Neu', domain: 'tataneu.com'),
+    // Dating & social
+    Brand(name: 'Tinder', domain: 'tinder.com'),
+    Brand(name: 'Bumble', domain: 'bumble.com'),
+    Brand(name: 'LinkedIn', domain: 'linkedin.com'),
+    // Utilities & connectivity (recurring plans)
+    Brand(name: 'Jio', domain: 'jio.com'),
+    Brand(name: 'Airtel', domain: 'airtel.in'),
+    Brand(name: 'Vi', domain: 'myvi.in'),
+    Brand(name: 'Tata Play', domain: 'tataplay.com'),
+    Brand(name: 'ACT Fibernet', domain: 'actcorp.in'),
+    Brand(name: 'JioFiber', domain: 'jio.com'),
+    Brand(name: 'ExpressVPN', domain: 'expressvpn.com'),
+    Brand(name: 'NordVPN', domain: 'nordvpn.com'),
+    Brand(name: 'Google Play Pass', domain: 'play.google.com'),
+    Brand(name: 'Truecaller Premium', domain: 'truecaller.com'),
+    Brand(name: 'Setu', domain: 'setu.co'),
+    Brand(name: 'Rummy Circle', domain: 'rummycircle.com'),
+    Brand(name: 'Dream11', domain: 'dream11.com'),
+    Brand(name: 'Pratilipi', domain: 'pratilipi.com'),
+    Brand(name: 'Scaler', domain: 'scaler.com'),
+    Brand(name: 'Skool', domain: 'skool.com'),
+    Brand(name: 'Medium', domain: 'medium.com'),
+    Brand(name: 'Patreon', domain: 'patreon.com'),
+  ];
+
+  /// Curated subscriptions whose name matches [query] (for the subs picker).
+  /// The free-typed guess is offered first so any service can still be added,
+  /// then matching curated subscriptions; de-duplicated by domain.
+  static List<Brand> searchSubscriptions(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return _dedupe(topSubscriptions);
+    final ordered = <Brand>[
+      resolve(query),
+      ...topSubscriptions.where((b) => b.name.toLowerCase().contains(q)),
+    ];
+    return _dedupe(ordered);
+  }
+
+  static List<Brand> _dedupe(List<Brand> brands) {
+    final seen = <String>{};
+    final out = <Brand>[];
+    for (final b in brands) {
+      final key =
+          b.domain.isNotEmpty ? b.domain : 'name:${b.name.toLowerCase()}';
+      if (seen.add(key)) out.add(b);
+    }
+    return out;
+  }
+
   /// A few common name → domain aliases so short/informal names still resolve.
   /// Name → domain for apps whose logo domain isn't just `<name>.com`. This is
   /// what pushes coverage to ~90-95% — anything not here still falls back to a

@@ -1366,56 +1366,51 @@ class _ParticleFieldPainter extends CustomPainter {
     }
   }
 
-  // SIP: two SIDE stacks of ₹ coins that grow taller then reset — money piling
-  // up on the flanks, framing the amount in the centre (never over it). Clean,
-  // symmetric, and clearly "investment building".
+  // SIP: three ₹ coins, fixed at well-spaced spots (not evenly spaced), each
+  // gently BOUNCING up and down on its own rhythm. Always present — steady,
+  // playful, clear of the amount in the middle.
+  //
+  // (x fraction, colour pick 0/1, bounce phase offset, size, rest-Y bias)
+  // Positioned off to the sides so none sit over the amount in the centre.
+  static const _coinSpots = [
+    [0.10, 0.0, 0.00, 8.0, -3.0], // left, sits a touch high
+    [0.25, 1.0, 0.50, 6.5, 8.0], // inner-left, lower + smaller
+    [0.90, 0.0, 0.30, 8.0, 2.0], // right
+  ];
+
   void _coins(Canvas canvas, Size size) {
-    const radius = 7.0;
-    const gap = 4.0; // vertical spacing between stacked coins
-    final baseY = size.height - radius - 2;
-    // The two stacks sit near the left and right edges, clear of the centre.
-    final columns = [size.width * 0.13, size.width * 0.87];
-
-    // A slow 0→1→0 breathe drives how many coins are "stacked" right now.
-    final breathe = (math.sin(t * 2 * math.pi) + 1) / 2; // 0..1
-    // Up to 2 coins per stack; the top one grows in via a fractional height.
-    const maxCoins = 2;
-    final filled = breathe * maxCoins;
-
-    for (var col = 0; col < columns.length; col++) {
-      final cx = columns[col];
-      // Offset the two columns' phase so they don't pulse in lock-step.
-      final f = col == 0 ? filled : (((breathe + 0.5) % 1.0) * maxCoins);
-      for (var i = 0; i < maxCoins; i++) {
-        final present = f - i; // >1 fully in, 0..1 rising, <0 not yet
-        if (present <= 0) continue;
-        final grow = present.clamp(0.0, 1.0); // fade+rise the topmost coin
-        final cy = baseY - i * (radius * 2 + gap) - (1 - grow) * 6;
-        final op = 0.6 * grow;
-        final color = i.isEven ? _violet : _lilac;
-        final centre = Offset(cx, cy);
-        canvas.drawCircle(
-            centre, radius, Paint()..color = color.withValues(alpha: op * 0.5));
-        canvas.drawCircle(
-            centre,
-            radius,
-            Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.4
-              ..color = color.withValues(alpha: op));
-        final tp = TextPainter(
-          text: TextSpan(
-            text: '₹',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              color: color.withValues(alpha: op),
-            ),
+    for (final c in _coinSpots) {
+      final cx = c[0] * size.width;
+      final radius = c[3];
+      // Each coin bounces on its own phase — a smooth up/down sine.
+      final b = math.sin((t + c[2]) * 2 * math.pi); // -1..1
+      // Rest around the vertical centre with a per-coin bias, bouncing ±6px.
+      final restY = size.height / 2 + c[4];
+      final cy = restY - b * 6;
+      final color = c[1] == 0.0 ? _violet : _lilac;
+      final centre = Offset(cx, cy);
+      const op = 0.7;
+      canvas.drawCircle(
+          centre, radius, Paint()..color = color.withValues(alpha: op * 0.5));
+      canvas.drawCircle(
+          centre,
+          radius,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.4
+            ..color = color.withValues(alpha: op));
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '₹',
+          style: TextStyle(
+            fontSize: radius * 1.1,
+            fontWeight: FontWeight.w900,
+            color: color.withValues(alpha: op),
           ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(canvas, centre - Offset(tp.width / 2, tp.height / 2));
-      }
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, centre - Offset(tp.width / 2, tp.height / 2));
     }
   }
 

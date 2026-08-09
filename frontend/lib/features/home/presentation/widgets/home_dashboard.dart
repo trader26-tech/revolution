@@ -578,7 +578,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 210,
+            height: 216,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -897,7 +897,7 @@ class _SubscriptionCard extends StatelessWidget {
       days: days,
       due: task.dueAt!,
       hero: _SubHero(
-        child: _Logo(task: task, size: 56, radius: 15),
+        child: _Logo(task: task, size: 52, radius: 14),
       ),
       title: task.title,
       subtitle: priceLine,
@@ -922,12 +922,15 @@ class _SipCard extends StatelessWidget {
       days: days,
       due: task.dueAt!,
       hero: _SipHero(
-        child: has
+        amount: has
             ? FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
                 child: Text(
                   _amountStr(task),
+                  maxLines: 1,
                   style: const TextStyle(
-                    fontSize: 38,
+                    fontSize: 36,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -1,
                     color: AppColors.ink,
@@ -935,7 +938,7 @@ class _SipCard extends StatelessWidget {
                 ),
               )
             : const Icon(Icons.trending_up_rounded,
-                size: 50, color: AppColors.accent),
+                size: 46, color: AppColors.accent),
       ),
       title: task.title,
       subtitle: has ? 'SIP · every instalment' : 'SIP instalment',
@@ -1026,15 +1029,18 @@ class _HeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The hero sits in a fixed band, centred, with the due-chip floating
-          // in the corner.
+          // The when-chip owns the top-right corner on its own row, so nothing
+          // can ever overlap it. The hero then sits in its own band below.
+          Align(
+            alignment: Alignment.centerRight,
+            child: _WhenChip(days: days, due: due),
+          ),
+          const SizedBox(height: 6),
           SizedBox(
-            height: 78,
-            child: Stack(
-              children: [
-                Center(child: hero),
-                Positioned(top: 0, right: 0, child: _WhenChip(days: days, due: due)),
-              ],
+            height: 60,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: hero,
             ),
           ),
           const SizedBox(height: 8),
@@ -1091,9 +1097,16 @@ class _HeroCard extends StatelessWidget {
 /// [painter] builder, so every card animates differently. Cheap by design: one
 /// controller, a RepaintBoundary, painter-only, 3.4s period.
 class _HeroStage extends StatefulWidget {
-  const _HeroStage({required this.child, required this.painter});
+  const _HeroStage({
+    required this.child,
+    required this.painter,
+    this.width = 120,
+    this.alignment = Alignment.center,
+  });
   final Widget child;
   final CustomPainter Function(double t) painter;
+  final double width;
+  final Alignment alignment;
   @override
   State<_HeroStage> createState() => _HeroStageState();
 }
@@ -1114,13 +1127,13 @@ class _HeroStageState extends State<_HeroStage>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: SizedBox(
-        width: 120,
-        height: 72,
+        width: widget.width,
+        height: 60,
         child: AnimatedBuilder(
           animation: _c,
           builder: (context, child) => CustomPaint(
             painter: widget.painter(_c.value),
-            child: Center(child: child),
+            child: Align(alignment: widget.alignment, child: child),
           ),
           child: widget.child,
         ),
@@ -1129,95 +1142,133 @@ class _HeroStageState extends State<_HeroStage>
   }
 }
 
-// Category-specific heroes — same size + child slot, distinct motion.
+// Category-specific heroes — distinct motion, each kept clear of the chip/text.
 
-/// Subscription → a renewing ring: an accent arc sweeps once around the logo
-/// each loop (the "auto-renews" idea), over a faint full track.
+/// Subscription → the logo IS the hero: a clean, larger mark with a soft accent
+/// glow breathing behind it. No ring, no box-in-box — just the brand, alive.
 class _SubHero extends StatelessWidget {
   const _SubHero({required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) =>
-      _HeroStage(painter: (t) => _RenewRingPainter(t), child: child);
+  Widget build(BuildContext context) => _HeroStage(
+        width: 60,
+        alignment: Alignment.centerLeft,
+        painter: (t) => _GlowPainter(t),
+        child: child,
+      );
 }
 
-class _RenewRingPainter extends CustomPainter {
-  _RenewRingPainter(this.t);
+/// A soft radial glow that gently breathes behind a left-aligned mark.
+class _GlowPainter extends CustomPainter {
+  _GlowPainter(this.t);
   final double t;
   @override
   void paint(Canvas canvas, Size size) {
-    final c = Offset(size.width / 2, size.height / 2);
-    const r = 34.0;
-    // Faint full track.
-    canvas.drawCircle(
-      c,
-      r,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = AppColors.accent.withValues(alpha: 0.14),
-    );
-    // The sweeping arc — a quarter-circle chasing around.
-    final sweep = math.pi * 0.6;
-    final start = t * 2 * math.pi - math.pi / 2;
-    canvas.drawArc(
-      Rect.fromCircle(center: c, radius: r),
-      start,
-      sweep,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.6
-        ..strokeCap = StrokeCap.round
-        ..color = AppColors.accent.withValues(alpha: 0.85),
-    );
+    final c = Offset(size.height / 2, size.height / 2); // behind the left mark
+    final breathe = (math.sin(t * 2 * math.pi) + 1) / 2; // 0..1
+    final r = 30.0 + 6 * breathe;
+    final paint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          AppColors.accent.withValues(alpha: 0.22 + 0.12 * breathe),
+          AppColors.accent.withValues(alpha: 0.0),
+        ],
+      ).createShader(Rect.fromCircle(center: c, radius: r));
+    canvas.drawCircle(c, r, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _RenewRingPainter old) => old.t != t;
+  bool shouldRepaint(covariant _GlowPainter old) => old.t != t;
 }
 
-/// SIP → coins stacking: three coin ellipses that rise and settle in sequence,
-/// beneath the amount — money accumulating.
+/// SIP → the amount is the hero, left-aligned and unobstructed; a small set of
+/// rising "growth" bars sits to its RIGHT (never over the number), climbing in
+/// sequence — wealth compounding.
 class _SipHero extends StatelessWidget {
-  const _SipHero({required this.child});
-  final Widget child;
+  const _SipHero({required this.amount});
+  final Widget amount;
   @override
-  Widget build(BuildContext context) =>
-      _HeroStage(painter: (t) => _CoinsPainter(t), child: child);
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 60,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // The amount, clear and prominent.
+          Flexible(child: amount),
+          const SizedBox(width: 10),
+          // Growth bars, off to the side.
+          const _GrowthBars(),
+        ],
+      ),
+    );
+  }
 }
 
-class _CoinsPainter extends CustomPainter {
-  _CoinsPainter(this.t);
+class _GrowthBars extends StatefulWidget {
+  const _GrowthBars();
+  @override
+  State<_GrowthBars> createState() => _GrowthBarsState();
+}
+
+class _GrowthBarsState extends State<_GrowthBars>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 2600))
+    ..repeat();
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: SizedBox(
+        width: 34,
+        height: 36,
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) =>
+              CustomPaint(painter: _BarsPainter(_c.value)),
+        ),
+      ),
+    );
+  }
+}
+
+class _BarsPainter extends CustomPainter {
+  _BarsPainter(this.t);
   final double t;
+  static const _heights = [0.45, 0.72, 1.0]; // ascending — growth
   @override
   void paint(Canvas canvas, Size size) {
-    final baseX = size.width / 2;
-    final baseY = size.height - 10;
-    for (var i = 0; i < 3; i++) {
-      // Each coin has its own phase; rises into place then holds.
-      final phase = (t * 3 - i).clamp(0.0, 1.0);
-      final ease = Curves.easeOut.transform(phase);
-      final y = baseY - i * 8 - 6 * ease;
-      final op = 0.30 + 0.5 * ease;
-      final rect = Rect.fromCenter(
-          center: Offset(baseX, y), width: 30, height: 9);
-      canvas.drawOval(
-        rect,
-        Paint()..color = AppColors.accent.withValues(alpha: op * 0.5),
+    const n = 3;
+    const gap = 4.0;
+    final bw = (size.width - gap * (n - 1)) / n;
+    for (var i = 0; i < n; i++) {
+      // Each bar grows into its height on a staggered phase, then holds.
+      final phase = (t * 2 - i * 0.25).clamp(0.0, 1.0);
+      final grow = Curves.easeOut.transform(phase);
+      final h = size.height * _heights[i] * (0.5 + 0.5 * grow);
+      final x = i * (bw + gap);
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, size.height - h, bw, h),
+        const Radius.circular(2),
       );
-      canvas.drawOval(
+      canvas.drawRRect(
         rect,
         Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5
-          ..color = AppColors.accent.withValues(alpha: op),
+          ..color = (i == n - 1 ? AppColors.accent : const Color(0xFFB9A8FF))
+              .withValues(alpha: 0.55 + 0.35 * grow),
       );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _CoinsPainter old) => old.t != t;
+  bool shouldRepaint(covariant _BarsPainter old) => old.t != t;
 }
 
 /// Occasion → a birthday feel: a soft candle glow above the hero plus a few

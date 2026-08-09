@@ -264,11 +264,14 @@ class _CollectionPageState extends State<CollectionPage> {
   Future<void> _add(BuildContext context) async {
     final cat = category ?? TaskCategory.other;
     final result = await openCategoryForm(context, store, cat);
-    final added = await persistAddResult(store, result);
-    // Already on this category's page — just let Revo celebrate the add.
-    if (added && context.mounted) {
-      await showAddedSuccess(context, label: addedLabel(cat));
-    }
+    if (result == null || !context.mounted) return;
+    final willAdd = result.task != null || result.selfSaved;
+    if (!willAdd) return;
+    // Show the celebration FIRST (instant + opaque), so the moment the form
+    // closes it covers this page — no flash. Persist AFTER, behind the cover.
+    final celebration = showAddedSuccess(context, label: addedLabel(cat));
+    await persistAddResult(store, result);
+    await celebration;
   }
 
   Future<void> _edit(BuildContext context, Task task) async {

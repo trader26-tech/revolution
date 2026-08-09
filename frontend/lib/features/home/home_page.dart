@@ -53,14 +53,18 @@ class _HomePageState extends State<HomePage> {
     final category = await showAddBrowseSheet(context);
     if (category == null || !mounted) return;
     final result = await openCategoryForm(context, widget.store, category);
-    final added = await persistAddResult(widget.store, result);
-    if (!added || !mounted) return;
-    // Place the destination page instantly (no slide) UNDER the celebration,
-    // then show the celebration instantly on top — so pressing save reads as
-    // one motion: form closes → success animates → subscriptions revealed.
+    if (result == null || !mounted) return;
+    final willAdd = result.task != null || result.selfSaved;
+    if (!willAdd) return;
+    // CRITICAL ordering: the frame the form closes, show the celebration FIRST
+    // (it's cheap + opaque + instant, so it covers the screen immediately and
+    // Home is never painted), THEN place the destination page underneath it,
+    // THEN persist (async; it notifies listeners → a Home rebuild, now hidden
+    // behind the celebration). Nothing awaited runs before the cover is up.
+    final celebration = showAddedSuccess(context, label: addedLabel(category));
     _openCollection(category, instant: true);
-    if (!mounted) return;
-    await showAddedSuccess(context, label: addedLabel(category));
+    await persistAddResult(widget.store, result);
+    await celebration;
   }
 
   Future<void> _editTask(Task task) async {

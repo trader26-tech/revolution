@@ -224,13 +224,36 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
     final open = items.where((s) => !s.isDone).toList();
     final shipped = items.where((s) => s.isDone).toList();
 
+    // The most-loved OPEN idea (positive score) gets a hero spotlight up top so
+    // everyone sees what the community wants most. It's then omitted from the
+    // regular list below to avoid showing it twice.
+    final Suggestion? top =
+        (open.isNotEmpty && open.first.score > 0) ? open.first : null;
+    final rest = top == null ? open : open.skip(1).toList();
+
     return RefreshIndicator(
       color: AppColors.accent,
       onRefresh: () => _load(showSpinner: false),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
         children: [
-          for (final s in open)
+          if (top != null) ...[
+            _TopIdeaHero(
+              suggestion: top,
+              onVote: (d) => _vote(top, d),
+              onDelete: () => _delete(top),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(4, 20, 4, 10),
+              child: Text('More ideas',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.6,
+                      color: AppColors.inkSoft)),
+            ),
+          ],
+          for (final s in rest)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _SuggestionCard(suggestion: s, onVote: (d) => _vote(s, d), onDelete: () => _delete(s)),
@@ -340,6 +363,172 @@ class _Header extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Top-idea hero ────────────────────────────────────────────────────────────
+/// The community's #1 idea, spotlighted. A bold accent-lit card with a "MOST
+/// WANTED" ribbon, the idea in large type, a big score, and the same vote
+/// controls — so everyone sees what people want most, and can back it.
+class _TopIdeaHero extends StatelessWidget {
+  const _TopIdeaHero({
+    required this.suggestion,
+    required this.onVote,
+    required this.onDelete,
+  });
+  final Suggestion suggestion;
+  final ValueChanged<int> onVote;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = suggestion;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.accent.withValues(alpha: 0.22),
+            AppColors.card,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.22),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // "MOST WANTED" ribbon.
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                      colors: [AppColors.accent, AppColors.accentDeep]),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.local_fire_department_rounded,
+                        size: 14, color: Colors.white),
+                    SizedBox(width: 5),
+                    Text('MOST WANTED',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color: Colors.white)),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              _StatusChip(status: s.status),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // The idea, large.
+          Text(
+            s.text,
+            style: const TextStyle(
+              fontSize: 18,
+              height: 1.3,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+              color: AppColors.ink,
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Big vote row: up / score / down, laid horizontally for prominence.
+          Row(
+            children: [
+              _HeroVoteButton(
+                icon: Icons.keyboard_arrow_up_rounded,
+                active: s.myVote > 0,
+                onTap: () => onVote(1),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '${s.score}',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                  color: s.myVote > 0 ? AppColors.accent : AppColors.ink,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Text('votes',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkSoft)),
+              const SizedBox(width: 10),
+              _HeroVoteButton(
+                icon: Icons.keyboard_arrow_down_rounded,
+                active: s.myVote < 0,
+                onTap: () => onVote(-1),
+              ),
+              const Spacer(),
+              if (s.mine)
+                GestureDetector(
+                  onTap: onDelete,
+                  behavior: HitTestBehavior.opaque,
+                  child: const Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(Icons.delete_outline_rounded,
+                        size: 20, color: AppColors.inkFaint),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroVoteButton extends StatelessWidget {
+  const _HeroVoteButton(
+      {required this.icon, required this.active, required this.onTap});
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 40,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active
+              ? AppColors.accent.withValues(alpha: 0.22)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: active
+                  ? AppColors.accent.withValues(alpha: 0.6)
+                  : AppColors.glassBorder),
+        ),
+        child: Icon(icon,
+            size: 24, color: active ? AppColors.accent : AppColors.inkSoft),
       ),
     );
   }

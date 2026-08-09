@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
@@ -57,19 +58,6 @@ class _HomePageState extends State<HomePage> {
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SettingsPage()),
-    );
-  }
-
-  /// DEV: replay the onboarding flow (intro → chips → payoff → schedule).
-  /// Opened WITHOUT an onDone handler, so its Skip/Finish signs out and drops
-  /// you on the phone login page every time — handy for testing login again and
-  /// again from Home.
-  void _openOnboardingPreview() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => const OnboardingFlow(),
-      ),
     );
   }
 

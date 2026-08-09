@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
+import '../add/presentation/added_success.dart';
 import '../add/presentation/open_add_flow.dart';
 import '../auth/data/auth_store.dart';
 import '../settings/data/profile_store.dart';
@@ -41,12 +42,17 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// The "+" — slide the Browse list up from the bottom ("Add to Revolution").
-  /// Pick a category → its tailored add form opens → it's saved.
+  /// Pick a category → its tailored add form opens → it's saved. On success,
+  /// Revo pops in to celebrate, then we glide into that category's collection.
   Future<void> _startAdd() async {
     final category = await showAddBrowseSheet(context);
     if (category == null || !mounted) return;
     final result = await openCategoryForm(context, widget.store, category);
-    await persistAddResult(widget.store, result);
+    final added = await persistAddResult(widget.store, result);
+    if (!added || !mounted) return;
+    await showAddedSuccess(context, label: '${category.label} added');
+    if (!mounted) return;
+    _openCollection(category);
   }
 
   Future<void> _editTask(Task task) async {

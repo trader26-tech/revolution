@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../../add/domain/subscription_categories.dart';
+import '../../add/presentation/added_success.dart';
 import '../../add/presentation/open_add_flow.dart';
 import '../../add/presentation/birthday_form_page.dart';
 import '../../add/presentation/sip_form_page.dart';
@@ -261,12 +262,13 @@ class _CollectionPageState extends State<CollectionPage> {
   }
 
   Future<void> _add(BuildContext context) async {
-    final result = await openCategoryForm(
-      context,
-      store,
-      category ?? TaskCategory.other,
-    );
-    await persistAddResult(store, result);
+    final cat = category ?? TaskCategory.other;
+    final result = await openCategoryForm(context, store, cat);
+    final added = await persistAddResult(store, result);
+    // Already on this category's page — just let Revo celebrate the add.
+    if (added && context.mounted) {
+      await showAddedSuccess(context, label: '${cat.label} added');
+    }
   }
 
   Future<void> _edit(BuildContext context, Task task) async {

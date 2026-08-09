@@ -135,12 +135,13 @@ Future<AddResult?> openCategoryForm(
 }
 
 /// Persist an [AddResult] to the store (the one place add-persistence lives, so
-/// Home and every collection page save identically). Insurance already saved
-/// itself, so [AddResult.selfSaved] is a no-op here.
-Future<void> persistAddResult(TaskStore store, AddResult? result) async {
-  if (result == null) return;
+/// Home and every collection page save identically). Returns true if something
+/// was actually added (so the caller can show the success moment). Insurance
+/// already saved itself, so [AddResult.selfSaved] counts as added too.
+Future<bool> persistAddResult(TaskStore store, AddResult? result) async {
+  if (result == null) return false;
   final task = result.task;
-  if (task == null) return; // selfSaved (insurance) — nothing to do
+  if (task == null) return result.selfSaved; // insurance self-saved
   await store.add(
     task.title,
     iconName: task.iconName,
@@ -157,4 +158,5 @@ Future<void> persistAddResult(TaskStore store, AddResult? result) async {
     birthYear: task.birthYear,
     remindDaysBefore: task.remindDaysBefore,
   );
+  return true;
 }

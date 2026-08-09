@@ -522,29 +522,32 @@ class UpNextStrip extends StatelessWidget {
     // All items in the 7-day window from the anchor day, soonest first.
     final shown = items.take(10).toList();
 
-    // Every card looks the same (consistent, full). The differentiation is an
-    // explicit DIVIDER card dropped in where the list crosses from "on the
-    // selected day" to "scheduled later" — so it's unmistakable which items are
-    // on the tapped day and which come after.
-    final anchorDay = DateTime(anchor.year, anchor.month, anchor.day);
-    bool onAnchor(Task t) {
-      final d = t.dueAt;
-      if (d == null) return false;
-      return DateTime(d.year, d.month, d.day) == anchorDay;
+    // Build the strip DAY BY DAY: a small header card before each day's items,
+    // so the flow is explicit. If the selected day itself has nothing, lead with
+    // a "nothing on <day>" card, then continue into the upcoming days.
+    DateTime dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
+    final anchorDay = dayOf(anchor);
+    final hasOnAnchor = shown.any((t) =>
+        t.dueAt != null && dayOf(t.dueAt!) == anchorDay);
+
+    final children = <Widget>[];
+    if (!hasOnAnchor) {
+      // Nothing scheduled on the tapped day — say so, then show what's next.
+      children.add(_EmptyDayLeadCard(day: anchorDay));
     }
 
-    final onDay = shown.where(onAnchor).toList();
-    final later = shown.where((t) => !onAnchor(t)).toList();
-
-    final children = <Widget>[
-      for (final t in onDay)
-        _UpNextCard(task: t, anchor: anchor, onTap: () => onTap(t)),
-      // The boundary marker — only when there are items on BOTH sides.
-      if (onDay.isNotEmpty && later.isNotEmpty)
-        _LaterMarkerCard(anchor: anchor),
-      for (final t in later)
-        _UpNextCard(task: t, anchor: anchor, onTap: () => onTap(t)),
-    ];
+    DateTime? lastDay;
+    for (final t in shown) {
+      final due = t.dueAt;
+      if (due == null) continue;
+      final d = dayOf(due);
+      // A day-header card each time the day changes.
+      if (lastDay == null || d != lastDay) {
+        children.add(_DayHeaderCard(day: d));
+        lastDay = d;
+      }
+      children.add(_UpNextCard(task: t, anchor: anchor, onTap: () => onTap(t)));
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,14 +641,6 @@ int _daysUntil(DateTime d) {
   return DateTime(d.year, d.month, d.day).difference(today).inDays;
 }
 
-/// Days from an ANCHOR day (the selected calendar day) to [d]. Used so an
-/// Up-Next card reads relative to the tapped day: 0 = on that day, 1 = the day
-/// after it, etc. — the differentiation between "on this day" and "later".
-int _daysFromAnchor(DateTime anchor, DateTime d) {
-  final a = DateTime(anchor.year, anchor.month, anchor.day);
-  return DateTime(d.year, d.month, d.day).difference(a).inDays;
-}
-
 /// "Today" / "Tomorrow" / "Fri" / "in 3 wk" — a compact, human due hint.
 String _whenLabel(int days, DateTime due) {
   if (days <= 0) return 'Today';
@@ -695,7 +690,7 @@ int? _ageOnNext(Task t) {
 
 /// The Up-Next card — routes to a layout tailored to the task's category. Every
 /// card looks full and consistent; the "on this day vs. later" boundary is shown
-/// by a separate [_LaterMarkerCard], not by dimming.
+/// by separate day-header cards, not by dimming.
 class _UpNextCard extends StatelessWidget {
   const _UpNextCard(
       {required this.task, required this.anchor, required this.onTap});
@@ -719,51 +714,123 @@ class _UpNextCard extends StatelessWidget {
   }
 }
 
-/// The boundary card that sits between the "on this day" items and the ones
-/// scheduled later — a clear, friendly lead so the user knows exactly where the
-/// selected day ends and the future begins.
-class _LaterMarkerCard extends StatelessWidget {
-  const _LaterMarkerCard({required this.anchor});
-  final DateTime anchor;
+/// A friendly date label for a day — "Today", "Tomorrow"-free: only today is
+/// special-cased; every other day reads as "Tue 11" / "Sat 15".
+({String kicker, String date, bool isToday}) _dayParts(DateTime day) {
+  final now = DateTime.now();
+  final isToday =
+      day == DateTime(now.year, now.month, now.day);
+  const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+    'Oct', 'Nov', 'Dec'];
+  return (
+    kicker: isToday ? 'TODAY' : wd[day.weekday - 1].toUpperCase(),
+    date: '${day.day} ${mo[day.month - 1]}',
+    isToday: isToday,
+  );
+}
+
+/// A slim day-header card placed before each day's items in the Up-Next strip —
+/// the signpost that separates one day's reminders from the next, so the flow
+/// reads day by day.
+class _DayHeaderCard extends StatelessWidget {
+  const _DayHeaderCard({required this.day});
+  final DateTime day;
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final isToday = DateTime(anchor.year, anchor.month, anchor.day) ==
-        DateTime(now.year, now.month, now.day);
-    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final dayName = isToday ? 'today' : '${wd[anchor.weekday - 1]} ${anchor.day}';
-
+    final p = _dayParts(day);
     return Container(
-      width: 132,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      width: 78,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
-        // A dashed-feel divider card: distinct from the item cards, so it reads
-        // as a signpost, not a reminder.
+        color: AppColors.card.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: p.isToday
+              ? AppColors.accent.withValues(alpha: 0.5)
+              : AppColors.glassBorder,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RotatedBox(
+            quarterTurns: 3,
+            child: Text(
+              p.kicker,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                color: p.isToday ? AppColors.accent : AppColors.inkFaint,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            p.date.split(' ').first, // day number
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              height: 1,
+              letterSpacing: -0.5,
+              color: AppColors.ink,
+            ),
+          ),
+          Text(
+            p.date.split(' ').last, // month
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.inkSoft,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The lead card shown when the SELECTED day has nothing scheduled — tells the
+/// user they're free that day, then the upcoming days follow.
+class _EmptyDayLeadCard extends StatelessWidget {
+  const _EmptyDayLeadCard({required this.day});
+  final DateTime day;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = _dayParts(day);
+    final label = p.isToday ? 'today' : '${p.kicker.substring(0, 1)}${p.kicker.substring(1).toLowerCase()} ${p.date.split(' ').first}';
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
         color: AppColors.card.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+        border: Border.all(color: AppColors.glassBorder),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.16),
+              color: AppColors.accent.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.more_time_rounded,
-                size: 18, color: AppColors.accent),
+            child: const Icon(Icons.check_rounded,
+                size: 20, color: AppColors.accent),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
-            "That's all for $dayName",
+            'Nothing on $label',
             style: const TextStyle(
-              fontSize: 13.5,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
               height: 1.2,
               color: AppColors.ink,
@@ -771,7 +838,7 @@ class _LaterMarkerCard extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           const Text(
-            'Everything after is scheduled later →',
+            "You're free — here's what's coming up.",
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
@@ -864,33 +931,15 @@ class _WhenChipState extends State<_WhenChip>
   }
 
   String _text() {
-    // Relative to the selected day, when there is one — so the strip tells you
-    // what's ON the tapped day vs. later.
-    final anchor = widget.anchor;
-    if (anchor != null) {
-      final now = DateTime.now();
-      final anchorIsToday =
-          DateTime(anchor.year, anchor.month, anchor.day) ==
-              DateTime(now.year, now.month, now.day);
-      final ad = _daysFromAnchor(anchor, widget.due);
-      if (ad <= 0) {
-        // On the selected day. If that day is today, say TODAY; else name it.
-        if (anchorIsToday) return 'TODAY';
-        const wd = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-        return 'ON ${wd[widget.due.weekday - 1]} ${widget.due.day}';
-      }
-      if (ad == 1) return anchorIsToday ? 'TOMORROW' : 'NEXT DAY';
-      if (ad < 7) return 'IN $ad DAYS';
-      return 'LATER';
-    }
-    // No anchor → plain today-relative label.
-    final d = widget.days;
-    if (d <= 0) return 'TODAY';
-    if (d == 1) return 'TOMORROW';
-    if (d < 7) return 'IN $d DAYS';
-    if (d < 14) return 'NEXT WEEK';
-    if (d < 30) return 'IN ${(d / 7).round()} WKS';
-    return 'IN ${(d / 30).round()} MO';
+    // Only the actual current day is called "TODAY"; every other day shows its
+    // EXACT date ("SAT 15") — no relative words like "tomorrow"/"next day".
+    final now = DateTime.now();
+    final due = widget.due;
+    final isToday = DateTime(due.year, due.month, due.day) ==
+        DateTime(now.year, now.month, now.day);
+    if (isToday) return 'TODAY';
+    const wd = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    return '${wd[due.weekday - 1]} ${due.day}';
   }
 
   @override

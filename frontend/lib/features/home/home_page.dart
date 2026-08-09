@@ -44,15 +44,20 @@ class _HomePageState extends State<HomePage> {
   /// The "+" — slide the Browse list up from the bottom ("Add to Revolution").
   /// Pick a category → its tailored add form opens → it's saved. On success,
   /// Revo pops in to celebrate, then we glide into that category's collection.
+  ///
+  /// To keep it one clean forward motion (no flash of Home in between), we push
+  /// the collection page FIRST — hidden behind the opaque success page — so when
+  /// the celebration ends and dismisses, the subscriptions/SIP/occasions page is
+  /// revealed directly underneath.
   Future<void> _startAdd() async {
     final category = await showAddBrowseSheet(context);
     if (category == null || !mounted) return;
     final result = await openCategoryForm(context, widget.store, category);
     final added = await persistAddResult(widget.store, result);
     if (!added || !mounted) return;
-    await showAddedSuccess(context, label: '${category.label} added');
+    _openCollection(category); // lands underneath the success page
     if (!mounted) return;
-    _openCollection(category);
+    await showAddedSuccess(context, label: addedLabel(category));
   }
 
   Future<void> _editTask(Task task) async {

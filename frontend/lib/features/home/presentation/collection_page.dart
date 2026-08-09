@@ -267,7 +267,7 @@ class _CollectionPageState extends State<CollectionPage> {
     final added = await persistAddResult(store, result);
     // Already on this category's page — just let Revo celebrate the add.
     if (added && context.mounted) {
-      await showAddedSuccess(context, label: '${cat.label} added');
+      await showAddedSuccess(context, label: addedLabel(cat));
     }
   }
 

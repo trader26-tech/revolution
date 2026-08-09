@@ -1,239 +1,251 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/mascot.dart';
+import '../../../core/widgets/starfield.dart';
+import '../../tasks/domain/task.dart';
 
-/// A brief, joyful "Added!" moment — a happy Revo pops in with a ring of little
-/// sparks (all drawn, no emoji), a checkmark badge, and a message. Auto-
-/// dismisses. Await it before navigating on.
+/// The success headline for a just-added item — the singular noun, capitalised:
+/// "Subscription added", "SIP added", "Occasion added".
+String addedLabel(TaskCategory category) {
+  final s = category.singular;
+  final titled = s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+  return '$titled added';
+}
+
+/// The celebratory "Added!" moment — the same satisfying beat as the "You're
+/// in." verified screen, reused for adding a reminder: a glowing ring bursts
+/// open, a checkmark draws itself, Revo pops in happy, and the words fade up.
+///
+/// It's a full opaque page (dark Orbit sky + starfield), pushed on the root
+/// navigator, so there's no see-through overlay and no debug-yellow text — it
+/// looks like a real screen. Auto-advances after a short hold, then completes
+/// the returned Future so the caller can navigate on.
 Future<void> showAddedSuccess(
   BuildContext context, {
   required String label, // e.g. "Subscription added"
 }) {
-  return Navigator.of(context, rootNavigator: true).push(
-    PageRouteBuilder(
-      opaque: false,
-      barrierColor: Colors.black.withValues(alpha: 0.55),
-      transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (_, _, _) => _AddedSuccessOverlay(label: label),
-      transitionsBuilder: (_, anim, _, child) =>
-          FadeTransition(opacity: anim, child: child),
+  return Navigator.of(context, rootNavigator: true).push<void>(
+    PageRouteBuilder<void>(
+      opaque: true,
+      transitionDuration: const Duration(milliseconds: 280),
+      reverseTransitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (context, animation, secondaryAnimation) =>
+          _AddedSuccessPage(label: label),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          FadeTransition(opacity: animation, child: child),
     ),
   );
 }
 
-class _AddedSuccessOverlay extends StatefulWidget {
-  const _AddedSuccessOverlay({required this.label});
+class _AddedSuccessPage extends StatefulWidget {
+  const _AddedSuccessPage({required this.label});
   final String label;
 
   @override
-  State<_AddedSuccessOverlay> createState() => _AddedSuccessOverlayState();
+  State<_AddedSuccessPage> createState() => _AddedSuccessPageState();
 }
 
-class _AddedSuccessOverlayState extends State<_AddedSuccessOverlay>
+class _AddedSuccessPageState extends State<_AddedSuccessPage>
     with TickerProviderStateMixin {
-  late final AnimationController _pop; // one-shot entrance + spark burst
-  late final AnimationController _life; // Revo's happy bob while it shows
+  late final AnimationController _c;
+  bool _done = false;
 
   @override
   void initState() {
     super.initState();
-    HapticFeedback.mediumImpact();
-    _pop = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 900))
-      ..forward();
-    _life = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1400))
-      ..repeat();
-    // Auto-dismiss and return to the caller.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future<void>.delayed(const Duration(milliseconds: 1650));
-      if (mounted) Navigator.of(context).pop();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..forward();
+    _c.addStatusListener((s) {
+      if (s == AnimationStatus.completed && !_done) {
+        _done = true;
+        // A brief hold on the finished frame, then advance.
+        Future<void>.delayed(const Duration(milliseconds: 550), _close);
+      }
     });
+  }
+
+  void _close() {
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   @override
   void dispose() {
-    _pop.dispose();
-    _life.dispose();
+    _c.dispose();
     super.dispose();
   }
 
+  double _seg(double start, double end) =>
+      ((_c.value - start) / (end - start)).clamp(0.0, 1.0);
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      // Tap anywhere to skip straight through.
-      onTap: () => Navigator.of(context).maybePop(),
-      behavior: HitTestBehavior.opaque,
-      child: Center(
-        child: AnimatedBuilder(
-          animation: Listenable.merge([_pop, _life]),
-          builder: (context, _) {
-            final p = _pop.value;
-            // Revo pops with an over-shoot, then settles.
-            final scale = Curves.easeOutBack.transform(p.clamp(0.0, 1.0));
-            final t = _life.value;
-            final breath = math.sin(t * 2 * math.pi);
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Starfield(
+        intensity: 0.9,
+        child: GestureDetector(
+          // Tap to skip straight through.
+          onTap: _close,
+          behavior: HitTestBehavior.opaque,
+          child: SafeArea(
+            child: AnimatedBuilder(
+              animation: _c,
+              builder: (context, _) {
+                final ring = Curves.easeOutBack.transform(_seg(0.0, 0.45));
+                final check = Curves.easeOutCubic.transform(_seg(0.22, 0.6));
+                final revoT = Curves.easeOutBack.transform(_seg(0.42, 0.8));
+                final textT = Curves.easeOutCubic.transform(_seg(0.62, 1.0));
 
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Revo + sparks + check badge.
-                SizedBox(
-                  width: 200,
-                  height: 200,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // The spark burst behind Revo.
-                      CustomPaint(
-                        size: const Size(200, 200),
-                        painter: _SparkPainter(p),
-                      ),
-                      // Happy Revo, bobbing, glowing.
-                      Transform.translate(
-                        offset: Offset(0, breath * 5),
-                        child: Transform.scale(
-                          scale: 0.5 + 0.5 * scale,
-                          child: _HappyRevo(t: t, size: 116),
-                        ),
-                      ),
-                      // A checkmark badge on the lower-right of Revo.
-                      Positioned(
-                        right: 30,
-                        bottom: 34,
-                        child: Transform.scale(
-                          scale: Curves.easeOutBack
-                              .transform((p * 1.4 - 0.4).clamp(0.0, 1.0)),
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: [
-                                AppColors.accent,
-                                AppColors.accentDeep
-                              ]),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: AppColors.bg, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      AppColors.accent.withValues(alpha: 0.5),
-                                  blurRadius: 14,
-                                ),
-                              ],
-                            ),
-                            child: const Icon(Icons.check_rounded,
-                                color: Colors.white, size: 22),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // The message, sliding up + fading in slightly after Revo.
-                Opacity(
-                  opacity: ((p - 0.25) / 0.5).clamp(0.0, 1.0),
+                return Center(
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      ShaderMask(
-                        shaderCallback: (r) => const LinearGradient(
-                          colors: [AppColors.ink, Color(0xFFB9A8FF)],
-                        ).createShader(r),
-                        child: Text(
-                          widget.label,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
-                            color: Colors.white,
+                      const Spacer(flex: 3),
+                      // ── The badge: glowing ring + drawn checkmark ──
+                      SizedBox(
+                        width: 132,
+                        height: 132,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Soft outer glow that swells with the ring.
+                            Container(
+                              width: 132 * ring,
+                              height: 132 * ring,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.accent
+                                        .withValues(alpha: 0.45 * ring),
+                                    blurRadius: 40,
+                                    spreadRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // The ring itself.
+                            Transform.scale(
+                              scale: ring,
+                              child: Container(
+                                width: 108,
+                                height: 108,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color:
+                                      AppColors.accent.withValues(alpha: 0.14),
+                                  border: Border.all(
+                                    color: AppColors.accent,
+                                    width: 3,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // The checkmark, drawn stroke-by-stroke.
+                            CustomPaint(
+                              size: const Size(64, 64),
+                              painter: _CheckPainter(progress: check),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      // ── Revo, popping in to celebrate ──
+                      Opacity(
+                        opacity: revoT.clamp(0.0, 1.0),
+                        child: Transform.translate(
+                          offset: Offset(0, 10 * (1 - revoT)),
+                          child: Transform.scale(
+                            scale: 0.6 + 0.4 * revoT,
+                            child: const AnimatedMascot(size: 96),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Nice — Revo’s got it from here.',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.inkSoft,
+                      const SizedBox(height: 26),
+                      // ── The words ──
+                      Opacity(
+                        opacity: textT,
+                        child: Transform.translate(
+                          offset: Offset(0, 12 * (1 - textT)),
+                          child: Column(
+                            children: [
+                              Text(
+                                widget.label,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.ink,
+                                  letterSpacing: -0.6,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Revo’s keeping an eye on it.',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.inkSoft,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
+                      const Spacer(flex: 4),
                     ],
                   ),
-                ),
-              ],
-            );
-          },
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-/// Revo wearing his happiest face — a lively bob, wide gaze, glow on.
-class _HappyRevo extends StatelessWidget {
-  const _HappyRevo({required this.t, required this.size});
-  final double t;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final phase = t * 2 * math.pi;
-    double blink() {
-      final d = (t - 0.5).abs();
-      return d > 0.03 ? 0 : 1 - d / 0.03;
-    }
-
-    return Mascot(
-      size: size,
-      blink: blink(),
-      look: Offset(math.sin(phase) * 0.12, -0.12), // looking up, pleased
-      squash: math.sin(phase * 2) * 0.06,
-      tilt: math.sin(phase) * 0.05,
-      glow: true,
-    );
-  }
-}
-
-/// A one-shot ring of little sparks bursting outward — drawn, no emoji.
-class _SparkPainter extends CustomPainter {
-  const _SparkPainter(this.p);
-  final double p; // 0..1 progress
+/// Draws a checkmark along its path as [progress] goes 0 → 1.
+class _CheckPainter extends CustomPainter {
+  _CheckPainter({required this.progress});
+  final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2 - 6);
-    // Ease-out expansion + fade near the end.
-    final e = Curves.easeOut.transform(p.clamp(0.0, 1.0));
-    final fade = (1 - ((p - 0.55) / 0.45)).clamp(0.0, 1.0);
-    if (fade <= 0) return;
+    if (progress <= 0) return;
+    final w = size.width, h = size.height;
+    final p1 = Offset(w * 0.22, h * 0.52);
+    final p2 = Offset(w * 0.42, h * 0.70);
+    final p3 = Offset(w * 0.78, h * 0.30);
 
-    const count = 12;
-    final maxR = size.width * 0.46;
-    for (var i = 0; i < count; i++) {
-      final angle = (i / count) * 2 * math.pi + 0.3;
-      final r = maxR * e;
-      final pos = center + Offset(math.cos(angle), math.sin(angle)) * r;
-      final len = 10.0 * (1 - e * 0.5);
-      final tail = pos -
-          Offset(math.cos(angle), math.sin(angle)) * len;
-      final paint = Paint()
-        ..color = (i.isEven ? AppColors.accent : const Color(0xFFB9A8FF))
-            .withValues(alpha: fade)
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(tail, pos, paint);
+    final len1 = (p2 - p1).distance;
+    final len2 = (p3 - p2).distance;
+    final total = len1 + len2;
+    final drawn = total * progress;
+
+    final path = Path()..moveTo(p1.dx, p1.dy);
+    if (drawn <= len1) {
+      final t = drawn / len1;
+      path.lineTo(p1.dx + (p2.dx - p1.dx) * t, p1.dy + (p2.dy - p1.dy) * t);
+    } else {
+      path.lineTo(p2.dx, p2.dy);
+      final t = ((drawn - len1) / len2).clamp(0.0, 1.0);
+      path.lineTo(p2.dx + (p3.dx - p2.dx) * t, p2.dy + (p3.dy - p2.dy) * t);
     }
+
+    final paint = Paint()
+      ..color = AppColors.ink
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _SparkPainter old) => old.p != p;
+  bool shouldRepaint(_CheckPainter old) => old.progress != progress;
 }

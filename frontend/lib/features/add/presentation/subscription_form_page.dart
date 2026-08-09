@@ -206,7 +206,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     }
   }
 
-  Future<void> _pickCategory() async {
+  /// Returns true when the user picked a category, false if they dismissed it.
+  Future<bool> _pickCategory() async {
     final picked = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -224,15 +225,18 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
             .any((c) => c.name.toLowerCase() == picked.trim().toLowerCase());
         if (!isBuiltIn) _customCategories.add(picked.trim());
       });
+      return true;
     }
+    return false;
   }
 
   /// The keyboard flow after the amount: Category → Date → Frequency.
+  /// After the amount (keyboard Next), step through Category → Date → Frequency
+  /// — but STOP the moment the user dismisses a step (taps out / backs out), so
+  /// dismissing means "I'm done", not "keep advancing".
   Future<void> _flowAfterAmount() async {
-    await _pickCategory();
-    if (!mounted) return;
-    await _pickDate();
-    if (!mounted) return;
+    if (!await _pickCategory() || !mounted) return;
+    if (!await _pickDate() || !mounted) return;
     await _pickFrequency();
   }
 
@@ -267,7 +271,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     }
   }
 
-  Future<void> _pickDate() async {
+  /// Returns true when the user picked a date, false if they dismissed it.
+  Future<bool> _pickDate() async {
     final picked = await showOrbitDatePicker(
       context,
       initial: _firstPayment,
@@ -275,7 +280,11 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
       lastDate: DateTime(DateTime.now().year + 30),
       title: 'Next payment date',
     );
-    if (picked != null) setState(() => _firstPayment = picked);
+    if (picked != null) {
+      setState(() => _firstPayment = picked);
+      return true;
+    }
+    return false;
   }
 
   void _save() {

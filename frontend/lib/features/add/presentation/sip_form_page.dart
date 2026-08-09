@@ -138,7 +138,7 @@ class _SipFormPageState extends State<SipFormPage> {
     }
   }
 
-  Future<void> _pickCategory() async {
+  Future<bool> _pickCategory() async {
     final picked = await showCategoryPicker(
       context,
       categories: kSipCategories,
@@ -153,20 +153,20 @@ class _SipFormPageState extends State<SipFormPage> {
             .any((c) => c.name.toLowerCase() == picked.trim().toLowerCase());
         if (!isBuiltIn) _customCategories.add(picked.trim());
       });
+      return true;
     }
+    return false;
   }
 
-  /// The keyboard flow after the amount: Category → Date → Frequency — so
-  /// pressing "next" walks the user through every remaining step in one go.
+  /// The keyboard flow after the amount: Category → Date → Frequency — but STOP
+  /// as soon as the user dismisses a step (dismiss means "done", not "advance").
   Future<void> _flowAfterAmount() async {
-    await _pickCategory();
-    if (!mounted) return;
-    await _pickDate();
-    if (!mounted) return;
+    if (!await _pickCategory() || !mounted) return;
+    if (!await _pickDate() || !mounted) return;
     await _pickFrequency();
   }
 
-  Future<void> _pickDate() async {
+  Future<bool> _pickDate() async {
     final picked = await showOrbitDatePicker(
       context,
       initial: _nextDate,
@@ -174,7 +174,11 @@ class _SipFormPageState extends State<SipFormPage> {
       lastDate: DateTime(DateTime.now().year + 30),
       title: 'Next SIP date',
     );
-    if (picked != null) setState(() => _nextDate = picked);
+    if (picked != null) {
+      setState(() => _nextDate = picked);
+      return true;
+    }
+    return false;
   }
 
   Future<void> _pickFrequency() async {

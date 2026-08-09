@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
@@ -522,7 +523,7 @@ class _HeroStats {
 /// The orbit-themed hero — an at-a-glance overview of everything about this
 /// category: the big category name, the headline monthly spend (with a little
 /// orbiting planet), and a three-up sub-stat row.
-class _CategoryHero extends StatelessWidget {
+class _CategoryHero extends StatefulWidget {
   const _CategoryHero({
     required this.stats,
     required this.icon,
@@ -535,24 +536,39 @@ class _CategoryHero extends StatelessWidget {
   final String title;
   final String? subtitle;
 
+  @override
+  State<_CategoryHero> createState() => _CategoryHeroState();
+}
+
+class _CategoryHeroState extends State<_CategoryHero> {
+  // The headline defaults to the yearly figure; tap it to flip month ↔ year.
+  bool _perYear = true;
+
+  _HeroStats get stats => widget.stats;
+  IconData get icon => widget.icon;
+  String get title => widget.title;
+  String? get subtitle => widget.subtitle;
+
   String _fmt(double v) => v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2);
 
-  /// The headline figure — INR monthly-equivalent if any INR items exist, else
-  /// the first currency's raw total. Returns (symbol, value, caption).
-  (String, String, String) _headline() {
+  /// The headline figure — INR spend normalised to the chosen period (year by
+  /// default, or month), else the first currency's raw total. Tapping toggles
+  /// the period. Returns (symbol, value, caption, tappable).
+  (String, String, String, bool) _headline() {
     if (stats.monthlyEqInr > 0) {
-      return ('₹', _fmt(stats.monthlyEqInr), 'per month');
+      final v = _perYear ? stats.monthlyEqInr * 12 : stats.monthlyEqInr;
+      return ('₹', _fmt(v), _perYear ? 'per year' : 'per month', true);
     }
     if (stats.spend.isNotEmpty) {
       final e = stats.spend.entries.first;
-      return (currencyOf(e.key).symbol, _fmt(e.value), 'total');
+      return (currencyOf(e.key).symbol, _fmt(e.value), 'total', false);
     }
-    return ('', '—', 'no prices yet');
+    return ('', '—', 'no prices yet', false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final (sym, value, caption) = _headline();
+    final (sym, value, caption, tappable) = _headline();
     // Other-currency chips (anything beyond the INR headline).
     final others = stats.spend.entries
         .where((e) => !(e.key == 'INR' && stats.monthlyEqInr > 0))
@@ -637,48 +653,71 @@ class _CategoryHero extends StatelessWidget {
           ),
           const SizedBox(height: 18),
 
-          // Headline spend figure.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                sym,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink.withValues(alpha: 0.9),
-                ),
-              ),
-              const SizedBox(width: 2),
-              ShaderMask(
-                shaderCallback: (r) => const LinearGradient(
-                  colors: [AppColors.ink, Color(0xFFB9A8FF)],
-                ).createShader(r),
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 40,
-                    height: 1.0,
+          // Headline spend figure — tap to flip between per year and per month.
+          GestureDetector(
+            onTap: tappable
+                ? () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _perYear = !_perYear);
+                  }
+                : null,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  sym,
+                  style: TextStyle(
+                    fontSize: 22,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: -1.5,
-                    color: Colors.white,
+                    color: AppColors.ink.withValues(alpha: 0.9),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 5),
-                child: Text(
-                  caption,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.inkSoft,
+                const SizedBox(width: 2),
+                Flexible(
+                  child: ShaderMask(
+                    shaderCallback: (r) => const LinearGradient(
+                      colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                    ).createShader(r),
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 40,
+                        height: 1.0,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1.5,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: Row(
+                    children: [
+                      Text(
+                        caption,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.inkSoft,
+                        ),
+                      ),
+                      if (tappable) ...[
+                        const SizedBox(width: 4),
+                        Icon(Icons.swap_horiz_rounded,
+                            size: 15,
+                            color: AppColors.accent.withValues(alpha: 0.9)),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           if (others.isNotEmpty) ...[
             const SizedBox(height: 6),

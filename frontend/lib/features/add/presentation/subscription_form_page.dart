@@ -364,7 +364,9 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                       onPickCurrency: _pickCurrency,
                       onAmountSubmitted: _flowAfterAmount,
                     ),
-                    const SizedBox(height: 22),
+                    // Quiet reassurance, right under the identity block.
+                    const OrbitSaveHint(),
+                    const SizedBox(height: 18),
 
                     // ── Details: category · next payment · cycle · free trial ──
                     _GroupCard(
@@ -456,85 +458,55 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              _CircleButton(icon: Icons.arrow_back_rounded, onTap: onBack),
-              Expanded(
-                child: Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                    color: AppColors.ink,
-                  ),
-                ),
+          _CircleButton(icon: Icons.arrow_back_rounded, onTap: onBack),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+                color: AppColors.ink,
               ),
-              // Save pill — accent when ready, muted when the name's empty.
-              GestureDetector(
-                onTap: canSave ? onSave : null,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    gradient: canSave
-                        ? const LinearGradient(
-                            colors: [AppColors.accent, AppColors.accentDeep])
-                        : null,
-                    color: canSave ? null : AppColors.card,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                        color: canSave
-                            ? Colors.transparent
-                            : AppColors.cardBorder),
-                    boxShadow: canSave
-                        ? [
-                            BoxShadow(
-                              color: AppColors.accent.withValues(alpha: 0.4),
-                              blurRadius: 16,
-                              offset: const Offset(0, 5),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Text(
-                    'Save',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: canSave ? Colors.white : AppColors.inkFaint,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-          // Low-pressure reassurance — save now, tweak later.
-          const Padding(
-            padding: EdgeInsets.fromLTRB(52, 2, 52, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.bolt_rounded, size: 13, color: AppColors.inkFaint),
-                SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    'Just save — you can tweak any detail later.',
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.inkFaint,
-                    ),
-                  ),
+          // Save pill — accent when ready, muted when the name's empty.
+          GestureDetector(
+            onTap: canSave ? onSave : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: canSave
+                    ? const LinearGradient(
+                        colors: [AppColors.accent, AppColors.accentDeep])
+                    : null,
+                color: canSave ? null : AppColors.card,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                    color:
+                        canSave ? Colors.transparent : AppColors.cardBorder),
+                boxShadow: canSave
+                    ? [
+                        BoxShadow(
+                          color: AppColors.accent.withValues(alpha: 0.4),
+                          blurRadius: 16,
+                          offset: const Offset(0, 5),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: canSave ? Colors.white : AppColors.inkFaint,
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -738,28 +710,43 @@ class _NotifyRow extends StatelessWidget {
         _ => '$d days before',
       };
 
+  /// The preset index nearest to [days] — never -1, so both buttons keep
+  /// working even if the stored value isn't exactly a preset.
+  int get _index {
+    var best = 0;
+    var bestDiff = (days - _presets[0]).abs();
+    for (var i = 1; i < _presets.length; i++) {
+      final diff = (days - _presets[i]).abs();
+      if (diff < bestDiff) {
+        best = i;
+        bestDiff = diff;
+      }
+    }
+    return best;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final i = _index;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
       child: Row(
         children: [
           const Text('Notification', style: _labelStyle),
           const Spacer(),
+          // Minus = earlier → MORE days before the date (the natural model).
           _StepButton(
             icon: Icons.remove_rounded,
+            enabled: i < _presets.length - 1,
             onTap: () {
-              final i = _presets.indexOf(days);
-              if (i > 0) {
-                HapticFeedback.selectionClick();
-                onChanged(_presets[i - 1]);
-              }
+              HapticFeedback.selectionClick();
+              onChanged(_presets[i + 1]);
             },
           ),
           SizedBox(
             width: 108,
             child: Text(
-              _label(days),
+              _label(_presets[i]),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 14,
@@ -768,14 +755,13 @@ class _NotifyRow extends StatelessWidget {
               ),
             ),
           ),
+          // Plus = later → fewer days before, toward "On the day".
           _StepButton(
             icon: Icons.add_rounded,
+            enabled: i > 0,
             onTap: () {
-              final i = _presets.indexOf(days);
-              if (i < _presets.length - 1) {
-                HapticFeedback.selectionClick();
-                onChanged(_presets[i + 1]);
-              }
+              HapticFeedback.selectionClick();
+              onChanged(_presets[i - 1]);
             },
           ),
         ],
@@ -785,14 +771,19 @@ class _NotifyRow extends StatelessWidget {
 }
 
 class _StepButton extends StatelessWidget {
-  const _StepButton({required this.icon, required this.onTap});
+  const _StepButton({
+    required this.icon,
+    required this.onTap,
+    this.enabled = true,
+  });
   final IconData icon;
   final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       behavior: HitTestBehavior.opaque,
       child: Container(
         width: 32,
@@ -803,7 +794,11 @@ class _StepButton extends StatelessWidget {
           shape: BoxShape.circle,
           border: Border.all(color: AppColors.glassBorder),
         ),
-        child: Icon(icon, size: 18, color: AppColors.accent),
+        child: Icon(icon,
+            size: 18,
+            color: enabled
+                ? AppColors.accent
+                : AppColors.inkFaint.withValues(alpha: 0.5)),
       ),
     );
   }

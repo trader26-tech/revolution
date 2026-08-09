@@ -278,7 +278,9 @@ class _SipFormPageState extends State<SipFormPage> {
                       emptyIcon: Icons.account_balance_rounded,
                       onAmountSubmitted: _flowAfterAmount,
                     ),
-                    const SizedBox(height: 22),
+                    // Quiet reassurance, right under the identity block.
+                    const OrbitSaveHint(),
+                    const SizedBox(height: 18),
 
                     // Details: category · next date · cycle.
                     OrbitGroupCard(

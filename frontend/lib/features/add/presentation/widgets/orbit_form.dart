@@ -39,85 +39,86 @@ class OrbitFormHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              _CircleButton(icon: Icons.arrow_back_rounded, onTap: onBack),
-              Expanded(
-                child: Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                    color: AppColors.ink,
-                  ),
-                ),
+          _CircleButton(icon: Icons.arrow_back_rounded, onTap: onBack),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+                color: AppColors.ink,
               ),
-              GestureDetector(
-                onTap: canSave ? onSave : null,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    gradient: canSave
-                        ? const LinearGradient(
-                            colors: [AppColors.accent, AppColors.accentDeep])
-                        : null,
-                    color: canSave ? null : AppColors.card,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                        color: canSave
-                            ? Colors.transparent
-                            : AppColors.cardBorder),
-                    boxShadow: canSave
-                        ? [
-                            BoxShadow(
-                              color: AppColors.accent.withValues(alpha: 0.4),
-                              blurRadius: 16,
-                              offset: const Offset(0, 5),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Text(
-                    'Save',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: canSave ? Colors.white : AppColors.inkFaint,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-          // Low-pressure reassurance — save now, tweak later. Removes the
-          // hesitation before pressing Save, so adding feels fast.
-          const Padding(
-            padding: EdgeInsets.fromLTRB(52, 2, 52, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.bolt_rounded, size: 13, color: AppColors.inkFaint),
-                SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    'Just save — you can tweak any detail later.',
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.inkFaint,
-                    ),
-                  ),
+          GestureDetector(
+            onTap: canSave ? onSave : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: canSave
+                    ? const LinearGradient(
+                        colors: [AppColors.accent, AppColors.accentDeep])
+                    : null,
+                color: canSave ? null : AppColors.card,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                    color:
+                        canSave ? Colors.transparent : AppColors.cardBorder),
+                boxShadow: canSave
+                    ? [
+                        BoxShadow(
+                          color: AppColors.accent.withValues(alpha: 0.4),
+                          blurRadius: 16,
+                          offset: const Offset(0, 5),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: canSave ? Colors.white : AppColors.inkFaint,
                 ),
-              ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A quiet reassurance line — "save now, tweak later" — meant to sit just below
+/// the identity block on an add form, so users don't hesitate before saving.
+/// Low-contrast on purpose: it reassures without competing with the fields.
+class OrbitSaveHint extends StatelessWidget {
+  const OrbitSaveHint({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(6, 8, 6, 2),
+      child: Row(
+        children: [
+          Icon(Icons.bolt_rounded, size: 13, color: AppColors.inkFaint),
+          SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              'Just save — you can tweak any detail later.',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkFaint,
+              ),
             ),
           ),
         ],

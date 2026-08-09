@@ -219,7 +219,9 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
                       hint: _nameHint,
                       onPickPhoto: (p) => setState(() => _photo = p),
                     ),
-                    const SizedBox(height: 22),
+                    // Quiet reassurance, right under the identity block.
+                    const OrbitSaveHint(),
+                    const SizedBox(height: 18),
 
                     // Details.
                     OrbitGroupCard(
@@ -576,8 +578,11 @@ class _RemindRow extends StatelessWidget {
         children: [
           Text('Remind me', style: orbitLabelStyle),
           const Spacer(),
-          _step(Icons.remove_rounded, i > 0, () {
-            onChanged(_presets[i - 1]);
+          // Minus = earlier → MORE days before the date (the natural mental
+          // model: "−" moves the reminder back, ahead of the day). Plus =
+          // later → fewer days before, toward "On the day".
+          _step(Icons.remove_rounded, i < _presets.length - 1, () {
+            onChanged(_presets[i + 1]);
           }),
           SizedBox(
             width: 108,
@@ -591,8 +596,8 @@ class _RemindRow extends StatelessWidget {
               ),
             ),
           ),
-          _step(Icons.add_rounded, i < _presets.length - 1, () {
-            onChanged(_presets[i + 1]);
+          _step(Icons.add_rounded, i > 0, () {
+            onChanged(_presets[i - 1]);
           }),
         ],
       ),

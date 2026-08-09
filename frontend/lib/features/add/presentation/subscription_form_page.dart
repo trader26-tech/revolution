@@ -808,7 +808,7 @@ class _CurrencySheet extends StatelessWidget {
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Currency',
+                  'Choose a currency',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -976,7 +976,7 @@ class _CategorySheetState extends State<_CategorySheet> {
               Row(
                 children: [
                   const Text(
-                    'Category',
+                    'Choose a category',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,

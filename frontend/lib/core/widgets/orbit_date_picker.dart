@@ -168,7 +168,20 @@ class _OrbitDatePickerState extends State<_OrbitDatePicker> {
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+              // Context title — tells the user WHICH date they're picking.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
 
               // Live preview — the big, human-readable date.
               Text(

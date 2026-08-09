@@ -691,22 +691,24 @@ class _CardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Calm, solid surface — a faint accent wash only, so the hero animation and
+    // the highlighted description carry the card, not a glowing background.
     return Container(
       width: width,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: [
-            AppColors.accent.withValues(alpha: urgent ? 0.20 : 0.12),
+            AppColors.accent.withValues(alpha: urgent ? 0.10 : 0.05),
             AppColors.card,
           ],
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: urgent
-              ? AppColors.accent.withValues(alpha: 0.55)
+              ? AppColors.accent.withValues(alpha: 0.45)
               : AppColors.glassBorder,
         ),
       ),
@@ -715,28 +717,120 @@ class _CardShell extends StatelessWidget {
   }
 }
 
-/// The small due-time chip, top-right of every card.
-class _WhenChip extends StatelessWidget {
+/// The WHEN-chip — the clearest "when is this happening" signal on the card.
+/// A short countdown ("Today" / "Tomorrow" / "In 3 days"). Filled accent and
+/// gently pulsing when it's ≤1 day out (urgent), quieter otherwise. It's the
+/// one element on the card meant to catch the eye first.
+class _WhenChip extends StatefulWidget {
   const _WhenChip({required this.days, required this.due});
   final int days;
   final DateTime due;
 
   @override
+  State<_WhenChip> createState() => _WhenChipState();
+}
+
+class _WhenChipState extends State<_WhenChip>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _pulse;
+
+  bool get _urgent => widget.days <= 1;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_urgent) {
+      _pulse = AnimationController(
+          vsync: this, duration: const Duration(milliseconds: 1400))
+        ..repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse?.dispose();
+    super.dispose();
+  }
+
+  String _text() {
+    final d = widget.days;
+    if (d <= 0) return 'TODAY';
+    if (d == 1) return 'TOMORROW';
+    if (d < 7) return 'IN $d DAYS';
+    if (d < 14) return 'NEXT WEEK';
+    if (d < 30) return 'IN ${(d / 7).round()} WKS';
+    return 'IN ${(d / 30).round()} MO';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final urgent = days <= 1;
+    final chip = _urgent
+        ? _filled(_text())
+        : _outlined(_text());
+    if (_pulse == null) return chip;
+    return AnimatedBuilder(
+      animation: _pulse!,
+      builder: (context, child) {
+        final g = 0.35 + 0.35 * _pulse!.value; // glow strength
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: g),
+                blurRadius: 14,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: chip,
+    );
+  }
+
+  // Filled accent pill — the urgent, high-visibility state.
+  Widget _filled(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        color: urgent
-            ? AppColors.accent.withValues(alpha: 0.22)
-            : Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(8),
+        gradient: const LinearGradient(
+            colors: [AppColors.accent, AppColors.accentDeep]),
+        borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(_whenLabel(days, due),
-          style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              color: urgent ? AppColors.accent : AppColors.inkSoft)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.schedule_rounded, size: 13, color: Colors.white),
+          const SizedBox(width: 5),
+          Text(text,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.4,
+                color: Colors.white,
+              )),
+        ],
+      ),
+    );
+  }
+
+  // Quiet outlined pill — the calmer, further-out state.
+  Widget _outlined(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+      ),
+      child: Text(text,
+          style: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.4,
+            color: AppColors.accent,
+          )),
     );
   }
 }
@@ -802,8 +896,8 @@ class _SubscriptionCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
-      hero: _RaysBurst(
-        child: _Logo(task: task, size: 60, radius: 16),
+      hero: _SubHero(
+        child: _Logo(task: task, size: 56, radius: 15),
       ),
       title: task.title,
       subtitle: priceLine,
@@ -827,14 +921,13 @@ class _SipCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
-      hero: _RaysBurst(
-        rising: true,
+      hero: _SipHero(
         child: has
             ? FittedBox(
                 child: Text(
                   _amountStr(task),
                   style: const TextStyle(
-                    fontSize: 40,
+                    fontSize: 38,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -1,
                     color: AppColors.ink,
@@ -842,7 +935,7 @@ class _SipCard extends StatelessWidget {
                 ),
               )
             : const Icon(Icons.trending_up_rounded,
-                size: 52, color: AppColors.accent),
+                size: 50, color: AppColors.accent),
       ),
       title: task.title,
       subtitle: has ? 'SIP · every instalment' : 'SIP instalment',
@@ -869,10 +962,10 @@ class _OccasionCard extends StatelessWidget {
     final whenText =
         days <= 0 ? 'today' : (days == 1 ? 'tomorrow' : 'in $days days');
 
-    // Hero: the big age "41" with rays (as in the reference) when we know it;
-    // otherwise the person's face.
+    // Hero: the big age "41" with drifting confetti when we know it; otherwise
+    // the person's face amid the same gentle confetti.
     final Widget hero = age != null
-        ? _RaysBurst(
+        ? _OccasionHeroFx(
             child: Text(
               '$age',
               style: const TextStyle(
@@ -883,7 +976,7 @@ class _OccasionCard extends StatelessWidget {
               ),
             ),
           )
-        : _RaysBurst(child: _RoundFace(task: task, size: 60));
+        : _OccasionHeroFx(child: _RoundFace(task: task, size: 56));
 
     final String highlight = age != null
         ? (isBday
@@ -993,22 +1086,22 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-/// The celebratory rays burst behind a hero — thin accent lines radiating out,
-/// gently breathing in and out (the "41" look from the reference). [rising]
-/// biases the shimmer upward for the SIP "growth" feel. Cheap: one slow
-/// controller, RepaintBoundary, painter only.
-class _RaysBurst extends StatefulWidget {
-  const _RaysBurst({required this.child, this.rising = false});
+/// The hero stage — a fixed 120×72 band that runs one slow loop and paints a
+/// category-specific animation BEHIND the child. Each category passes its own
+/// [painter] builder, so every card animates differently. Cheap by design: one
+/// controller, a RepaintBoundary, painter-only, 3.4s period.
+class _HeroStage extends StatefulWidget {
+  const _HeroStage({required this.child, required this.painter});
   final Widget child;
-  final bool rising;
+  final CustomPainter Function(double t) painter;
   @override
-  State<_RaysBurst> createState() => _RaysBurstState();
+  State<_HeroStage> createState() => _HeroStageState();
 }
 
-class _RaysBurstState extends State<_RaysBurst>
+class _HeroStageState extends State<_HeroStage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 3000))
+      vsync: this, duration: const Duration(milliseconds: 3400))
     ..repeat();
 
   @override
@@ -1025,12 +1118,10 @@ class _RaysBurstState extends State<_RaysBurst>
         height: 72,
         child: AnimatedBuilder(
           animation: _c,
-          builder: (context, child) {
-            return CustomPaint(
-              painter: _RaysPainter(_c.value, rising: widget.rising),
-              child: Center(child: child),
-            );
-          },
+          builder: (context, child) => CustomPaint(
+            painter: widget.painter(_c.value),
+            child: Center(child: child),
+          ),
           child: widget.child,
         ),
       ),
@@ -1038,37 +1129,171 @@ class _RaysBurstState extends State<_RaysBurst>
   }
 }
 
-class _RaysPainter extends CustomPainter {
-  _RaysPainter(this.t, {this.rising = false});
-  final double t; // 0..1 loop
-  final bool rising;
+// Category-specific heroes — same size + child slot, distinct motion.
 
+/// Subscription → a renewing ring: an accent arc sweeps once around the logo
+/// each loop (the "auto-renews" idea), over a faint full track.
+class _SubHero extends StatelessWidget {
+  const _SubHero({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) =>
+      _HeroStage(painter: (t) => _RenewRingPainter(t), child: child);
+}
+
+class _RenewRingPainter extends CustomPainter {
+  _RenewRingPainter(this.t);
+  final double t;
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    // A slow breathe 0→1→0.
-    final breathe = (math.sin(t * 2 * math.pi) + 1) / 2; // 0..1
-    const count = 12;
-    final inner = 30.0 + 3 * breathe;
-    final outer = 44.0 + 8 * breathe;
+    final c = Offset(size.width / 2, size.height / 2);
+    const r = 34.0;
+    // Faint full track.
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = AppColors.accent.withValues(alpha: 0.14),
+    );
+    // The sweeping arc — a quarter-circle chasing around.
+    final sweep = math.pi * 0.6;
+    final start = t * 2 * math.pi - math.pi / 2;
+    canvas.drawArc(
+      Rect.fromCircle(center: c, radius: r),
+      start,
+      sweep,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6
+        ..strokeCap = StrokeCap.round
+        ..color = AppColors.accent.withValues(alpha: 0.85),
+    );
+  }
 
-    for (var i = 0; i < count; i++) {
-      final a = (i / count) * 2 * math.pi - math.pi / 2;
-      // Rays fade top-biased when rising (growth), else even.
-      final up = rising ? (0.6 + 0.4 * (-math.sin(a))) : 1.0;
-      final p1 = center + Offset(math.cos(a), math.sin(a)) * inner;
-      final p2 = center + Offset(math.cos(a), math.sin(a)) * outer;
-      final paint = Paint()
-        ..color = (i.isEven ? AppColors.accent : const Color(0xFFB9A8FF))
-            .withValues(alpha: (0.30 + 0.35 * breathe) * up)
-        ..strokeWidth = 2.4
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(p1, p2, paint);
+  @override
+  bool shouldRepaint(covariant _RenewRingPainter old) => old.t != t;
+}
+
+/// SIP → coins stacking: three coin ellipses that rise and settle in sequence,
+/// beneath the amount — money accumulating.
+class _SipHero extends StatelessWidget {
+  const _SipHero({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) =>
+      _HeroStage(painter: (t) => _CoinsPainter(t), child: child);
+}
+
+class _CoinsPainter extends CustomPainter {
+  _CoinsPainter(this.t);
+  final double t;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final baseX = size.width / 2;
+    final baseY = size.height - 10;
+    for (var i = 0; i < 3; i++) {
+      // Each coin has its own phase; rises into place then holds.
+      final phase = (t * 3 - i).clamp(0.0, 1.0);
+      final ease = Curves.easeOut.transform(phase);
+      final y = baseY - i * 8 - 6 * ease;
+      final op = 0.30 + 0.5 * ease;
+      final rect = Rect.fromCenter(
+          center: Offset(baseX, y), width: 30, height: 9);
+      canvas.drawOval(
+        rect,
+        Paint()..color = AppColors.accent.withValues(alpha: op * 0.5),
+      );
+      canvas.drawOval(
+        rect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = AppColors.accent.withValues(alpha: op),
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _RaysPainter old) => old.t != t;
+  bool shouldRepaint(covariant _CoinsPainter old) => old.t != t;
+}
+
+/// Occasion → a birthday feel: a soft candle glow above the hero plus a few
+/// confetti dots drifting down. Gentle, not flashy.
+class _OccasionHeroFx extends StatelessWidget {
+  const _OccasionHeroFx({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) =>
+      _HeroStage(painter: (t) => _ConfettiPainter(t), child: child);
+}
+
+class _ConfettiPainter extends CustomPainter {
+  _ConfettiPainter(this.t);
+  final double t;
+  // Fixed confetti seeds (x fraction, colour pick, phase offset).
+  static const _seeds = [
+    [0.16, 0.0, 0.0],
+    [0.34, 1.0, 0.45],
+    [0.62, 0.0, 0.2],
+    [0.80, 1.0, 0.7],
+    [0.48, 1.0, 0.9],
+  ];
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final s in _seeds) {
+      final x = s[0] * size.width;
+      final phase = (t + s[2]) % 1.0;
+      final y = phase * size.height;
+      final op = (math.sin(phase * math.pi)) * 0.7; // fade in then out
+      final color =
+          s[1] == 0.0 ? AppColors.accent : const Color(0xFFB9A8FF);
+      canvas.drawCircle(
+        Offset(x, y),
+        2.2,
+        Paint()..color = color.withValues(alpha: op.clamp(0.0, 1.0)),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiPainter old) => old.t != t;
+}
+
+/// Generic (bills / insurance / other) → a calm single ripple expanding out.
+class _CalmHero extends StatelessWidget {
+  const _CalmHero({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) =>
+      _HeroStage(painter: (t) => _RipplePainter(t), child: child);
+}
+
+class _RipplePainter extends CustomPainter {
+  _RipplePainter(this.t);
+  final double t;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    for (var i = 0; i < 2; i++) {
+      final phase = (t + i * 0.5) % 1.0;
+      final r = 26 + phase * 22;
+      final op = (1 - phase) * 0.35;
+      canvas.drawCircle(
+        c,
+        r,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.8
+          ..color = AppColors.accent.withValues(alpha: op),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RipplePainter old) => old.t != t;
 }
 
 // ── Generic card — insurance / bills / other ─────────────────────────────────
@@ -1104,7 +1329,7 @@ class _GenericCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
-      hero: _RaysBurst(child: _Logo(task: task, size: 58, radius: 16)),
+      hero: _CalmHero(child: _Logo(task: task, size: 54, radius: 15)),
       title: task.title,
       subtitle: subtitle,
       highlight: highlight,

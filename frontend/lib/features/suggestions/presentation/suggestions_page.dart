@@ -136,6 +136,55 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
     });
   }
 
+  /// Delete one of the user's OWN suggestions, after a confirm.
+  Future<void> _delete(Suggestion s) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgTop,
+        title: const Text('Delete this idea?',
+            style: TextStyle(color: AppColors.ink)),
+        content: const Text(
+          'It’ll be removed for everyone, along with its votes. This can’t be undone.',
+          style: TextStyle(color: AppColors.inkSoft),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.inkSoft)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete',
+                style: TextStyle(
+                    color: Color(0xFFFF6B6B), fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    // Optimistic removal.
+    final idx = _items?.indexOf(s) ?? -1;
+    setState(() => _items?.remove(s));
+    try {
+      await _api.delete(s.id);
+      HapticFeedback.mediumImpact();
+    } catch (_) {
+      // Restore on failure.
+      if (!mounted) return;
+      setState(() {
+        if (idx >= 0 && idx <= (_items?.length ?? 0)) {
+          _items?.insert(idx, s);
+        } else {
+          _items?.add(s);
+        }
+      });
+      _snack('Couldn’t delete — try again.');
+    }
+  }
+
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
@@ -184,7 +233,7 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
           for (final s in open)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _SuggestionCard(suggestion: s, onVote: (d) => _vote(s, d)),
+              child: _SuggestionCard(suggestion: s, onVote: (d) => _vote(s, d), onDelete: () => _delete(s)),
             ),
           if (shipped.isNotEmpty) ...[
             const Padding(
@@ -207,7 +256,7 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child:
-                    _SuggestionCard(suggestion: s, onVote: (d) => _vote(s, d)),
+                    _SuggestionCard(suggestion: s, onVote: (d) => _vote(s, d), onDelete: () => _delete(s)),
               ),
           ],
         ],
@@ -298,9 +347,14 @@ class _Header extends StatelessWidget {
 
 // ── One suggestion card ──────────────────────────────────────────────────────
 class _SuggestionCard extends StatelessWidget {
-  const _SuggestionCard({required this.suggestion, required this.onVote});
+  const _SuggestionCard({
+    required this.suggestion,
+    required this.onVote,
+    required this.onDelete,
+  });
   final Suggestion suggestion;
   final ValueChanged<int> onVote; // +1 or -1
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -347,6 +401,29 @@ class _SuggestionCard extends StatelessWidget {
                     if (s.mine) ...[
                       const SizedBox(width: 6),
                       const _Tag(text: 'Yours', muted: true),
+                      const Spacer(),
+                      // Only the author sees this — remove their own idea.
+                      GestureDetector(
+                        onTap: onDelete,
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 5),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.delete_outline_rounded,
+                                  size: 15, color: AppColors.inkFaint),
+                              SizedBox(width: 4),
+                              Text('Delete',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.inkFaint)),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ],
                 ),

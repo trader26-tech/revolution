@@ -40,4 +40,7 @@ class SuggestionsApi {
         .post('/suggestions/$id/vote', {'value': value}) as Map<String, dynamic>;
     return ((res['score'] ?? 0) as int, (res['my_vote'] ?? 0) as int);
   }
+
+  /// Delete one of YOUR OWN suggestions (the backend enforces author-only).
+  Future<void> delete(String id) => _api.delete('/suggestions/$id');
 }

@@ -110,3 +110,18 @@ def vote(user_id: str, suggestion_id: str, value: int) -> Optional[dict[str, Any
 
     row = _get(sb, suggestion_id)
     return {"score": (row or {}).get("score", 0) or 0, "my_vote": value}
+
+
+def delete_suggestion(user_id: str, suggestion_id: str) -> bool:
+    """Delete a suggestion — ONLY its own author may. Returns True if a row that
+    belongs to the caller was deleted (votes cascade via the FK)."""
+    res = (
+        get_supabase()
+        .table(_SUGGESTIONS)
+        .delete()
+        .eq("id", suggestion_id)
+        .eq("author_id", user_id)  # author-only: someone else's id deletes nothing
+        .execute()
+        .data
+    )
+    return bool(res)

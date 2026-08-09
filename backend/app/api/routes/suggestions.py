@@ -34,3 +34,13 @@ async def vote(
     if result is None:
         raise HTTPException(status_code=404, detail="Suggestion not found")
     return result
+
+
+@router.delete("/{suggestion_id}", status_code=204)
+async def delete_suggestion(
+    suggestion_id: str, user_id: str = Depends(current_user_id)
+) -> None:
+    """Delete a suggestion — only its own author may (author_id must match)."""
+    if not svc.delete_suggestion(user_id, suggestion_id):
+        # Not found OR not the author — same 404 either way (don't leak existence).
+        raise HTTPException(status_code=404, detail="Suggestion not found")

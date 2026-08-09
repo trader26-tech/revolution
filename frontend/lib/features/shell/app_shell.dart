@@ -195,22 +195,26 @@ class _GlassNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 0, 40, 16),
-        child: GlassPanel(
-          borderRadius: 999,
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              children: [
-                for (var i = 0; i < _items.length; i++)
-                  Expanded(
-                    child: _NavButton(
+        // Nav pill in the LEFT corner; the Home screen's glass "+" sits in the
+        // right corner of this same row. The right inset leaves room for it.
+        padding: const EdgeInsets.fromLTRB(20, 0, 92, 16),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: GlassPanel(
+            borderRadius: 999,
+            child: SizedBox(
+              height: 64,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < _items.length; i++)
+                    _NavButton(
                       item: _items[i],
                       selected: i == index,
                       onTap: () => onChanged(i),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

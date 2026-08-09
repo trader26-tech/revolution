@@ -193,13 +193,17 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        // The iPhone-style floating "+" — a large circular accent button pinned
-        // to the bottom-right. Sits above the floating nav bar, so it's always
-        // one thumb-reach away without competing with the top bar.
+        // The "+" sits in the SAME ROW as the bottom nav bar — nav pill on the
+        // left, this glass + button in the right corner. The SafeArea + 15px
+        // bottom inset matches the nav's (SafeArea + 16px), so the 66px circle
+        // and the 64px pill share the same vertical centre — one control strip.
         Positioned(
           right: 20,
-          bottom: 96,
-          child: _AddFab(onTap: _startAdd),
+          bottom: 15,
+          child: SafeArea(
+            top: false,
+            child: _AddFab(onTap: _startAdd),
+          ),
         ),
       ],
     );
@@ -383,9 +387,11 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// The floating "+" action button — bottom-right, iPhone-style. A large circle
-/// in the accent with a soft violet glow, so adding a reminder is always a
-/// thumb-reach away. Scales down slightly on press for a tactile feel.
+/// The "+" action button — a frosted-GLASS circle matching the bottom nav pill,
+/// sitting in the right corner of the same row. Its icon carries the accent (so
+/// it still reads as the primary action) but the surface is glass, not a solid
+/// blob, so the nav + add feel like one cohesive control strip. 64px = the nav's
+/// height. Scales down slightly on press for a tactile feel.
 class _AddFab extends StatefulWidget {
   const _AddFab({required this.onTap});
   final VoidCallback onTap;
@@ -411,26 +417,27 @@ class _AddFabState extends State<_AddFab> {
         scale: _down ? 0.92 : 1.0,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
-        child: Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF9A80FF), AppColors.accent],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.accent.withValues(alpha: 0.5),
-                blurRadius: 24,
-                spreadRadius: -2,
-                offset: const Offset(0, 8),
+        child: GlassPanel(
+          borderRadius: 999,
+          child: Container(
+            width: 66,
+            height: 66,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              // A whisper of violet so the primary action reads as slightly
+              // "lit" without becoming a solid blob — clean frosted glass, like
+              // the nav pill beside it.
+              gradient: RadialGradient(
+                colors: [
+                  AppColors.accent.withValues(alpha: 0.16),
+                  AppColors.accent.withValues(alpha: 0.0),
+                ],
               ),
-            ],
+            ),
+            child: const Icon(Icons.add_rounded,
+                color: AppColors.ink, size: 32),
           ),
-          child: const Icon(Icons.add_rounded, color: Colors.white, size: 32),
         ),
       ),
     );

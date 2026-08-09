@@ -29,7 +29,10 @@ if (hasReleaseKeystore) {
 
 android {
     namespace = "com.revolution.revolution"
-    compileSdk = flutter.compileSdkVersion
+    // Pinned to 36: newer plugins (flutter_plugin_android_lifecycle, file_picker)
+    // require compiling against API 36+. flutter.compileSdkVersion still resolves
+    // to 34 here, which fails their AAR metadata check — so set it explicitly.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

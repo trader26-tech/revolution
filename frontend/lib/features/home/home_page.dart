@@ -190,8 +190,6 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 8),
               _TopBar(
                 onSettings: _openSettings,
-                onIntro: _openOnboardingPreview,
-                onAdd: _startAdd,
                 onFilter: _openFilter,
                 filterActive: _filter.isActive,
               ),
@@ -330,19 +328,11 @@ class _HomePageState extends State<HomePage> {
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.onSettings,
-    required this.onIntro,
-    required this.onAdd,
     required this.onFilter,
     required this.filterActive,
   });
 
   final VoidCallback onSettings;
-
-  /// The "particle" button on the left — replays onboarding (dev).
-  final VoidCallback onIntro;
-
-  /// Press + → straight to the full details screen.
-  final VoidCallback onAdd;
 
   /// Funnel → the filter sheet.
   final VoidCallback onFilter;
@@ -352,23 +342,13 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Left: particle button. Right corner, in order: Settings · Filter · Add.
+    // Right corner only: Filter · Settings. (Add is now a floating button in the
+    // bottom-right; the dev onboarding button was removed.)
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Row(
         children: [
-          GlassIconButton(
-            icon: Icons.auto_awesome_rounded,
-            tooltip: 'Onboarding (dev)',
-            onTap: onIntro,
-          ),
           const Spacer(),
-          GlassIconButton(
-            icon: Icons.settings_outlined,
-            tooltip: 'Settings',
-            onTap: onSettings,
-          ),
-          const SizedBox(width: 10),
           // Funnel filter, with an accent dot when active.
           Stack(
             clipBehavior: Clip.none,
@@ -396,10 +376,9 @@ class _TopBar extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           GlassIconButton(
-            icon: Icons.add_rounded,
-            tooltip: 'Add',
-            accent: true,
-            onTap: onAdd,
+            icon: Icons.settings_outlined,
+            tooltip: 'Settings',
+            onTap: onSettings,
           ),
         ],
       ),

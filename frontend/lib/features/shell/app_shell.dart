@@ -4,24 +4,11 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../calendar/calendar_page.dart';
 import '../home/home_page.dart';
-import '../reminders/data/reminder_scheduler.dart';
 import '../tasks/data/task_store.dart';
 
 /// The app shell: two tabs (Home, Calendar) behind a floating glass nav.
-///
-/// The shell renders IMMEDIATELY — verified or not — so the user sees their
-/// (cached) tasks the instant the app opens, instead of a login wall. When
-/// [verified] is false, a slim "verify to save & sync" banner sits above the
-/// nav; tapping it runs [onVerify] to start the OTP flow.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.verified = true, this.onVerify});
-
-  /// Whether the session is phone-verified. When false, the verify banner shows.
-  final bool verified;
-
-  /// Starts the phone-verification flow (opens the OTP sheet). Null hides the
-  /// banner regardless of [verified] (e.g. previews).
-  final VoidCallback? onVerify;
+  const AppShell({super.key});
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -38,11 +25,6 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     // Restore saved tasks (and their icons) from on-device storage.
     _store.load();
-    // The user is past onboarding and inside the app — the right moment to
-    // ask for notification permission (Android 13+ / iOS prompt).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ReminderScheduler.instance.ensurePermissions();
-    });
   }
 
   @override
@@ -58,8 +40,6 @@ class _AppShellState extends State<AppShell> {
       CalendarPage(store: _store),
     ];
 
-    final showVerify = !widget.verified && widget.onVerify != null;
-
     return Scaffold(
       extendBody: true, // let the background flow under the floating nav
       body: Container(
@@ -72,103 +52,9 @@ class _AppShellState extends State<AppShell> {
         ),
         child: IndexedStack(index: _tab, children: pages),
       ),
-      // Nav + (when unverified) the verify banner, stacked so the banner sits
-      // just above the floating glass pill.
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (showVerify) _VerifyBanner(onVerify: widget.onVerify!),
-          _GlassNav(
-            index: _tab,
-            onChanged: (i) => setState(() => _tab = i),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The slim "you're browsing, verify to keep it" prompt shown above the nav
-/// until the user verifies their phone. Premium, one tap, non-blocking.
-class _VerifyBanner extends StatelessWidget {
-  const _VerifyBanner({required this.onVerify});
-
-  final VoidCallback onVerify;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onVerify,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(
-                colors: [AppColors.accent, AppColors.accentDeep],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.accent.withValues(alpha: 0.35),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.lock_open_rounded,
-                    color: Colors.white, size: 22),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'A few steps to lock this in',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Verify your number to save & sync everywhere',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text(
-                    'Verify',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      bottomNavigationBar: _GlassNav(
+        index: _tab,
+        onChanged: (i) => setState(() => _tab = i),
       ),
     );
   }
@@ -195,26 +81,22 @@ class _GlassNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        // Nav pill in the LEFT corner; the Home screen's glass "+" sits in the
-        // right corner of this same row. The right inset leaves room for it.
-        padding: const EdgeInsets.fromLTRB(20, 0, 92, 16),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: GlassPanel(
-            borderRadius: 999,
-            child: SizedBox(
-              height: 64,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < _items.length; i++)
-                    _NavButton(
+        padding: const EdgeInsets.fromLTRB(40, 0, 40, 16),
+        child: GlassPanel(
+          borderRadius: 999,
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              children: [
+                for (var i = 0; i < _items.length; i++)
+                  Expanded(
+                    child: _NavButton(
                       item: _items[i],
                       selected: i == index,
                       onTap: () => onChanged(i),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
         ),

@@ -43,7 +43,7 @@ class GreetingRevo extends StatefulWidget {
 }
 
 class _GreetingRevoState extends State<GreetingRevo>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin { // two controllers → plural mixin
   late final AnimationController _in; // one-shot entrance
   late final AnimationController _idle; // perpetual life
 
@@ -751,6 +751,161 @@ class _CategoryCard extends StatelessWidget {
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                   color: AppColors.inkSoft),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Welcoming empty state (Revo greets a new user) ───────────────────────────
+
+/// The Home when there's nothing yet — NOT a bare checkmark. A large, gently
+/// floating Revo greets the user by name ("Good afternoon, [name]" / "Welcome
+/// to Revolution") with a soft entrance, above one calm "Add your first
+/// reminder" button. New users meet the character, not a blank screen.
+class WelcomeEmpty extends StatefulWidget {
+  const WelcomeEmpty({super.key, required this.name, required this.onAdd});
+
+  final String name; // may be empty
+  final VoidCallback onAdd;
+
+  @override
+  State<WelcomeEmpty> createState() => _WelcomeEmptyState();
+}
+
+class _WelcomeEmptyState extends State<WelcomeEmpty>
+    with TickerProviderStateMixin {
+  late final AnimationController _in;
+  late final AnimationController _idle;
+
+  @override
+  void initState() {
+    super.initState();
+    _in = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 820));
+    _idle = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 4200))
+      ..repeat();
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => mounted ? _in.forward() : null);
+  }
+
+  @override
+  void dispose() {
+    _in.dispose();
+    _idle.dispose();
+    super.dispose();
+  }
+
+  String get _timeGreeting {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final first =
+        widget.name.trim().isEmpty ? null : widget.name.trim().split(' ').first;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Revo — big, floating, tail-left, with a soft scale-in entrance.
+            SizedBox(
+              width: 132,
+              height: 132,
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_in, _idle]),
+                builder: (context, _) {
+                  final pop = Curves.easeOutBack.transform(_in.value);
+                  final phase = _idle.value * 2 * math.pi;
+                  final breath = math.sin(phase);
+                  return Opacity(
+                    opacity: Curves.easeOut.transform(_in.value.clamp(0, 1)),
+                    child: Transform.translate(
+                      offset: Offset(0, breath * 4),
+                      child: Transform.scale(
+                        scale: 0.5 + 0.5 * pop,
+                        child: Mascot(
+                          size: 132,
+                          look: Offset(
+                              -0.3 + math.sin(phase + 1) * 0.2, breath * 0.1),
+                          squash: breath * 0.04,
+                          tilt: math.sin(phase + 2) * 0.03,
+                          glow: true,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 22),
+            Text(
+              first == null ? '$_timeGreeting!' : '$_timeGreeting, $first!',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 26,
+                height: 1.1,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Welcome to Revolution — I’ll remember\nthe things you shouldn’t have to.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14.5,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+                color: AppColors.inkSoft.withValues(alpha: 0.95),
+              ),
+            ),
+            const SizedBox(height: 26),
+            // One calm primary action.
+            GestureDetector(
+              onTap: widget.onAdd,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.accent, AppColors.accentDeep],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.accent.withValues(alpha: 0.4),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Add your first reminder',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

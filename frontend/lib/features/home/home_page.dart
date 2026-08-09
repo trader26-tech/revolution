@@ -1,25 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
-import '../add/presentation/open_add_flow.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
 import '../tasks/domain/task_filter.dart';
 import '../tasks/presentation/filter_sheet.dart';
-import '../tasks/presentation/open_task_details.dart';
+import '../tasks/presentation/task_details_sheet.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
-import '../update/data/update_service.dart';
-import '../update/presentation/update_prompt.dart';
-import '../settings/data/profile_store.dart';
-import 'domain/home_groups.dart';
-import 'domain/home_stats.dart';
-import 'presentation/search_page.dart';
-import 'presentation/widgets/home_dashboard.dart';
-import 'presentation/widgets/home_loading.dart';
-import 'presentation/widgets/task_section.dart';
+import '../tasks/presentation/widgets/quick_add_row.dart';
+import '../tasks/presentation/widgets/task_tile.dart';
 
 /// The Home screen.
 ///
@@ -36,22 +27,16 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  TaskFilter _filter = TaskFilter.all; // scoped by the stat cards
-  bool _laterExpanded = true; // "Scheduled" (later) section, open by default
+  bool _adding = false;
+  TaskFilter _filter = TaskFilter.all;
+  final _addController = TextEditingController();
+  final _addFocus = FocusNode();
 
   @override
-  void initState() {
-    super.initState();
-    // On launch, quietly check for a newer sideloaded build and prompt if one
-    // is available. Best-effort — never blocks or errors the UI.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
-  }
-
-  Future<void> _checkForUpdate() async {
-    final info = await UpdateService.instance.check();
-    if (info.available && mounted) {
-      await showUpdatePrompt(context, info);
-    }
+  void dispose() {
+    _addController.dispose();
+    _addFocus.dispose();
+    super.dispose();
   }
 
   void _openSettings() {
@@ -60,85 +45,36 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Open the funnel filter sheet.
   Future<void> _openFilter() async {
     final picked = await showFilterSheet(context, current: _filter);
     if (picked != null) setState(() => _filter = picked);
   }
 
-  /// Open full-screen search: find any item and run every operation on it —
-  /// open (read/update via the editor), toggle done, or delete with Undo. All
-  /// reuse the same handlers as the home rows.
-  void _openSearch() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SearchPage(
-          store: widget.store,
-          onOpen: _editTask,
-          onToggle: (t) => widget.store.toggleDone(t),
-          onDelete: _deleteTask,
-        ),
-      ),
-    );
+  void _startAdd() {
+    setState(() => _adding = true);
+    // Focus after the row mounts so the keyboard opens.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _addFocus.requestFocus());
   }
 
-  /// Tapping a category card → open search (where the user can find everything
-  /// in that category). A dedicated filtered view can replace this later.
-  void _openCategory(TaskCategory _) => _openSearch();
-
-  /// Press + → pick a category (Subscription, Birthday, Insurance) → fill its
-  /// tailored form. Subscription/Birthday hand back a ready-to-save [Task];
-  /// Insurance saves itself (it needs the task id to upload its document) and
-  /// just signals a refresh.
-  Future<void> _startAdd() async {
-    final result = await openAddFlow(context, widget.store);
-    if (result == null || !mounted) return;
-    // Insurance already created + uploaded itself — nothing to persist here.
-    if (result.selfSaved) return;
-    final task = result.task;
-    if (task == null) return;
-    try {
-      // Create with the name + icon, then persist the rest of the form's fields.
-      final created = await widget.store.add(
-        task.title,
-        iconName: task.iconName,
-        iconDomain: task.iconDomain,
-      );
-      await widget.store.update(created.copyWith(
-        dueAt: task.dueAt,
-        clearDueAt: task.dueAt == null,
-        repeat: task.repeat,
-        amount: task.amount,
-        clearAmount: task.amount == null,
-        currency: task.currency,
-      ));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Couldn't add task: $e")),
-        );
-      }
-    }
+  /// Add the current text and keep the field open for the next task (the ✓).
+  void _confirmAdd() {
+    final text = _addController.text.trim();
+    if (text.isEmpty) return;
+    widget.store.add(text);
+    _addController.clear();
+    _addFocus.requestFocus(); // keep going
   }
 
-  /// Tap a task → the full "Update details" screen (same page, update mode).
+  /// Finish adding — clear + dismiss the field and keyboard (the ✕ / tap-out).
+  void _closeAdd() {
+    _addController.clear();
+    _addFocus.unfocus();
+    setState(() => _adding = false);
+  }
+
   Future<void> _editTask(Task task) async {
-    final updated = await openTaskDetails(
-      context,
-      existing: task,
-      // Delete button at the bottom of the editor → remove with Undo.
-      onDelete: () => _deleteTask(task),
-    );
-    if (updated == null) return;
-    try {
-      await widget.store.update(updated);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Couldn't save: $e")),
-        );
-      }
-    }
+    final updated = await showTaskDetailsSheet(context, task);
+    if (updated != null) widget.store.update(updated);
   }
 
   /// Remove a task, with a white, auto-dismissing Undo snackbar.
@@ -153,17 +89,22 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Keyboard height — the FAB rides just above it while adding, and sits above
+    // the floating nav bar when idle.
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    // Just enough to clear the floating nav bar (~64h + 16 margin) — the FAB
+    // rests low, right above the nav, not high up the screen.
+    const navBarClearance = 44.0;
+
     return Stack(
       children: [
         // The empty state is centred against the WHOLE screen (behind the top
-        // bar + nav). It only shows once loading has settled — never during the
-        // initial fetch (which would flash "All clear").
+        // bar + nav), so the icon + text block sits optically dead-centre — not
+        // pushed up by the top bar's height.
         AnimatedBuilder(
           animation: widget.store,
           builder: (context, _) {
-            final showEmpty = !widget.store.isInitialLoad &&
-                widget.store.tasks.isEmpty &&
-                widget.store.error == null;
+            final showEmpty = widget.store.tasks.isEmpty && !_adding;
             if (!showEmpty) return const SizedBox.shrink();
             return Positioned.fill(
               child: _EmptyContent(onAdd: _startAdd),
@@ -181,149 +122,85 @@ class _HomePageState extends State<HomePage> {
                 filterActive: _filter.isActive,
               ),
               const SizedBox(height: 8),
-              // Everything below the top bar scrolls together: greeting → search
-              // → Revo + hero metrics → Up Next → category cards → the list.
               Expanded(
                 child: AnimatedBuilder(
-                  animation: Listenable.merge(
-                      [widget.store, ProfileStore.instance]),
-                  builder: (context, _) => _buildBody(),
+                  animation: widget.store,
+                  builder: (context, _) => _buildList(),
                 ),
               ),
             ],
           ),
         ),
-        // The "+" sits in the SAME ROW as the bottom nav bar — nav pill on the
-        // left, this glass + button in the right corner. The SafeArea + 15px
-        // bottom inset matches the nav's (SafeArea + 16px), so the 66px circle
-        // and the 64px pill share the same vertical centre — one control strip.
-        Positioned(
-          right: 20,
-          bottom: 15,
+        // The single morphing + / ✓ button, bottom-right. It slides up to sit
+        // above the keyboard while adding, and rests above the nav when idle.
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          right: 0,
+          bottom: _adding ? keyboardInset : navBarClearance,
           child: SafeArea(
             top: false,
-            child: _AddFab(onTap: _startAdd),
+            child: QuickAddBar(
+              adding: _adding,
+              onStart: _startAdd,
+              onConfirm: _confirmAdd,
+              onClose: _closeAdd,
+            ),
           ),
         ),
       ],
     );
   }
 
-  /// The whole scrollable Home: greeting → search → Revo + hero metrics →
-  /// Up Next cards → category cards → the grouped task list.
-  Widget _buildBody() {
+  Widget _buildList() {
     final allTasks = widget.store.tasks;
+    final tasks = applyFilter(allTasks, _filter);
 
-    // Still fetching for the first time → a premium shimmer skeleton.
-    if (widget.store.isInitialLoad) {
-      return const HomeLoading();
-    }
-    // Server error with nothing to show → a clear error, not a blank list.
-    if (widget.store.error != null && allTasks.isEmpty) {
-      return _ServerError(
-        error: widget.store.error!,
-        onRetry: () => widget.store.load(),
-      );
-    }
-    // Truly empty → the welcoming empty state (drawn behind this).
-    if (allTasks.isEmpty) {
+    // Truly empty (no tasks at all) → the welcoming empty state is drawn as a
+    // full-screen centred layer behind this (see build), so nothing here.
+    if (allTasks.isEmpty && !_adding) {
       return const SizedBox.shrink();
     }
+    // Have tasks, but the current filter hides them all.
+    if (tasks.isEmpty && !_adding) {
+      return _FilteredEmpty(
+        filter: _filter,
+        onClear: () => setState(() => _filter = TaskFilter.all),
+      );
+    }
 
-    final stats = computeHomeStats(allTasks);
-    final groups = groupForHome(allTasks, filter: _filter);
+    // The quick-add input row (when active) on top, then the tasks.
+    final rows = <Widget>[
+      if (_adding)
+        QuickAddRow(
+          controller: _addController,
+          focusNode: _addFocus,
+          onSubmitText: _confirmAdd,
+          onTapOutsideEmpty: _closeAdd,
+          // The helper only shows on the very first add (nothing added yet).
+          // Once an item exists, the row is just the field — clean continuation.
+          showHint: tasks.isEmpty,
+        ),
+      for (final t in tasks)
+        TaskTile(
+          task: t,
+          onToggle: () => widget.store.toggleDone(t),
+          onOpenDetails: () => _editTask(t),
+          onDelete: () => _deleteTask(t),
+        ),
+    ];
 
+    // Cards carry their own vertical margins, so the list is a plain ListView
+    // (no dividers) — each task reads as its own rounded card.
     return ListView(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 140),
-      children: [
-        // 1 · Greeting — Revo says "Good afternoon, <name>" + "Welcome to
-        //     Revolution", with his live entrance. He lives HERE, not in the
-        //     hero.
-        GreetingRevo(name: ProfileStore.instance.name, tasks: allTasks),
-        const SizedBox(height: 18),
-        // 2 · Search.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-          child: _SearchTapBar(onTap: _openSearch),
-        ),
-        const SizedBox(height: 18),
-        // 3 · THE hero — one card, everything at a glance (Suball-style).
-        HeroMetricsCard(stats: stats),
-        // 4 · Up Next — the soonest reminders as cards.
-        UpNextStrip(items: stats.upNext, onTap: _editTask),
-        // 5 · Category cards.
-        CategoryCards(
-          stats: stats,
-          tasks: allTasks,
-          onTapCategory: _openCategory,
-        ),
-        const SizedBox(height: 8),
-        // 6 · The grouped list below.
-        if (groups.isEmpty)
-          _FilteredEmpty(
-            filter: _filter,
-            onClear: () => setState(() => _filter = TaskFilter.all),
-          )
-        else ...[
-          // Pending = overdue & not done. Shown first, in red, to nudge action.
-          if (groups.pending.isNotEmpty)
-            TaskSection(
-              title: 'Pending',
-              icon: Icons.error_outline_rounded,
-              accent: const Color(0xFFDC2626),
-              tasks: groups.pending,
-              onToggleTask: (t) => widget.store.toggleDone(t),
-              onOpenTask: _editTask,
-              onDeleteTask: _deleteTask,
-            ),
-          if (groups.today.isNotEmpty)
-            TaskSection(
-              title: 'Today',
-              tasks: groups.today,
-              onToggleTask: (t) => widget.store.toggleDone(t),
-              onOpenTask: _editTask,
-              onDeleteTask: _deleteTask,
-            ),
-          // The upcoming week, with each task's date shown on its tile.
-          if (groups.next7.isNotEmpty)
-            TaskSection(
-              title: 'Next 7 days',
-              tasks: groups.next7,
-              onToggleTask: (t) => widget.store.toggleDone(t),
-              onOpenTask: _editTask,
-              onDeleteTask: _deleteTask,
-            ),
-          // Everything further out — collapsible.
-          if (groups.remaining.isNotEmpty)
-            TaskSection(
-              title: 'Scheduled',
-              tasks: groups.remaining,
-              collapsible: true,
-              expanded: _laterExpanded,
-              onToggleExpanded: () =>
-                  setState(() => _laterExpanded = !_laterExpanded),
-              onToggleTask: (t) => widget.store.toggleDone(t),
-              onOpenTask: _editTask,
-              onDeleteTask: _deleteTask,
-            ),
-          // Tasks with no date yet.
-          if (groups.unscheduled.isNotEmpty)
-            TaskSection(
-              title: 'No date',
-              tasks: groups.unscheduled,
-              onToggleTask: (t) => widget.store.toggleDone(t),
-              onOpenTask: _editTask,
-              onDeleteTask: _deleteTask,
-            ),
-        ],
-      ],
+      padding: const EdgeInsets.only(top: 6, bottom: 120),
+      children: rows,
     );
   }
 }
 
-/// The glass top bar: a greeting/title on the left, Settings on the right.
-/// (The filter is gone — filtering is done via the stat cards. Add lives as the
-/// floating button above the keyboard.)
+/// The glass top bar: Settings on the left, Filter on the right. (Add lives as
+/// the floating button above the keyboard, so it's not here.)
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.onSettings,
@@ -332,23 +209,24 @@ class _TopBar extends StatelessWidget {
   });
 
   final VoidCallback onSettings;
-
-  /// Funnel → the filter sheet.
   final VoidCallback onFilter;
 
-  /// Whether a non-"All" filter is applied — marks the funnel with a dot.
+  /// Whether a non-"All" filter is applied — shows an accent dot on the button.
   final bool filterActive;
 
   @override
   Widget build(BuildContext context) {
-    // Right corner only: Filter · Settings. (Add is now a floating button in the
-    // bottom-right; the dev onboarding button was removed.)
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
+          GlassIconButton(
+            icon: Icons.settings_outlined,
+            tooltip: 'Settings',
+            onTap: onSettings,
+          ),
           const Spacer(),
-          // Funnel filter, with an accent dot when active.
+          // Filter button, right corner. A small accent dot marks it active.
           Stack(
             clipBehavior: Clip.none,
             children: [
@@ -356,12 +234,11 @@ class _TopBar extends StatelessWidget {
                 icon: Icons.filter_alt_outlined,
                 tooltip: 'Filter',
                 onTap: onFilter,
-                size: 52,
               ),
               if (filterActive)
                 Positioned(
-                  right: 3,
-                  top: 3,
+                  right: 2,
+                  top: 2,
                   child: Container(
                     width: 12,
                     height: 12,
@@ -374,111 +251,7 @@ class _TopBar extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(width: 12),
-          GlassIconButton(
-            icon: Icons.settings_outlined,
-            tooltip: 'Settings',
-            onTap: onSettings,
-            size: 52,
-          ),
         ],
-      ),
-    );
-  }
-}
-
-/// The "+" action button — a frosted-GLASS circle matching the bottom nav pill,
-/// sitting in the right corner of the same row. Its icon carries the accent (so
-/// it still reads as the primary action) but the surface is glass, not a solid
-/// blob, so the nav + add feel like one cohesive control strip. 64px = the nav's
-/// height. Scales down slightly on press for a tactile feel.
-class _AddFab extends StatefulWidget {
-  const _AddFab({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  State<_AddFab> createState() => _AddFabState();
-}
-
-class _AddFabState extends State<_AddFab> {
-  bool _down = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _down = true),
-      onTapCancel: () => setState(() => _down = false),
-      onTapUp: (_) => setState(() => _down = false),
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        widget.onTap();
-      },
-      child: AnimatedScale(
-        scale: _down ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: GlassPanel(
-          borderRadius: 999,
-          child: Container(
-            width: 66,
-            height: 66,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              // A whisper of violet so the primary action reads as slightly
-              // "lit" without becoming a solid blob — clean frosted glass, like
-              // the nav pill beside it.
-              gradient: RadialGradient(
-                colors: [
-                  AppColors.accent.withValues(alpha: 0.16),
-                  AppColors.accent.withValues(alpha: 0.0),
-                ],
-              ),
-            ),
-            child: const Icon(Icons.add_rounded,
-                color: AppColors.ink, size: 32),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The tap-to-search pill that sits above the hero. It's a lightweight decoy of
-/// a search field — tapping it opens the real full-screen [SearchPage] (with a
-/// live keyboard), rather than typing inline. Reads as a search box, behaves as
-/// a button.
-class _SearchTapBar extends StatelessWidget {
-  const _SearchTapBar({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 46,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppColors.card.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.search_rounded, size: 21, color: AppColors.inkSoft),
-            SizedBox(width: 10),
-            Text(
-              'Search your reminders',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: AppColors.inkFaint,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -486,49 +259,6 @@ class _SearchTapBar extends StatelessWidget {
 
 /// A calm, centred empty state.
 /// Shown when tasks exist but the active filter hides them all.
-/// Shown when the server can't be reached — makes failures visible (with a
-/// retry) instead of a silently-empty list.
-class _ServerError extends StatelessWidget {
-  const _ServerError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
-      children: [
-        const Icon(Icons.cloud_off_rounded, size: 52, color: AppColors.inkFaint),
-        const SizedBox(height: 16),
-        const Text(
-          "Couldn't reach the server",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: AppColors.ink,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '$error',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
-        ),
-        const SizedBox(height: 20),
-        Center(
-          child: FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Try again'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _FilteredEmpty extends StatelessWidget {
   const _FilteredEmpty({required this.filter, required this.onClear});
 

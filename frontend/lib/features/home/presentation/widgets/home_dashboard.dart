@@ -665,25 +665,6 @@ String _amountStr(Task t) {
   return '${cur.symbol}$body';
 }
 
-/// The yearly cost of a recurring amount, normalised to INR and formatted
-/// "₹7,788". Used to make a subscription's real annual price tangible — the
-/// number that nudges a "do I still need this?" call.
-String? _yearlyInr(Task t) {
-  if (!t.hasAmount) return null;
-  final perYear = switch (t.repeat) {
-    RepeatCadence.minute => t.amount! * 60 * 24 * 365,
-    RepeatCadence.hour => t.amount! * 24 * 365,
-    RepeatCadence.daily => t.amount! * 365,
-    RepeatCadence.weekly => t.amount! * 52,
-    RepeatCadence.monthly => t.amount! * 12,
-    RepeatCadence.yearly => t.amount!,
-    RepeatCadence.none => t.amount!,
-  };
-  final n = t.repeatTimes < 1 ? 1 : t.repeatTimes;
-  final inr = toInr(perYear / n, t.currency);
-  return '₹${formatAmount(inr.round().toString(), Grouping.indian)}';
-}
-
 /// Age on the UPCOMING occasion (rolls to next year if this year's has passed).
 int? _ageOnNext(Task t) {
   if (t.birthYear == null || t.dueAt == null) return null;
@@ -1014,12 +995,21 @@ class _WhenChipState extends State<_WhenChip>
 
 const double _kCardW = 264;
 
-/// A subscription highlight — 4–5 words, glanceable. Leads with the tangible
-/// yearly cost when known ("₹7,788/yr if unused"), else a quick "still using it?".
+/// A subscription highlight — plain text, no numbers (the price already shows in
+/// the subtitle). Just a quick "is this still worth keeping?" nudge, keyed to
+/// the sub-category so it stays concrete.
 String _subscriptionPunch(Task t) {
-  final yearly = _yearlyInr(t);
-  if (yearly != null) return '$yearly/yr if unused';
-  return 'Still using it?';
+  final sub = (t.subCategory ?? '').toLowerCase();
+  return switch (sub) {
+    'entertainment' => 'Still watching it?',
+    'music' => 'Still on repeat?',
+    'ai' => 'Still pulling its weight?',
+    'cloud & tools' => 'Still using it?',
+    'learning' => 'Still learning from it?',
+    'gaming' => 'Still playing?',
+    'food & shopping' => 'Perks still worth it?',
+    _ => 'Still worth keeping?',
+  };
 }
 
 /// A SIP highlight — 4–5 words. The amount is already the big hero, so this is

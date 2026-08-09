@@ -202,6 +202,12 @@ class OrbitIdentityCard extends StatelessWidget {
                   focusNode: nameFocus,
                   textCapitalization: TextCapitalization.words,
                   cursorColor: AppColors.accent,
+                  // Keyboard "Next" jumps straight to the amount field, so the
+                  // whole form fills in one flow without tapping each field.
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => amountFocus.requestFocus(),
+                  // Tapping outside the fields dismisses the keyboard (opt out).
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
                   style: const TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
@@ -259,6 +265,12 @@ class OrbitIdentityCard extends StatelessWidget {
                         focusNode: amountFocus,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
+                        // The last typed field — "Done" closes the keyboard (the
+                        // remaining fields are taps: date, cycle, category).
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) =>
+                            FocusScope.of(context).unfocus(),
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
                         inputFormatters: [
                           // Live grouping per the chosen currency (Indian for
                           // INR, Western for USD/KWD), with its decimal limit.

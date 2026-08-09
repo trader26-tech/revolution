@@ -6,11 +6,11 @@ import '../../../core/widgets/orbit_date_picker.dart';
 import '../../../core/widgets/starfield.dart';
 import '../../brand/data/brand_catalog.dart';
 import '../../brand/domain/brand.dart';
-import '../../brand/presentation/brand_logo.dart';
 import '../../brand/presentation/brand_picker_sheet.dart';
 import '../../details/domain/currency.dart';
 import '../../tasks/domain/task.dart';
 import '../domain/subscription_categories.dart';
+import 'widgets/orbit_form.dart';
 
 /// The Subscription form — modelled on the reference: an identity card (logo +
 /// name + price), a grouped details card (first payment · cycle · free trial),
@@ -315,7 +315,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                   children: [
                     // ── Identity: logo + name + price ──
-                    _IdentityCard(
+                    OrbitIdentityCard(
                       iconName: _iconName,
                       iconDomain: _iconDomain,
                       nameController: _name,
@@ -498,174 +498,6 @@ class _CircleButton extends StatelessWidget {
           border: Border.all(color: AppColors.cardBorder),
         ),
         child: Icon(icon, color: AppColors.ink, size: 22),
-      ),
-    );
-  }
-}
-
-// ── Identity card (logo + name + price) ──────────────────────────────────────
-
-class _IdentityCard extends StatelessWidget {
-  const _IdentityCard({
-    required this.iconName,
-    required this.iconDomain,
-    required this.nameController,
-    required this.nameFocus,
-    required this.amountController,
-    required this.amountFocus,
-    required this.onPickIcon,
-    required this.currency,
-    required this.onPickCurrency,
-  });
-
-  final String? iconName;
-  final String? iconDomain;
-  final TextEditingController nameController;
-  final FocusNode nameFocus;
-  final TextEditingController amountController;
-  final FocusNode amountFocus;
-  final VoidCallback onPickIcon;
-  final String currency;
-  final VoidCallback onPickCurrency;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasIcon = (iconName != null && iconName!.isNotEmpty);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Logo picker — a big round tap target (subscriptions-only picker).
-          GestureDetector(
-            onTap: onPickIcon,
-            child: Container(
-              width: 62,
-              height: 62,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: AppColors.bg,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: hasIcon
-                      ? AppColors.accent.withValues(alpha: 0.5)
-                      : AppColors.cardBorder,
-                  width: hasIcon ? 1.5 : 1,
-                ),
-              ),
-              child: hasIcon
-                  ? BrandLogo(
-                      brand: Brand(name: iconName!, domain: iconDomain ?? ''),
-                      size: 62,
-                      bare: true, // no white tile — fills the round badge
-                      circular: true,
-                    )
-                  : const Icon(Icons.add_rounded,
-                      color: AppColors.accent, size: 28),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Name.
-                TextField(
-                  controller: nameController,
-                  focusNode: nameFocus,
-                  textCapitalization: TextCapitalization.words,
-                  cursorColor: AppColors.accent,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
-                  ),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: 'Name',
-                    hintStyle: TextStyle(
-                      color: AppColors.inkFaint,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Price — a tappable currency badge + amount, on one line.
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: onPickCurrency,
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        height: 30,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(9),
-                          border: Border.all(
-                              color: AppColors.accent.withValues(alpha: 0.35)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              currencyOf(currency).symbol,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.accent,
-                              ),
-                            ),
-                            const SizedBox(width: 3),
-                            const Icon(Icons.expand_more_rounded,
-                                size: 15, color: AppColors.accent),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: amountController,
-                        focusNode: amountFocus,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                        ],
-                        cursorColor: AppColors.accent,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,
-                        ),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          hintText: '0.00',
-                          hintStyle: TextStyle(
-                            color: AppColors.inkFaint,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

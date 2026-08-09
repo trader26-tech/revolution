@@ -902,7 +902,7 @@ class _SubscriptionCard extends StatelessWidget {
       days: days,
       due: task.dueAt!,
       particles: _Particles.pulse,
-      value: _Logo(task: task, size: 52, radius: 14, bare: true),
+      value: _Logo(task: task, size: 54, radius: 15),
       title: task.title,
       subtitle: priceLine,
       highlight: _subscriptionPunch(task),
@@ -1225,7 +1225,9 @@ class _ParticleFieldPainter extends CustomPainter {
   // is "in rotation / recurring". Clean, and it never crosses the mark.
   void _orbit(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
-    const rx = 58.0, ry = 29.0; // ry (29) > logo radius (26) → clears the mark
+    // The boxed logo is ~54px (radius 27); the orbit clears it comfortably and
+    // stays within the 64px hero band.
+    const rx = 62.0, ry = 30.0;
     // Faint orbit track for context.
     canvas.drawOval(
       Rect.fromCenter(center: c, width: rx * 2, height: ry * 2),
@@ -1295,16 +1297,13 @@ class _GenericCard extends StatelessWidget {
   }
 }
 
-/// A brand logo (with local-image override) — the recognisable mark of the item.
-/// [bare] drops the dark backing tile so the mark floats freely (used on the
-/// subscription hero, where the orbit animates around it).
+/// A brand logo (with local-image override) — the recognisable mark of the
+/// item, sitting in its clean space-themed tile so it matches across cards.
 class _Logo extends StatelessWidget {
-  const _Logo(
-      {required this.task, this.size = 40, this.radius = 12, this.bare = false});
+  const _Logo({required this.task, this.size = 40, this.radius = 12});
   final Task task;
   final double size;
   final double radius;
-  final bool bare;
 
   @override
   Widget build(BuildContext context) {
@@ -1323,7 +1322,6 @@ class _Logo extends StatelessWidget {
           : Brand(name: task.title, domain: ''),
       size: size,
       radius: radius,
-      bare: bare,
     );
   }
 }

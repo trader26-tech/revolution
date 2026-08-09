@@ -32,6 +32,5 @@ const List<TaskCategory> kBrowseCategories = [
   TaskCategory.subscription,
   TaskCategory.birthday,
   TaskCategory.investment,
-  // Insurance temporarily removed from browse — add back later.
-  TaskCategory.bills,
+  // Insurance & Bills temporarily removed from browse — add back later.
 ];

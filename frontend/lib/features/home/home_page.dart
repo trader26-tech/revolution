@@ -40,10 +40,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// The "+" — open the catalog picker (plain-icon category list). The user
-  /// browses the categories, picks one, fills the tailored form, and it's saved.
+  /// The "+" — slide the Browse list up from the bottom ("Add to Revolution").
+  /// Pick a category → its tailored add form opens → it's saved.
   Future<void> _startAdd() async {
-    final result = await openAddFlow(context, widget.store);
+    final category = await showAddBrowseSheet(context);
+    if (category == null || !mounted) return;
+    final result = await openCategoryForm(context, widget.store, category);
     await persistAddResult(widget.store, result);
   }
 

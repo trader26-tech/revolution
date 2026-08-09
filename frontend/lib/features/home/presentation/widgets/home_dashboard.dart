@@ -1088,19 +1088,17 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
   void initState() {
     super.initState();
     _recompute();
-    // Centre today after first layout: scroll so today's cell lands mid-screen.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _centreToday());
+    // Align today to the LEFT edge after first layout — the user sees today +
+    // the days ahead by default; past days are a scroll-left away.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _alignTodayLeft());
   }
 
-  void _centreToday() {
+  void _alignTodayLeft() {
     if (!_controller.hasClients) return;
-    final viewport = _controller.position.viewportDimension;
-    // Offset of today's cell start (today is at index `daysBefore`).
+    // Today is at index `daysBefore`; put its cell start at the strip's left.
     final todayStart = widget.daysBefore * (_cellW + _gap);
-    // Shift so the cell's centre aligns with the viewport centre.
-    final target = todayStart + _cellW / 2 - viewport / 2;
     final max = _controller.position.maxScrollExtent;
-    _controller.jumpTo(target.clamp(0.0, max));
+    _controller.jumpTo(todayStart.clamp(0.0, max));
   }
 
   @override
@@ -1530,4 +1528,163 @@ class _BrowseDivider extends StatelessWidget {
         margin: const EdgeInsets.only(left: 58),
         color: AppColors.hairline,
       );
+}
+
+// ── Add sheet — "Add to Revolution" (browse slides up from the bottom) ────────
+
+/// Opens the add-browse bottom sheet: a slide-up list of the categories you can
+/// add to (Subscription, Occasion, SIP…). Returns the chosen category, or null
+/// if dismissed. The caller then opens that category's tailored add form.
+Future<TaskCategory?> showAddBrowseSheet(BuildContext context) {
+  return showModalBottomSheet<TaskCategory>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (_) => const _AddBrowseSheet(),
+  );
+}
+
+class _AddBrowseSheet extends StatelessWidget {
+  const _AddBrowseSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    return Container(
+      margin: EdgeInsets.only(bottom: bottomInset),
+      decoration: const BoxDecoration(
+        color: AppColors.bgTop,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: AppColors.cardBorder)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.inkFaint.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Add to Revolution',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'What would you like to track?',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+              const SizedBox(height: 16),
+              for (final c in kBrowseCategories)
+                _AddChoiceRow(
+                  category: c,
+                  onTap: () => Navigator.of(context).pop(c),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One category to add — accent icon orb, name, "Add a …" hint, chevron.
+class _AddChoiceRow extends StatelessWidget {
+  const _AddChoiceRow({required this.category, required this.onTap});
+  final TaskCategory category;
+  final VoidCallback onTap;
+
+  String get _hint => 'Add a ${category.singular}';
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              AppColors.accent.withValues(alpha: 0.12),
+              AppColors.card,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.glassBorder),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(14),
+                border:
+                    Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+              ),
+              child: Icon(category.icon, color: AppColors.accent, size: 23),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    category.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _hint,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkSoft,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_rounded,
+                size: 18, color: AppColors.inkFaint.withValues(alpha: 0.9)),
+          ],
+        ),
+      ),
+    );
+  }
 }

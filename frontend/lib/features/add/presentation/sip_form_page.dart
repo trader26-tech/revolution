@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/orbit_date_picker.dart';
 import '../../../core/widgets/starfield.dart';
 import '../../brand/presentation/brand_picker_sheet.dart';
+import '../../details/domain/currency.dart';
 import '../../tasks/domain/task.dart';
 import '../domain/subscription_categories.dart';
 import 'widgets/orbit_form.dart';
@@ -67,8 +68,10 @@ class _SipFormPageState extends State<SipFormPage> {
       _iconName = edit.iconName;
       _iconDomain = edit.iconDomain;
       if (edit.hasAmount) {
-        _amount.text = edit.amount!.toStringAsFixed(
+        final plain = edit.amount!.toStringAsFixed(
             edit.amount == edit.amount!.roundToDouble() ? 0 : 2);
+        _amount.text =
+            formatAmount(plain, currencyOf(edit.currency).grouping);
       }
       _currency = edit.currency;
       _cycle = edit.repeat == RepeatCadence.none
@@ -124,7 +127,13 @@ class _SipFormPageState extends State<SipFormPage> {
 
   Future<void> _pickCurrency() async {
     final picked = await showCurrencyPicker(context, _currency);
-    if (picked != null) setState(() => _currency = picked);
+    if (picked != null) {
+      setState(() {
+        _currency = picked;
+        _amount.text =
+            formatAmount(_amount.text, currencyOf(picked).grouping);
+      });
+    }
   }
 
   Future<void> _pickCategory() async {

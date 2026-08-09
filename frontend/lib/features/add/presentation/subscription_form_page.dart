@@ -79,8 +79,10 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
       // Keep the saved logo/price/cycle — don't let type-ahead override them.
       if (edit.hasIcon) _iconTouched = true;
       if (edit.hasAmount) {
-        _amount.text = edit.amount!.toStringAsFixed(
+        final plain = edit.amount!.toStringAsFixed(
             edit.amount == edit.amount!.roundToDouble() ? 0 : 2);
+        _amount.text =
+            formatAmount(plain, currencyOf(edit.currency).grouping);
       }
       _priceTouched = true;
       _cycleTouched = true;
@@ -133,10 +135,12 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     if (!_cycleTouched) _cycle = plan.cycle;
     if (!_priceTouched) {
       // A 0 default (e.g. bundled free perks) → leave blank rather than "0".
-      final text = plan.price > 0
+      final plain = plan.price > 0
           ? plan.price.toStringAsFixed(
               plan.price == plan.price.roundToDouble() ? 0 : 2)
           : '';
+      // Group it into the current currency's format (matches the live typing).
+      final text = formatAmount(plain, currencyOf(_currency).grouping);
       if (_amount.text != text) {
         _settingPrice = true; // mark this as a programmatic write
         _amount.text = text;
@@ -227,7 +231,14 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => _CurrencySheet(selected: _currency),
     );
-    if (picked != null) setState(() => _currency = picked);
+    if (picked != null) {
+      setState(() {
+        _currency = picked;
+        // Re-group the existing amount into the new currency's format.
+        _amount.text =
+            formatAmount(_amount.text, currencyOf(picked).grouping);
+      });
+    }
   }
 
   Future<void> _pickDate() async {

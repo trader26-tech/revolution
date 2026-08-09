@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../brand/domain/brand.dart';
 import '../../../brand/presentation/brand_logo.dart';
 import '../../../details/domain/currency.dart';
+import '../../../details/domain/currency_input.dart';
 import '../../../tasks/domain/task.dart';
 import '../../domain/subscription_categories.dart';
 
@@ -259,7 +260,12 @@ class OrbitIdentityCard extends StatelessWidget {
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                          // Live grouping per the chosen currency (Indian for
+                          // INR, Western for USD/KWD), with its decimal limit.
+                          CurrencyAmountFormatter(
+                            currencyOf(currency).grouping,
+                            decimals: currencyOf(currency).decimals,
+                          ),
                         ],
                         cursorColor: AppColors.accent,
                         style: const TextStyle(

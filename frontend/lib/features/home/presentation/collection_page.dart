@@ -213,6 +213,7 @@ class _CollectionPageState extends State<CollectionPage> {
     var monthlyEq = 0.0; // combined ₹/month — ALL currencies converted to INR
     var dueThisWeek = 0;
     DateTime? nextDate;
+    Task? nextTask;
 
     for (final t in items) {
       if (t.hasAmount) {
@@ -225,7 +226,10 @@ class _CollectionPageState extends State<CollectionPage> {
       if (t.isScheduled) {
         final d = nextOccurrence(t, from: today); // rolled forward, never past
         if (d.isBefore(weekEnd)) dueThisWeek++;
-        if (nextDate == null || d.isBefore(nextDate)) nextDate = d;
+        if (nextDate == null || d.isBefore(nextDate)) {
+          nextDate = d;
+          nextTask = t;
+        }
       }
     }
 
@@ -235,6 +239,7 @@ class _CollectionPageState extends State<CollectionPage> {
       monthlyEqInr: monthlyEq,
       dueThisWeek: dueThisWeek,
       nextDate: nextDate,
+      nextTask: nextTask,
     );
   }
 
@@ -386,6 +391,7 @@ class _CollectionPageState extends State<CollectionPage> {
       subtitle: filtering ? _title : null,
       activeFilter: _groupByCategory ? _filter : null,
       onClearFilter: () => setState(() => _filter = null),
+      isOccasions: category == TaskCategory.birthday,
       onTap: (t) => _edit(context, t),
     );
   }
@@ -425,6 +431,7 @@ class _GroupedList extends StatelessWidget {
     this.subtitle,
     this.activeFilter,
     this.onClearFilter,
+    this.isOccasions = false,
   });
 
   final List<_Section> sections;
@@ -435,11 +442,17 @@ class _GroupedList extends StatelessWidget {
   final void Function(Task) onTap;
   final String? activeFilter;
   final VoidCallback? onClearFilter;
+  final bool isOccasions;
 
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[
-      _CategoryHero(stats: hero, icon: icon, title: title, subtitle: subtitle),
+      // Occasions get a people/countdown hero (no money); everything else the
+      // spend hero.
+      if (isOccasions)
+        _OccasionHero(stats: hero, icon: icon, title: title, onTap: onTap)
+      else
+        _CategoryHero(stats: hero, icon: icon, title: title, subtitle: subtitle),
     ];
     // A "Clear filter" pill (the hero already shows WHICH category is active).
     if (activeFilter != null) {
@@ -512,12 +525,14 @@ class _HeroStats {
     required this.monthlyEqInr,
     required this.dueThisWeek,
     required this.nextDate,
+    this.nextTask,
   });
   final int total;
   final Map<String, double> spend; // currency → total (as billed)
   final double monthlyEqInr; // INR items normalised to /month
   final int dueThisWeek;
   final DateTime? nextDate; // next occurrence across all items (rolled forward)
+  final Task? nextTask; // the item whose occurrence is nextDate
 }
 
 /// The orbit-themed hero — an at-a-glance overview of everything about this
@@ -729,6 +744,269 @@ class _CategoryHeroState extends State<_CategoryHero> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The Occasions hero — a warm, people-focused overview (no money): the big
+/// "Occasions" title, and the NEXT occasion highlighted with its photo/avatar,
+/// who + type, and a live countdown. A three-up sub-stat row finishes it.
+class _OccasionHero extends StatelessWidget {
+  const _OccasionHero({
+    required this.stats,
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final _HeroStats stats;
+  final IconData icon;
+  final String title;
+  final void Function(Task) onTap;
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  int _daysTo(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return DateTime(d.year, d.month, d.day).difference(today).inDays;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final next = stats.nextTask;
+    final nextDate = stats.nextDate;
+    final days = nextDate == null ? null : _daysTo(nextDate);
+    // Count occasions in the coming month.
+    final thisMonth = stats.dueThisWeek; // reused: within the next 7 days
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF2A1A3E), Color(0xFF1A1330)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.18),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title row.
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        height: 1.05,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      stats.total == 1 ? '1 saved' : '${stats.total} saved',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                        color: AppColors.accent.withValues(alpha: 0.95),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              _OrbitBadge(icon: icon),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // The next occasion — the emotional centrepiece.
+          if (next != null && days != null)
+            GestureDetector(
+              onTap: () => onTap(next),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.glassBorder),
+                ),
+                child: Row(
+                  children: [
+                    _Avatar(task: next, tint: AppColors.accent),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'NEXT UP',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.4,
+                              color: AppColors.accent.withValues(alpha: 0.9),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            next.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${nextDate!.day} ${_months[nextDate.month - 1]}',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.inkSoft,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // The big countdown.
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        ShaderMask(
+                          shaderCallback: (r) => const LinearGradient(
+                            colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                          ).createShader(r),
+                          child: Text(
+                            days == 0 ? 'Today' : '$days',
+                            style: TextStyle(
+                              fontSize: days == 0 ? 22 : 32,
+                              height: 1.0,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        if (days != 0)
+                          Text(
+                            days == 1 ? 'day' : 'days',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.inkSoft,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Text(
+              'No dates yet — add your first occasion.',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkSoft,
+              ),
+            ),
+
+          const SizedBox(height: 14),
+          // Three-up sub-stats.
+          Row(
+            children: [
+              _OccStat(value: '${stats.total}', label: 'occasions'),
+              _divider(),
+              _OccStat(
+                value: '$thisMonth',
+                label: 'this week',
+                highlight: thisMonth > 0,
+              ),
+              _divider(),
+              _OccStat(
+                value: days == null ? '—' : (days == 0 ? '🎉' : '${days}d'),
+                label: 'to next',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _divider() => Container(
+        width: 1,
+        height: 30,
+        color: Colors.white.withValues(alpha: 0.08),
+      );
+}
+
+class _OccStat extends StatelessWidget {
+  const _OccStat({
+    required this.value,
+    required this.label,
+    this.highlight = false,
+  });
+  final String value;
+  final String label;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: highlight ? AppColors.accent : AppColors.ink,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.inkSoft,
+            ),
+          ),
         ],
       ),
     );

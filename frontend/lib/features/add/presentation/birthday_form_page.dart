@@ -552,25 +552,37 @@ class _RemindRow extends StatelessWidget {
         _ => '$d days before',
       };
 
+  /// The preset index nearest to [days] — never -1, so both buttons always work
+  /// even if the stored value isn't exactly a preset.
+  int get _index {
+    var best = 0;
+    var bestDiff = (days - _presets[0]).abs();
+    for (var i = 1; i < _presets.length; i++) {
+      final diff = (days - _presets[i]).abs();
+      if (diff < bestDiff) {
+        best = i;
+        bestDiff = diff;
+      }
+    }
+    return best;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final i = _index;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
       child: Row(
         children: [
           Text('Remind me', style: orbitLabelStyle),
           const Spacer(),
-          _step(Icons.remove_rounded, () {
-            final i = _presets.indexOf(days);
-            if (i > 0) {
-              HapticFeedback.selectionClick();
-              onChanged(_presets[i - 1]);
-            }
+          _step(Icons.remove_rounded, i > 0, () {
+            onChanged(_presets[i - 1]);
           }),
           SizedBox(
             width: 108,
             child: Text(
-              _label(days),
+              _label(_presets[i]),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 14,
@@ -579,21 +591,22 @@ class _RemindRow extends StatelessWidget {
               ),
             ),
           ),
-          _step(Icons.add_rounded, () {
-            final i = _presets.indexOf(days);
-            if (i < _presets.length - 1) {
-              HapticFeedback.selectionClick();
-              onChanged(_presets[i + 1]);
-            }
+          _step(Icons.add_rounded, i < _presets.length - 1, () {
+            onChanged(_presets[i + 1]);
           }),
         ],
       ),
     );
   }
 
-  Widget _step(IconData icon, VoidCallback onTap) {
+  Widget _step(IconData icon, bool enabled, VoidCallback onTap) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: enabled
+          ? () {
+              HapticFeedback.selectionClick();
+              onTap();
+            }
+          : null,
       behavior: HitTestBehavior.opaque,
       child: Container(
         width: 32,
@@ -604,7 +617,9 @@ class _RemindRow extends StatelessWidget {
           shape: BoxShape.circle,
           border: Border.all(color: AppColors.glassBorder),
         ),
-        child: Icon(icon, size: 18, color: AppColors.accent),
+        child: Icon(icon,
+            size: 18,
+            color: enabled ? AppColors.accent : AppColors.inkFaint),
       ),
     );
   }

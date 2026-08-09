@@ -1284,21 +1284,61 @@ class BrowseGrid extends StatelessWidget {
 
   final List<Task> tasks;
 
-  /// Tap a category tile → open its collection page.
+  /// Tap a category row → open its collection page.
   final void Function(TaskCategory) onOpenCategory;
 
-  /// Tap the "All" tile → open the full collection.
+  /// Tap the "All" row → open the full collection.
   final VoidCallback onOpenAll;
 
   int _countFor(TaskCategory c) => tasks.where((t) => t.category == c).length;
 
+  /// A short info line for a category: the soonest upcoming item + when, else a
+  /// gentle prompt. Gives each row more meaning than a bare count.
+  String _subtitleFor(TaskCategory c) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final upcoming = tasks
+        .where((t) => t.category == c && t.isScheduled)
+        .toList()
+      ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
+    if (upcoming.isEmpty) {
+      final count = _countFor(c);
+      return count == 0 ? 'Nothing yet' : 'No dates set';
+    }
+    // Nearest one on/after today (else the very next stored).
+    final next = upcoming.firstWhere(
+      (t) => !DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day)
+          .isBefore(today),
+      orElse: () => upcoming.first,
+    );
+    final d = DateTime(next.dueAt!.year, next.dueAt!.month, next.dueAt!.day);
+    final days = d.difference(today).inDays;
+    final rel = days < 0
+        ? 'soon'
+        : days == 0
+            ? 'today'
+            : days == 1
+                ? 'tomorrow'
+                : days < 30
+                    ? 'in ${days}d'
+                    : 'in ${(days / 30).round()}mo';
+    return 'Next: ${next.title} · $rel';
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Only categories that have items — plus "All" — so the list stays useful
+    // and quick to scan (no empty rows cluttering it).
+    final live = [
+      for (final c in kBrowseCategories)
+        if (_countFor(c) > 0) c,
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 26, 20, 14),
+          padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
           child: Row(
             children: [
               const Text(
@@ -1324,29 +1364,26 @@ class BrowseGrid extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            // A little taller than wide so the icon + two text lines breathe
-            // (fixes the earlier ~6px overflow).
-            childAspectRatio: 1.42,
+          child: Column(
             children: [
-              for (final c in kBrowseCategories)
-                _BrowseTile(
+              for (final c in live)
+                _BrowseRow(
                   icon: c.icon,
                   label: c.label,
+                  subtitle: _subtitleFor(c),
                   count: _countFor(c),
                   onTap: () => onOpenCategory(c),
                 ),
-              // The catch-all "All" tile — every reminder in one place.
-              _BrowseTile(
+              // The catch-all "All" row — every reminder in one place.
+              _BrowseRow(
                 icon: Icons.blur_on_rounded,
-                label: 'All',
+                label: 'All reminders',
+                subtitle: tasks.isEmpty
+                    ? 'Nothing yet'
+                    : 'Everything in one place',
                 count: tasks.length,
                 onTap: onOpenAll,
+                emphasise: true,
               ),
             ],
           ),
@@ -1356,112 +1393,137 @@ class BrowseGrid extends StatelessWidget {
   }
 }
 
-/// One tile — a dark glass panel with a single-accent icon badge, a name, and a
-/// count. ONE constant colour across the whole grid (the Orbit accent); the
-/// categories differ only by ICON, never by colour, so the grid reads as one
-/// calm, space-consistent constellation. Pressed state adds a subtle scale.
-class _BrowseTile extends StatefulWidget {
-  const _BrowseTile({
+/// One category as a full-width LIST row — an accent icon badge, the name + an
+/// info line, a count, and a chevron. Reads as a fast, scannable launcher; a
+/// press gives a subtle scale for tactility. ONE constant accent throughout.
+class _BrowseRow extends StatefulWidget {
+  const _BrowseRow({
     required this.icon,
     required this.label,
+    required this.subtitle,
     required this.count,
     required this.onTap,
+    this.emphasise = false,
   });
 
   final IconData icon;
   final String label;
+  final String subtitle;
   final int count;
   final VoidCallback onTap;
 
+  /// The "All" row gets a slightly stronger wash so it reads as the summary.
+  final bool emphasise;
+
   @override
-  State<_BrowseTile> createState() => _BrowseTileState();
+  State<_BrowseRow> createState() => _BrowseRowState();
 }
 
-class _BrowseTileState extends State<_BrowseTile> {
+class _BrowseRowState extends State<_BrowseRow> {
   bool _down = false;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _down = true),
-      onTapUp: (_) => setState(() => _down = false),
-      onTapCancel: () => setState(() => _down = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _down ? 0.97 : 1,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-          decoration: BoxDecoration(
-            // A single, constant accent wash — same on every tile.
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.accent.withValues(alpha: 0.12),
-                AppColors.card,
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.glassBorder),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Top row: the accent icon badge + count chip.
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(13),
-                      border: Border.all(
-                          color: AppColors.accent.withValues(alpha: 0.35)),
-                    ),
-                    child: Icon(widget.icon,
-                        color: AppColors.accent, size: 20),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: AppColors.glassBorder),
-                    ),
-                    child: Text(
-                      '${widget.count}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: widget.count == 0
-                            ? AppColors.inkFaint
-                            : AppColors.ink,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _down = true),
+        onTapUp: (_) => setState(() => _down = false),
+        onTapCancel: () => setState(() => _down = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _down ? 0.98 : 1,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  AppColors.accent
+                      .withValues(alpha: widget.emphasise ? 0.16 : 0.10),
+                  AppColors.card,
                 ],
               ),
-              // The label, pinned to the bottom.
-              Text(
-                widget.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
-                  color: AppColors.ink,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.glassBorder),
+            ),
+            child: Row(
+              children: [
+                // Accent icon badge.
+                Container(
+                  width: 46,
+                  height: 46,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.35)),
+                  ),
+                  child: Icon(widget.icon, color: AppColors.accent, size: 23),
                 ),
-              ),
-            ],
+                const SizedBox(width: 14),
+                // Name + info line.
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        widget.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.inkSoft,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Count pill.
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppColors.glassBorder),
+                  ),
+                  child: Text(
+                    '${widget.count}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: widget.count == 0
+                          ? AppColors.inkFaint
+                          : AppColors.ink,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(Icons.chevron_right_rounded,
+                    size: 20,
+                    color: AppColors.inkFaint.withValues(alpha: 0.8)),
+              ],
+            ),
           ),
         ),
       ),

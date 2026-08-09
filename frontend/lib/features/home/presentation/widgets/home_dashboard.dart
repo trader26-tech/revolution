@@ -1054,27 +1054,27 @@ String _subscriptionPunch(Task t) {
   if (brand(['chatgpt', 'openai', 'claude', 'gemini', 'copilot', ' ai'])) {
     return 'Keep it live so your AI-powered workflow keeps flying.';
   }
-  return 'Keep it funded so it never blinks out on you.';
+  return 'Keep it active so you never lose access when you need it.';
 }
 
-/// A benefit line for a SIP, keyed to its investment sub-category (Stocks,
-/// Mutual Funds, Bonds, Gold, Goal). [amt] is the ready-amount phrase, [byWhen]
-/// the due phrase — kept debit-positive (money going out to grow).
+/// A benefit line for a SIP, keyed to its investment sub-category. The amount is
+/// already the big hero above, so the line stays SHORT — it fits in two lines
+/// with room to spare and never clips. [amt] is the amount, [byWhen] the due.
 String _sipPunch(Task t, String amt, String byWhen) {
   final sub = (t.subCategory ?? '').toLowerCase();
   switch (sub) {
     case 'stocks':
-      return 'Keep $amt ready $byWhen so you keep buying the dip and building your portfolio.';
+      return 'Keep $amt ready $byWhen — keep building your portfolio.';
     case 'mutual funds':
-      return 'Keep $amt ready $byWhen so this SIP debits on time and your units keep compounding.';
+      return 'Keep $amt ready $byWhen — let your units compound.';
     case 'bonds':
-      return 'Keep $amt ready $byWhen so this bond instalment clears and your steady income stays on track.';
+      return 'Keep $amt ready $byWhen — keep your income on track.';
     case 'gold':
-      return 'Keep $amt ready $byWhen so your gold keeps stacking as a quiet hedge.';
+      return 'Keep $amt ready $byWhen — keep stacking your hedge.';
     case 'goal':
-      return 'Keep $amt ready $byWhen so you stay on pace for your goal.';
+      return 'Keep $amt ready $byWhen — stay on pace for your goal.';
   }
-  return 'Keep $amt ready $byWhen so this SIP debits smoothly and your wealth keeps compounding.';
+  return 'Keep $amt ready $byWhen so your wealth keeps compounding.';
 }
 
 /// A warm line for an occasion, keyed to its type (Birthday, Anniversary,
@@ -1168,7 +1168,7 @@ class _SipCard extends StatelessWidget {
           : 'SIP instalment',
       highlight: has
           ? _sipPunch(task, _amountStr(task), byWhen)
-          : 'Fund your account $byWhen so this SIP debits smoothly and your wealth keeps compounding.',
+          : 'Fund your account $byWhen so your SIP goes through.',
       highlightIcon: Icons.account_balance_wallet_rounded,
     );
   }

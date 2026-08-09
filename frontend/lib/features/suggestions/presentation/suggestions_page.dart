@@ -27,7 +27,9 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
 
   List<Suggestion>? _items; // null = loading
   Object? _error;
-  bool _posting = false;
+  // Posting is now confirmed by the instant Revo celebration, not a button
+  // spinner, so this stays false — kept for the header's API.
+  final bool _posting = false;
 
   /// Ids of 'done' suggestions we've already celebrated, so Revo only pops for
   /// NEWLY-shipped ones. Persisted across launches.
@@ -81,23 +83,25 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
       backgroundColor: Colors.transparent,
       builder: (_) => const _ComposerSheet(),
     );
-    if (text == null || text.trim().isEmpty) return;
-    setState(() => _posting = true);
+    final t = text?.trim() ?? '';
+    if (t.isEmpty || !mounted) return;
+
+    // Show the Revo "thank you" FIRST — instantly, the moment the composer
+    // closes — so there's no plain-dark gap while the network post runs. The
+    // post happens IN THE BACKGROUND, behind the (opaque) celebration; when the
+    // celebration lifts, the new idea is already in the list.
+    HapticFeedback.mediumImpact();
+    final celebration = showSuggestionThanks(context);
+
     try {
-      final created = await _api.post(text.trim());
-      HapticFeedback.mediumImpact();
-      if (!mounted) return;
-      setState(() {
-        _items = [created, ...?_items];
-        _posting = false;
-      });
-      // A warm Revo "thank you" — a little reward for contributing.
-      await showSuggestionThanks(context);
+      final created = await _api.post(t);
+      if (mounted) {
+        setState(() => _items = [created, ...?_items]);
+      }
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _posting = false);
-      _snack('Couldn’t post right now — try again.');
+      if (mounted) _snack('Couldn’t post right now — try again.');
     }
+    await celebration;
   }
 
   /// Toggle the vote: tapping the same arrow again clears it.

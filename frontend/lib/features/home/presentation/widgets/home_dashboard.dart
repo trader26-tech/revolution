@@ -1014,53 +1014,30 @@ class _WhenChipState extends State<_WhenChip>
 
 const double _kCardW = 284;
 
-/// A punchy, benefit-framed line for a subscription — keyed to its GRANULAR
-/// sub-category (Entertainment, Music, AI, Cloud & Tools, …), the reliable
-/// dimension the user actually picks. Brand keywords only refine within a
-/// sub-category. It says what the money keeps ALIVE, not just what it costs.
+/// A subscription line written from Revolution's core stance: keep only what you
+/// truly use — and cancel what you don't, so that money can go into investments
+/// and compound instead. Every line poses that use-it-or-free-it decision, keyed
+/// to the sub-category so it stays concrete and short (fits two lines).
 String _subscriptionPunch(Task t) {
   final sub = (t.subCategory ?? '').toLowerCase();
-  final s = '${t.title} ${t.iconName ?? ''}'.toLowerCase();
-  bool brand(List<String> keys) => keys.any(s.contains);
-
   switch (sub) {
     case 'entertainment':
-      if (brand(['youtube', 'twitch'])) {
-        return 'Keep it running so the watch-list keeps rolling.';
-      }
-      return 'Keep it funded so your binge nights stay uninterrupted.';
+      return 'Still watching it? If not, cancel and invest it instead.';
     case 'music':
-      return 'Keep it topped up so the music never stops.';
+      return 'Worth it if you play it daily — else invest the cash.';
     case 'ai':
-      // Not just paying a lab — it may be any AI-enabling tool in your stack.
-      if (brand(['chatgpt', 'openai', 'claude', 'gemini', 'copilot'])) {
-        return 'Keep it live so your AI copilot keeps thinking with you.';
-      }
-      return 'Keep it live so your AI-powered workflow keeps flying.';
+      return 'Keep it if it earns its price. If idle, invest it instead.';
     case 'cloud & tools':
-      if (brand(['icloud', 'google one', 'dropbox', 'onedrive', 'drive'])) {
-        return 'Keep it paid so your files always have a home.';
-      }
-      return 'Keep it active so your tools and storage stay online.';
+      return 'Keep only if you use it — else cancel and invest it.';
     case 'learning':
-      return 'Keep it going so your learning streak never breaks.';
+      return 'Learning from it? Keep it. If not, invest it instead.';
     case 'gaming':
-      return 'Keep it topped up so game night stays online.';
+      return 'Still playing? Keep it. If not, invest it instead.';
     case 'food & shopping':
-      return 'Keep it active so your perks and deliveries keep coming.';
+      return 'Worth it only if the perks beat the fee — else invest it.';
   }
-
-  // No sub-category set → fall back to brand hints, then a safe generic line.
-  if (brand(['netflix', 'prime video', 'hotstar', 'disney', 'hbo'])) {
-    return 'Keep it funded so your binge nights stay uninterrupted.';
-  }
-  if (brand(['spotify', 'apple music', 'gaana', 'wynk'])) {
-    return 'Keep it topped up so the music never stops.';
-  }
-  if (brand(['chatgpt', 'openai', 'claude', 'gemini', 'copilot', ' ai'])) {
-    return 'Keep it live so your AI-powered workflow keeps flying.';
-  }
-  return 'Keep it active so you never lose access when you need it.';
+  // No sub-category → the same use-it-or-free-it nudge, generically.
+  return 'Still use it? If not, cancel and let that money compound.';
 }
 
 /// A benefit line for a SIP, keyed to its investment sub-category. The amount is
@@ -1131,7 +1108,8 @@ class _SubscriptionCard extends StatelessWidget {
       title: task.title,
       subtitle: priceLine,
       highlight: _subscriptionPunch(task),
-      highlightIcon: Icons.favorite_rounded,
+      // A "weigh it up" mark — this line is a keep-or-cancel decision.
+      highlightIcon: Icons.balance_rounded,
     );
   }
 }

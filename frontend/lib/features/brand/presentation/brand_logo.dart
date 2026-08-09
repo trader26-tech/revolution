@@ -106,18 +106,28 @@ class BrandLogo extends StatelessWidget {
   /// A space-themed badge behind a `contain` logo: a soft dark-violet fill and a
   /// faint border — reads as an intentional tile, not a glaring white patch,
   /// while keeping transparent/dark logos visible on the dark UI.
+  ///
+  /// The logo is CLIPPED to a rounded rectangle inside the tile, so a brand mark
+  /// that ships an opaque (often white) square background gets its corners
+  /// rounded to match the tile — no square corners poke past the rounded badge.
   Widget _tile(Widget image) {
+    final inset = size * (snug ? 0.06 : 0.14);
+    // Inner radius follows the tile's rounding minus the inset, so the clipped
+    // image's corners sit concentric with the tile's.
+    final innerRadius = (radius - inset).clamp(0.0, radius);
     return Container(
       width: size,
       height: size,
-      // Snug tiles use a much smaller inset so the mark fills the tile.
-      padding: EdgeInsets.all(size * (snug ? 0.06 : 0.14)),
+      padding: EdgeInsets.all(inset),
       decoration: BoxDecoration(
         color: AppColors.logoTile,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: AppColors.glassBorder),
       ),
-      child: image,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(innerRadius),
+        child: image,
+      ),
     );
   }
 

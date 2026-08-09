@@ -210,18 +210,17 @@ class _CollectionPageState extends State<CollectionPage> {
     final weekEnd = today.add(const Duration(days: 7));
 
     final spend = <String, double>{}; // currency → summed amount (as billed)
-    var monthlyEq = 0.0; // ₹-equivalent normalised to /month (INR amounts only)
+    var monthlyEq = 0.0; // combined ₹/month — ALL currencies converted to INR
     var dueThisWeek = 0;
     DateTime? nextDate;
 
     for (final t in items) {
       if (t.hasAmount) {
         spend.update(t.currency, (v) => v + t.amount!, ifAbsent: () => t.amount!);
-        // Monthly-equivalent only mixes same-currency (INR) amounts to stay
-        // meaningful; other currencies are shown separately in `spend`.
-        if (t.currency == 'INR') {
-          monthlyEq += _toMonthly(t.amount!, t.repeat, t.repeatTimes);
-        }
+        // Normalise every amount to a monthly figure, then convert to INR so a
+        // mixed-currency total reads as one clean ₹ number.
+        final perMonth = _toMonthly(t.amount!, t.repeat, t.repeatTimes);
+        monthlyEq += toInr(perMonth, t.currency);
       }
       if (t.isScheduled) {
         final d = nextOccurrence(t, from: today); // rolled forward, never past
@@ -549,19 +548,18 @@ class _CategoryHeroState extends State<_CategoryHero> {
   String get title => widget.title;
   String? get subtitle => widget.subtitle;
 
-  String _fmt(double v) => v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2);
+  /// Indian-grouped whole rupees (₹8,063, ₹1,20,000). Rounds to whole rupees —
+  /// a hero total doesn't need paise.
+  String _fmt(double v) =>
+      formatAmount(v.round().toString(), Grouping.indian);
 
-  /// The headline figure — INR spend normalised to the chosen period (year by
-  /// default, or month), else the first currency's raw total. Tapping toggles
-  /// the period. Returns (symbol, value, caption, tappable).
+  /// The headline figure — the combined INR spend (all currencies converted)
+  /// for the chosen period (year by default, or month). Tapping toggles the
+  /// period. Returns (symbol, value, caption, tappable).
   (String, String, String, bool) _headline() {
     if (stats.monthlyEqInr > 0) {
       final v = _perYear ? stats.monthlyEqInr * 12 : stats.monthlyEqInr;
       return ('₹', _fmt(v), _perYear ? 'per year' : 'per month', true);
-    }
-    if (stats.spend.isNotEmpty) {
-      final e = stats.spend.entries.first;
-      return (currencyOf(e.key).symbol, _fmt(e.value), 'total', false);
     }
     return ('', '—', 'no prices yet', false);
   }
@@ -569,11 +567,9 @@ class _CategoryHeroState extends State<_CategoryHero> {
   @override
   Widget build(BuildContext context) {
     final (sym, value, caption, tappable) = _headline();
-    // Other-currency chips (anything beyond the INR headline).
-    final others = stats.spend.entries
-        .where((e) => !(e.key == 'INR' && stats.monthlyEqInr > 0))
-        .map((e) => '${currencyOf(e.key).symbol}${_fmt(e.value)}')
-        .toList();
+    // How many non-INR currencies were folded into the total (converted to ₹).
+    final foreignCount =
+        stats.spend.keys.where((c) => c != 'INR').length;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -719,10 +715,12 @@ class _CategoryHeroState extends State<_CategoryHero> {
               ],
             ),
           ),
-          if (others.isNotEmpty) ...[
+          if (foreignCount > 0) ...[
             const SizedBox(height: 6),
             Text(
-              '+ ${others.join('  ·  ')} in other currencies',
+              foreignCount == 1
+                  ? 'incl. 1 currency converted to ₹'
+                  : 'incl. $foreignCount currencies converted to ₹',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

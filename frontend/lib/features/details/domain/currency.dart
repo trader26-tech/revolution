@@ -14,6 +14,7 @@ class Currency {
     required this.label,
     required this.grouping,
     this.decimals = 2,
+    this.inrPerUnit = 1,
   });
 
   /// ISO-ish code stored on the record (INR / USD / KWD).
@@ -24,15 +25,20 @@ class Currency {
   final String label;
   final Grouping grouping;
   final int decimals;
+
+  /// Approximate INR value of ONE unit of this currency — used to combine
+  /// mixed-currency totals into a single ₹ figure. These are static estimates
+  /// (not live rates); good enough for an at-a-glance "how much am I spending".
+  final double inrPerUnit;
 }
 
 /// The currencies offered in the picker.
 const List<Currency> kCurrencies = [
   Currency(code: 'INR', symbol: '₹', label: 'Indian Rupee', grouping: Grouping.indian),
-  Currency(code: 'USD', symbol: '\$', label: 'US Dollar', grouping: Grouping.western),
+  Currency(code: 'USD', symbol: '\$', label: 'US Dollar', grouping: Grouping.western, inrPerUnit: 86),
   // Kuwait uses 3-decimal fils, but per the requested UX we keep US-style
   // grouping. 3 decimals matches how KWD amounts are actually written.
-  Currency(code: 'KWD', symbol: 'KD', label: 'Kuwaiti Dinar', grouping: Grouping.western, decimals: 3),
+  Currency(code: 'KWD', symbol: 'KD', label: 'Kuwaiti Dinar', grouping: Grouping.western, decimals: 3, inrPerUnit: 280),
 ];
 
 /// Resolve a currency by its stored code or symbol; defaults to INR.
@@ -42,6 +48,10 @@ Currency currencyOf(String codeOrSymbol) {
   }
   return kCurrencies.first;
 }
+
+/// Convert [amount] of currency [code] to an approximate INR value.
+double toInr(double amount, String code) =>
+    amount * currencyOf(code).inrPerUnit;
 
 /// Group the integer part of a number string according to [grouping].
 /// Input is a plain digit string (no separators); returns it grouped.

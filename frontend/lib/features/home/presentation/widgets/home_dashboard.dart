@@ -578,7 +578,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 186,
+            height: 112,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -741,52 +741,50 @@ class _WhenChip extends StatelessWidget {
   }
 }
 
-// Every rich card shares ONE structure so the strip reads as a family:
+// Every rich card shares ONE compact structure so the strip reads as a family:
 //   ┌ header row:  [ mark ]  Title            [ when-chip ]
-//   │              subtitle (price / type / amount)
+//   │              subtitle (price / amount / type)
 //   └ insight bar: themed icon + the derived, punchy line
-// Each card then differs in its MARK (logo / wallet / face), its COPY, and its
-// own small themed ANIMATION that hints what the card is.
+// Content packs top-to-bottom with no filler space — the card is only as tall
+// as it needs to be. Each card differs in its MARK, its numbers, and its COPY.
 
-/// A punchy, benefit-framed line for a subscription — derived from the brand or
-/// its keywords, so it says what the money PROTECTS, not just what it costs.
+/// A punchy, benefit-framed line for a subscription — short enough for one line,
+/// derived from the brand so it says what the money PROTECTS, not just costs.
 String _subscriptionPunch(Task t) {
   final s = '${t.title} ${t.iconName ?? ''}'.toLowerCase();
   bool has(List<String> keys) => keys.any(s.contains);
 
   if (has(['netflix', 'prime video', 'hotstar', 'disney', 'hbo', 'max '])) {
-    return 'Keep it funded so your binge nights stay uninterrupted.';
+    return 'Keeps your binge nights alive';
   }
   if (has(['spotify', 'apple music', 'youtube music', 'gaana', 'wynk',
       'soundcloud'])) {
-    return 'Top it up so the music never stops.';
+    return 'Keeps the music playing';
   }
   if (has(['chatgpt', 'openai', 'claude', 'gemini', 'copilot', 'midjourney',
       'perplexity', 'cursor', ' ai'])) {
-    return 'Keep it live so your AI copilots keep flying.';
+    return 'Keeps your AI copilots flying';
   }
   if (has(['icloud', 'google one', 'dropbox', 'onedrive', 'drive'])) {
-    return 'Fund it so your files always have a home.';
+    return 'Keeps your files backed up';
   }
-  if (has(['youtube', 'twitch'])) {
-    return 'Keep it running so the watch-list keeps rolling.';
-  }
+  if (has(['youtube', 'twitch'])) return 'Keeps the watch-list rolling';
   if (has(['gym', 'fitness', 'cult', 'peloton', 'strava'])) {
-    return 'Keep it paid so your streak — and your gains — stay alive.';
+    return 'Keeps your streak alive';
   }
   if (has(['adobe', 'figma', 'notion', 'canva', 'office', 'microsoft 365'])) {
-    return 'Keep it active so your workflow never skips a beat.';
+    return 'Keeps your workflow humming';
   }
   if (has(['linkedin', 'medium', 'nyt', 'times', 'news'])) {
-    return 'Fund it so your daily read never hits a paywall.';
+    return 'Keeps your daily read open';
   }
   if (has(['game', 'xbox', 'playstation', 'psn', 'steam', 'nintendo'])) {
-    return 'Keep it topped up so game night stays online.';
+    return 'Keeps game night online';
   }
-  return 'Keep it funded so it never blinks out on you.';
+  return 'Keeps it from blinking out';
 }
 
-// ── Subscription card — logo-forward, benefit-framed, gentle renew-pulse ──────
+// ── Subscription card — logo + price + what it keeps alive ────────────────────
 class _SubscriptionCard extends StatelessWidget {
   const _SubscriptionCard({required this.task});
   final Task task;
@@ -799,31 +797,23 @@ class _SubscriptionCard extends StatelessWidget {
         : frequencyLabel(task.repeat, task.repeatTimes);
 
     return _CardShell(
-      width: 208,
+      width: 190,
       urgent: days <= 1,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           _CardHeader(
-            mark: _RenewPulse(child: _Logo(task: task, size: 44, radius: 13)),
+            mark: _Logo(task: task, size: 40, radius: 12),
             title: task.title,
             subtitle: priceLine,
             days: days,
             due: task.dueAt!,
           ),
-          const Spacer(),
+          const SizedBox(height: 10),
           _InsightBar(
             icon: Icons.favorite_rounded,
-            child: Text(
-              _subscriptionPunch(task),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 11.5,
-                  height: 1.22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.ink),
-            ),
+            text: _subscriptionPunch(task),
           ),
         ],
       ),
@@ -831,7 +821,7 @@ class _SubscriptionCard extends StatelessWidget {
   }
 }
 
-// ── SIP card — amount hugs the title, warm "grow your wealth" copy ───────────
+// ── SIP card — the amount is the hero, then the "keep it ready" nudge ─────────
 class _SipCard extends StatelessWidget {
   const _SipCard({required this.task});
   final Task task;
@@ -843,48 +833,35 @@ class _SipCard extends StatelessWidget {
     final byWhen = _byLabel(days, task.dueAt!);
 
     return _CardShell(
-      width: 236,
+      width: 200,
       urgent: days <= 1,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           _CardHeader(
-            mark: _GrowthPulse(
-              child: Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: const Icon(Icons.trending_up_rounded,
-                    size: 22, color: AppColors.accent),
+            mark: Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: const Icon(Icons.trending_up_rounded,
+                  size: 20, color: AppColors.accent),
             ),
             title: task.title,
-            // The amount sits right under the title — no wasted gap.
-            subtitle: has
-                ? '${_amountStr(task)} · every instalment'
-                : 'Instalment $byWhen',
+            subtitle: has ? _amountStr(task) : 'SIP instalment',
             days: days,
             due: task.dueAt!,
           ),
-          const Spacer(),
+          const SizedBox(height: 10),
           _InsightBar(
             icon: Icons.account_balance_wallet_rounded,
-            child: Text(
-              has
-                  ? 'Keep ${_amountStr(task)} in your bank $byWhen so your SIP goes through and your wealth keeps compounding.'
-                  : 'Fund your account $byWhen so your SIP goes through and your wealth keeps compounding.',
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 11.5,
-                  height: 1.25,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.ink),
-            ),
+            text: has
+                ? 'Keep ${_amountStr(task)} ready $byWhen'
+                : 'Fund your account $byWhen',
           ),
         ],
       ),
@@ -892,7 +869,7 @@ class _SipCard extends StatelessWidget {
   }
 }
 
-// ── Occasion card — face-led, human milestone, gentle sparkle ────────────────
+// ── Occasion card — face + the human milestone ───────────────────────────────
 class _OccasionCard extends StatelessWidget {
   const _OccasionCard({required this.task});
   final Task task;
@@ -904,43 +881,30 @@ class _OccasionCard extends StatelessWidget {
     final type = task.subCategory ?? 'Occasion';
     final isBday = type.toLowerCase() == 'birthday';
     final first = task.title.trim().split(RegExp(r'\s+')).first;
-    final whenText =
-        days <= 0 ? 'today' : (days == 1 ? 'tomorrow' : 'in $days days');
 
-    // A warm, human line — never just a number.
     final String punch = age != null
-        ? (isBday
-            ? '$first turns $age $whenText — don’t miss the wish.'
-            : '$age years and counting — mark the moment.')
-        : 'A $type worth remembering — $whenText.';
+        ? (isBday ? '$first turns $age' : '$age years')
+        : 'Mark the moment';
 
     return _CardShell(
-      width: 200,
+      width: 190,
       urgent: days <= 1,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           _CardHeader(
-            mark: _Sparkle(child: _RoundFace(task: task, size: 44)),
+            mark: _RoundFace(task: task, size: 40),
             title: task.title,
             subtitle: type,
             days: days,
             due: task.dueAt!,
           ),
-          const Spacer(),
+          const SizedBox(height: 10),
           _InsightBar(
             icon:
                 isBday ? Icons.emoji_events_rounded : Icons.celebration_rounded,
-            child: Text(
-              punch,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 11.5,
-                  height: 1.22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.ink),
-            ),
+            text: punch,
           ),
         ],
       ),
@@ -968,13 +932,14 @@ class _CardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         mark,
         const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(title,
                   maxLines: 1,
@@ -983,13 +948,13 @@ class _CardHeader extends StatelessWidget {
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: AppColors.ink)),
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               Text(subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
                       color: AppColors.inkSoft)),
             ],
           ),
@@ -997,177 +962,6 @@ class _CardHeader extends StatelessWidget {
         const SizedBox(width: 8),
         _WhenChip(days: days, due: due),
       ],
-    );
-  }
-}
-
-// ── Themed card animations ───────────────────────────────────────────────────
-// Each is a slow, cheap, always-on loop wrapped in a RepaintBoundary so it never
-// repaints the whole card. Slow periods (2.6–3.4s) keep them gentle and easy on
-// the battery — no tight 60fps churn.
-
-/// Subscription: a soft "renew" ring that pulses outward from the logo.
-class _RenewPulse extends StatefulWidget {
-  const _RenewPulse({required this.child});
-  final Widget child;
-  @override
-  State<_RenewPulse> createState() => _RenewPulseState();
-}
-
-class _RenewPulseState extends State<_RenewPulse>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 3200))
-    ..repeat();
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, child) {
-          final p = _c.value;
-          return Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              // An expanding, fading ring — the "it renews" heartbeat.
-              Container(
-                width: 44 + 22 * p,
-                height: 44 + 22 * p,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.accent.withValues(alpha: 0.5 * (1 - p)),
-                    width: 1.5,
-                  ),
-                ),
-              ),
-              child!,
-            ],
-          );
-        },
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-/// SIP: a small upward "growth" chevron shimmer rising behind the mark —
-/// wealth compounding, going up and to the right.
-class _GrowthPulse extends StatefulWidget {
-  const _GrowthPulse({required this.child});
-  final Widget child;
-  @override
-  State<_GrowthPulse> createState() => _GrowthPulseState();
-}
-
-class _GrowthPulseState extends State<_GrowthPulse>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2600))
-    ..repeat();
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, child) {
-          final p = _c.value;
-          // A little arrow rising + fading, top-right of the mark.
-          return Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Positioned(
-                right: -2 + 4 * p,
-                top: -2 - 6 * p,
-                child: Opacity(
-                  opacity: (1 - p) * 0.9,
-                  child: Icon(Icons.north_east_rounded,
-                      size: 12 + 3 * p, color: AppColors.accent),
-                ),
-              ),
-              child!,
-            ],
-          );
-        },
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-/// Occasion: two tiny sparkles that twinkle in and out around the face.
-class _Sparkle extends StatefulWidget {
-  const _Sparkle({required this.child});
-  final Widget child;
-  @override
-  State<_Sparkle> createState() => _SparkleState();
-}
-
-class _SparkleState extends State<_Sparkle>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 3400))
-    ..repeat();
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  double _tw(double phase) {
-    // A soft 0→1→0 twinkle offset by phase.
-    final v = (_c.value + phase) % 1.0;
-    return (math.sin(v * math.pi)).clamp(0.0, 1.0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, child) {
-          return Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Positioned(
-                right: -3,
-                top: -3,
-                child: Opacity(
-                  opacity: _tw(0.0) * 0.95,
-                  child: const Icon(Icons.auto_awesome_rounded,
-                      size: 12, color: AppColors.accent),
-                ),
-              ),
-              Positioned(
-                left: -2,
-                bottom: 0,
-                child: Opacity(
-                  opacity: _tw(0.5) * 0.8,
-                  child: const Icon(Icons.auto_awesome_rounded,
-                      size: 9, color: Color(0xFFB9A8FF)),
-                ),
-              ),
-              child!,
-            ],
-          );
-        },
-        child: widget.child,
-      ),
     );
   }
 }
@@ -1185,48 +979,37 @@ class _GenericCard extends StatelessWidget {
         switch (task.category) {
       TaskCategory.bills => (
           Icons.receipt_long_rounded,
-          task.hasAmount ? '${_amountStr(task)} · due $byWhen' : 'Bill due',
-          task.hasAmount
-              ? 'Clear ${_amountStr(task)} $byWhen — dodge the late fee.'
-              : 'Settle it $byWhen — dodge the late fee.'
+          task.hasAmount ? _amountStr(task) : 'Bill',
+          task.hasAmount ? 'Pay ${_amountStr(task)} $byWhen' : 'Due $byWhen'
         ),
       TaskCategory.insurance => (
           Icons.shield_rounded,
-          'Renewal $byWhen',
-          'Renew it $byWhen so your cover never lapses.'
+          'Insurance',
+          'Renew $byWhen — stay covered'
         ),
       _ => (
           Icons.bolt_rounded,
           _whenLabel(days, task.dueAt!),
-          days <= 1 ? 'This one’s up — knock it out.' : 'On your radar $byWhen.'
+          days <= 1 ? 'Due now' : 'Coming up'
         ),
     };
 
     return _CardShell(
-      width: 200,
+      width: 190,
       urgent: days <= 1,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           _CardHeader(
-            mark: _Logo(task: task, size: 44, radius: 13),
+            mark: _Logo(task: task, size: 40, radius: 12),
             title: task.title,
             subtitle: subtitle,
             days: days,
             due: task.dueAt!,
           ),
-          const Spacer(),
-          _InsightBar(
-            icon: icon,
-            child: Text(line,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 11.5,
-                    height: 1.22,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.ink)),
-          ),
+          const SizedBox(height: 10),
+          _InsightBar(icon: icon, text: line),
         ],
       ),
     );
@@ -1234,25 +1017,37 @@ class _GenericCard extends StatelessWidget {
 }
 
 /// The violet insight pill at the bottom of a card — one icon + a derived line.
+/// Single-line and compact, so cards stay short and dense.
 class _InsightBar extends StatelessWidget {
-  const _InsightBar({required this.icon, required this.child});
+  const _InsightBar({required this.icon, required this.text});
   final IconData icon;
-  final Widget child;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
       decoration: BoxDecoration(
         color: AppColors.accent.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 13, color: AppColors.accent),
+          Icon(icon, size: 14, color: AppColors.accent),
           const SizedBox(width: 6),
-          Expanded(child: child),
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
         ],
       ),
     );

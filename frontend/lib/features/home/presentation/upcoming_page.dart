@@ -46,21 +46,18 @@ class _UpcomingPageState extends State<UpcomingPage> {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final start = _day(_selected);
+    final sel = _day(_selected);
 
-    // Scheduled, undone, on/after the SELECTED day, soonest first.
+    // ONLY the selected day's scheduled, undone reminders — soonest first. The
+    // calendar drives it, so picking a day shows exactly that day, nothing else.
     final upcoming = widget.tasks
-        .where((t) =>
-            t.isScheduled && !t.done && !_day(t.dueAt!).isBefore(start))
+        .where((t) => t.isScheduled && !t.done && _day(t.dueAt!) == sel)
         .toList()
       ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
 
-    // Group into date buckets, preserving sort order.
-    final groups = <DateTime, List<Task>>{};
-    for (final t in upcoming) {
-      groups.putIfAbsent(_day(t.dueAt!), () => []).add(t);
-    }
-    final keys = groups.keys.toList()..sort();
+    // A single group — the selected day.
+    final keys = upcoming.isEmpty ? <DateTime>[] : [sel];
+    final groups = {if (upcoming.isNotEmpty) sel: upcoming};
 
     return Scaffold(
       extendBody: true,
@@ -114,7 +111,7 @@ class _UpcomingPageState extends State<UpcomingPage> {
               const SizedBox(height: 4),
               Expanded(
                 child: upcoming.isEmpty
-                    ? const _NothingUpcoming()
+                    ? _NothingUpcoming(day: sel, now: now)
                     : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
                         itemCount: keys.length,
@@ -337,34 +334,49 @@ class _Avatar extends StatelessWidget {
 }
 
 class _NothingUpcoming extends StatelessWidget {
-  const _NothingUpcoming();
+  const _NothingUpcoming({required this.day, required this.now});
+  final DateTime day;
+  final DateTime now;
 
   @override
   Widget build(BuildContext context) {
+    final today = DateTime(now.year, now.month, now.day);
+    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+      'Oct', 'Nov', 'Dec'];
+    final label = day == today
+        ? 'today'
+        : '${wd[day.weekday - 1]} ${day.day} ${mo[day.month - 1]}';
+
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.10),
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.event_available_rounded,
+                  size: 40, color: AppColors.accent),
             ),
-            child: const Icon(Icons.event_available_rounded,
-                size: 40, color: AppColors.accent),
-          ),
-          const SizedBox(height: 18),
-          const Text('Nothing upcoming',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink)),
-          const SizedBox(height: 6),
-          const Text('You’re all caught up.',
-              style: TextStyle(color: AppColors.inkSoft)),
-        ],
+            const SizedBox(height: 18),
+            Text('Nothing on $label',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink)),
+            const SizedBox(height: 6),
+            const Text('Pick another day from the calendar above.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.inkSoft)),
+          ],
+        ),
       ),
     );
   }

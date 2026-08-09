@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/orbit_date_picker.dart';
 import '../../../core/widgets/starfield.dart';
+import '../../brand/data/brand_catalog.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
 import '../../brand/presentation/brand_picker_sheet.dart';
@@ -51,6 +52,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
 
   String? _iconName;
   String? _iconDomain;
+  bool _iconTouched = false; // user picked a logo manually → stop auto-icon
   String _currency = 'INR'; // INR · USD · KWD
   late RepeatCadence _cycle = widget.initialCycle ?? RepeatCadence.monthly;
   DateTime _firstPayment = DateTime.now();
@@ -72,6 +74,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
       _name.text = edit.title;
       _iconName = edit.iconName;
       _iconDomain = edit.iconDomain;
+      // Keep the saved logo — don't let type-ahead override an existing icon.
+      if (edit.hasIcon) _iconTouched = true;
       if (edit.hasAmount) {
         _amount.text = edit.amount!.toStringAsFixed(
             edit.amount == edit.amount!.roundToDouble() ? 0 : 2);
@@ -103,6 +107,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     }
     _name.addListener(() {
       _autoCategorise();
+      _autoIcon();
       setState(() {});
     });
   }
@@ -113,6 +118,29 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     if (_categoryTouched) return;
     final guess = subCategoryFor(_name.text.trim());
     if (guess != _subCategory) _subCategory = guess;
+  }
+
+  /// Auto-resolve the logo as the user types — "Netflix" pops the Netflix icon
+  /// instantly. Only for KNOWN brands (resolveKnown returns an empty domain for
+  /// unrecognised names, so we never fetch a blank favicon). Skipped once the
+  /// user has manually chosen a logo.
+  void _autoIcon() {
+    if (_iconTouched) return;
+    final query = _name.text.trim();
+    if (query.isEmpty) {
+      _iconName = null;
+      _iconDomain = null;
+      return;
+    }
+    final brand = BrandCatalog.resolveKnown(query);
+    if (brand.domain.isNotEmpty) {
+      _iconName = brand.name;
+      _iconDomain = brand.domain;
+    } else {
+      // Unknown name → clear any previously auto-set logo (keeps it honest).
+      _iconName = null;
+      _iconDomain = null;
+    }
   }
 
   @override
@@ -128,6 +156,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     final brand = await showBrandPicker(context, subscriptionsOnly: true);
     if (brand != null) {
       setState(() {
+        _iconTouched = true; // a manual pick wins over the type-ahead icon
         _iconName = brand.name;
         _iconDomain = brand.domain;
         if (_name.text.trim().isEmpty) _name.text = brand.name;

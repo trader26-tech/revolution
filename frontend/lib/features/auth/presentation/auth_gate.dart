@@ -161,6 +161,11 @@ class _AuthGateState extends State<AuthGate> {
           onVerified: (signIn) => _finishSignIn(signIn),
           // Hand the screen a way to receive the verificationId once it lands.
           registerCodeSink: (sink) => _onCodeArrived = sink,
+          // Escape hatch straight to Home (dev shortcut while login is WIP).
+          onSkip: () {
+            Navigator.of(context).popUntil((r) => r.isFirst);
+            _skipToHome();
+          },
         ),
       ),
     )
@@ -413,10 +418,14 @@ class _OtpFlow extends StatefulWidget {
     required this.phoneAuth,
     required this.onVerified,
     required this.registerCodeSink,
+    this.onSkip,
   });
 
   final String phoneE164;
   final PhoneAuthService phoneAuth;
+
+  /// Dev escape straight to Home from the OTP screen.
+  final VoidCallback? onSkip;
 
   /// Complete sign-in by running the given sign-in call through the gate's
   /// single choke point. Throws on failure so this screen can show it.
@@ -520,6 +529,7 @@ class _OtpFlowState extends State<_OtpFlow> {
       sending: _verificationId == null,
       onConfirm: _confirm,
       onResend: _resend,
+      onSkip: widget.onSkip,
     );
   }
 }

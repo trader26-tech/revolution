@@ -11,6 +11,60 @@ extension RepeatCadenceLabel on RepeatCadence {
       };
 }
 
+/// What kind of thing a reminder is — used to group the Home into per-category
+/// cards. `other` is the catch-all for anything that doesn't fit (or older
+/// tasks created before categories existed).
+enum TaskCategory { subscription, birthday, insurance, other }
+
+extension TaskCategoryInfo on TaskCategory {
+  String get label => switch (this) {
+        TaskCategory.subscription => 'Subscriptions',
+        TaskCategory.birthday => 'Birthdays',
+        TaskCategory.insurance => 'Insurance',
+        TaskCategory.other => 'Other',
+      };
+
+  /// Singular form for a card header count ("1 subscription").
+  String get singular => switch (this) {
+        TaskCategory.subscription => 'subscription',
+        TaskCategory.birthday => 'birthday',
+        TaskCategory.insurance => 'insurance item',
+        TaskCategory.other => 'reminder',
+      };
+}
+
+/// Best-guess a category from a task's fields, for reminders that were created
+/// before categories existed (or came from the server without one). Cheap
+/// heuristics — the user can always correct it, and a real [Task.category]
+/// (once set on add) overrides this entirely.
+TaskCategory inferCategory(Task t) {
+  final name = t.title.toLowerCase();
+  final looksBirthday = t.repeat == RepeatCadence.yearly &&
+      (name.contains('birthday') ||
+          name.contains("'s day") ||
+          name.contains('anniversary') ||
+          name.contains('bday'));
+  if (looksBirthday) return TaskCategory.birthday;
+  // A policy/document + yearly renewal reads as insurance.
+  if (t.hasDocument ||
+      name.contains('insurance') ||
+      name.contains('policy') ||
+      name.contains('renewal')) {
+    return TaskCategory.insurance;
+  }
+  // A recurring paid item reads as a subscription.
+  if (t.hasAmount && t.repeat == RepeatCadence.monthly) {
+    return TaskCategory.subscription;
+  }
+  if (name.contains('netflix') ||
+      name.contains('prime') ||
+      name.contains('spotify') ||
+      name.contains('subscription')) {
+    return TaskCategory.subscription;
+  }
+  return TaskCategory.other;
+}
+
 /// A single task the user tracks.
 ///
 /// Deliberately minimal: it starts life as just a name (from the quick-add
@@ -29,6 +83,7 @@ class Task {
     this.amount,
     this.currency = 'INR',
     this.documentPath,
+    this.storedCategory,
   });
 
   final String id;
@@ -58,10 +113,19 @@ class Task {
   /// bucket. Non-null → the item has a document; tapping its icon opens it.
   String? documentPath;
 
+  /// The explicitly-set category (from the add flow). Null for older tasks —
+  /// use [category], which falls back to [inferCategory].
+  TaskCategory? storedCategory;
+
   bool get isScheduled => dueAt != null;
   bool get hasIcon => (iconName != null && iconName!.isNotEmpty);
   bool get hasAmount => amount != null;
   bool get hasDocument => documentPath != null && documentPath!.isNotEmpty;
+
+  /// The task's category — the explicit one if set, else a best-guess from its
+  /// fields. Always returns something (never null), so the Home can group.
+  TaskCategory get category =>
+      storedCategory ?? inferCategory(this);
 
   Task copyWith({
     String? title,
@@ -75,6 +139,8 @@ class Task {
     double? amount,
     bool clearAmount = false,
     String? currency,
+    String? documentPath,
+    TaskCategory? category,
   }) {
     return Task(
       id: id,
@@ -87,6 +153,8 @@ class Task {
       iconDomain: iconDomain ?? this.iconDomain,
       amount: clearAmount ? null : (amount ?? this.amount),
       currency: currency ?? this.currency,
+      documentPath: documentPath ?? this.documentPath,
+      storedCategory: category ?? storedCategory,
     );
   }
 
@@ -103,6 +171,8 @@ class Task {
         'icon_domain': iconDomain,
         'amount': amount,
         'currency': currency,
+        'document_path': documentPath,
+        if (storedCategory != null) 'category': storedCategory!.name,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -121,5 +191,11 @@ class Task {
         amount: (j['amount'] as num?)?.toDouble(),
         currency: j['currency'] as String? ?? 'INR',
         documentPath: j['document_path'] as String?,
+        storedCategory: j['category'] == null
+            ? null
+            : TaskCategory.values.firstWhere(
+                (c) => c.name == j['category'],
+                orElse: () => TaskCategory.other,
+              ),
       );
 }

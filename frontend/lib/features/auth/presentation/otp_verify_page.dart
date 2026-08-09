@@ -22,7 +22,13 @@ class OtpVerifyPage extends StatefulWidget {
     required this.onResend,
     this.errorText,
     this.sending = false,
+    this.onSkip,
   });
+
+  /// DEV escape hatch: skip verification and go straight to Home. When null the
+  /// affordance is hidden. Wired while login is being sorted out so the OTP
+  /// screen is never a dead-end (e.g. verification failing on a simulator).
+  final VoidCallback? onSkip;
 
   /// The number we texted, shown so the user can confirm it's theirs.
   final String phoneE164;
@@ -417,6 +423,25 @@ class _OtpVerifyPageState extends State<OtpVerifyPage>
                             ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  // DEV escape: never be trapped on this screen (e.g. when
+                  // verification can't complete on a simulator).
+                  if (widget.onSkip != null)
+                    Center(
+                      child: TextButton(
+                        onPressed: widget.onSkip,
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.inkSoft,
+                        ),
+                        child: const Text(
+                          'Skip for now → Home',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                 ],
               ),

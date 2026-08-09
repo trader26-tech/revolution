@@ -12,7 +12,7 @@ import '../../../tasks/domain/category_visuals.dart';
 import '../../../tasks/domain/task.dart';
 import '../../domain/home_stats.dart';
 import 'revo_hero.dart'
-    show RevoMood, revoMoodFor, dueTodayCount;
+    show RevoMood, revoMoodFor;
 
 // ── Category visuals ─────────────────────────────────────────────────────────
 // Shared across the app — see category_visuals.dart.
@@ -22,9 +22,18 @@ Color _catColor(TaskCategory c) => c.color;
 
 // ── 1 · Greeting with Revo ───────────────────────────────────────────────────
 
-/// Revo, animated, saying "Good afternoon, [name]" with "Welcome to Revolution"
-/// under it. He lives HERE (not inside the hero), tail pointing right toward the
-/// words, his expression quietly reflecting the day's mood.
+/// The greeting headline style — shared so single- and multi-line names match.
+const _greetStyle = TextStyle(
+  fontSize: 23,
+  height: 1.1,
+  fontWeight: FontWeight.w800,
+  letterSpacing: -0.6,
+  color: Colors.white, // masked by the gradient
+);
+
+/// Revo, animated, saying "Good afternoon, [name]". He lives HERE (not inside
+/// the hero), tail pointing right toward the words, his expression quietly
+/// reflecting the day's mood.
 class GreetingRevo extends StatefulWidget {
   const GreetingRevo({super.key, required this.name, required this.tasks});
 
@@ -75,22 +84,6 @@ class _GreetingRevoState extends State<GreetingRevo>
     if (h < 12) return Icons.wb_twilight_rounded; // dawn
     if (h < 17) return Icons.wb_sunny_outlined; // day
     return Icons.nightlight_round; // night / space
-  }
-
-  /// A calm, welcoming second line. This is an OVERVIEW of your world, not a
-  /// nagging to-do list — so it never chases you about overdue items. It simply
-  /// reflects what's on today, warmly.
-  String get _subline {
-    if (widget.tasks.isEmpty) {
-      return 'Welcome aboard Revolution.';
-    }
-    final due = dueTodayCount(widget.tasks);
-    if (due > 0) {
-      return due == 1
-          ? "Here's your day at a glance."
-          : "Here's what's on today.";
-    }
-    return "Nothing on today — here's the bigger picture.";
   }
 
   @override
@@ -146,34 +139,19 @@ class _GreetingRevoState extends State<GreetingRevo>
                   ],
                 ),
                 const SizedBox(height: 5),
-                // "Good evening, <name>" — big and warm, the name in a gradient.
+                // "Good evening, <name>" — wraps to at most 2 lines, so a short
+                // name stays on one line and a LONG name flows to a second line
+                // (then ellipsises if it's truly huge). It can never squeeze the
+                // greeting off the screen.
                 ShaderMask(
                   shaderCallback: (r) => const LinearGradient(
                     colors: [AppColors.ink, Color(0xFFB9A8FF)],
                   ).createShader(r),
                   child: Text(
                     first == null ? _timeGreeting : '$_timeGreeting, $first',
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      height: 1.05,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
-                      color: Colors.white, // masked by the gradient
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  _subline,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    height: 1.15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkSoft.withValues(alpha: 0.95),
+                    style: _greetStyle,
                   ),
                 ),
               ],
@@ -618,7 +596,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 206,
+            height: 174,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1029,7 +1007,7 @@ class _WhenChipState extends State<_WhenChip>
 // DESCRIPTION as the highlight. Cards are wide (~284) so nothing truncates and
 // the horizontal space is actually used — you see ~1.3 cards, then scroll.
 
-const double _kCardW = 284;
+const double _kCardW = 264;
 
 /// A subscription line written from Revolution's stance — keep only what you use.
 /// It's SUBTLE: never tells the user to cancel or to invest; it just poses the
@@ -1122,7 +1100,7 @@ class _SubscriptionCard extends StatelessWidget {
       due: task.dueAt!,
       anchor: anchor,
       particles: _Particles.pulse,
-      value: _Logo(task: task, size: 56, radius: 16, snug: true),
+      value: _Logo(task: task, size: 48, radius: 14, snug: true),
       title: task.title,
       subtitle: priceLine,
       highlight: _subscriptionPunch(task),
@@ -1154,14 +1132,14 @@ class _SipCard extends StatelessWidget {
               _amountStr(task),
               maxLines: 1,
               style: const TextStyle(
-                fontSize: 34,
+                fontSize: 30,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -1,
                 color: AppColors.ink,
               ),
             )
           : const Icon(Icons.trending_up_rounded,
-              size: 46, color: AppColors.accent),
+              size: 40, color: AppColors.accent),
       title: task.title,
       // "You invest" makes the direction unmistakable — this is money going OUT
       // to work for you, not a credit landing in your account.
@@ -1196,13 +1174,13 @@ class _OccasionCard extends StatelessWidget {
         ? Text(
             '$age',
             style: const TextStyle(
-              fontSize: 46,
+              fontSize: 40,
               fontWeight: FontWeight.w900,
               letterSpacing: -1,
               color: AppColors.ink,
             ),
           )
-        : _RoundFace(task: task, size: 56);
+        : _RoundFace(task: task, size: 48);
 
     final String highlight = _occasionPunch(type, first, age, whenText);
 
@@ -1263,7 +1241,7 @@ class _HeroCard extends StatelessWidget {
         children: [
           // Hero band — the value centred over its themed particle field.
           SizedBox(
-            height: 64,
+            height: 52,
             child: Stack(
               children: [
                 Positioned.fill(child: _ParticleStage(style: particles)),
@@ -1281,7 +1259,7 @@ class _HeroCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.2,
                         color: AppColors.ink)),
@@ -1295,26 +1273,26 @@ class _HeroCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppColors.inkSoft)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
                 padding: const EdgeInsets.only(top: 1),
-                child: Icon(highlightIcon, size: 15, color: AppColors.accent),
+                child: Icon(highlightIcon, size: 14, color: AppColors.accent),
               ),
-              const SizedBox(width: 7),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   highlight,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 12.5,
-                    height: 1.26,
+                    fontSize: 12,
+                    height: 1.25,
                     fontWeight: FontWeight.w700,
                     color: AppColors.ink,
                   ),
@@ -1519,7 +1497,7 @@ class _GenericCard extends StatelessWidget {
       due: task.dueAt!,
       anchor: anchor,
       particles: _Particles.drift,
-      value: _Logo(task: task, size: 54, radius: 15),
+      value: _Logo(task: task, size: 46, radius: 13),
       title: task.title,
       subtitle: subtitle,
       highlight: highlight,

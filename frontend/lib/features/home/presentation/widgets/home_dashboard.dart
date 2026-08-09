@@ -578,7 +578,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 158,
+            height: 172,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -593,13 +593,13 @@ class UpNextStrip extends StatelessWidget {
   }
 }
 
-/// A small derived insight for a card — a Material icon (never a coloured
-/// emoji) + a short, meaningful line.
-class _Insight {
-  const _Insight(this.icon, this.text);
-  final IconData icon;
-  final String text;
-}
+// ── Up-Next card helpers ─────────────────────────────────────────────────────
+//
+// Everything below stays inside the Orbit palette — the single violet accent
+// (AppColors.accent) plus the ink/card/glass neutrals. No per-category hues.
+// Differentiation comes from LAYOUT, SIZE and derived COPY, not colour: a
+// subscription card, a SIP card and an occasion card are each shaped and worded
+// for what that thing actually is, so a glance tells you which is which.
 
 int _daysUntil(DateTime d) {
   final now = DateTime.now();
@@ -607,65 +607,43 @@ int _daysUntil(DateTime d) {
   return DateTime(d.year, d.month, d.day).difference(today).inDays;
 }
 
-String _amountStr(Task t) {
-  final sym = currencyOf(t.currency).symbol;
-  final a = t.amount!;
-  return '$sym${a.toStringAsFixed(a == a.roundToDouble() ? 0 : 2)}';
-}
-
-/// The category-specific meaning shown at the bottom of an Up-Next card.
-_Insight _insightFor(Task task) {
-  final days = _daysUntil(task.dueAt!);
-  switch (task.category) {
-    case TaskCategory.birthday:
-      // An occasion → "turning N" when we know the birth year, else the type.
-      if (task.birthYear != null) {
-        // Age on the UPCOMING birthday: if this year's date already passed,
-        // the next one is next year → one older.
-        final now = DateTime.now();
-        final thisYears = DateTime(now.year, task.dueAt!.month, task.dueAt!.day);
-        final year = thisYears.isBefore(DateTime(now.year, now.month, now.day))
-            ? now.year + 1
-            : now.year;
-        final age = year - task.birthYear!;
-        // Only a birthday "turns" an age; other occasions show the years count.
-        final isBday = (task.subCategory ?? 'Birthday').toLowerCase() ==
-            'birthday';
-        return _Insight(Icons.emoji_events_rounded,
-            isBday ? 'Turning $age' : '$age years');
-      }
-      return _Insight(Icons.celebration_rounded,
-          task.subCategory ?? 'Occasion');
-    case TaskCategory.investment:
-      // A SIP → nudge to fund the account before the instalment.
-      if (task.hasAmount) {
-        return _Insight(Icons.account_balance_wallet_rounded,
-            'Keep ${_amountStr(task)} ready');
-      }
-      return const _Insight(Icons.savings_rounded, 'Instalment due');
-    case TaskCategory.subscription:
-      // A subscription → the yearly cost, the real commitment.
-      if (task.hasAmount) {
-        final perYear = _perYearInr(task); // already in INR
-        return _Insight(Icons.calendar_month_rounded,
-            '₹${perYear.round()}/yr');
-      }
-      return const _Insight(Icons.autorenew_rounded, 'Renews soon');
-    case TaskCategory.bills:
-      if (task.hasAmount) {
-        return _Insight(Icons.receipt_long_rounded,
-            'Pay ${_amountStr(task)}');
-      }
-      return const _Insight(Icons.receipt_long_rounded, 'Bill due');
-    case TaskCategory.insurance:
-      return const _Insight(Icons.shield_rounded, 'Renewal due');
-    case TaskCategory.other:
-      return _Insight(Icons.bolt_rounded,
-          days <= 1 ? 'Due now' : 'Coming up');
+/// "Today" / "Tomorrow" / "Fri" / "in 3 wk" — a compact, human due hint.
+String _whenLabel(int days, DateTime due) {
+  if (days <= 0) return 'Today';
+  if (days == 1) return 'Tomorrow';
+  if (days < 7) {
+    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return wd[due.weekday - 1];
   }
+  if (days < 30) return 'in ${(days / 7).round()} wk';
+  return 'in ${(days / 30).round()} mo';
 }
 
-/// Yearly INR-equivalent of a subscription's amount (for the "/yr" insight).
+/// A short "by Fri" / "by Aug 14" phrase for the SIP nudge sentence.
+String _byLabel(int days, DateTime due) {
+  if (days <= 0) return 'today';
+  if (days == 1) return 'by tomorrow';
+  if (days < 7) {
+    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return 'by ${wd[due.weekday - 1]}';
+  }
+  const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+    'Oct', 'Nov', 'Dec'];
+  return 'by ${mo[due.month - 1]} ${due.day}';
+}
+
+/// The amount in its own currency, grouped Indian-style for INR.
+String _amountStr(Task t) {
+  final cur = currencyOf(t.currency);
+  final a = t.amount!;
+  final whole = a == a.roundToDouble();
+  final body = whole
+      ? formatAmount(a.round().toString(), cur.grouping)
+      : a.toStringAsFixed(2);
+  return '${cur.symbol}$body';
+}
+
+/// Yearly INR-equivalent of a recurring amount (for the "/yr" commitment line).
 double _perYearInr(Task t) {
   final perMonth = switch (t.repeat) {
     RepeatCadence.minute => t.amount! * 30 * 24 * 60,
@@ -680,167 +658,501 @@ double _perYearInr(Task t) {
   return toInr(perMonth / n, t.currency) * 12;
 }
 
+String _inr(double v) => '₹${formatAmount(v.round().toString(), Grouping.indian)}';
+
+/// Age on the UPCOMING occasion (rolls to next year if this year's has passed).
+int? _ageOnNext(Task t) {
+  if (t.birthYear == null || t.dueAt == null) return null;
+  final now = DateTime.now();
+  final thisYears = DateTime(now.year, t.dueAt!.month, t.dueAt!.day);
+  final year = thisYears.isBefore(DateTime(now.year, now.month, now.day))
+      ? now.year + 1
+      : now.year;
+  return year - t.birthYear!;
+}
+
+/// The Up-Next card — routes to a layout tailored to the task's category, so
+/// each kind of thing looks and reads differently at a glance.
 class _UpNextCard extends StatelessWidget {
   const _UpNextCard({required this.task, required this.onTap});
   final Task task;
   final VoidCallback onTap;
 
-  String _whenLabel() {
-    final days = _daysUntil(task.dueAt!);
-    if (days <= 0) return 'Today';
-    if (days == 1) return 'Tomorrow';
-    if (days < 7) return 'in $days days';
-    if (days < 30) return 'in ${(days / 7).round()} wk';
-    return 'in ${(days / 30).round()} mo';
+  @override
+  Widget build(BuildContext context) {
+    final Widget inner = switch (task.category) {
+      TaskCategory.investment => _SipCard(task: task),
+      TaskCategory.birthday => _OccasionCard(task: task),
+      TaskCategory.subscription => _SubscriptionCard(task: task),
+      _ => _GenericCard(task: task),
+    };
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: inner,
+    );
   }
+}
 
-  /// The middle line under the title — the primary fact for this category.
-  String _subline() {
-    switch (task.category) {
-      case TaskCategory.subscription:
-      case TaskCategory.bills:
-      case TaskCategory.investment:
-        if (task.hasAmount) {
-          return '${_amountStr(task)} · ${frequencyLabel(task.repeat, task.repeatTimes)}';
-        }
-        return frequencyLabel(task.repeat, task.repeatTimes);
-      case TaskCategory.birthday:
-        return task.subCategory ?? 'Occasion';
-      default:
-        return task.category.label;
-    }
-  }
+/// Shared shell — the violet-tinted glass card every layout is poured into, so
+/// the family reads as one system. [urgent] lifts the accent edge for ≤1 day.
+class _CardShell extends StatelessWidget {
+  const _CardShell({
+    required this.width,
+    required this.child,
+    this.urgent = false,
+  });
+  final double width;
+  final Widget child;
+  final bool urgent;
 
   @override
   Widget build(BuildContext context) {
-    final cat = task.category;
-    final tint = _catColor(cat);
-    final days = _daysUntil(task.dueAt!);
-    final urgent = days <= 1;
-    final insight = _insightFor(task);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 178,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [tint.withValues(alpha: 0.16), AppColors.card],
-          ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-              color: urgent
-                  ? tint.withValues(alpha: 0.5)
-                  : AppColors.glassBorder),
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.accent.withValues(alpha: urgent ? 0.20 : 0.12),
+            AppColors.card,
+          ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _CardAvatar(task: task, tint: tint, size: 40),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: urgent
-                        ? tint.withValues(alpha: 0.22)
-                        : Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(_whenLabel(),
-                      style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: urgent ? tint : AppColors.inkSoft)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: urgent
+              ? AppColors.accent.withValues(alpha: 0.55)
+              : AppColors.glassBorder,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// The small due-time chip, top-right of every card.
+class _WhenChip extends StatelessWidget {
+  const _WhenChip({required this.days, required this.due});
+  final int days;
+  final DateTime due;
+
+  @override
+  Widget build(BuildContext context) {
+    final urgent = days <= 1;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: urgent
+            ? AppColors.accent.withValues(alpha: 0.22)
+            : Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(_whenLabel(days, due),
+          style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              color: urgent ? AppColors.accent : AppColors.inkSoft)),
+    );
+  }
+}
+
+// ── Subscription card — logo-forward, "the real cost is per year" ────────────
+//
+// Netflix, Spotify… Lead with the brand logo (the thing you recognise), state
+// the plain price + cadence, and headline the yearly commitment — the number
+// people forget they're signing up for.
+class _SubscriptionCard extends StatelessWidget {
+  const _SubscriptionCard({required this.task});
+  final Task task;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = _daysUntil(task.dueAt!);
+    final priceLine = task.hasAmount
+        ? '${_amountStr(task)} · ${frequencyLabel(task.repeat, task.repeatTimes).toLowerCase()}'
+        : frequencyLabel(task.repeat, task.repeatTimes);
+
+    return _CardShell(
+      width: 194,
+      urgent: days <= 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _Logo(task: task, size: 46, radius: 13),
+              const Spacer(),
+              _WhenChip(days: days, due: task.dueAt!),
+            ],
+          ),
+          const Spacer(),
+          Text(task.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink)),
+          const SizedBox(height: 2),
+          Text(priceLine,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkSoft)),
+          const SizedBox(height: 9),
+          if (task.hasAmount)
+            _InsightBar(
+              icon: Icons.calendar_month_rounded,
+              child: RichText(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                text: TextSpan(
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkSoft),
+                  children: [
+                    TextSpan(
+                        text: _inr(_perYearInr(task)),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink)),
+                    const TextSpan(text: ' a year'),
+                  ],
                 ),
-              ],
+              ),
+            )
+          else
+            const _InsightBar(
+              icon: Icons.autorenew_rounded,
+              child: Text('Renews soon',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.inkSoft)),
             ),
-            const Spacer(),
-            Text(task.title,
+        ],
+      ),
+    );
+  }
+}
+
+// ── SIP card — the widest one, a full readable nudge sentence ────────────────
+//
+// A SIP is money you must have READY. This card is wider and copy-led: a whole
+// sentence you actually read — "Keep ₹25,000 in your account by Fri to keep
+// your SIP going." The amount is the hero.
+class _SipCard extends StatelessWidget {
+  const _SipCard({required this.task});
+  final Task task;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = _daysUntil(task.dueAt!);
+    final has = task.hasAmount;
+
+    return _CardShell(
+      width: 224,
+      urgent: days <= 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Icon(Icons.account_balance_wallet_rounded,
+                    size: 18, color: AppColors.accent),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(task.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink)),
+              ),
+              const SizedBox(width: 8),
+              _WhenChip(days: days, due: task.dueAt!),
+            ],
+          ),
+          const Spacer(),
+          if (has) ...[
+            // The hero amount.
+            Text(_amountStr(task),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                    color: AppColors.ink)),
+            const SizedBox(height: 4),
+            // The nudge sentence — the actually-useful, readable line.
+            Text(
+              'Keep this ready ${_byLabel(days, task.dueAt!)} so your SIP goes through.',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.25,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkSoft),
+            ),
+          ] else ...[
+            Text('Instalment due ${_byLabel(days, task.dueAt!)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: AppColors.ink)),
-            const SizedBox(height: 2),
-            Text(
-              _subline(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.inkSoft),
-            ),
-            const SizedBox(height: 8),
-            // The derived insight — the meaningful, category-specific nudge.
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              decoration: BoxDecoration(
-                color: tint.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(insight.icon, size: 13, color: tint),
-                  const SizedBox(width: 5),
-                  Flexible(
-                    child: Text(
-                      insight.text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: tint,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: 4),
+            const Text('Fund your account so the SIP goes through.',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.25,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.inkSoft)),
           ],
-        ),
+        ],
       ),
     );
   }
 }
 
-/// The item's avatar — brand logo when it has one, else a category-tinted icon.
-class _CardAvatar extends StatelessWidget {
-  const _CardAvatar({required this.task, required this.tint, this.size = 40});
+// ── Occasion card — portrait, photo-led, "Aditya turns 41" ───────────────────
+//
+// Tighter and taller-feeling: a round face (photo or first-letter), the
+// person, and the human milestone — "turns 41 in 5 days".
+class _OccasionCard extends StatelessWidget {
+  const _OccasionCard({required this.task});
   final Task task;
-  final Color tint;
-  final double size;
 
   @override
   Widget build(BuildContext context) {
-    // A local photo wins — a round face for birthdays, a rounded picture else.
+    final days = _daysUntil(task.dueAt!);
+    final age = _ageOnNext(task);
+    final type = task.subCategory ?? 'Occasion';
+    final isBday = type.toLowerCase() == 'birthday';
+    final first = task.title.trim().split(RegExp(r'\s+')).first;
+
+    // The milestone line: "turns 41" for birthdays, "41 years" otherwise.
+    final String milestone = age != null
+        ? (isBday ? '$first turns $age' : '$age years')
+        : type;
+    final String whenText =
+        days <= 0 ? 'Today' : (days == 1 ? 'Tomorrow' : 'in $days days');
+
+    return _CardShell(
+      width: 168,
+      urgent: days <= 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _RoundFace(task: task, size: 44),
+              const Spacer(),
+              _WhenChip(days: days, due: task.dueAt!),
+            ],
+          ),
+          const Spacer(),
+          Text(task.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink)),
+          const SizedBox(height: 2),
+          Text(type,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkSoft)),
+          const SizedBox(height: 9),
+          _InsightBar(
+            icon: isBday
+                ? Icons.emoji_events_rounded
+                : Icons.celebration_rounded,
+            child: Text(
+              age != null ? '$milestone · $whenText' : milestone,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Generic card — insurance / bills / other ─────────────────────────────────
+class _GenericCard extends StatelessWidget {
+  const _GenericCard({required this.task});
+  final Task task;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = _daysUntil(task.dueAt!);
+    final (IconData icon, String line) = switch (task.category) {
+      TaskCategory.bills => (
+          Icons.receipt_long_rounded,
+          task.hasAmount ? 'Pay ${_amountStr(task)}' : 'Bill due'
+        ),
+      TaskCategory.insurance => (Icons.shield_rounded, 'Renewal due'),
+      _ => (Icons.bolt_rounded, days <= 1 ? 'Due now' : 'Coming up'),
+    };
+
+    return _CardShell(
+      width: 178,
+      urgent: days <= 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _Logo(task: task, size: 40, radius: 12),
+              const Spacer(),
+              _WhenChip(days: days, due: task.dueAt!),
+            ],
+          ),
+          const Spacer(),
+          Text(task.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink)),
+          const SizedBox(height: 9),
+          _InsightBar(
+            icon: icon,
+            child: Text(line,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.inkSoft)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The violet insight pill at the bottom of a card — one icon + a derived line.
+class _InsightBar extends StatelessWidget {
+  const _InsightBar({required this.icon, required this.child});
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 13, color: AppColors.accent),
+          const SizedBox(width: 6),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+/// A brand logo (with local-image override) — the recognisable mark of the item.
+class _Logo extends StatelessWidget {
+  const _Logo({required this.task, this.size = 40, this.radius = 12});
+  final Task task;
+  final double size;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
     if (task.hasImage) {
-      final circular = task.category == TaskCategory.birthday;
       return Container(
         width: size,
         height: size,
         clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(circular ? size : 11),
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(radius)),
         child: Image.file(File(task.imagePath!), fit: BoxFit.cover),
       );
     }
-    // A logo when there's one; otherwise the stylized first-letter avatar.
     return BrandLogo(
       brand: task.hasIcon
           ? Brand(name: task.iconName ?? task.title, domain: task.iconDomain ?? '')
           : Brand(name: task.title, domain: ''),
       size: size,
-      radius: 11,
+      radius: radius,
+    );
+  }
+}
+
+/// A round face for occasions — the person's photo, else a first-letter avatar
+/// on the violet logo-tile (no off-palette colour).
+class _RoundFace extends StatelessWidget {
+  const _RoundFace({required this.task, this.size = 44});
+  final Task task;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    if (task.hasImage) {
+      return Container(
+        width: size,
+        height: size,
+        clipBehavior: Clip.antiAlias,
+        decoration: const BoxDecoration(shape: BoxShape.circle),
+        child: Image.file(File(task.imagePath!), fit: BoxFit.cover),
+      );
+    }
+    final letter =
+        task.title.trim().isNotEmpty ? task.title.trim()[0].toUpperCase() : '?';
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.logoTile,
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+      ),
+      child: Text(letter,
+          style: TextStyle(
+              fontSize: size * 0.42,
+              fontWeight: FontWeight.w800,
+              color: AppColors.ink)),
     );
   }
 }

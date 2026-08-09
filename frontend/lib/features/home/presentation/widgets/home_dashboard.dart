@@ -1370,15 +1370,16 @@ class _ParticleFieldPainter extends CustomPainter {
   // gently BOUNCING up and down on its own rhythm. Always present — steady,
   // playful, clear of the amount in the middle.
   //
-  // Three ₹ coins, EQUALLY spaced and centred as a group, each with a slightly
-  // different resting height (haphazard but organised). They only VIBE — a tiny
-  // ±2px bob on their own rhythm — so they read as alive, not an elevator.
+  // Three ₹ coins spread WIDE across the whole band — far left, far right, and
+  // one low in the middle — using the full container, not clustered in the
+  // centre. Each only VIBES a tiny ±2px on its own rhythm, so it's alive but
+  // calm. Positions are fixed; haphazard heights, organised spread.
   //
   // (x fraction, colour pick 0/1, bob phase offset, size, rest-Y bias)
   static const _coinSpots = [
-    [0.30, 0.0, 0.00, 7.5, -3.0], // left, a touch high
-    [0.50, 1.0, 0.40, 7.5, 4.0], // centre, a touch low
-    [0.70, 0.0, 0.75, 7.5, -1.0], // right, near the middle
+    [0.06, 0.0, 0.00, 7.5, -6.0], // far left, high
+    [0.50, 1.0, 0.40, 7.0, 15.0], // centre, low (below the amount)
+    [0.94, 0.0, 0.75, 7.5, -2.0], // far right, near middle
   ];
 
   void _coins(Canvas canvas, Size size) {

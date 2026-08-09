@@ -842,43 +842,94 @@ class _WhenChipState extends State<_WhenChip>
 
 const double _kCardW = 284;
 
-/// A punchy, benefit-framed line for a subscription — derived from the brand so
-/// it says what the money PROTECTS, not just what it costs. This is the card's
-/// HIGHLIGHT, so it can be a full phrase.
+/// A punchy, benefit-framed line for a subscription — keyed to its GRANULAR
+/// sub-category (Entertainment, Music, AI, Cloud & Tools, …), the reliable
+/// dimension the user actually picks. Brand keywords only refine within a
+/// sub-category. It says what the money keeps ALIVE, not just what it costs.
 String _subscriptionPunch(Task t) {
+  final sub = (t.subCategory ?? '').toLowerCase();
   final s = '${t.title} ${t.iconName ?? ''}'.toLowerCase();
-  bool has(List<String> keys) => keys.any(s.contains);
+  bool brand(List<String> keys) => keys.any(s.contains);
 
-  if (has(['netflix', 'prime video', 'hotstar', 'disney', 'hbo', 'max '])) {
+  switch (sub) {
+    case 'entertainment':
+      if (brand(['youtube', 'twitch'])) {
+        return 'Keep it running so the watch-list keeps rolling.';
+      }
+      return 'Keep it funded so your binge nights stay uninterrupted.';
+    case 'music':
+      return 'Keep it topped up so the music never stops.';
+    case 'ai':
+      // Not just paying a lab — it may be any AI-enabling tool in your stack.
+      if (brand(['chatgpt', 'openai', 'claude', 'gemini', 'copilot'])) {
+        return 'Keep it live so your AI copilot keeps thinking with you.';
+      }
+      return 'Keep it live so your AI-powered workflow keeps flying.';
+    case 'cloud & tools':
+      if (brand(['icloud', 'google one', 'dropbox', 'onedrive', 'drive'])) {
+        return 'Keep it paid so your files always have a home.';
+      }
+      return 'Keep it active so your tools and storage stay online.';
+    case 'learning':
+      return 'Keep it going so your learning streak never breaks.';
+    case 'gaming':
+      return 'Keep it topped up so game night stays online.';
+    case 'food & shopping':
+      return 'Keep it active so your perks and deliveries keep coming.';
+  }
+
+  // No sub-category set → fall back to brand hints, then a safe generic line.
+  if (brand(['netflix', 'prime video', 'hotstar', 'disney', 'hbo'])) {
     return 'Keep it funded so your binge nights stay uninterrupted.';
   }
-  if (has(['spotify', 'apple music', 'youtube music', 'gaana', 'wynk',
-      'soundcloud'])) {
+  if (brand(['spotify', 'apple music', 'gaana', 'wynk'])) {
     return 'Keep it topped up so the music never stops.';
   }
-  if (has(['chatgpt', 'openai', 'claude', 'gemini', 'copilot', 'midjourney',
-      'perplexity', 'cursor', ' ai'])) {
-    return 'Keep it live so your AI copilots keep flying.';
-  }
-  if (has(['icloud', 'google one', 'dropbox', 'onedrive', 'drive'])) {
-    return 'Keep it paid so your files always have a home.';
-  }
-  if (has(['youtube', 'twitch'])) {
-    return 'Keep it running so the watch-list keeps rolling.';
-  }
-  if (has(['gym', 'fitness', 'cult', 'peloton', 'strava'])) {
-    return 'Keep it paid so your streak and your gains stay alive.';
-  }
-  if (has(['adobe', 'figma', 'notion', 'canva', 'office', 'microsoft 365'])) {
-    return 'Keep it active so your workflow never skips a beat.';
-  }
-  if (has(['linkedin', 'medium', 'nyt', 'times', 'news'])) {
-    return 'Keep it paid so your daily read never hits a paywall.';
-  }
-  if (has(['game', 'xbox', 'playstation', 'psn', 'steam', 'nintendo'])) {
-    return 'Keep it topped up so game night stays online.';
+  if (brand(['chatgpt', 'openai', 'claude', 'gemini', 'copilot', ' ai'])) {
+    return 'Keep it live so your AI-powered workflow keeps flying.';
   }
   return 'Keep it funded so it never blinks out on you.';
+}
+
+/// A benefit line for a SIP, keyed to its investment sub-category (Stocks,
+/// Mutual Funds, Bonds, Gold, Goal). [amt] is the ready-amount phrase, [byWhen]
+/// the due phrase — kept debit-positive (money going out to grow).
+String _sipPunch(Task t, String amt, String byWhen) {
+  final sub = (t.subCategory ?? '').toLowerCase();
+  switch (sub) {
+    case 'stocks':
+      return 'Keep $amt ready $byWhen so you keep buying the dip and building your portfolio.';
+    case 'mutual funds':
+      return 'Keep $amt ready $byWhen so this SIP debits on time and your units keep compounding.';
+    case 'bonds':
+      return 'Keep $amt ready $byWhen so this bond instalment clears and your steady income stays on track.';
+    case 'gold':
+      return 'Keep $amt ready $byWhen so your gold keeps stacking as a quiet hedge.';
+    case 'goal':
+      return 'Keep $amt ready $byWhen so you stay on pace for your goal.';
+  }
+  return 'Keep $amt ready $byWhen so this SIP debits smoothly and your wealth keeps compounding.';
+}
+
+/// A warm line for an occasion, keyed to its type (Birthday, Anniversary,
+/// Wedding, Memorial). [name] is the person, [age] the milestone (nullable),
+/// [whenText] the "today/tomorrow/in N days" phrase.
+String _occasionPunch(String type, String name, int? age, String whenText) {
+  switch (type.toLowerCase()) {
+    case 'birthday':
+      return age != null
+          ? '$name turns $age $whenText — don’t miss the wish.'
+          : '$name’s big day is $whenText — send a little joy.';
+    case 'anniversary':
+      return age != null
+          ? '$age years together $whenText — mark the milestone.'
+          : 'Their anniversary is $whenText — celebrate the two of them.';
+    case 'wedding':
+      return 'The wedding is $whenText — block the day and bring your best wishes.';
+    case 'memorial':
+      return 'A day to remember $name, $whenText — pause and honour them.';
+  }
+  return 'A moment worth remembering — $whenText.';
 }
 
 // The card ideology (from the birthday card you liked): a big MAIN VALUE sits
@@ -942,9 +993,11 @@ class _SipCard extends StatelessWidget {
       title: task.title,
       // "You invest" makes the direction unmistakable — this is money going OUT
       // to work for you, not a credit landing in your account.
-      subtitle: has ? 'You invest · every instalment' : 'SIP instalment',
+      subtitle: has
+          ? '${task.subCategory ?? 'SIP'} · you invest'
+          : 'SIP instalment',
       highlight: has
-          ? 'Keep ${_amountStr(task)} ready in your bank $byWhen so this SIP debits smoothly and your wealth keeps compounding.'
+          ? _sipPunch(task, _amountStr(task), byWhen)
           : 'Fund your account $byWhen so this SIP debits smoothly and your wealth keeps compounding.',
       highlightIcon: Icons.account_balance_wallet_rounded,
     );
@@ -978,11 +1031,7 @@ class _OccasionCard extends StatelessWidget {
           )
         : _RoundFace(task: task, size: 56);
 
-    final String highlight = age != null
-        ? (isBday
-            ? '$first turns $age $whenText — don’t miss the wish.'
-            : '$age years and counting — mark the moment $whenText.')
-        : 'A $type worth remembering — $whenText.';
+    final String highlight = _occasionPunch(type, first, age, whenText);
 
     return _HeroCard(
       days: days,

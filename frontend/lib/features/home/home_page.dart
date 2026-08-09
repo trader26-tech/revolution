@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
+import '../settings/data/profile_store.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
 import '../tasks/domain/task_filter.dart';
-import '../tasks/presentation/filter_sheet.dart';
 import '../tasks/presentation/task_details_sheet.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
 import '../tasks/presentation/widgets/quick_add_row.dart';
 import '../tasks/presentation/widgets/task_tile.dart';
+import 'domain/home_stats.dart';
+import 'presentation/widgets/home_dashboard.dart';
 
 /// The Home screen.
 ///
@@ -43,11 +45,6 @@ class _HomePageState extends State<HomePage> {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SettingsPage()),
     );
-  }
-
-  Future<void> _openFilter() async {
-    final picked = await showFilterSheet(context, current: _filter);
-    if (picked != null) setState(() => _filter = picked);
   }
 
   void _startAdd() {
@@ -118,8 +115,7 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 8),
               _TopBar(
                 onSettings: _openSettings,
-                onFilter: _openFilter,
-                filterActive: _filter.isActive,
+                onAdd: _startAdd,
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -169,8 +165,20 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    // The quick-add input row (when active) on top, then the tasks.
+    final stats = computeHomeStats(allTasks);
+
+    // The hero section, then the quick-add row (when active), then the tasks.
     final rows = <Widget>[
+      // Greeting — Revo says "Good <time>, <name>" + "Welcome to Revolution".
+      GreetingRevo(name: ProfileStore.instance.name, tasks: allTasks),
+      const SizedBox(height: 16),
+      // THE hero — everything at a glance (due today · this month · spend).
+      HeroMetricsCard(stats: stats),
+      // Up Next — the soonest reminders as cards.
+      UpNextStrip(items: stats.upNext, onTap: _editTask),
+      // Category cards.
+      CategoryCards(stats: stats, tasks: allTasks, onTapCategory: (_) {}),
+      const SizedBox(height: 8),
       if (_adding)
         QuickAddRow(
           controller: _addController,
@@ -204,15 +212,13 @@ class _HomePageState extends State<HomePage> {
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.onSettings,
-    required this.onFilter,
-    required this.filterActive,
+    required this.onAdd,
   });
 
   final VoidCallback onSettings;
-  final VoidCallback onFilter;
 
-  /// Whether a non-"All" filter is applied — shows an accent dot on the button.
-  final bool filterActive;
+  /// The "+" — add a reminder. Replaces the old filter button in the top-right.
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -226,30 +232,11 @@ class _TopBar extends StatelessWidget {
             onTap: onSettings,
           ),
           const Spacer(),
-          // Filter button, right corner. A small accent dot marks it active.
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              GlassIconButton(
-                icon: Icons.filter_alt_outlined,
-                tooltip: 'Filter',
-                onTap: onFilter,
-              ),
-              if (filterActive)
-                Positioned(
-                  right: 2,
-                  top: 2,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: AppColors.accent,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.bg, width: 2),
-                    ),
-                  ),
-                ),
-            ],
+          // Add button, right corner.
+          GlassIconButton(
+            icon: Icons.add_rounded,
+            tooltip: 'Add reminder',
+            onTap: onAdd,
           ),
         ],
       ),

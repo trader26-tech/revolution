@@ -578,7 +578,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 112,
+            height: 210,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -741,50 +741,53 @@ class _WhenChip extends StatelessWidget {
   }
 }
 
-// Every rich card shares ONE compact structure so the strip reads as a family:
-//   ┌ header row:  [ mark ]  Title            [ when-chip ]
-//   │              subtitle (price / amount / type)
-//   └ insight bar: themed icon + the derived, punchy line
-// Content packs top-to-bottom with no filler space — the card is only as tall
-// as it needs to be. Each card differs in its MARK, its numbers, and its COPY.
+// Every rich card is HERO-LED, like the reference: a big animated centrepiece
+// up top (the "41" burst, the amount, the logo), then the title, then the
+// DESCRIPTION as the highlight. Cards are wide (~284) so nothing truncates and
+// the horizontal space is actually used — you see ~1.3 cards, then scroll.
 
-/// A punchy, benefit-framed line for a subscription — short enough for one line,
-/// derived from the brand so it says what the money PROTECTS, not just costs.
+const double _kCardW = 284;
+
+/// A punchy, benefit-framed line for a subscription — derived from the brand so
+/// it says what the money PROTECTS, not just what it costs. This is the card's
+/// HIGHLIGHT, so it can be a full phrase.
 String _subscriptionPunch(Task t) {
   final s = '${t.title} ${t.iconName ?? ''}'.toLowerCase();
   bool has(List<String> keys) => keys.any(s.contains);
 
   if (has(['netflix', 'prime video', 'hotstar', 'disney', 'hbo', 'max '])) {
-    return 'Keeps your binge nights alive';
+    return 'Keep it funded so your binge nights stay uninterrupted.';
   }
   if (has(['spotify', 'apple music', 'youtube music', 'gaana', 'wynk',
       'soundcloud'])) {
-    return 'Keeps the music playing';
+    return 'Keep it topped up so the music never stops.';
   }
   if (has(['chatgpt', 'openai', 'claude', 'gemini', 'copilot', 'midjourney',
       'perplexity', 'cursor', ' ai'])) {
-    return 'Keeps your AI copilots flying';
+    return 'Keep it live so your AI copilots keep flying.';
   }
   if (has(['icloud', 'google one', 'dropbox', 'onedrive', 'drive'])) {
-    return 'Keeps your files backed up';
+    return 'Keep it paid so your files always have a home.';
   }
-  if (has(['youtube', 'twitch'])) return 'Keeps the watch-list rolling';
+  if (has(['youtube', 'twitch'])) {
+    return 'Keep it running so the watch-list keeps rolling.';
+  }
   if (has(['gym', 'fitness', 'cult', 'peloton', 'strava'])) {
-    return 'Keeps your streak alive';
+    return 'Keep it paid so your streak and your gains stay alive.';
   }
   if (has(['adobe', 'figma', 'notion', 'canva', 'office', 'microsoft 365'])) {
-    return 'Keeps your workflow humming';
+    return 'Keep it active so your workflow never skips a beat.';
   }
   if (has(['linkedin', 'medium', 'nyt', 'times', 'news'])) {
-    return 'Keeps your daily read open';
+    return 'Keep it paid so your daily read never hits a paywall.';
   }
   if (has(['game', 'xbox', 'playstation', 'psn', 'steam', 'nintendo'])) {
-    return 'Keeps game night online';
+    return 'Keep it topped up so game night stays online.';
   }
-  return 'Keeps it from blinking out';
+  return 'Keep it funded so it never blinks out on you.';
 }
 
-// ── Subscription card — logo + price + what it keeps alive ────────────────────
+// ── Subscription card — logo hero + "what it keeps alive" highlight ───────────
 class _SubscriptionCard extends StatelessWidget {
   const _SubscriptionCard({required this.task});
   final Task task;
@@ -796,32 +799,21 @@ class _SubscriptionCard extends StatelessWidget {
         ? '${_amountStr(task)} · ${frequencyLabel(task.repeat, task.repeatTimes).toLowerCase()}'
         : frequencyLabel(task.repeat, task.repeatTimes);
 
-    return _CardShell(
-      width: 190,
-      urgent: days <= 1,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _CardHeader(
-            mark: _Logo(task: task, size: 40, radius: 12),
-            title: task.title,
-            subtitle: priceLine,
-            days: days,
-            due: task.dueAt!,
-          ),
-          const SizedBox(height: 10),
-          _InsightBar(
-            icon: Icons.favorite_rounded,
-            text: _subscriptionPunch(task),
-          ),
-        ],
+    return _HeroCard(
+      days: days,
+      due: task.dueAt!,
+      hero: _RaysBurst(
+        child: _Logo(task: task, size: 60, radius: 16),
       ),
+      title: task.title,
+      subtitle: priceLine,
+      highlight: _subscriptionPunch(task),
+      highlightIcon: Icons.favorite_rounded,
     );
   }
 }
 
-// ── SIP card — the amount is the hero, then the "keep it ready" nudge ─────────
+// ── SIP card — the amount is the hero, "keep it ready" is the highlight ───────
 class _SipCard extends StatelessWidget {
   const _SipCard({required this.task});
   final Task task;
@@ -832,44 +824,37 @@ class _SipCard extends StatelessWidget {
     final has = task.hasAmount;
     final byWhen = _byLabel(days, task.dueAt!);
 
-    return _CardShell(
-      width: 200,
-      urgent: days <= 1,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _CardHeader(
-            mark: Container(
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.trending_up_rounded,
-                  size: 20, color: AppColors.accent),
-            ),
-            title: task.title,
-            subtitle: has ? _amountStr(task) : 'SIP instalment',
-            days: days,
-            due: task.dueAt!,
-          ),
-          const SizedBox(height: 10),
-          _InsightBar(
-            icon: Icons.account_balance_wallet_rounded,
-            text: has
-                ? 'Keep ${_amountStr(task)} ready $byWhen'
-                : 'Fund your account $byWhen',
-          ),
-        ],
+    return _HeroCard(
+      days: days,
+      due: task.dueAt!,
+      hero: _RaysBurst(
+        rising: true,
+        child: has
+            ? FittedBox(
+                child: Text(
+                  _amountStr(task),
+                  style: const TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -1,
+                    color: AppColors.ink,
+                  ),
+                ),
+              )
+            : const Icon(Icons.trending_up_rounded,
+                size: 52, color: AppColors.accent),
       ),
+      title: task.title,
+      subtitle: has ? 'SIP · every instalment' : 'SIP instalment',
+      highlight: has
+          ? 'Keep ${_amountStr(task)} in your bank $byWhen so your SIP goes through and your wealth keeps compounding.'
+          : 'Fund your account $byWhen so your SIP goes through and your wealth keeps compounding.',
+      highlightIcon: Icons.account_balance_wallet_rounded,
     );
   }
 }
 
-// ── Occasion card — face + the human milestone ───────────────────────────────
+// ── Occasion card — the big age burst (the reference), warm highlight ─────────
 class _OccasionCard extends StatelessWidget {
   const _OccasionCard({required this.task});
   final Task task;
@@ -881,30 +866,126 @@ class _OccasionCard extends StatelessWidget {
     final type = task.subCategory ?? 'Occasion';
     final isBday = type.toLowerCase() == 'birthday';
     final first = task.title.trim().split(RegExp(r'\s+')).first;
+    final whenText =
+        days <= 0 ? 'today' : (days == 1 ? 'tomorrow' : 'in $days days');
 
-    final String punch = age != null
-        ? (isBday ? '$first turns $age' : '$age years')
-        : 'Mark the moment';
+    // Hero: the big age "41" with rays (as in the reference) when we know it;
+    // otherwise the person's face.
+    final Widget hero = age != null
+        ? _RaysBurst(
+            child: Text(
+              '$age',
+              style: const TextStyle(
+                fontSize: 46,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -1,
+                color: AppColors.ink,
+              ),
+            ),
+          )
+        : _RaysBurst(child: _RoundFace(task: task, size: 60));
 
+    final String highlight = age != null
+        ? (isBday
+            ? '$first turns $age $whenText — don’t miss the wish.'
+            : '$age years and counting — mark the moment $whenText.')
+        : 'A $type worth remembering — $whenText.';
+
+    return _HeroCard(
+      days: days,
+      due: task.dueAt!,
+      hero: hero,
+      title: task.title,
+      subtitle: type,
+      highlight: highlight,
+      highlightIcon:
+          isBday ? Icons.emoji_events_rounded : Icons.celebration_rounded,
+    );
+  }
+}
+
+/// The shared HERO card layout — a big animated hero on top, then title +
+/// subtitle, then the description as the highlighted line. One structure across
+/// every category (consistent); the hero + copy each card passes in (unique).
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({
+    required this.days,
+    required this.due,
+    required this.hero,
+    required this.title,
+    required this.subtitle,
+    required this.highlight,
+    required this.highlightIcon,
+  });
+  final int days;
+  final DateTime due;
+  final Widget hero;
+  final String title;
+  final String subtitle;
+  final String highlight;
+  final IconData highlightIcon;
+
+  @override
+  Widget build(BuildContext context) {
     return _CardShell(
-      width: 190,
+      width: _kCardW,
       urgent: days <= 1,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          _CardHeader(
-            mark: _RoundFace(task: task, size: 40),
-            title: task.title,
-            subtitle: type,
-            days: days,
-            due: task.dueAt!,
+          // The hero sits in a fixed band, centred, with the due-chip floating
+          // in the corner.
+          SizedBox(
+            height: 78,
+            child: Stack(
+              children: [
+                Center(child: hero),
+                Positioned(top: 0, right: 0, child: _WhenChip(days: days, due: due)),
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          _InsightBar(
-            icon:
-                isBday ? Icons.emoji_events_rounded : Icons.celebration_rounded,
-            text: punch,
+          const SizedBox(height: 8),
+          // Title — allowed to wrap to two lines so nothing gets cut off.
+          Text(title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  color: AppColors.ink)),
+          const SizedBox(height: 1),
+          Text(subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.inkSoft)),
+          const SizedBox(height: 9),
+          // The DESCRIPTION — the highlight. Big, ink, up to two full lines.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(highlightIcon, size: 15, color: AppColors.accent),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  highlight,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.28,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -912,58 +993,82 @@ class _OccasionCard extends StatelessWidget {
   }
 }
 
-/// The shared header every rich card opens with: a mark on the left, the title
-/// + a subtitle stacked beside it, and the due-chip on the right. One structure
-/// → consistent; the mark + copy each card passes in → unique.
-class _CardHeader extends StatelessWidget {
-  const _CardHeader({
-    required this.mark,
-    required this.title,
-    required this.subtitle,
-    required this.days,
-    required this.due,
-  });
-  final Widget mark;
-  final String title;
-  final String subtitle;
-  final int days;
-  final DateTime due;
+/// The celebratory rays burst behind a hero — thin accent lines radiating out,
+/// gently breathing in and out (the "41" look from the reference). [rising]
+/// biases the shimmer upward for the SIP "growth" feel. Cheap: one slow
+/// controller, RepaintBoundary, painter only.
+class _RaysBurst extends StatefulWidget {
+  const _RaysBurst({required this.child, this.rising = false});
+  final Widget child;
+  final bool rising;
+  @override
+  State<_RaysBurst> createState() => _RaysBurstState();
+}
+
+class _RaysBurstState extends State<_RaysBurst>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 3000))
+    ..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        mark,
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink)),
-              const SizedBox(height: 1),
-              Text(subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.inkSoft)),
-            ],
-          ),
+    return RepaintBoundary(
+      child: SizedBox(
+        width: 120,
+        height: 72,
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, child) {
+            return CustomPaint(
+              painter: _RaysPainter(_c.value, rising: widget.rising),
+              child: Center(child: child),
+            );
+          },
+          child: widget.child,
         ),
-        const SizedBox(width: 8),
-        _WhenChip(days: days, due: due),
-      ],
+      ),
     );
   }
+}
+
+class _RaysPainter extends CustomPainter {
+  _RaysPainter(this.t, {this.rising = false});
+  final double t; // 0..1 loop
+  final bool rising;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    // A slow breathe 0→1→0.
+    final breathe = (math.sin(t * 2 * math.pi) + 1) / 2; // 0..1
+    const count = 12;
+    final inner = 30.0 + 3 * breathe;
+    final outer = 44.0 + 8 * breathe;
+
+    for (var i = 0; i < count; i++) {
+      final a = (i / count) * 2 * math.pi - math.pi / 2;
+      // Rays fade top-biased when rising (growth), else even.
+      final up = rising ? (0.6 + 0.4 * (-math.sin(a))) : 1.0;
+      final p1 = center + Offset(math.cos(a), math.sin(a)) * inner;
+      final p2 = center + Offset(math.cos(a), math.sin(a)) * outer;
+      final paint = Paint()
+        ..color = (i.isEven ? AppColors.accent : const Color(0xFFB9A8FF))
+            .withValues(alpha: (0.30 + 0.35 * breathe) * up)
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(p1, p2, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RaysPainter old) => old.t != t;
 }
 
 // ── Generic card — insurance / bills / other ─────────────────────────────────
@@ -975,81 +1080,35 @@ class _GenericCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final days = _daysUntil(task.dueAt!);
     final byWhen = _byLabel(days, task.dueAt!);
-    final (IconData icon, String subtitle, String line) =
+    final (IconData icon, String subtitle, String highlight) =
         switch (task.category) {
       TaskCategory.bills => (
           Icons.receipt_long_rounded,
           task.hasAmount ? _amountStr(task) : 'Bill',
-          task.hasAmount ? 'Pay ${_amountStr(task)} $byWhen' : 'Due $byWhen'
+          task.hasAmount
+              ? 'Clear ${_amountStr(task)} $byWhen so you dodge the late fee.'
+              : 'Settle it $byWhen so you dodge the late fee.'
         ),
       TaskCategory.insurance => (
           Icons.shield_rounded,
           'Insurance',
-          'Renew $byWhen — stay covered'
+          'Renew it $byWhen so your cover never lapses.'
         ),
       _ => (
           Icons.bolt_rounded,
           _whenLabel(days, task.dueAt!),
-          days <= 1 ? 'Due now' : 'Coming up'
+          days <= 1 ? 'This one’s up — knock it out today.' : 'On your radar $byWhen.'
         ),
     };
 
-    return _CardShell(
-      width: 190,
-      urgent: days <= 1,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _CardHeader(
-            mark: _Logo(task: task, size: 40, radius: 12),
-            title: task.title,
-            subtitle: subtitle,
-            days: days,
-            due: task.dueAt!,
-          ),
-          const SizedBox(height: 10),
-          _InsightBar(icon: icon, text: line),
-        ],
-      ),
-    );
-  }
-}
-
-/// The violet insight pill at the bottom of a card — one icon + a derived line.
-/// Single-line and compact, so cards stay short and dense.
-class _InsightBar extends StatelessWidget {
-  const _InsightBar({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: AppColors.accent),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return _HeroCard(
+      days: days,
+      due: task.dueAt!,
+      hero: _RaysBurst(child: _Logo(task: task, size: 58, radius: 16)),
+      title: task.title,
+      subtitle: subtitle,
+      highlight: highlight,
+      highlightIcon: icon,
     );
   }
 }

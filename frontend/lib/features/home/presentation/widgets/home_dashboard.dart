@@ -1370,23 +1370,25 @@ class _ParticleFieldPainter extends CustomPainter {
   // gently BOUNCING up and down on its own rhythm. Always present — steady,
   // playful, clear of the amount in the middle.
   //
-  // (x fraction, colour pick 0/1, bounce phase offset, size, rest-Y bias)
-  // Positioned off to the sides so none sit over the amount in the centre.
+  // Three ₹ coins, EQUALLY spaced and centred as a group, each with a slightly
+  // different resting height (haphazard but organised). They only VIBE — a tiny
+  // ±2px bob on their own rhythm — so they read as alive, not an elevator.
+  //
+  // (x fraction, colour pick 0/1, bob phase offset, size, rest-Y bias)
   static const _coinSpots = [
-    [0.10, 0.0, 0.00, 8.0, -3.0], // left, sits a touch high
-    [0.25, 1.0, 0.50, 6.5, 8.0], // inner-left, lower + smaller
-    [0.90, 0.0, 0.30, 8.0, 2.0], // right
+    [0.30, 0.0, 0.00, 7.5, -3.0], // left, a touch high
+    [0.50, 1.0, 0.40, 7.5, 4.0], // centre, a touch low
+    [0.70, 0.0, 0.75, 7.5, -1.0], // right, near the middle
   ];
 
   void _coins(Canvas canvas, Size size) {
     for (final c in _coinSpots) {
       final cx = c[0] * size.width;
       final radius = c[3];
-      // Each coin bounces on its own phase — a smooth up/down sine.
+      // A small vibe on each coin's own phase — barely there, just alive.
       final b = math.sin((t + c[2]) * 2 * math.pi); // -1..1
-      // Rest around the vertical centre with a per-coin bias, bouncing ±6px.
       final restY = size.height / 2 + c[4];
-      final cy = restY - b * 6;
+      final cy = restY - b * 2; // ±2px only
       final color = c[1] == 0.0 ? _violet : _lilac;
       final centre = Offset(cx, cy);
       const op = 0.7;

@@ -14,11 +14,17 @@ class BrandLogo extends StatelessWidget {
     this.radius = 12,
     this.bare = false,
     this.circular = false,
+    this.snug = false,
   });
 
   final Brand brand;
   final double size;
   final double radius;
+
+  /// Shrink the tile's inner padding so the logo fills most of the tile — a
+  /// larger, snugger mark for hero surfaces. Keeps `contain`, so the logo is
+  /// only enlarged, never cropped.
+  final bool snug;
 
   /// When true, the logo is drawn with NO white backing tile or padding — just
   /// the (rounded) logo image itself. For hero/marketing surfaces where the
@@ -104,7 +110,8 @@ class BrandLogo extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      padding: EdgeInsets.all(size * 0.14),
+      // Snug tiles use a much smaller inset so the mark fills the tile.
+      padding: EdgeInsets.all(size * (snug ? 0.06 : 0.14)),
       decoration: BoxDecoration(
         color: AppColors.logoTile,
         borderRadius: BorderRadius.circular(radius),

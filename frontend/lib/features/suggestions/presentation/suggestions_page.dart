@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/mascot.dart';
+import '../../add/presentation/added_success.dart' show showAddedSuccess;
 import '../data/suggestions_api.dart';
 import '../domain/suggestion.dart';
 
@@ -86,12 +87,16 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
     final t = text?.trim() ?? '';
     if (t.isEmpty || !mounted) return;
 
-    // Show the Revo "thank you" FIRST — instantly, the moment the composer
-    // closes — so there's no plain-dark gap while the network post runs. The
-    // post happens IN THE BACKGROUND, behind the (opaque) celebration; when the
-    // celebration lifts, the new idea is already in the list.
+    // Show the same full SKY SCREEN celebration as adding an item — instantly,
+    // the moment the composer closes — so there's no plain-dark gap while the
+    // network post runs. The post happens IN THE BACKGROUND, behind the opaque
+    // page; when it lifts, the new idea is already in the list.
     HapticFeedback.mediumImpact();
-    final celebration = showSuggestionThanks(context);
+    final celebration = showAddedSuccess(
+      context,
+      label: 'Thanks for your idea!',
+      subtitle: 'Revo’s got it — we’ll take a good look.',
+    );
 
     try {
       final created = await _api.post(t);
@@ -1034,140 +1039,6 @@ class _ErrorState extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Revo "thanks for your suggestion!" moment ────────────────────────────────
-
-/// A brief, warm Revo celebration right after posting an idea — a happy Revo
-/// pops in with sparks and a thank-you, then auto-dismisses.
-Future<void> showSuggestionThanks(BuildContext context) {
-  return Navigator.of(context, rootNavigator: true).push<void>(
-    PageRouteBuilder<void>(
-      opaque: false,
-      barrierColor: Colors.black.withValues(alpha: 0.66),
-      transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (_, _, _) => const _ThanksOverlay(),
-      transitionsBuilder: (_, anim, _, child) =>
-          FadeTransition(opacity: anim, child: child),
-    ),
-  );
-}
-
-class _ThanksOverlay extends StatefulWidget {
-  const _ThanksOverlay();
-  @override
-  State<_ThanksOverlay> createState() => _ThanksOverlayState();
-}
-
-class _ThanksOverlayState extends State<_ThanksOverlay>
-    with TickerProviderStateMixin {
-  late final AnimationController _pop = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 900))
-    ..forward();
-  late final AnimationController _life = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 1600))
-    ..repeat();
-  bool _closed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    HapticFeedback.mediumImpact();
-    Future<void>.delayed(const Duration(milliseconds: 1900), _close);
-  }
-
-  void _close() {
-    if (_closed || !mounted) return;
-    _closed = true;
-    Navigator.of(context).pop();
-  }
-
-  @override
-  void dispose() {
-    _pop.dispose();
-    _life.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _close,
-      behavior: HitTestBehavior.opaque,
-      child: Material(
-        type: MaterialType.transparency,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: AnimatedBuilder(
-              animation: Listenable.merge([_pop, _life]),
-              builder: (context, _) {
-                final p = _pop.value;
-                final pop = Curves.easeOutBack.transform(p.clamp(0.0, 1.0));
-                final t = _life.value;
-                final bob = math.sin(t * 2 * math.pi) * 4;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 180,
-                      height: 150,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          CustomPaint(
-                              size: const Size(180, 150),
-                              painter: _SparkPainter(p)),
-                          Transform.translate(
-                            offset: Offset(0, bob),
-                            child: Transform.scale(
-                              scale: 0.6 + 0.4 * pop,
-                              child: const AnimatedMascot(size: 104),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Opacity(
-                      opacity: ((p - 0.3) / 0.5).clamp(0.0, 1.0),
-                      child: Column(
-                        children: [
-                          ShaderMask(
-                            shaderCallback: (r) => const LinearGradient(colors: [
-                              AppColors.ink,
-                              Color(0xFFB9A8FF)
-                            ]).createShader(r),
-                            child: const Text('Thanks for your idea!',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    fontSize: 23,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.5,
-                                    color: Colors.white)),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Revo’s noted it down — we’ll take a good look.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                fontSize: 13.5,
-                                height: 1.35,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.inkSoft),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
         ),
       ),
     );

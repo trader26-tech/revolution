@@ -24,6 +24,7 @@ String addedLabel(TaskCategory category) {
 Future<void> showAddedSuccess(
   BuildContext context, {
   required String label, // e.g. "Subscription added"
+  String subtitle = 'Revo’s keeping an eye on it.',
 }) {
   return Navigator.of(context, rootNavigator: true).push<void>(
     PageRouteBuilder<void>(
@@ -34,14 +35,15 @@ Future<void> showAddedSuccess(
       transitionDuration: Duration.zero,
       reverseTransitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (context, animation, secondaryAnimation) =>
-          _AddedSuccessPage(label: label),
+          _AddedSuccessPage(label: label, subtitle: subtitle),
     ),
   );
 }
 
 class _AddedSuccessPage extends StatefulWidget {
-  const _AddedSuccessPage({required this.label});
+  const _AddedSuccessPage({required this.label, required this.subtitle});
   final String label;
+  final String subtitle;
 
   @override
   State<_AddedSuccessPage> createState() => _AddedSuccessPageState();
@@ -185,9 +187,10 @@ class _AddedSuccessPageState extends State<_AddedSuccessPage>
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              const Text(
-                                'Revo’s keeping an eye on it.',
-                                style: TextStyle(
+                              Text(
+                                widget.subtitle,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.inkSoft,

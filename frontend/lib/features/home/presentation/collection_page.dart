@@ -888,13 +888,15 @@ class _CollectionRow extends StatelessWidget {
   }
 
   String _priceLine() {
+    // Compact frequency (times but no weekday list) to keep the row tidy.
+    final freq = frequencyLabel(task.repeat, task.repeatTimes, const []);
     if (task.hasAmount) {
       final sym = currencyOf(task.currency).symbol;
       final amt = task.amount!.toStringAsFixed(
           task.amount == task.amount!.roundToDouble() ? 0 : 2);
-      return '$sym$amt · ${task.repeat.label}';
+      return '$sym$amt · $freq';
     }
-    return task.repeat.label == 'Never' ? 'One-time' : task.repeat.label;
+    return freq == 'Never' ? 'One-time' : freq;
   }
 
   String _dateLabel(DateTime d) => '${d.day} ${_months[d.month - 1]}';

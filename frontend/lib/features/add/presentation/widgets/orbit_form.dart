@@ -519,6 +519,249 @@ class OrbitCycleRow extends StatelessWidget {
   }
 }
 
+// ── Frequency field (cycle · times · weekdays) ───────────────────────────────
+
+/// A rich "Every" field: a base cycle (Weekly/Monthly/Yearly), how many TIMES
+/// per cycle (1× / 2× / 3×), and — when Weekly — a row of weekday chips to pick
+/// which days. Renders as its own rows so it fits inside a group card; the
+/// weekday row animates in only for Weekly.
+class OrbitFrequencyField extends StatelessWidget {
+  const OrbitFrequencyField({
+    super.key,
+    required this.cycle,
+    required this.times,
+    required this.days,
+    required this.onCycle,
+    required this.onTimes,
+    required this.onDays,
+    this.label = 'Every',
+  });
+
+  final RepeatCadence cycle;
+  final int times;
+  final List<int> days; // 1=Mon … 7=Sun
+  final ValueChanged<RepeatCadence> onCycle;
+  final ValueChanged<int> onTimes;
+  final ValueChanged<List<int>> onDays;
+  final String label;
+
+  static const _cycles = [
+    (RepeatCadence.weekly, 'Weekly'),
+    (RepeatCadence.monthly, 'Monthly'),
+    (RepeatCadence.yearly, 'Yearly'),
+  ];
+  static const _dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Row 1: the base cycle.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          child: Row(
+            children: [
+              Text(label, style: orbitLabelStyle),
+              const Spacer(),
+              _Segmented(
+                options: [
+                  for (final (c, t) in _cycles) (c, t),
+                ],
+                isSelected: (c) => c == cycle,
+                onTap: (c) {
+                  HapticFeedback.selectionClick();
+                  onCycle(c);
+                },
+              ),
+            ],
+          ),
+        ),
+        const OrbitRowDivider(),
+        // Row 2: how many times per cycle.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          child: Row(
+            children: [
+              const Text('Times', style: orbitLabelStyle),
+              const SizedBox(width: 6),
+              // A live hint of what the choice means.
+              Expanded(
+                child: Text(
+                  _timesHint(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.inkFaint,
+                  ),
+                ),
+              ),
+              _Segmented<int>(
+                options: const [(1, '1×'), (2, '2×'), (3, '3×')],
+                isSelected: (n) => n == times,
+                onTap: (n) {
+                  HapticFeedback.selectionClick();
+                  onTimes(n);
+                },
+              ),
+            ],
+          ),
+        ),
+        // Row 3: weekday chips — only for Weekly.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          child: cycle == RepeatCadence.weekly
+              ? Column(
+                  children: [
+                    const OrbitRowDivider(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 13, 18, 15),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('On days', style: orbitLabelStyle),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              for (var d = 1; d <= 7; d++)
+                                _DayChip(
+                                  letter: _dayLetters[d - 1],
+                                  selected: days.contains(d),
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    final next = [...days];
+                                    if (next.contains(d)) {
+                                      next.remove(d);
+                                    } else {
+                                      next.add(d);
+                                    }
+                                    onDays(next);
+                                  },
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
+    );
+  }
+
+  String _timesHint() {
+    if (times <= 1) return 'once a ${cycle.unit}';
+    if (times == 2) return 'twice a ${cycle.unit}';
+    return '$times times a ${cycle.unit}';
+  }
+}
+
+/// A generic segmented control used by the frequency field.
+class _Segmented<T> extends StatelessWidget {
+  const _Segmented({
+    required this.options,
+    required this.isSelected,
+    required this.onTap,
+  });
+  final List<(T, String)> options;
+  final bool Function(T) isSelected;
+  final ValueChanged<T> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (val, text) in options)
+            GestureDetector(
+              onTap: () => onTap(val),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  gradient: isSelected(val)
+                      ? const LinearGradient(
+                          colors: [AppColors.accent, AppColors.accentDeep])
+                      : null,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: isSelected(val)
+                        ? Colors.white
+                        : AppColors.inkSoft,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A round weekday chip (M T W T F S S).
+class _DayChip extends StatelessWidget {
+  const _DayChip({
+    required this.letter,
+    required this.selected,
+    required this.onTap,
+  });
+  final String letter;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 38,
+        height: 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: selected
+              ? const LinearGradient(
+                  colors: [AppColors.accent, AppColors.accentDeep])
+              : null,
+          color: selected ? null : Colors.white.withValues(alpha: 0.05),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.glassBorder,
+          ),
+        ),
+        child: Text(
+          letter,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: selected ? Colors.white : AppColors.inkSoft,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Currency picker ──────────────────────────────────────────────────────────
 
 /// Opens the currency picker; returns the chosen code (INR/USD/KWD) or null.

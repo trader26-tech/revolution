@@ -159,6 +159,8 @@ class TaskStore extends ChangeNotifier {
     String? iconDomain,
     DateTime? dueAt,
     RepeatCadence repeat = RepeatCadence.none,
+    int repeatTimes = 1,
+    List<int> repeatDays = const [],
     double? amount,
     String? currency,
     String? category,
@@ -172,6 +174,8 @@ class TaskStore extends ChangeNotifier {
       'icon_domain': iconDomain,
       'due_at': ?dueAt?.toIso8601String(),
       'repeat': repeat.name,
+      'repeat_times': repeatTimes,
+      if (repeatDays.isNotEmpty) 'repeat_days': repeatDays,
       'amount': ?amount,
       'currency': ?currency,
       'category': ?category,
@@ -190,6 +194,13 @@ class TaskStore extends ChangeNotifier {
         subCategory.isNotEmpty) {
       created.subCategory = subCategory;
     }
+    // Server may not persist these yet — keep the user's choice locally.
+    if (created.repeatTimes == 1 && repeatTimes != 1) {
+      created.repeatTimes = repeatTimes;
+    }
+    if (created.repeatDays.isEmpty && repeatDays.isNotEmpty) {
+      created.repeatDays = repeatDays;
+    }
     _tasks.insert(0, created);
     notifyListeners();
     unawaited(_writeCache(_tasks));
@@ -206,6 +217,12 @@ class TaskStore extends ChangeNotifier {
     // round-trip — carry them over from what the caller intended to save.
     saved.subCategory ??= updated.subCategory;
     saved.imagePath ??= updated.imagePath;
+    if (saved.repeatTimes == 1 && updated.repeatTimes != 1) {
+      saved.repeatTimes = updated.repeatTimes;
+    }
+    if (saved.repeatDays.isEmpty && updated.repeatDays.isNotEmpty) {
+      saved.repeatDays = updated.repeatDays;
+    }
     final i = _tasks.indexWhere((t) => t.id == saved.id);
     if (i != -1) _tasks[i] = saved;
     notifyListeners();

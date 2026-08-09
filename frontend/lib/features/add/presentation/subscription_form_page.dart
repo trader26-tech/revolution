@@ -55,6 +55,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
   bool _iconTouched = false; // user picked a logo manually → stop auto-icon
   String _currency = 'INR'; // INR · USD · KWD
   late RepeatCadence _cycle = widget.initialCycle ?? RepeatCadence.monthly;
+  int _times = 1;
+  List<int> _days = const [];
   DateTime _firstPayment = DateTime.now();
   bool _freeTrial = false;
   int _remindDaysBefore = 1; // Notification lead time
@@ -90,6 +92,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
       _cycle = edit.repeat == RepeatCadence.none
           ? RepeatCadence.monthly
           : edit.repeat;
+      _times = edit.repeatTimes;
+      _days = [...edit.repeatDays];
       if (edit.dueAt != null) _firstPayment = edit.dueAt!;
       if (edit.subCategory != null && edit.subCategory!.trim().isNotEmpty) {
         _subCategory = edit.subCategory!.trim();
@@ -264,6 +268,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     HapticFeedback.lightImpact();
     final amount =
         double.tryParse(_amount.text.replaceAll(RegExp(r'[^0-9.]'), ''));
+    final days = _cycle == RepeatCadence.weekly ? _days : const <int>[];
     final edit = widget.editTask;
     if (edit != null) {
       // EDIT — return a copy with the same id so store.update patches it.
@@ -272,6 +277,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
           title: _name.text.trim(),
           dueAt: _firstPayment,
           repeat: _cycle,
+          repeatTimes: _times,
+          repeatDays: days,
           iconName: _iconName,
           iconDomain: _iconDomain,
           amount: amount,
@@ -289,6 +296,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
         title: _name.text.trim(),
         dueAt: _firstPayment,
         repeat: _cycle,
+        repeatTimes: _times,
+        repeatDays: days,
         iconName: _iconName,
         iconDomain: _iconDomain,
         amount: amount,
@@ -350,12 +359,17 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                           onTap: _pickDate,
                         ),
                         const _RowDivider(),
-                        _CycleRow(
-                          value: _cycle,
-                          onChanged: (c) => setState(() {
+                        OrbitFrequencyField(
+                          label: 'Every',
+                          cycle: _cycle,
+                          times: _times,
+                          days: _days,
+                          onCycle: (c) => setState(() {
                             _cycle = c;
                             _cycleTouched = true; // stop auto-filling the cycle
                           }),
+                          onTimes: (n) => setState(() => _times = n),
+                          onDays: (d) => setState(() => _days = d),
                         ),
                         const _RowDivider(),
                         _ToggleRow(
@@ -634,78 +648,6 @@ class _CategoryRow extends StatelessWidget {
   }
 }
 
-/// The billing-cycle row — a segmented inline picker (tap to cycle through, or
-/// long-press-free chips). Kept to the common four so it's one tap.
-class _CycleRow extends StatelessWidget {
-  const _CycleRow({required this.value, required this.onChanged});
-  final RepeatCadence value;
-  final ValueChanged<RepeatCadence> onChanged;
-
-  static const _options = [
-    (RepeatCadence.weekly, 'Weekly'),
-    (RepeatCadence.monthly, 'Monthly'),
-    (RepeatCadence.yearly, 'Yearly'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-      child: Row(
-        children: [
-          const Text('Cycle', style: _labelStyle),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.glassBorder),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final (cadence, label) in _options)
-                  GestureDetector(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      onChanged(cadence);
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        gradient: value == cadence
-                            ? const LinearGradient(colors: [
-                                AppColors.accent,
-                                AppColors.accentDeep
-                              ])
-                            : null,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: value == cadence
-                              ? Colors.white
-                              : AppColors.inkSoft,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A labelled toggle row.
 class _ToggleRow extends StatelessWidget {
   const _ToggleRow({
     required this.label,

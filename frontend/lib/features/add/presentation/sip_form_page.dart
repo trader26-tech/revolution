@@ -50,6 +50,8 @@ class _SipFormPageState extends State<SipFormPage> {
 
   String _currency = 'INR';
   RepeatCadence _cycle = RepeatCadence.monthly;
+  int _times = 1;
+  List<int> _days = const [];
   DateTime _nextDate = DateTime.now().add(const Duration(days: 30));
 
   String _subCategory = kOtherSipCategory; // auto-filled, editable
@@ -77,6 +79,8 @@ class _SipFormPageState extends State<SipFormPage> {
       _cycle = edit.repeat == RepeatCadence.none
           ? RepeatCadence.monthly
           : edit.repeat;
+      _times = edit.repeatTimes;
+      _days = [...edit.repeatDays];
       if (edit.dueAt != null) _nextDate = edit.dueAt!;
       if (edit.subCategory != null && edit.subCategory!.trim().isNotEmpty) {
         _subCategory = edit.subCategory!.trim();
@@ -178,6 +182,8 @@ class _SipFormPageState extends State<SipFormPage> {
     HapticFeedback.lightImpact();
     final amount =
         double.tryParse(_amount.text.replaceAll(RegExp(r'[^0-9.]'), ''));
+    // Weekdays only matter for a weekly repeat.
+    final days = _cycle == RepeatCadence.weekly ? _days : const <int>[];
     final edit = widget.editTask;
     if (edit != null) {
       Navigator.of(context).pop(
@@ -185,6 +191,8 @@ class _SipFormPageState extends State<SipFormPage> {
           title: _name.text.trim(),
           dueAt: _nextDate,
           repeat: _cycle,
+          repeatTimes: _times,
+          repeatDays: days,
           iconName: _iconName,
           iconDomain: _iconDomain,
           amount: amount,
@@ -202,6 +210,8 @@ class _SipFormPageState extends State<SipFormPage> {
         title: _name.text.trim(),
         dueAt: _nextDate,
         repeat: _cycle,
+        repeatTimes: _times,
+        repeatDays: days,
         iconName: _iconName,
         iconDomain: _iconDomain,
         amount: amount,
@@ -270,10 +280,14 @@ class _SipFormPageState extends State<SipFormPage> {
                           onTap: _pickDate,
                         ),
                         const OrbitRowDivider(),
-                        OrbitCycleRow(
+                        OrbitFrequencyField(
                           label: 'Every',
-                          value: _cycle,
-                          onChanged: (c) => setState(() => _cycle = c),
+                          cycle: _cycle,
+                          times: _times,
+                          days: _days,
+                          onCycle: (c) => setState(() => _cycle = c),
+                          onTimes: (n) => setState(() => _times = n),
+                          onDays: (d) => setState(() => _days = d),
                         ),
                       ],
                     ),

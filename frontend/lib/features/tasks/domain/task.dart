@@ -9,6 +9,36 @@ extension RepeatCadenceLabel on RepeatCadence {
         RepeatCadence.monthly => 'Monthly',
         RepeatCadence.yearly => 'Yearly',
       };
+
+  /// The unit word for a per-cycle count, e.g. "week" → "twice a week".
+  String get unit => switch (this) {
+        RepeatCadence.none => '',
+        RepeatCadence.daily => 'day',
+        RepeatCadence.weekly => 'week',
+        RepeatCadence.monthly => 'month',
+        RepeatCadence.yearly => 'year',
+      };
+}
+
+const _weekdayShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/// A human-readable frequency for a task — "Twice a week · Mon, Wed" etc.
+String frequencyLabel(RepeatCadence repeat, int times, List<int> days) {
+  if (repeat == RepeatCadence.none) return 'Never';
+  final base = times <= 1
+      ? repeat.label
+      : times == 2
+          ? 'Twice a ${repeat.unit}'
+          : '$times× a ${repeat.unit}';
+  if (repeat == RepeatCadence.weekly && days.isNotEmpty) {
+    final sorted = [...days]..sort();
+    final names = sorted
+        .where((d) => d >= 1 && d <= 7)
+        .map((d) => _weekdayShort[d - 1])
+        .join(', ');
+    return '$base · $names';
+  }
+  return base;
 }
 
 /// What kind of thing a reminder is — used to group the Home into per-category
@@ -98,6 +128,8 @@ class Task {
     this.reminderOn = true,
     this.dueAt,
     this.repeat = RepeatCadence.none,
+    this.repeatTimes = 1,
+    this.repeatDays = const [],
     this.iconName,
     this.iconDomain,
     this.amount,
@@ -119,6 +151,14 @@ class Task {
   DateTime? dueAt;
 
   RepeatCadence repeat;
+
+  /// How many TIMES per cycle it recurs — e.g. `repeat == weekly` with
+  /// `repeatTimes == 2` means "twice a week". Default 1.
+  int repeatTimes;
+
+  /// For a WEEKLY repeat, the specific weekdays it lands on (1 = Mon … 7 = Sun,
+  /// matching [DateTime.weekday]). Empty = no specific days chosen.
+  List<int> repeatDays;
 
   /// The brand/app icon attached to this task (optional). [iconName] seeds the
   /// letter-avatar fallback; [iconDomain] is the logo domain (empty/null → no
@@ -167,6 +207,8 @@ class Task {
     DateTime? dueAt,
     bool clearDueAt = false,
     RepeatCadence? repeat,
+    int? repeatTimes,
+    List<int>? repeatDays,
     String? iconName,
     String? iconDomain,
     double? amount,
@@ -185,6 +227,8 @@ class Task {
       reminderOn: reminderOn ?? this.reminderOn,
       dueAt: clearDueAt ? null : (dueAt ?? this.dueAt),
       repeat: repeat ?? this.repeat,
+      repeatTimes: repeatTimes ?? this.repeatTimes,
+      repeatDays: repeatDays ?? this.repeatDays,
       iconName: iconName ?? this.iconName,
       iconDomain: iconDomain ?? this.iconDomain,
       amount: clearAmount ? null : (amount ?? this.amount),
@@ -205,6 +249,8 @@ class Task {
         'reminder_on': reminderOn,
         'due_at': dueAt?.toIso8601String(),
         'repeat': repeat.name,
+        'repeat_times': repeatTimes,
+        if (repeatDays.isNotEmpty) 'repeat_days': repeatDays,
         'icon_name': iconName,
         'icon_domain': iconDomain,
         'amount': amount,
@@ -228,6 +274,11 @@ class Task {
           (r) => r.name == j['repeat'],
           orElse: () => RepeatCadence.none,
         ),
+        repeatTimes: (j['repeat_times'] as num?)?.toInt() ?? 1,
+        repeatDays: (j['repeat_days'] as List?)
+                ?.map((e) => (e as num).toInt())
+                .toList() ??
+            const [],
         iconName: j['icon_name'] as String?,
         iconDomain: j['icon_domain'] as String?,
         amount: (j['amount'] as num?)?.toDouble(),

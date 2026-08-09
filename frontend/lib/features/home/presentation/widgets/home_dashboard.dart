@@ -618,7 +618,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 192,
+            height: 206,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),

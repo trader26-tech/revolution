@@ -36,11 +36,13 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
   DateTime _date = DateTime(DateTime.now().year, DateTime.now().month,
       DateTime.now().day); // the day/month it recurs
   bool _knowYear = false; // whether the year (age) is known
-  String _relationship = kDefaultRelationship;
-  final Set<String> _customRelationships = {};
+  String _type = kDefaultImportantDate; // event type (Birthday/Anniversary/…)
+  final Set<String> _customTypes = {};
   int _remindDaysBefore = 0;
 
   bool get _valid => _name.text.trim().isNotEmpty;
+
+  bool get _isBirthday => _type.toLowerCase() == 'birthday';
 
   static const _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -52,8 +54,16 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
     super.initState();
     final edit = widget.editTask;
     if (edit != null) {
-      // Recover the person's name from the stored title ("Aditya’s birthday").
-      _name.text = _personFrom(edit.title);
+      // The event type is stored on subCategory; recover the person/subject
+      // name by stripping the type's possessive suffix from the title.
+      if (edit.subCategory != null && edit.subCategory!.trim().isNotEmpty) {
+        _type = edit.subCategory!.trim();
+        if (!kImportantDateTypes
+            .any((c) => c.name.toLowerCase() == _type.toLowerCase())) {
+          _customTypes.add(_type);
+        }
+      }
+      _name.text = _subjectFrom(edit.title, _type);
       _photo = edit.imagePath;
       if (edit.dueAt != null) {
         _date = DateTime(
@@ -64,25 +74,31 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
       if (edit.birthYear != null) {
         _date = DateTime(edit.birthYear!, _date.month, _date.day);
       }
-      if (edit.subCategory != null && edit.subCategory!.trim().isNotEmpty) {
-        _relationship = edit.subCategory!.trim();
-        if (!kRelationships
-            .any((c) => c.name.toLowerCase() == _relationship.toLowerCase())) {
-          _customRelationships.add(_relationship);
-        }
-      }
       _remindDaysBefore = edit.remindDaysBefore;
     }
     _name.addListener(() => setState(() {}));
   }
 
-  String _personFrom(String title) {
-    // Strip a trailing "’s birthday" / "’ birthday".
+  /// Strip a trailing "’s `noun`" for the current [type] to recover the name.
+  String _subjectFrom(String title, String type) {
+    final noun = type.toLowerCase() == 'other' ? '' : type.toLowerCase();
+    if (noun.isEmpty) return title.trim();
     return title
-        .replaceAll(RegExp(r"[’']s birthday$"), '')
-        .replaceAll(RegExp(r"[’'] birthday$"), '')
+        .replaceAll(RegExp("[’']s $noun\$"), '')
+        .replaceAll(RegExp("[’'] $noun\$"), '')
         .trim();
   }
+
+  /// Field hint + date-picker title per type.
+  String get _nameHint => switch (_type.toLowerCase()) {
+        'birthday' => 'Whose birthday?',
+        'anniversary' => 'Whose anniversary?',
+        'wedding' => 'Whose wedding?',
+        'memorial' => 'In memory of…',
+        _ => 'What is it?',
+      };
+
+  String get _dateTitle => _isBirthday ? 'Date of birth' : 'The date';
 
   @override
   void dispose() {
@@ -112,24 +128,26 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
       initial: _date,
       firstDate: DateTime(DateTime.now().year - 100),
       lastDate: DateTime(DateTime.now().year + 1, 12, 31),
-      title: 'Date of birth',
+      title: _dateTitle,
     );
     if (picked != null) setState(() => _date = picked);
   }
 
-  Future<void> _pickRelationship() async {
+  Future<void> _pickType() async {
     final picked = await showCategoryPicker(
       context,
-      categories: kRelationships,
-      selected: _relationship,
-      custom: _customRelationships.toList(),
+      categories: kImportantDateTypes,
+      selected: _type,
+      custom: _customTypes.toList(),
     );
     if (picked != null && picked.trim().isNotEmpty) {
       setState(() {
-        _relationship = picked.trim();
-        final isBuiltIn = kRelationships
+        _type = picked.trim();
+        final isBuiltIn = kImportantDateTypes
             .any((c) => c.name.toLowerCase() == picked.trim().toLowerCase());
-        if (!isBuiltIn) _customRelationships.add(picked.trim());
+        if (!isBuiltIn) _customTypes.add(picked.trim());
+        // Non-birthday types don't carry an age → turn off the year.
+        if (!_isBirthday) _knowYear = false;
       });
     }
   }
@@ -137,13 +155,11 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
   void _save() {
     if (!_valid) return;
     HapticFeedback.lightImpact();
-    final person = _name.text.trim();
-    final title = person.endsWith('s')
-        ? '$person’ birthday'
-        : '$person’s birthday';
-    // The reminder recurs yearly on the day/month; the year field is stored
-    // separately as birthYear (only when known).
+    final title = importantDateTitle(_type, _name.text);
+    // Recurs yearly on the day/month; the year is stored separately as
+    // birthYear (only when known, only meaningful for a birthday).
     final due = DateTime(DateTime.now().year, _date.month, _date.day);
+    final keepYear = _isBirthday && _knowYear;
     final edit = widget.editTask;
     if (edit != null) {
       Navigator.of(context).pop(edit.copyWith(
@@ -153,9 +169,9 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
         imagePath: _photo,
         clearImage: _photo == null,
         category: TaskCategory.birthday,
-        subCategory: _relationship,
-        birthYear: _knowYear ? _date.year : null,
-        clearBirthYear: !_knowYear,
+        subCategory: _type,
+        birthYear: keepYear ? _date.year : null,
+        clearBirthYear: !keepYear,
         remindDaysBefore: _remindDaysBefore,
       ));
       return;
@@ -167,8 +183,8 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
       repeat: RepeatCadence.yearly,
       imagePath: _photo,
       storedCategory: TaskCategory.birthday,
-      subCategory: _relationship,
-      birthYear: _knowYear ? _date.year : null,
+      subCategory: _type,
+      birthYear: keepYear ? _date.year : null,
       remindDaysBefore: _remindDaysBefore,
     ));
   }
@@ -185,8 +201,8 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
             children: [
               OrbitFormHeader(
                 title: widget.editTask != null
-                    ? 'Edit birthday'
-                    : 'Add a birthday',
+                    ? 'Edit important date'
+                    : 'Add important date',
                 canSave: _valid,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
@@ -200,6 +216,7 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
                       photo: _photo,
                       name: _name,
                       nameFocus: _nameFocus,
+                      hint: _nameHint,
                       onPickPhoto: (p) => setState(() => _photo = p),
                     ),
                     const SizedBox(height: 22),
@@ -207,26 +224,30 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
                     // Details.
                     OrbitGroupCard(
                       children: [
+                        // The event TYPE — the primary dimension.
+                        OrbitCategoryRow(
+                          value: _type,
+                          onTap: _pickType,
+                        ),
+                        const OrbitRowDivider(),
                         OrbitNavRow(
-                          label: 'Date of birth',
+                          label: _isBirthday ? 'Date of birth' : 'Date',
                           value: _dateLabel(),
                           onTap: _pickDate,
                         ),
-                        const OrbitRowDivider(),
-                        _ToggleRow(
-                          label: 'I know the year',
-                          value: _knowYear,
-                          onChanged: (v) => setState(() => _knowYear = v),
-                        ),
-                        if (_knowYear && _age != null) ...[
+                        // Year/age only make sense for a birthday.
+                        if (_isBirthday) ...[
                           const OrbitRowDivider(),
-                          _AgeRow(age: _age!),
+                          _ToggleRow(
+                            label: 'I know the year',
+                            value: _knowYear,
+                            onChanged: (v) => setState(() => _knowYear = v),
+                          ),
+                          if (_knowYear && _age != null) ...[
+                            const OrbitRowDivider(),
+                            _AgeRow(age: _age!),
+                          ],
                         ],
-                        const OrbitRowDivider(),
-                        OrbitCategoryRow(
-                          value: _relationship,
-                          onTap: _pickRelationship,
-                        ),
                         const OrbitRowDivider(),
                         _RemindRow(
                           days: _remindDaysBefore,
@@ -273,11 +294,13 @@ class _IdentityCard extends StatelessWidget {
     required this.photo,
     required this.name,
     required this.nameFocus,
+    required this.hint,
     required this.onPickPhoto,
   });
   final String? photo;
   final TextEditingController name;
   final FocusNode nameFocus;
+  final String hint;
   final ValueChanged<String?> onPickPhoto;
 
   @override
@@ -354,10 +377,10 @@ class _IdentityCard extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                     color: AppColors.ink,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Whose birthday?',
-                    hintStyle: TextStyle(
+                    hintText: hint,
+                    hintStyle: const TextStyle(
                       color: AppColors.inkFaint,
                       fontWeight: FontWeight.w700,
                     ),

@@ -113,14 +113,14 @@ class _CollectionPageState extends State<CollectionPage> {
   /// The built-in category set for the current collection.
   List<SubCategory> get _catSet => switch (category) {
         TaskCategory.investment => kSipCategories,
-        TaskCategory.birthday => kRelationships,
+        TaskCategory.birthday => kImportantDateTypes,
         _ => kSubCategories,
       };
 
   String _subOf(Task t) {
     final def = switch (category) {
       TaskCategory.investment => kOtherSipCategory,
-      TaskCategory.birthday => kDefaultRelationship,
+      TaskCategory.birthday => kDefaultImportantDate,
       _ => kOtherSubCategory,
     };
     return (t.subCategory == null || t.subCategory!.trim().isEmpty)

@@ -32,7 +32,20 @@ const List<SubCategory> kSipCategories = [
   SubCategory('Goal', Icons.flag_rounded),
 ];
 
-/// The built-in relationships for important dates / birthdays, in display order.
+/// The built-in EVENT TYPES for Important dates, in display order. This is the
+/// primary dimension the collection groups by.
+const List<SubCategory> kImportantDateTypes = [
+  SubCategory('Birthday', Icons.cake_rounded),
+  SubCategory('Anniversary', Icons.favorite_rounded),
+  SubCategory('Wedding', Icons.diamond_rounded),
+  SubCategory('Memorial', Icons.local_florist_rounded),
+  SubCategory('Other', Icons.event_rounded),
+];
+
+/// The default event type.
+const String kDefaultImportantDate = 'Birthday';
+
+/// The (optional, secondary) relationships for an important date.
 const List<SubCategory> kRelationships = [
   SubCategory('Family', Icons.family_restroom_rounded),
   SubCategory('Friend', Icons.people_rounded),
@@ -44,12 +57,37 @@ const List<SubCategory> kRelationships = [
 /// The default relationship.
 const String kDefaultRelationship = 'Friend';
 
+/// The natural possessive event phrase for a smart title, e.g. Birthday →
+/// "`name`’s birthday", Anniversary → "`name`’s anniversary", Wedding →
+/// "`name`’s wedding". "Other" keeps whatever the user typed.
+String importantDateTitle(String type, String name) {
+  final n = name.trim();
+  if (n.isEmpty) return n;
+  final t = type.toLowerCase();
+  if (t == 'other') return n; // free-form
+  // Possessive that reads naturally ("Aditya’s", "Chris’").
+  final poss = n.endsWith('s') ? '$n’' : '$n’s';
+  final noun = switch (t) {
+    'birthday' => 'birthday',
+    'anniversary' => 'anniversary',
+    'wedding' => 'wedding',
+    'memorial' => 'memorial',
+    _ => t, // a custom type → use it verbatim
+  };
+  return '$poss $noun';
+}
+
 /// Look up the icon for a category name across ALL known category sets, or a
 /// default for a custom one.
 IconData subCategoryIcon(String? name) {
   if (name == null) return Icons.category_rounded;
   final lower = name.toLowerCase();
-  for (final c in [...kSubCategories, ...kSipCategories, ...kRelationships]) {
+  for (final c in [
+    ...kSubCategories,
+    ...kSipCategories,
+    ...kImportantDateTypes,
+    ...kRelationships,
+  ]) {
     if (c.name.toLowerCase() == lower) return c.icon;
   }
   return Icons.bookmark_rounded; // a custom category

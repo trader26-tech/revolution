@@ -339,6 +339,95 @@ class BrandCatalog {
     return Brand(name: q, domain: '');
   }
 
+  /// The investment PLATFORMS shown in the SIP form's picker — brokers, mutual-
+  /// fund apps, new-age fintechs, and the banks people run SIPs through. Logos
+  /// auto-load by domain. Ordered by how commonly Indians invest through them.
+  static const List<Brand> sipPlatforms = [
+    // Discount brokers / new-age
+    Brand(name: 'Zerodha', domain: 'zerodha.com'),
+    Brand(name: 'Groww', domain: 'groww.in'),
+    Brand(name: 'Upstox', domain: 'upstox.com'),
+    Brand(name: 'Angel One', domain: 'angelone.in'),
+    Brand(name: 'Dhan', domain: 'dhan.co'),
+    Brand(name: 'Fyers', domain: 'fyers.in'),
+    Brand(name: 'Paytm Money', domain: 'paytmmoney.com'),
+    Brand(name: '5paisa', domain: '5paisa.com'),
+    // Mutual-fund / wealth apps
+    Brand(name: 'Coin by Zerodha', domain: 'coin.zerodha.com'),
+    Brand(name: 'Kuvera', domain: 'kuvera.in'),
+    Brand(name: 'ET Money', domain: 'etmoney.com'),
+    Brand(name: 'INDmoney', domain: 'indmoney.com'),
+    Brand(name: 'smallcase', domain: 'smallcase.com'),
+    Brand(name: 'Groww MF', domain: 'groww.in'),
+    Brand(name: 'Navi', domain: 'navi.com'),
+    Brand(name: 'Zfunds', domain: 'zfunds.in'),
+    Brand(name: 'MF Central', domain: 'mfcentral.com'),
+    Brand(name: 'Kfintech', domain: 'kfintech.com'),
+    Brand(name: 'CAMS', domain: 'camsonline.com'),
+    // AMCs (fund houses) people SIP into directly
+    Brand(name: 'SBI Mutual Fund', domain: 'sbimf.com'),
+    Brand(name: 'HDFC Mutual Fund', domain: 'hdfcfund.com'),
+    Brand(name: 'ICICI Prudential MF', domain: 'icicipruamc.com'),
+    Brand(name: 'Axis Mutual Fund', domain: 'axismf.com'),
+    Brand(name: 'Nippon India MF', domain: 'mf.nipponindiaim.com'),
+    Brand(name: 'Kotak Mutual Fund', domain: 'kotakmf.com'),
+    Brand(name: 'Mirae Asset', domain: 'miraeassetmf.co.in'),
+    Brand(name: 'Parag Parikh MF', domain: 'amc.ppfas.com'),
+    Brand(name: 'Quant Mutual Fund', domain: 'quantmutual.com'),
+    Brand(name: 'UTI Mutual Fund', domain: 'utimf.com'),
+    Brand(name: 'Tata Mutual Fund', domain: 'tatamutualfund.com'),
+    Brand(name: 'DSP Mutual Fund', domain: 'dspim.com'),
+    Brand(name: 'Motilal Oswal MF', domain: 'motilaloswalmf.com'),
+    // Banks (many run SIPs / RDs / bank-linked funds)
+    Brand(name: 'HDFC Bank', domain: 'hdfcbank.com'),
+    Brand(name: 'ICICI Bank', domain: 'icicibank.com'),
+    Brand(name: 'SBI', domain: 'sbi.co.in'),
+    Brand(name: 'Axis Bank', domain: 'axisbank.com'),
+    Brand(name: 'Kotak', domain: 'kotak.com'),
+    // Gold / alt
+    Brand(name: 'Jar', domain: 'myjar.app'),
+    Brand(name: 'Gullak', domain: 'gullak.money'),
+    Brand(name: 'MobiKwik Xtra', domain: 'mobikwik.com'),
+    // Global
+    Brand(name: 'Vested', domain: 'vestedfinance.com'),
+    Brand(name: 'Interactive Brokers', domain: 'interactivebrokers.com'),
+  ];
+
+  /// Curated platforms whose name matches [query] (SIP form picker). Free-typed
+  /// guess first (so any platform works), then curated matches; de-duped.
+  static List<Brand> searchPlatforms(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return _dedupe(sipPlatforms);
+    final ordered = <Brand>[
+      resolve(query),
+      ...sipPlatforms.where((b) => b.name.toLowerCase().contains(q)),
+    ];
+    return _dedupe(ordered);
+  }
+
+  /// Resolve a KNOWN platform's logo from a typed name — covers the platforms
+  /// shelf (broker/AMC/fintech/bank). Empty domain when nothing known matches.
+  static Brand resolvePlatform(String query) {
+    final q = query.trim();
+    final lower = q.toLowerCase();
+    if (lower.isEmpty) return Brand(name: q, domain: '');
+
+    final known = resolveKnown(q);
+    if (known.domain.isNotEmpty) return known;
+
+    for (final b in sipPlatforms) {
+      if (b.name.toLowerCase() == lower) return b;
+    }
+    Brand? best;
+    for (final b in sipPlatforms) {
+      final name = b.name.toLowerCase();
+      if (name.contains(lower) || lower.contains(name)) {
+        if (best == null || b.name.length < best.name.length) best = b;
+      }
+    }
+    return best ?? Brand(name: q, domain: '');
+  }
+
   /// A few common name → domain aliases so short/informal names still resolve.
   /// Name → domain for apps whose logo domain isn't just `<name>.com`. This is
   /// what pushes coverage to ~90-95% — anything not here still falls back to a

@@ -11,10 +11,18 @@ import 'brand_logo.dart';
 /// The user can type ANY name: popular brands surface as they type, and the
 /// free-typed name is always offered as the first result — so any app/company
 /// logo can be added. Smooth, instant, offline-safe.
+/// Which curated shelf the picker shows before the user types.
+enum BrandPickerMode { all, subscriptions, platforms }
+
 Future<Brand?> showBrandPicker(
   BuildContext context, {
   bool subscriptionsOnly = false,
+  BrandPickerMode mode = BrandPickerMode.all,
 }) {
+  // `subscriptionsOnly` kept for back-compat; `mode` wins when set.
+  final resolved = mode != BrandPickerMode.all
+      ? mode
+      : (subscriptionsOnly ? BrandPickerMode.subscriptions : BrandPickerMode.all);
   return showModalBottomSheet<Brand>(
     context: context,
     isScrollControlled: true,
@@ -22,16 +30,17 @@ Future<Brand?> showBrandPicker(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (_) => _BrandPickerSheet(subscriptionsOnly: subscriptionsOnly),
+    builder: (_) => _BrandPickerSheet(mode: resolved),
   );
 }
 
 class _BrandPickerSheet extends StatefulWidget {
-  const _BrandPickerSheet({this.subscriptionsOnly = false});
+  const _BrandPickerSheet({this.mode = BrandPickerMode.all});
 
-  /// When true, only India's top subscriptions are shown (a curated shelf) —
-  /// used from the Subscriptions add flow.
-  final bool subscriptionsOnly;
+  /// The curated shelf to show (subscriptions / investment platforms / general).
+  final BrandPickerMode mode;
+
+  bool get curated => mode != BrandPickerMode.all;
 
   @override
   State<_BrandPickerSheet> createState() => _BrandPickerSheetState();
@@ -55,9 +64,12 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
     super.dispose();
   }
 
-  List<Brand> get _results => widget.subscriptionsOnly
-      ? BrandCatalog.searchSubscriptions(_query)
-      : BrandCatalog.search(_query);
+  List<Brand> get _results => switch (widget.mode) {
+        BrandPickerMode.subscriptions =>
+          BrandCatalog.searchSubscriptions(_query),
+        BrandPickerMode.platforms => BrandCatalog.searchPlatforms(_query),
+        BrandPickerMode.all => BrandCatalog.search(_query),
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -78,9 +90,11 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
               child: Row(
                 children: [
                   Text(
-                      widget.subscriptionsOnly
-                          ? 'Choose a subscription'
-                          : 'Choose an icon',
+                      switch (widget.mode) {
+                        BrandPickerMode.subscriptions => 'Choose a subscription',
+                        BrandPickerMode.platforms => 'Choose a platform',
+                        BrandPickerMode.all => 'Choose an icon',
+                      },
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                             color: AppColors.ink,
@@ -102,15 +116,15 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
             // duplicates). Browsing → category-wise sections of top brand logos.
             Expanded(
               child: _query.trim().isEmpty
-                  ? (widget.subscriptionsOnly
-                      ? _subscriptionsBrowser()
+                  ? (widget.curated
+                      ? _curatedBrowser()
                       : _categoryBrowser())
                   : Column(
                       children: [
                         _sectionLabel('Results'),
                         Expanded(
                             child: _resultsList(_results,
-                                circular: widget.subscriptionsOnly)),
+                                circular: widget.curated)),
                       ],
                     ),
             ),
@@ -145,10 +159,12 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
         ),
       );
 
-  /// The Subscriptions shelf — one grid of India's top subscriptions, logos
-  /// only. Curated, so the picker feels like a purpose-built app store.
-  Widget _subscriptionsBrowser() {
-    final subs = BrandCatalog.searchSubscriptions('');
+  /// A curated shelf — one grid of the mode's brands (subscriptions or SIP
+  /// platforms), logos only. Feels like a purpose-built store.
+  Widget _curatedBrowser() {
+    final items = widget.mode == BrandPickerMode.platforms
+        ? BrandCatalog.searchPlatforms('')
+        : BrandCatalog.searchSubscriptions('');
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -157,11 +173,11 @@ class _BrandPickerSheetState extends State<_BrandPickerSheet> {
         crossAxisSpacing: 8,
         childAspectRatio: 0.82,
       ),
-      itemCount: subs.length,
+      itemCount: items.length,
       itemBuilder: (_, i) => _BrandCell(
-        brand: subs[i],
+        brand: items[i],
         circular: true, // clean circular badge, no white square
-        onTap: () => Navigator.pop(context, subs[i]),
+        onTap: () => Navigator.pop(context, items[i]),
       ),
     );
   }

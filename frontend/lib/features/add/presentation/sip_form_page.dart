@@ -111,8 +111,9 @@ class _SipFormPageState extends State<SipFormPage> {
   }
 
   Future<void> _pickPlatform() async {
-    // The general brand picker (banks/brokers live there), not subs-only.
-    final brand = await showBrandPicker(context);
+    // A curated shelf of investment platforms (Zerodha, Groww, AMCs, banks…).
+    final brand =
+        await showBrandPicker(context, mode: BrandPickerMode.platforms);
     if (brand != null) {
       setState(() {
         _iconName = brand.name;

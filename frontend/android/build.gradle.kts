@@ -22,20 +22,20 @@ subprojects {
 // Force every Android module (the app AND all Flutter plugin subprojects) to
 // compile against SDK 36. Some plugins (flutter_plugin_android_lifecycle,
 // file_picker) require callers to compile against 36+, but the plugins
-// themselves still default to 34 — which fails their AAR metadata check. Setting
-// it here, after each subproject is configured, brings the whole build in line.
+// themselves still default to 34 — which fails their AAR metadata check. We do
+// it in afterEvaluate (once each subproject's Android extension exists) via the
+// common BaseExtension, so it covers both library and application modules.
 subprojects {
-    plugins.withId("com.android.library") {
-        extensions.configure<com.android.build.gradle.LibraryExtension> {
-            if (compileSdk == null || compileSdk!! < 36) {
-                compileSdk = 36
-            }
-        }
+    // Hook fires when the Android Gradle plugin is applied to the subproject —
+    // its `android` extension exists by then, and this runs before the project
+    // finishes evaluating (so it's not "already evaluated" like afterEvaluate).
+    pluginManager.withPlugin("com.android.library") {
+        (extensions.getByName("android") as com.android.build.gradle.BaseExtension)
+            .compileSdkVersion(36)
     }
-    plugins.withId("com.android.application") {
-        extensions.configure<com.android.build.gradle.AppExtension> {
-            compileSdkVersion(36)
-        }
+    pluginManager.withPlugin("com.android.application") {
+        (extensions.getByName("android") as com.android.build.gradle.BaseExtension)
+            .compileSdkVersion(36)
     }
 }
 

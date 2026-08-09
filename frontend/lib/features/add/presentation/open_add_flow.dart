@@ -29,9 +29,12 @@ Future<AddResult?> openAddFlow(BuildContext context, TaskStore store) async {
   );
   if (pick == null || !context.mounted) return null;
 
-  // Birthdays get their own tailored form (person + date, no price/cycle).
+  // Birthdays get their own tailored form (person + date, no price/cycle) —
+  // whether a specific birthday item was tapped OR the whole "Important dates"
+  // category row was chosen.
   final isBirthday = pick.item?.label == 'Birthday' ||
-      pick.item?.label == 'Wedding anniversary';
+      pick.item?.label == 'Wedding anniversary' ||
+      pick.category?.key == 'important_dates';
   if (isBirthday) {
     final task = await Navigator.of(context).push<Task>(
       MaterialPageRoute(

@@ -68,6 +68,18 @@ class _AddPickerPageState extends State<AddPickerPage> {
     );
   }
 
+  /// Tapping a category row → open that category's form (no specific item).
+  void _pickCategory(ReminderCategory cat) {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).pop(AddPickerResult.other(cat));
+  }
+
+  /// "Add a reminder" → a blank general reminder.
+  void _pickBlank() {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).pop(const AddPickerResult.blank());
+  }
+
   void _addTyped() {
     final q = _query.trim();
     if (q.isEmpty) return;
@@ -110,7 +122,10 @@ class _AddPickerPageState extends State<AddPickerPage> {
                       onPick: _pickItem,
                       onAddTyped: _addTyped,
                     )
-                  : _Browse(onPick: _pickItem),
+                  : _Browse(
+                      onPickCategory: _pickCategory,
+                      onBlank: _pickBlank,
+                    ),
             ),
             _SearchBar(controller: _search),
           ],
@@ -180,77 +195,132 @@ class _CancelPill extends StatelessWidget {
   }
 }
 
-// ── Browse (default) ─────────────────────────────────────────────────────────
+// ── Browse (default): a clean list of CATEGORIES ─────────────────────────────
+
+/// A short, human blurb per category for the row's second line.
+String _blurbFor(String key) => switch (key) {
+      'important_dates' => 'Birthdays, anniversaries, big days',
+      'subscriptions' => 'Netflix, Prime, Spotify, gym…',
+      'insurance' => 'Health, car, life — with the policy',
+      'bills' => 'Electricity, rent, phone, internet',
+      'investments' => 'SIPs, mutual funds, premiums',
+      'documents' => 'Passport, licence, PAN, visa',
+      'health_home' => 'Appointments, services, maintenance',
+      _ => 'Reminders in this category',
+    };
 
 class _Browse extends StatelessWidget {
-  const _Browse({required this.onPick});
-  final void Function(ReminderCategory, ReminderItem) onPick;
+  const _Browse({required this.onPickCategory, required this.onBlank});
+  final void Function(ReminderCategory) onPickCategory;
+  final VoidCallback onBlank;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.only(top: 4, bottom: 16),
+      padding: const EdgeInsets.only(top: 6, bottom: 16),
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
-          child: Text(
-            'What should we remember?',
-            style: TextStyle(
-              fontSize: 15,
-              color: AppColors.inkSoft,
-              fontWeight: FontWeight.w500,
-            ),
+        // Pick a category — one clean, tappable row each.
+        for (final cat in kReminderCatalog)
+          _CategoryRow(
+            title: cat.title,
+            blurb: _blurbFor(cat.key),
+            icon: cat.icon,
+            color: cat.color,
+            onTap: () => onPickCategory(cat),
           ),
+        const _RowDivider(),
+        // The catch-all: a blank reminder, no category.
+        _CategoryRow(
+          title: 'Add a reminder',
+          blurb: 'Anything else — just a name & date',
+          icon: Icons.add_alert_rounded,
+          color: AppColors.inkSoft,
+          onTap: onBlank,
         ),
-        for (final cat in kReminderCatalog) _CategorySection(cat: cat, onPick: onPick),
       ],
     );
   }
 }
 
-/// One category: a coloured header chip + its item rows.
-class _CategorySection extends StatelessWidget {
-  const _CategorySection({required this.cat, required this.onPick});
-  final ReminderCategory cat;
-  final void Function(ReminderCategory, ReminderItem) onPick;
+/// One category row — a coloured logo tile, title + blurb, and a chevron. Clean
+/// and scannable, like a native list.
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({
+    required this.title,
+    required this.blurb,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+  final String title;
+  final String blurb;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-          child: Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: cat.color.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(cat.icon, size: 17, color: cat.color),
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(13),
               ),
-              const SizedBox(width: 10),
-              Text(
-                cat.title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                  letterSpacing: -0.2,
-                ),
+              child: Icon(icon, size: 23, color: color),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    blurb,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.inkFaint,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded,
+                size: 22, color: AppColors.inkFaint.withValues(alpha: 0.7)),
+          ],
         ),
-        for (final item in cat.items)
-          _ItemRow(cat: cat, item: item, onTap: () => onPick(cat, item)),
-      ],
+      ),
     );
   }
+}
+
+class _RowDivider extends StatelessWidget {
+  const _RowDivider();
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.fromLTRB(80, 4, 20, 4),
+        child: Divider(height: 1, color: AppColors.hairline),
+      );
 }
 
 /// One reminder row: a soft accent icon tile, the label, and a trailing "+".

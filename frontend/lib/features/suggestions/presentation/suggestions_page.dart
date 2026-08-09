@@ -193,6 +193,10 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // When there's nothing to show (empty / loading / error), collapse the
+    // header to JUST the top bar — the centred state below carries the single
+    // Revo + message, so the screen never stacks two Revos / two titles.
+    final showFullHeader = _items != null && _items!.isNotEmpty;
     return Scaffold(
       extendBody: true,
       backgroundColor: Colors.transparent,
@@ -200,7 +204,11 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Header(onPost: _openComposer, posting: _posting),
+            _Header(
+              onPost: _openComposer,
+              posting: _posting,
+              compact: !showFullHeader,
+            ),
             Expanded(child: _body()),
           ],
         ),
@@ -293,9 +301,18 @@ class _SuggestionsPageState extends State<SuggestionsPage> {
 /// gradient title given room to breathe. The Suggest action lives below it as a
 /// clean full-width CTA rather than crammed into the title row.
 class _Header extends StatelessWidget {
-  const _Header({required this.onPost, required this.posting});
+  const _Header({
+    required this.onPost,
+    required this.posting,
+    this.compact = false,
+  });
   final VoidCallback onPost;
   final bool posting;
+
+  /// When true, show ONLY the top bar (Suggest button) — used on the empty /
+  /// loading / error screens where the centred state carries the Revo + title,
+  /// so the page never shows two of them.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -351,60 +368,62 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        // ── Revo + title, below the bar (like the Home greeting) ──
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(
-                  width: 60, height: 60, child: AnimatedMascot(size: 60)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.lightbulb_rounded,
-                            size: 13, color: AppColors.accent),
-                        const SizedBox(width: 6),
-                        Text(
-                          'IDEAS BOARD',
+        // ── Revo + title, below the bar (like the Home greeting) ── hidden on
+        // empty/loading/error so the centred state is the only "level".
+        if (!compact)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(
+                    width: 60, height: 60, child: AnimatedMascot(size: 60)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.lightbulb_rounded,
+                              size: 13, color: AppColors.accent),
+                          const SizedBox(width: 6),
+                          Text(
+                            'IDEAS BOARD',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 2.2,
+                              color: AppColors.accent.withValues(alpha: 0.85),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      ShaderMask(
+                        shaderCallback: (r) => const LinearGradient(
+                          colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                        ).createShader(r),
+                        child: const Text(
+                          'Shape Revolution',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 10.5,
+                            fontSize: 23,
+                            height: 1.1,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 2.2,
-                            color: AppColors.accent.withValues(alpha: 0.85),
+                            letterSpacing: -0.6,
+                            color: Colors.white,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    ShaderMask(
-                      shaderCallback: (r) => const LinearGradient(
-                        colors: [AppColors.ink, Color(0xFFB9A8FF)],
-                      ).createShader(r),
-                      child: const Text(
-                        'Shape Revolution',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 23,
-                          height: 1.1,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.6,
-                          color: Colors.white,
-                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -937,7 +956,7 @@ class _EmptyState extends StatelessWidget {
                     color: AppColors.ink)),
             const SizedBox(height: 6),
             const Text(
-              'Be the first — tell us what to build next. Revo’s listening.',
+              'Suggest one to get started — Revo’s listening.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.inkSoft, height: 1.35),
             ),

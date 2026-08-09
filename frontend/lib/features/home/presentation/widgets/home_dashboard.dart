@@ -1110,10 +1110,9 @@ class _SipCard extends StatelessWidget {
           : const Icon(Icons.trending_up_rounded,
               size: 40, color: AppColors.accent),
       title: task.title,
-      // "You invest" makes the direction unmistakable — this is money going OUT
-      // to work for you, not a credit landing in your account.
+      // The sub-category + cadence — e.g. "Mutual Funds · monthly SIP".
       subtitle: has
-          ? '${task.subCategory ?? 'SIP'} · you invest'
+          ? '${task.subCategory ?? 'SIP'} · ${frequencyLabel(task.repeat, task.repeatTimes).toLowerCase()} SIP'
           : 'SIP instalment',
       highlight: has
           ? _sipPunch(task, byWhen)
@@ -1346,7 +1345,7 @@ class _ParticleFieldPainter extends CustomPainter {
       case _Particles.confetti:
         _confetti(canvas, size);
       case _Particles.coins:
-        _coinsRising(canvas, size); // money set ASIDE to invest — rises up
+        _valueRings(canvas, size); // symmetric rings radiating from the amount
       case _Particles.drift:
         _driftUp(canvas, size);
       case _Particles.pulse:
@@ -1367,24 +1366,26 @@ class _ParticleFieldPainter extends CustomPainter {
     }
   }
 
-  // Coins RISING: little coin ovals float upward from the base — money being
-  // set aside and put to work (investing / growing), not raining in as credit.
-  void _coinsRising(Canvas canvas, Size size) {
-    for (final s in _seeds) {
-      final x = s[0] * size.width;
-      final phase = (t + s[2]) % 1.0;
-      final y = size.height - phase * size.height; // bottom → top
-      final op = math.sin(phase * math.pi) * 0.55;
+  // SIP: clean, SYMMETRIC concentric rings that expand and fade from the centre
+  // behind the amount — steady value radiating outward. Calm and even, never the
+  // messy scattered look of the old rising coins.
+  void _valueRings(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    const rings = 3;
+    final maxR = size.width * 0.42;
+    for (var i = 0; i < rings; i++) {
+      final phase = (t + i / rings) % 1.0;
+      final r = 14 + phase * maxR;
+      final op = (1 - phase) * 0.32; // brightest small, fades as it grows
       if (op <= 0) continue;
-      final color = (s[1] == 0.0 ? _violet : _lilac).withValues(alpha: op);
-      final r = Rect.fromCenter(center: Offset(x, y), width: 9, height: 6);
-      canvas.drawOval(r, Paint()..color = color.withValues(alpha: op * 0.6));
-      canvas.drawOval(
-          r,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.3
-            ..color = color);
+      canvas.drawCircle(
+        c,
+        r,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..color = _violet.withValues(alpha: op),
+      );
     }
   }
 

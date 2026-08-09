@@ -684,6 +684,25 @@ String _amountStr(Task t) {
   return '${cur.symbol}$body';
 }
 
+/// The yearly cost of a recurring amount, normalised to INR and formatted
+/// "₹7,788". Used to make a subscription's real annual price tangible — the
+/// number that nudges a "do I still need this?" call.
+String? _yearlyInr(Task t) {
+  if (!t.hasAmount) return null;
+  final perYear = switch (t.repeat) {
+    RepeatCadence.minute => t.amount! * 60 * 24 * 365,
+    RepeatCadence.hour => t.amount! * 24 * 365,
+    RepeatCadence.daily => t.amount! * 365,
+    RepeatCadence.weekly => t.amount! * 52,
+    RepeatCadence.monthly => t.amount! * 12,
+    RepeatCadence.yearly => t.amount!,
+    RepeatCadence.none => t.amount!,
+  };
+  final n = t.repeatTimes < 1 ? 1 : t.repeatTimes;
+  final inr = toInr(perYear / n, t.currency);
+  return '₹${formatAmount(inr.round().toString(), Grouping.indian)}';
+}
+
 /// Age on the UPCOMING occasion (rolls to next year if this year's has passed).
 int? _ageOnNext(Task t) {
   if (t.birthYear == null || t.dueAt == null) return null;
@@ -1014,30 +1033,31 @@ class _WhenChipState extends State<_WhenChip>
 
 const double _kCardW = 284;
 
-/// A subscription line written from Revolution's core stance: keep only what you
-/// truly use — and cancel what you don't, so that money can go into investments
-/// and compound instead. Every line poses that use-it-or-free-it decision, keyed
-/// to the sub-category so it stays concrete and short (fits two lines).
+/// A subscription line written from Revolution's stance — keep only what you use.
+/// It's SUBTLE: never tells the user to cancel or to invest; it just poses the
+/// "still using it?" question and, when we know the price, makes the yearly cost
+/// tangible ("you'd save ₹7,788 a year"). The saving does the persuading.
 String _subscriptionPunch(Task t) {
+  final yearly = _yearlyInr(t);
   final sub = (t.subCategory ?? '').toLowerCase();
-  switch (sub) {
-    case 'entertainment':
-      return 'Still watching it? If not, cancel and invest it instead.';
-    case 'music':
-      return 'Worth it if you play it daily — else invest the cash.';
-    case 'ai':
-      return 'Keep it if it earns its price. If idle, invest it instead.';
-    case 'cloud & tools':
-      return 'Keep only if you use it — else cancel and invest it.';
-    case 'learning':
-      return 'Learning from it? Keep it. If not, invest it instead.';
-    case 'gaming':
-      return 'Still playing? Keep it. If not, invest it instead.';
-    case 'food & shopping':
-      return 'Worth it only if the perks beat the fee — else invest it.';
+
+  // The lead question, tuned to the sub-category — a gentle "do you still…?".
+  final String question = switch (sub) {
+    'entertainment' => 'Still watching it?',
+    'music' => 'Still on repeat?',
+    'ai' => 'Still earning its price?',
+    'cloud & tools' => 'Still using it?',
+    'learning' => 'Still learning from it?',
+    'gaming' => 'Still playing?',
+    'food & shopping' => 'Perks still worth it?',
+    _ => 'Still using it?',
+  };
+
+  if (yearly != null) {
+    // Tangible saving, no verbs telling them what to do.
+    return '$question If not, that\'s $yearly a year saved.';
   }
-  // No sub-category → the same use-it-or-free-it nudge, generically.
-  return 'Still use it? If not, cancel and let that money compound.';
+  return '$question If not, it\'s quietly costing you each cycle.';
 }
 
 /// A benefit line for a SIP, keyed to its investment sub-category. The amount is

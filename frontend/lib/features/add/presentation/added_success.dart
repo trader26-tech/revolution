@@ -28,12 +28,13 @@ Future<void> showAddedSuccess(
   return Navigator.of(context, rootNavigator: true).push<void>(
     PageRouteBuilder<void>(
       opaque: true,
-      transitionDuration: const Duration(milliseconds: 280),
-      reverseTransitionDuration: const Duration(milliseconds: 240),
+      // Appear INSTANTLY — no fade-in — so the moment the form closes the
+      // celebration is already on screen (the ring/check/Revo IS the entrance).
+      // No flash of the page underneath.
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (context, animation, secondaryAnimation) =>
           _AddedSuccessPage(label: label),
-      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-          FadeTransition(opacity: animation, child: child),
     ),
   );
 }

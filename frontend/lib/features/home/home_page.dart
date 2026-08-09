@@ -55,7 +55,10 @@ class _HomePageState extends State<HomePage> {
     final result = await openCategoryForm(context, widget.store, category);
     final added = await persistAddResult(widget.store, result);
     if (!added || !mounted) return;
-    _openCollection(category); // lands underneath the success page
+    // Place the destination page instantly (no slide) UNDER the celebration,
+    // then show the celebration instantly on top — so pressing save reads as
+    // one motion: form closes → success animates → subscriptions revealed.
+    _openCollection(category, instant: true);
     if (!mounted) return;
     await showAddedSuccess(context, label: addedLabel(category));
   }
@@ -82,10 +85,21 @@ class _HomePageState extends State<HomePage> {
 
   /// Open a category's collection page (all Subscriptions, all SIPs…), or the
   /// full "All" collection when [category] is null.
-  void _openCollection(TaskCategory? category) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => CollectionPage(store: widget.store, category: category),
-    ));
+  ///
+  /// [instant] skips the slide transition — used by the add flow, where this
+  /// page is placed underneath the success celebration and must be settled by
+  /// the time the celebration lifts (no visible slide, no flash).
+  void _openCollection(TaskCategory? category, {bool instant = false}) {
+    final page = CollectionPage(store: widget.store, category: category);
+    Navigator.of(context).push(
+      instant
+          ? PageRouteBuilder(
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
+              pageBuilder: (_, _, _) => page,
+            )
+          : MaterialPageRoute(builder: (_) => page),
+    );
   }
 
   @override

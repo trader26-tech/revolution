@@ -94,33 +94,26 @@ Future<AddResult?> openCategoryForm(
 ) async {
   switch (category) {
     case TaskCategory.birthday:
-      final task = await Navigator.of(context).push<Task>(MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => const BirthdayFormPage(),
-      ));
+      final task = await Navigator.of(context)
+          .push<Task>(_formRoute(const BirthdayFormPage()));
       return task == null ? null : AddResult(task: task);
 
     case TaskCategory.investment:
-      final task = await Navigator.of(context).push<Task>(MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => SipFormPage(accent: category.color),
-      ));
+      final task = await Navigator.of(context)
+          .push<Task>(_formRoute(SipFormPage(accent: category.color)));
       return task == null ? null : AddResult(task: task);
 
     case TaskCategory.insurance:
       // Insurance self-saves (uploads a document to the new task's id).
-      final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => InsuranceFormPage(store: store),
-      ));
+      final saved = await Navigator.of(context)
+          .push<bool>(_formRoute(InsuranceFormPage(store: store)));
       return saved == true ? const AddResult(selfSaved: true) : null;
 
     case TaskCategory.subscription:
     case TaskCategory.bills:
     case TaskCategory.other:
-      final task = await Navigator.of(context).push<Task>(MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => SubscriptionFormPage(
+      final task = await Navigator.of(context).push<Task>(_formRoute(
+        SubscriptionFormPage(
           title: category == TaskCategory.bills ? 'New bill' : 'New subscription',
           accent: category.color,
         ),
@@ -132,6 +125,28 @@ Future<AddResult?> openCategoryForm(
       }
       return AddResult(task: task);
   }
+}
+
+/// The add-form route. It slides up like a fullscreen dialog on the way IN, but
+/// closes with ZERO reverse animation — so the instant you press Save, the form
+/// vanishes and the success celebration (pushed right after) is already there,
+/// with no slide-down and no flash of the screen underneath.
+PageRouteBuilder<T> _formRoute<T>(Widget page) {
+  return PageRouteBuilder<T>(
+    fullscreenDialog: true,
+    transitionDuration: const Duration(milliseconds: 280),
+    reverseTransitionDuration: Duration.zero,
+    pageBuilder: (_, _, _) => page,
+    transitionsBuilder: (_, animation, _, child) {
+      final curved =
+          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      return SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+            .animate(curved),
+        child: child,
+      );
+    },
+  );
 }
 
 /// Persist an [AddResult] to the store (the one place add-persistence lives, so

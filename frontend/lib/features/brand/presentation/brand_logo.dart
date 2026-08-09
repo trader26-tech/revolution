@@ -157,7 +157,10 @@ class _LoadingBox extends StatelessWidget {
   }
 }
 
-/// A coloured square with the brand's first letter — the graceful fallback.
+/// The graceful fallback when there's no logo: a STYLIZED first-letter avatar —
+/// a space-themed accent-tinted orb with a soft radial glow and a gradient
+/// letter (ink → lavender). Consistent across the whole app, so a logo-less
+/// task never looks bare.
 class _LetterAvatar extends StatelessWidget {
   const _LetterAvatar({
     required this.letter,
@@ -175,29 +178,56 @@ class _LetterAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Neutral tile for logo-less brands — a dark Orbit card surface (NOT white)
-    // with a subtle border, so it reads as part of the theme. The letter is a
-    // calm ash grey.
+    final shape = circular
+        ? const _AvatarShape.circle()
+        : _AvatarShape.rounded(radius);
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        shape: circular ? BoxShape.circle : BoxShape.rectangle,
-        borderRadius: circular ? null : BorderRadius.circular(radius),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
       alignment: Alignment.center,
-      child: Text(
-        letter,
-        style: TextStyle(
-          color: AppColors.inkSoft, // ash grey
-          fontWeight: FontWeight.w700,
-          fontSize: size * 0.46,
-          height: 1.0,
-          letterSpacing: -0.3,
+      decoration: BoxDecoration(
+        shape: shape.shape,
+        borderRadius: shape.borderRadius,
+        // A subtle accent-tinted radial fill — a little planet, not a flat tile.
+        gradient: RadialGradient(
+          center: const Alignment(-0.25, -0.35),
+          radius: 1.05,
+          colors: [
+            AppColors.accent.withValues(alpha: 0.22),
+            AppColors.card,
+          ],
+        ),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.28)),
+      ),
+      child: ShaderMask(
+        shaderCallback: (r) => const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.ink, Color(0xFFB9A8FF)],
+        ).createShader(r),
+        child: Text(
+          letter,
+          style: TextStyle(
+            color: Colors.white, // masked by the gradient
+            fontWeight: FontWeight.w900,
+            fontSize: size * 0.48,
+            height: 1.0,
+            letterSpacing: -0.5,
+          ),
         ),
       ),
     );
   }
+}
+
+/// Small helper so the avatar can be a circle or a rounded square cleanly.
+class _AvatarShape {
+  const _AvatarShape.circle()
+      : shape = BoxShape.circle,
+        borderRadius = null;
+  _AvatarShape.rounded(double radius)
+      : shape = BoxShape.rectangle,
+        borderRadius = BorderRadius.circular(radius);
+  final BoxShape shape;
+  final BorderRadius? borderRadius;
 }

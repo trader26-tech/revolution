@@ -933,23 +933,14 @@ class _Avatar extends StatelessWidget {
         child: Image.file(File(task.imagePath!), fit: BoxFit.cover),
       );
     }
-    if (task.hasIcon) {
-      return BrandLogo(
-        brand: Brand(
-            name: task.iconName ?? task.title, domain: task.iconDomain ?? ''),
-        size: 46,
-        radius: 12,
-      );
-    }
-    return Container(
-      width: 46,
-      height: 46,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(task.category.icon, size: 23, color: tint),
+    // A logo when there's one; otherwise the stylized first-letter avatar of
+    // the TASK — never a bare category icon.
+    return BrandLogo(
+      brand: task.hasIcon
+          ? Brand(name: task.iconName ?? task.title, domain: task.iconDomain ?? '')
+          : Brand(name: task.title, domain: ''),
+      size: 46,
+      radius: 12,
     );
   }
 }

@@ -578,7 +578,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 132,
+            height: 158,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -593,16 +593,100 @@ class UpNextStrip extends StatelessWidget {
   }
 }
 
+/// A small derived insight for a card — a Material icon (never a coloured
+/// emoji) + a short, meaningful line.
+class _Insight {
+  const _Insight(this.icon, this.text);
+  final IconData icon;
+  final String text;
+}
+
+int _daysUntil(DateTime d) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  return DateTime(d.year, d.month, d.day).difference(today).inDays;
+}
+
+String _amountStr(Task t) {
+  final sym = currencyOf(t.currency).symbol;
+  final a = t.amount!;
+  return '$sym${a.toStringAsFixed(a == a.roundToDouble() ? 0 : 2)}';
+}
+
+/// The category-specific meaning shown at the bottom of an Up-Next card.
+_Insight _insightFor(Task task) {
+  final days = _daysUntil(task.dueAt!);
+  switch (task.category) {
+    case TaskCategory.birthday:
+      // An occasion → "turning N" when we know the birth year, else the type.
+      if (task.birthYear != null) {
+        // Age on the UPCOMING birthday: if this year's date already passed,
+        // the next one is next year → one older.
+        final now = DateTime.now();
+        final thisYears = DateTime(now.year, task.dueAt!.month, task.dueAt!.day);
+        final year = thisYears.isBefore(DateTime(now.year, now.month, now.day))
+            ? now.year + 1
+            : now.year;
+        final age = year - task.birthYear!;
+        // Only a birthday "turns" an age; other occasions show the years count.
+        final isBday = (task.subCategory ?? 'Birthday').toLowerCase() ==
+            'birthday';
+        return _Insight(Icons.emoji_events_rounded,
+            isBday ? 'Turning $age' : '$age years');
+      }
+      return _Insight(Icons.celebration_rounded,
+          task.subCategory ?? 'Occasion');
+    case TaskCategory.investment:
+      // A SIP → nudge to fund the account before the instalment.
+      if (task.hasAmount) {
+        return _Insight(Icons.account_balance_wallet_rounded,
+            'Keep ${_amountStr(task)} ready');
+      }
+      return const _Insight(Icons.savings_rounded, 'Instalment due');
+    case TaskCategory.subscription:
+      // A subscription → the yearly cost, the real commitment.
+      if (task.hasAmount) {
+        final perYear = _perYearInr(task); // already in INR
+        return _Insight(Icons.calendar_month_rounded,
+            '₹${perYear.round()}/yr');
+      }
+      return const _Insight(Icons.autorenew_rounded, 'Renews soon');
+    case TaskCategory.bills:
+      if (task.hasAmount) {
+        return _Insight(Icons.receipt_long_rounded,
+            'Pay ${_amountStr(task)}');
+      }
+      return const _Insight(Icons.receipt_long_rounded, 'Bill due');
+    case TaskCategory.insurance:
+      return const _Insight(Icons.shield_rounded, 'Renewal due');
+    case TaskCategory.other:
+      return _Insight(Icons.bolt_rounded,
+          days <= 1 ? 'Due now' : 'Coming up');
+  }
+}
+
+/// Yearly INR-equivalent of a subscription's amount (for the "/yr" insight).
+double _perYearInr(Task t) {
+  final perMonth = switch (t.repeat) {
+    RepeatCadence.minute => t.amount! * 30 * 24 * 60,
+    RepeatCadence.hour => t.amount! * 30 * 24,
+    RepeatCadence.daily => t.amount! * 30,
+    RepeatCadence.weekly => t.amount! * 52 / 12,
+    RepeatCadence.monthly => t.amount!,
+    RepeatCadence.yearly => t.amount! / 12,
+    RepeatCadence.none => t.amount!,
+  };
+  final n = t.repeatTimes < 1 ? 1 : t.repeatTimes;
+  return toInr(perMonth / n, t.currency) * 12;
+}
+
 class _UpNextCard extends StatelessWidget {
   const _UpNextCard({required this.task, required this.onTap});
   final Task task;
   final VoidCallback onTap;
 
   String _whenLabel() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final due = DateTime(task.dueAt!.year, task.dueAt!.month, task.dueAt!.day);
-    final days = due.difference(today).inDays;
+    final days = _daysUntil(task.dueAt!);
     if (days <= 0) return 'Today';
     if (days == 1) return 'Tomorrow';
     if (days < 7) return 'in $days days';
@@ -610,19 +694,35 @@ class _UpNextCard extends StatelessWidget {
     return 'in ${(days / 30).round()} mo';
   }
 
+  /// The middle line under the title — the primary fact for this category.
+  String _subline() {
+    switch (task.category) {
+      case TaskCategory.subscription:
+      case TaskCategory.bills:
+      case TaskCategory.investment:
+        if (task.hasAmount) {
+          return '${_amountStr(task)} · ${frequencyLabel(task.repeat, task.repeatTimes)}';
+        }
+        return frequencyLabel(task.repeat, task.repeatTimes);
+      case TaskCategory.birthday:
+        return task.subCategory ?? 'Occasion';
+      default:
+        return task.category.label;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cat = task.category;
     final tint = _catColor(cat);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final due = DateTime(task.dueAt!.year, task.dueAt!.month, task.dueAt!.day);
-    final urgent = !due.isAfter(today.add(const Duration(days: 1)));
+    final days = _daysUntil(task.dueAt!);
+    final urgent = days <= 1;
+    final insight = _insightFor(task);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 172,
+        width: 178,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -669,15 +769,41 @@ class _UpNextCard extends StatelessWidget {
                     color: AppColors.ink)),
             const SizedBox(height: 2),
             Text(
-              task.hasAmount
-                  ? '${currencyOf(task.currency).symbol}${task.amount!.toStringAsFixed(task.amount == task.amount!.roundToDouble() ? 0 : 2)} · ${frequencyLabel(task.repeat, task.repeatTimes)}'
-                  : cat.label,
+              _subline(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                   color: AppColors.inkSoft),
+            ),
+            const SizedBox(height: 8),
+            // The derived insight — the meaningful, category-specific nudge.
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: tint.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(insight.icon, size: 13, color: tint),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      insight.text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: tint,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

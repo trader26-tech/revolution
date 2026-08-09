@@ -7,6 +7,7 @@ import '../../../core/widgets/starfield.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
 import '../../brand/presentation/brand_picker_sheet.dart';
+import '../../details/domain/currency.dart';
 import '../../tasks/domain/task.dart';
 
 /// The Subscription form — modelled on the reference: an identity card (logo +
@@ -44,6 +45,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
 
   String? _iconName;
   String? _iconDomain;
+  String _currency = 'INR'; // INR · USD · KWD
   late RepeatCadence _cycle = widget.initialCycle ?? RepeatCadence.monthly;
   DateTime _firstPayment = DateTime.now();
   bool _freeTrial = false;
@@ -86,6 +88,15 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     }
   }
 
+  Future<void> _pickCurrency() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CurrencySheet(selected: _currency),
+    );
+    if (picked != null) setState(() => _currency = picked);
+  }
+
   Future<void> _pickDate() async {
     final picked = await showOrbitDatePicker(
       context,
@@ -111,7 +122,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
         iconName: _iconName,
         iconDomain: _iconDomain,
         amount: amount,
-        currency: 'INR',
+        currency: _currency,
         storedCategory: TaskCategory.subscription,
       ),
     );
@@ -146,6 +157,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                       amountController: _amount,
                       amountFocus: _amountFocus,
                       onPickIcon: _pickIcon,
+                      currency: _currency,
+                      onPickCurrency: _pickCurrency,
                     ),
                     const SizedBox(height: 22),
 
@@ -327,6 +340,8 @@ class _IdentityCard extends StatelessWidget {
     required this.amountController,
     required this.amountFocus,
     required this.onPickIcon,
+    required this.currency,
+    required this.onPickCurrency,
   });
 
   final String? iconName;
@@ -336,6 +351,8 @@ class _IdentityCard extends StatelessWidget {
   final TextEditingController amountController;
   final FocusNode amountFocus;
   final VoidCallback onPickIcon;
+  final String currency;
+  final VoidCallback onPickCurrency;
 
   @override
   Widget build(BuildContext context) {
@@ -407,25 +424,37 @@ class _IdentityCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Price — a ₹ badge + amount, on one line.
+                // Price — a tappable currency badge + amount, on one line.
                 Row(
                   children: [
-                    Container(
-                      width: 34,
-                      height: 30,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(9),
-                        border: Border.all(
-                            color: AppColors.accent.withValues(alpha: 0.35)),
-                      ),
-                      child: const Text(
-                        '₹',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.accent,
+                    GestureDetector(
+                      onTap: onPickCurrency,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        height: 30,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(
+                              color: AppColors.accent.withValues(alpha: 0.35)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              currencyOf(currency).symbol,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.expand_more_rounded,
+                                size: 15, color: AppColors.accent),
+                          ],
                         ),
                       ),
                     ),
@@ -735,3 +764,143 @@ const _labelStyle = TextStyle(
   fontWeight: FontWeight.w700,
   color: AppColors.ink,
 );
+
+// ── Currency picker sheet ────────────────────────────────────────────────────
+
+/// A compact bottom sheet to choose the price currency (INR · USD · KWD).
+class _CurrencySheet extends StatelessWidget {
+  const _CurrencySheet({required this.selected});
+  final String selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    return Container(
+      margin: EdgeInsets.only(bottom: bottomInset),
+      decoration: const BoxDecoration(
+        color: AppColors.bgTop,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: AppColors.cardBorder)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.inkFaint.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Currency',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final c in kCurrencies)
+                _CurrencyRow(
+                  currency: c,
+                  selected: c.code == selected,
+                  onTap: () => Navigator.of(context).pop(c.code),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrencyRow extends StatelessWidget {
+  const _CurrencyRow({
+    required this.currency,
+    required this.selected,
+    required this.onTap,
+  });
+  final Currency currency;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.accent.withValues(alpha: 0.14)
+              : AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.cardBorder,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Symbol badge.
+            Container(
+              width: 42,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                currency.symbol,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.accent,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    currency.code,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  Text(
+                    currency.label,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkSoft,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (selected)
+              const Icon(Icons.check_circle_rounded,
+                  color: AppColors.accent, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -142,7 +142,6 @@ class _OrbitDatePickerState extends State<_OrbitDatePicker> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
     final today = DateTime.now();
-    final tomorrow = today.add(const Duration(days: 1));
 
     return Container(
       margin: EdgeInsets.only(bottom: bottomInset),
@@ -266,23 +265,10 @@ class _OrbitDatePickerState extends State<_OrbitDatePicker> {
               ),
               const SizedBox(height: 16),
 
-              // Quick chips.
-              Row(
-                children: [
-                  Expanded(
-                    child: _Chip(
-                      label: 'Today',
-                      onTap: () => _setToDate(today),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _Chip(
-                      label: 'Tomorrow',
-                      onTap: () => _setToDate(tomorrow),
-                    ),
-                  ),
-                ],
+              // Quick chip — jump to today.
+              _Chip(
+                label: 'Today',
+                onTap: () => _setToDate(today),
               ),
               const SizedBox(height: 16),
 

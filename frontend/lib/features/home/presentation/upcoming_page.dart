@@ -9,11 +9,12 @@ import '../../brand/presentation/brand_logo.dart';
 import '../../details/domain/currency.dart';
 import '../../tasks/domain/category_visuals.dart';
 import '../../tasks/domain/task.dart';
+import 'widgets/home_dashboard.dart' show WeekStripCalendar;
 
 /// The full upcoming list — every scheduled, unfinished reminder from [from]
 /// onward, soonest first, grouped under a date header (Today / Tomorrow / a
 /// weekday+date). Opened by the "Up next" right-arrow on Home.
-class UpcomingPage extends StatelessWidget {
+class UpcomingPage extends StatefulWidget {
   const UpcomingPage({
     super.key,
     required this.tasks,
@@ -27,15 +28,28 @@ class UpcomingPage extends StatelessWidget {
   /// Start of the window (inclusive, by day). Defaults to today.
   final DateTime? from;
 
+  @override
+  State<UpcomingPage> createState() => _UpcomingPageState();
+}
+
+class _UpcomingPageState extends State<UpcomingPage> {
+  late DateTime _selected;
+
   DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = _day(widget.from ?? DateTime.now());
+  }
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final start = _day(from ?? now);
+    final start = _day(_selected);
 
-    // Scheduled, undone, on/after `start`, soonest first.
-    final upcoming = tasks
+    // Scheduled, undone, on/after the SELECTED day, soonest first.
+    final upcoming = widget.tasks
         .where((t) =>
             t.isScheduled && !t.done && !_day(t.dueAt!).isBefore(start))
         .toList()
@@ -86,6 +100,14 @@ class UpcomingPage extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 6),
+              // The week-strip calendar — pick a day to jump the list to it.
+              WeekStripCalendar(
+                tasks: widget.tasks,
+                selected: _selected,
+                onSelect: (d) => setState(() => _selected = _day(d)),
+              ),
+              const SizedBox(height: 4),
               Expanded(
                 child: upcoming.isEmpty
                     ? const _NothingUpcoming()
@@ -108,7 +130,7 @@ class UpcomingPage extends StatelessWidget {
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 10),
                                   child: _UpcomingRow(
-                                      task: t, onTap: () => onTap(t)),
+                                      task: t, onTap: () => widget.onTap(t)),
                                 ),
                             ],
                           );

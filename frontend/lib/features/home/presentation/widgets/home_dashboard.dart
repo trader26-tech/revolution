@@ -52,8 +52,10 @@ class _GreetingRevoState extends State<GreetingRevo>
     super.initState();
     _in = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 720));
+    // Slow, calm idle — a gentle breathing bob, not a jittery wobble. 5.6s per
+    // loop reads as relaxed (matches the app's other mascots ~5.2s).
     _idle = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 2600))
+        vsync: this, duration: const Duration(milliseconds: 5600))
       ..repeat();
     WidgetsBinding.instance
         .addPostFrameCallback((_) => mounted ? _in.forward() : null);
@@ -184,15 +186,16 @@ class _GreetMascot extends StatelessWidget {
           ),
         );
       case RevoMood.panicking:
-        final jx = math.sin(t * 2 * math.pi * 9) * 1.2;
-        final jy = math.cos(t * 2 * math.pi * 11) * 1.0;
+        // A GENTLE alert bob for the greeting — attentive, not frantic. (The
+        // urgency read lives in the hero's numbers, not a shaking mascot.)
+        final phase = t * 2 * math.pi;
         return Transform.translate(
-          offset: Offset(jx, jy),
+          offset: Offset(0, math.sin(phase * 2) * 2.2),
           child: Mascot(
             size: size,
-            look: Offset(math.sin(t * 2 * math.pi * 6) * 0.4, -0.2),
-            squash: math.sin(t * 2 * math.pi * 9) * 0.05,
-            tilt: math.sin(t * 2 * math.pi * 8) * 0.05,
+            look: Offset(0.15 + math.sin(phase) * 0.18, -0.1),
+            squash: math.sin(phase * 2) * 0.05,
+            tilt: math.sin(phase) * 0.05,
             glow: true,
           ),
         );

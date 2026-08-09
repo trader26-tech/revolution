@@ -12,7 +12,7 @@ import '../../../tasks/domain/category_visuals.dart';
 import '../../../tasks/domain/task.dart';
 import '../../domain/home_stats.dart';
 import 'revo_hero.dart'
-    show RevoMood, revoMoodFor, dueTodayCount, overdueCount;
+    show RevoMood, revoMoodFor, dueTodayCount;
 
 // ── Category visuals ─────────────────────────────────────────────────────────
 // Shared across the app — see category_visuals.dart.
@@ -77,22 +77,20 @@ class _GreetingRevoState extends State<GreetingRevo>
     return Icons.nightlight_round; // night / space
   }
 
-  /// A warm, mood-aware second line — welcoming, a little bit "mission control".
+  /// A calm, welcoming second line. This is an OVERVIEW of your world, not a
+  /// nagging to-do list — so it never chases you about overdue items. It simply
+  /// reflects what's on today, warmly.
   String get _subline {
-    final due = dueTodayCount(widget.tasks);
-    final over = overdueCount(widget.tasks);
-    if (over > 0) {
-      return '$over overdue — let’s get you caught up.';
-    }
-    if (due > 0) {
-      return due == 1
-          ? '1 reminder needs you today.'
-          : '$due reminders need you today.';
-    }
     if (widget.tasks.isEmpty) {
       return 'Welcome aboard Revolution.';
     }
-    return 'All clear — you’re on top of everything.';
+    final due = dueTodayCount(widget.tasks);
+    if (due > 0) {
+      return due == 1
+          ? "Here's your day at a glance."
+          : "Here's what's on today.";
+    }
+    return "Nothing on today — here's the bigger picture.";
   }
 
   @override

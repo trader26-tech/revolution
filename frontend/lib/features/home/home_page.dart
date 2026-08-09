@@ -19,7 +19,6 @@ import 'domain/home_stats.dart';
 import 'presentation/search_page.dart';
 import 'presentation/widgets/home_dashboard.dart';
 import 'presentation/widgets/home_loading.dart';
-import 'presentation/widgets/revo_hero.dart';
 import 'presentation/widgets/task_section.dart';
 
 /// The Home screen.
@@ -240,28 +239,29 @@ class _HomePageState extends State<HomePage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 140),
       children: [
-        // 1 · Warm greeting.
-        GreetingHeader(name: ProfileStore.instance.name, stats: stats),
-        const SizedBox(height: 14),
-        // 2 · Search (tap → full-screen search).
+        // 1 · Greeting — Revo says "Good afternoon, <name>" + "Welcome to
+        //     Revolution", with his live entrance. He lives HERE, not in the
+        //     hero.
+        GreetingRevo(name: ProfileStore.instance.name, tasks: allTasks),
+        const SizedBox(height: 18),
+        // 2 · Search.
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
           child: _SearchTapBar(onTap: _openSearch),
         ),
-        // 3 · Revo, reacting to the day.
-        RevoHero(tasks: allTasks),
-        // 4 · The hero metrics card — everything at a glance.
+        const SizedBox(height: 18),
+        // 3 · THE hero — one card, everything at a glance (Suball-style).
         HeroMetricsCard(stats: stats),
-        // 5 · Up Next — the soonest reminders as cards.
+        // 4 · Up Next — the soonest reminders as cards.
         UpNextStrip(items: stats.upNext, onTap: _editTask),
-        // 6 · Category cards.
+        // 5 · Category cards.
         CategoryCards(
           stats: stats,
           tasks: allTasks,
           onTapCategory: _openCategory,
         ),
         const SizedBox(height: 8),
-        // 7 · The grouped list below.
+        // 6 · The grouped list below.
         if (groups.isEmpty)
           _FilteredEmpty(
             filter: _filter,

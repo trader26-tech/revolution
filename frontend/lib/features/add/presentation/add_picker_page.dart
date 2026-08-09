@@ -199,19 +199,20 @@ class _Browse extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(top: 6, bottom: 16),
       children: [
-        // Pick a category — one clean, tappable row each. Every row uses the
-        // SAME neutral "add reminder" glyph (no per-category colour), so the
-        // list reads as one calm, uniform set instead of a rainbow of icons.
+        // Pick a category — one clean, tappable row each. Each keeps its OWN
+        // distinctive icon + accent, and shows how many items it holds (a small
+        // count pill) so the user can gauge each at a glance.
         for (final cat in kReminderCatalog)
           _CategoryRow(
             title: cat.title,
             blurb: _blurbFor(cat.key),
-            icon: Icons.add_alert_rounded,
-            color: AppColors.inkSoft,
+            icon: cat.icon,
+            color: cat.color,
+            count: cat.items.where((i) => !i.isOther).length,
             onTap: () => onPickCategory(cat),
           ),
         const _RowDivider(),
-        // The catch-all: a blank reminder, no category — same neutral glyph.
+        // The catch-all: a blank reminder, no category, no count.
         _CategoryRow(
           title: 'Add a reminder',
           blurb: 'Anything else — just a name & date',
@@ -233,12 +234,17 @@ class _CategoryRow extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    this.count,
   });
   final String title;
   final String blurb;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+
+  /// How many items this category holds — shown as a small count pill. Null on
+  /// the catch-all "Add a reminder" row, which has no items.
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
@@ -286,6 +292,28 @@ class _CategoryRow extends StatelessWidget {
                 ],
               ),
             ),
+            // Count pill — "7" in the category's own accent, so each category
+            // shows its size at a glance.
+            if (count != null && count! > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(width: 8),
             Icon(Icons.chevron_right_rounded,
                 size: 22, color: AppColors.inkFaint.withValues(alpha: 0.7)),
@@ -322,21 +350,24 @@ class _ItemRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
         child: Row(
           children: [
-            // Every item shows the SAME neutral "add reminder" glyph — no
-            // per-item colour or logo, so the list stays uniform and calm.
+            // Each item keeps its OWN distinctive icon + the category's accent;
+            // the "Something else" row stays a quiet neutral add affordance.
             Container(
               width: 40,
               height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
+                color: other
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : cat.color.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.cardBorder),
+                border:
+                    other ? Border.all(color: AppColors.cardBorder) : null,
               ),
-              child: const Icon(
-                Icons.add_alert_rounded,
+              child: Icon(
+                item.icon,
                 size: 20,
-                color: AppColors.inkSoft,
+                color: other ? AppColors.inkSoft : cat.color,
               ),
             ),
             const SizedBox(width: 14),

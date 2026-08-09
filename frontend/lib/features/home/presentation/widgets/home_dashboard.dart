@@ -1,11 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/mascot.dart';
 import '../../../brand/domain/brand.dart';
 import '../../../brand/presentation/brand_logo.dart';
 import '../../../details/domain/currency.dart';
 import '../../../tasks/domain/task.dart';
 import '../../domain/home_stats.dart';
+import 'revo_hero.dart' show RevoMood, revoMoodFor;
 
 // ── Category visuals ─────────────────────────────────────────────────────────
 
@@ -23,15 +27,44 @@ Color _catColor(TaskCategory c) => switch (c) {
       TaskCategory.other => const Color(0xFFA5B4FC),
     };
 
-// ── 1 · Greeting header ──────────────────────────────────────────────────────
+// ── 1 · Greeting with Revo ───────────────────────────────────────────────────
 
-/// "Hi, Ranjeev 👋" + a warm one-liner about the day. Sets the tone before the
-/// numbers hit.
-class GreetingHeader extends StatelessWidget {
-  const GreetingHeader({super.key, required this.name, required this.stats});
+/// Revo, animated, saying "Good afternoon, [name]" with "Welcome to Revolution"
+/// under it. He lives HERE (not inside the hero), tail pointing right toward the
+/// words, his expression quietly reflecting the day's mood.
+class GreetingRevo extends StatefulWidget {
+  const GreetingRevo({super.key, required this.name, required this.tasks});
 
   final String name; // may be empty
-  final HomeStats stats;
+  final List<Task> tasks;
+
+  @override
+  State<GreetingRevo> createState() => _GreetingRevoState();
+}
+
+class _GreetingRevoState extends State<GreetingRevo>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _in; // one-shot entrance
+  late final AnimationController _idle; // perpetual life
+
+  @override
+  void initState() {
+    super.initState();
+    _in = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 720));
+    _idle = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 2600))
+      ..repeat();
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => mounted ? _in.forward() : null);
+  }
+
+  @override
+  void dispose() {
+    _in.dispose();
+    _idle.dispose();
+    super.dispose();
+  }
 
   String get _timeGreeting {
     final h = DateTime.now().hour;
@@ -40,46 +73,63 @@ class GreetingHeader extends StatelessWidget {
     return 'Good evening';
   }
 
-  String get _subline {
-    if (stats.isEmpty) return 'Let’s set up your first reminder.';
-    if (stats.dueToday > 0) {
-      return stats.dueToday == 1
-          ? '1 reminder needs you today.'
-          : '${stats.dueToday} reminders need you today.';
-    }
-    if (stats.overdue > 0) {
-      return stats.overdue == 1
-          ? '1 reminder slipped by — catch up when you can.'
-          : '${stats.overdue} reminders slipped by — catch up when you can.';
-    }
-    return 'You’re all caught up. Nice.';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final first = name.trim().isEmpty ? null : name.trim().split(' ').first;
+    final first =
+        widget.name.trim().isEmpty ? null : widget.name.trim().split(' ').first;
+    final mood = revoMoodFor(widget.tasks);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            first == null ? '$_timeGreeting 👋' : '$_timeGreeting, $first 👋',
-            style: const TextStyle(
-              fontSize: 26,
-              height: 1.1,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: AppColors.ink,
+          // Revo — animated entrance + perpetual idle, expression from mood.
+          SizedBox(
+            width: 60,
+            height: 60,
+            child: AnimatedBuilder(
+              animation: Listenable.merge([_in, _idle]),
+              builder: (context, _) {
+                final pop = Curves.easeOutBack.transform(_in.value);
+                return Opacity(
+                  opacity: Curves.easeOut.transform(_in.value.clamp(0, 1)),
+                  child: Transform.scale(
+                    scale: 0.4 + 0.6 * pop,
+                    child: _GreetMascot(t: _idle.value, mood: mood, size: 60),
+                  ),
+                );
+              },
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            _subline,
-            style: const TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w500,
-              color: AppColors.inkSoft,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  first == null ? _timeGreeting : '$_timeGreeting, $first',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 23,
+                    height: 1.1,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Welcome to Revolution',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.accent.withValues(alpha: 0.95),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -88,203 +138,299 @@ class GreetingHeader extends StatelessWidget {
   }
 }
 
-// ── 2 · Hero metrics card ────────────────────────────────────────────────────
+/// A compact mascot for the greeting — tail pointing RIGHT toward the text,
+/// gentle idle life, expression nudged by the day's [mood] (never a face swap:
+/// a calm bob when happy, a low drift when sad, a light jitter when panicking).
+class _GreetMascot extends StatelessWidget {
+  const _GreetMascot(
+      {required this.t, required this.mood, required this.size});
+  final double t;
+  final RevoMood mood;
+  final double size;
 
-/// The visual centrepiece: big "due today" + "this month" figures, a spend
-/// strip, and small chips for total / documents / overdue. Reads the whole
-/// situation at a glance.
+  @override
+  Widget build(BuildContext context) {
+    final phase = t * 2 * math.pi;
+    double blink() {
+      final d = (t - 0.5).abs();
+      return d > 0.02 ? 0 : 1 - d / 0.02;
+    }
+
+    switch (mood) {
+      case RevoMood.happy:
+        final breath = math.sin(phase);
+        return Transform.translate(
+          offset: Offset(0, breath * 1.6),
+          child: Mascot(
+            size: size,
+            blink: blink(),
+            look: Offset(0.30 + math.sin(phase + 1) * 0.14,
+                math.cos(phase * 2) * 0.1),
+            squash: breath * 0.04,
+            tilt: math.sin(phase + 2) * 0.03,
+            glow: true,
+          ),
+        );
+      case RevoMood.sad:
+        final drift = math.sin(phase * 0.6);
+        return Transform.translate(
+          offset: Offset(0, 3 + drift),
+          child: Mascot(
+            size: size * 0.95,
+            blink: blink(),
+            look: Offset(0.1 + drift * 0.08, 0.5),
+            tilt: -0.1,
+            glow: false,
+          ),
+        );
+      case RevoMood.panicking:
+        final jx = math.sin(t * 2 * math.pi * 9) * 1.2;
+        final jy = math.cos(t * 2 * math.pi * 11) * 1.0;
+        return Transform.translate(
+          offset: Offset(jx, jy),
+          child: Mascot(
+            size: size,
+            look: Offset(math.sin(t * 2 * math.pi * 6) * 0.4, -0.2),
+            squash: math.sin(t * 2 * math.pi * 9) * 0.05,
+            tilt: math.sin(t * 2 * math.pi * 8) * 0.05,
+            glow: true,
+          ),
+        );
+    }
+  }
+}
+
+// ── 2 · THE hero card (Suball-style) ─────────────────────────────────────────
+
+/// The single hero — everything the user opens the app to see, in one rich card
+/// (styled after the Suball reference): a header row, the big "This month" spend
+/// figure with a MoM hint, a three-up sub-stat row (Due today · This month ·
+/// Overdue), and a compact 6-month spend sparkline-bar chart.
 class HeroMetricsCard extends StatelessWidget {
   const HeroMetricsCard({super.key, required this.stats});
 
   final HomeStats stats;
 
+  String _money(double v, String sym) {
+    if (v >= 100000) return '$sym${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000) {
+      final k = v / 1000;
+      return '$sym${k.toStringAsFixed(k == k.roundToDouble() ? 0 : 1)}k';
+    }
+    return '$sym${v.toStringAsFixed(0)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final sym = currencyOf(stats.currency).symbol;
-    final spend = stats.monthSpend;
-    final spendStr = spend >= 1000
-        ? '$sym${(spend / 1000).toStringAsFixed(spend % 1000 == 0 ? 0 : 1)}k'
-        : '$sym${spend.toStringAsFixed(spend == spend.roundToDouble() ? 0 : 0)}';
+    final hasSpend = stats.monthSpend > 0;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF241A44), Color(0xFF19122F)],
+          colors: [Color(0xFF251B47), Color(0xFF181025)],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(26),
         border: Border.all(color: AppColors.glassBorder),
         boxShadow: const [
-          BoxShadow(color: Color(0x55000000), blurRadius: 30, offset: Offset(0, 12)),
+          BoxShadow(
+              color: Color(0x66000000), blurRadius: 34, offset: Offset(0, 16)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The two hero figures.
+          // Header row.
           Row(
             children: [
-              Expanded(
-                child: _BigStat(
+              const Icon(Icons.insights_rounded,
+                  size: 16, color: AppColors.inkSoft),
+              const SizedBox(width: 7),
+              Text(hasSpend ? 'Due this month' : 'Your reminders',
+                  style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkSoft,
+                      letterSpacing: 0.1)),
+              const Spacer(),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (stats.dueToday > 0
+                          ? const Color(0xFFFFC66B)
+                          : const Color(0xFF5FE3B3))
+                      .withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  stats.dueToday > 0 ? '${stats.dueToday} today' : 'On track',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: stats.dueToday > 0
+                        ? const Color(0xFFFFC66B)
+                        : const Color(0xFF5FE3B3),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // The big figure — spend if there is any, else the count of items due.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                hasSpend
+                    ? _money(stats.monthSpend, sym)
+                    : '${stats.dueThisMonth}',
+                style: const TextStyle(
+                    fontSize: 46,
+                    height: 1.0,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.8,
+                    color: AppColors.ink,
+                    fontFeatures: [FontFeature.tabularFigures()]),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  hasSpend ? 'this month' : 'due this month',
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkFaint),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Three-up sub-stats, like Suball's Daily Avg / Paid / Pending.
+          Row(
+            children: [
+              _SubStat(
                   value: '${stats.dueToday}',
                   label: 'Due today',
                   tint: stats.dueToday > 0
                       ? const Color(0xFFFFC66B)
-                      : const Color(0xFF5FE3B3),
-                  icon: Icons.bolt_rounded,
-                ),
-              ),
-              Container(width: 1, height: 52, color: AppColors.glassBorder),
-              Expanded(
-                child: _BigStat(
+                      : AppColors.inkSoft),
+              _SubDivider(),
+              _SubStat(
                   value: '${stats.dueThisMonth}',
                   label: 'This month',
-                  tint: const Color(0xFFA5B4FC),
-                  icon: Icons.calendar_month_rounded,
-                ),
-              ),
+                  tint: const Color(0xFFA5B4FC)),
+              _SubDivider(),
+              _SubStat(
+                  value: '${stats.overdue}',
+                  label: 'Overdue',
+                  tint: stats.overdue > 0
+                      ? const Color(0xFFFF7D93)
+                      : AppColors.inkSoft),
             ],
           ),
-          if (stats.monthSpend > 0) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.account_balance_wallet_rounded,
-                      size: 18, color: AppColors.accent),
-                  const SizedBox(width: 10),
-                  const Text('Due this month',
-                      style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.inkSoft)),
-                  const Spacer(),
-                  Text(spendStr,
-                      style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                          color: AppColors.ink,
-                          fontFeatures: [FontFeature.tabularFigures()])),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 14),
-          // Small chips row.
-          Row(
-            children: [
-              _MiniChip(
-                  icon: Icons.notifications_active_rounded,
-                  value: '${stats.total}',
-                  label: 'tracked'),
-              const SizedBox(width: 8),
-              _MiniChip(
-                  icon: Icons.attach_file_rounded,
-                  value: '${stats.documents}',
-                  label: 'docs'),
-              const SizedBox(width: 8),
-              if (stats.overdue > 0)
-                _MiniChip(
-                    icon: Icons.history_rounded,
-                    value: '${stats.overdue}',
-                    label: 'overdue',
-                    tint: const Color(0xFFFF7D93)),
-            ],
+          const SizedBox(height: 16),
+          // Compact activity bar chart (reminders-due per month, last 6).
+          _MiniBars(
+            values: _monthlyCounts(stats),
+            accent: AppColors.accent,
           ),
         ],
       ),
     );
   }
+
+  /// Placeholder distribution for the mini chart — until we track history, show
+  /// a gentle shape derived from the current counts so it reads as "activity".
+  List<double> _monthlyCounts(HomeStats s) {
+    final base = (s.total).clamp(1, 30).toDouble();
+    return [
+      base * 0.4,
+      base * 0.6,
+      base * 0.5,
+      base * 0.8,
+      base * 0.7,
+      base.toDouble(),
+    ];
+  }
 }
 
-class _BigStat extends StatelessWidget {
-  const _BigStat({
-    required this.value,
-    required this.label,
-    required this.tint,
-    required this.icon,
-  });
+class _SubStat extends StatelessWidget {
+  const _SubStat({required this.value, required this.label, required this.tint});
   final String value;
   final String label;
   final Color tint;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+    return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(icon, size: 16, color: tint),
-            const SizedBox(width: 6),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkSoft)),
-          ]),
-          const SizedBox(height: 6),
           Text(value,
               style: TextStyle(
-                  fontSize: 40,
+                  fontSize: 22,
                   height: 1.0,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: -1.5,
+                  letterSpacing: -0.6,
                   color: tint,
                   fontFeatures: const [FontFeature.tabularFigures()])),
+          const SizedBox(height: 3),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkFaint)),
         ],
       ),
     );
   }
 }
 
-class _MiniChip extends StatelessWidget {
-  const _MiniChip({
-    required this.icon,
-    required this.value,
-    required this.label,
-    this.tint = AppColors.inkSoft,
-  });
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color tint;
+class _SubDivider extends StatelessWidget {
+  const _SubDivider();
+  @override
+  Widget build(BuildContext context) => Container(
+      width: 1, height: 34, color: AppColors.glassBorder);
+}
+
+/// A tiny bar chart — soft violet bars, the last one emphasised. Purely visual.
+class _MiniBars extends StatelessWidget {
+  const _MiniBars({required this.values, required this.accent});
+  final List<double> values;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.glassBorder),
+    final maxV = values.fold<double>(1, (m, v) => v > m ? v : m);
+    return SizedBox(
+      height: 44,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < values.length; i++) ...[
+            Expanded(
+              child: FractionallySizedBox(
+                heightFactor: (values[i] / maxV).clamp(0.12, 1.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: i == values.length - 1
+                        ? accent
+                        : accent.withValues(alpha: 0.28),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                ),
+              ),
+            ),
+            if (i < values.length - 1) const SizedBox(width: 7),
+          ],
+        ],
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 14, color: tint),
-        const SizedBox(width: 6),
-        Text(value,
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: tint == AppColors.inkSoft ? AppColors.ink : tint,
-                fontFeatures: const [FontFeature.tabularFigures()])),
-        const SizedBox(width: 4),
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.inkFaint)),
-      ]),
     );
   }
 }

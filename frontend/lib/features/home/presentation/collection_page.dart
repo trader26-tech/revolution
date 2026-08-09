@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
+import '../../add/domain/subscription_categories.dart';
 import '../../add/presentation/open_add_flow.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
@@ -48,7 +49,7 @@ DateTime nextOccurrence(Task t, {required DateTime from}) {
 /// null for the "All" collection (every reminder).
 ///
 /// Rebuilds live off the [store] so adds/edits/deletes reflect immediately.
-class CollectionPage extends StatelessWidget {
+class CollectionPage extends StatefulWidget {
   const CollectionPage({super.key, required this.store, this.category});
 
   final TaskStore store;
@@ -56,16 +57,33 @@ class CollectionPage extends StatelessWidget {
   /// The category to show, or null for "All".
   final TaskCategory? category;
 
+  @override
+  State<CollectionPage> createState() => _CollectionPageState();
+}
+
+class _CollectionPageState extends State<CollectionPage> {
+  /// The active category filter (a subCategory name), or null for "All".
+  String? _filter;
+
+  TaskStore get store => widget.store;
+  TaskCategory? get category => widget.category;
+
   String get _title => category?.label ?? 'All reminders';
   IconData get _icon => category?.icon ?? Icons.blur_on_rounded;
-  // ONE constant accent everywhere — categories differ by icon, not colour.
   Color get _accent => AppColors.accent;
 
+  /// Subscriptions group by their sub-category; other collections keep the
+  /// time-window grouping.
+  bool get _groupByCategory => category == TaskCategory.subscription;
+
   List<Task> _items() {
-    final list = category == null
+    var list = category == null
         ? store.tasks.toList()
         : store.tasks.where((t) => t.category == category).toList();
-    // Scheduled first (soonest), then unscheduled — a stable, scannable order.
+    // Apply the category filter (subscriptions only).
+    if (_groupByCategory && _filter != null) {
+      list = list.where((t) => _subOf(t) == _filter).toList();
+    }
     list.sort((a, b) {
       if (a.isScheduled && b.isScheduled) return a.dueAt!.compareTo(b.dueAt!);
       if (a.isScheduled) return -1;
@@ -75,21 +93,61 @@ class CollectionPage extends StatelessWidget {
     return list;
   }
 
-  /// Group the items into time windows so the page reads as a clear overview of
-  /// what's coming and when: This week · This month · Later · No date. Past
-  /// dates are rolled forward to their next occurrence (nothing is "overdue" —
-  /// we never mark items complete, so a past date just means it recurred).
+  String _subOf(Task t) =>
+      (t.subCategory == null || t.subCategory!.trim().isEmpty)
+          ? kOtherSubCategory
+          : t.subCategory!.trim();
+
+  /// The category names present in the current items (for the filter sheet),
+  /// ordered by the built-in order then any custom ones.
+  List<String> _presentCategories(List<Task> all) {
+    final present = <String>{for (final t in all) _subOf(t)};
+    final ordered = <String>[
+      for (final c in kSubCategories)
+        if (present.contains(c.name)) c.name,
+    ];
+    final customs = present
+        .where((c) => !kSubCategories.any((b) => b.name == c))
+        .toList()
+      ..sort();
+    return [...ordered, ...customs];
+  }
+
+  /// Group the items — by sub-category for subscriptions, else by time window.
   List<_Section> _grouped(List<Task> items) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+
+    int byNext(Task a, Task b) =>
+        nextOccurrence(a, from: today).compareTo(nextOccurrence(b, from: today));
+
+    if (_groupByCategory) {
+      // Bucket by sub-category, in the built-in order then customs.
+      final buckets = <String, List<Task>>{};
+      for (final t in items) {
+        buckets.putIfAbsent(_subOf(t), () => []).add(t);
+      }
+      final order = <String>[
+        for (final c in kSubCategories)
+          if (buckets.containsKey(c.name)) c.name,
+      ];
+      final customs = buckets.keys
+          .where((k) => !kSubCategories.any((c) => c.name == k))
+          .toList()
+        ..sort();
+      return [
+        for (final name in [...order, ...customs])
+          _Section(name, buckets[name]!..sort(byNext)),
+      ];
+    }
+
+    // Time-window grouping (SIPs / Insurance / Bills / All).
     final weekEnd = today.add(const Duration(days: 7));
     final monthEnd = today.add(const Duration(days: 30));
-
     final week = <Task>[];
     final month = <Task>[];
     final later = <Task>[];
     final undated = <Task>[];
-
     for (final t in items) {
       if (!t.isScheduled) {
         undated.add(t);
@@ -104,14 +162,9 @@ class CollectionPage extends StatelessWidget {
         later.add(t);
       }
     }
-
-    // Sort each bucket by its (rolled-forward) next occurrence.
-    int byNext(Task a, Task b) =>
-        nextOccurrence(a, from: today).compareTo(nextOccurrence(b, from: today));
     week.sort(byNext);
     month.sort(byNext);
     later.sort(byNext);
-
     return [
       if (week.isNotEmpty) _Section('This week', week),
       if (month.isNotEmpty) _Section('This month', month),
@@ -193,7 +246,6 @@ class CollectionPage extends StatelessWidget {
           child: AnimatedBuilder(
             animation: store,
             builder: (context, _) {
-              final items = _items();
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -209,6 +261,17 @@ class CollectionPage extends StatelessWidget {
                           onTap: () => Navigator.of(context).maybePop(),
                         ),
                         const Spacer(),
+                        // Filter (subscriptions only) — pick a category.
+                        if (_groupByCategory) ...[
+                          GlassIconButton(
+                            icon: _filter == null
+                                ? Icons.tune_rounded
+                                : Icons.filter_alt_rounded,
+                            tooltip: 'Filter',
+                            onTap: _openFilter,
+                          ),
+                          const SizedBox(width: 10),
+                        ],
                         GlassIconButton(
                           icon: Icons.add_rounded,
                           tooltip: 'Add',
@@ -219,20 +282,7 @@ class CollectionPage extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: items.isEmpty
-                        ? _EmptyCollection(
-                            icon: _icon,
-                            accent: _accent,
-                            title: _title,
-                            onAdd: () => _add(context),
-                          )
-                        : _GroupedList(
-                            sections: _grouped(items),
-                            hero: _heroStats(items),
-                            icon: _icon,
-                            title: _title,
-                            onTap: (t) => _edit(context, t),
-                          ),
+                    child: _buildBody(),
                   ),
                 ],
               );
@@ -243,6 +293,48 @@ class CollectionPage extends StatelessWidget {
     );
   }
 
+  Widget _buildBody() {
+    // The hero always reflects ALL items in the category (unfiltered), so its
+    // spend/overview is stable; the list below honours the filter.
+    final all = category == null
+        ? store.tasks.toList()
+        : store.tasks.where((t) => t.category == category).toList();
+    final items = _items(); // filtered + sorted
+
+    if (all.isEmpty) {
+      return _EmptyCollection(
+        icon: _icon,
+        accent: _accent,
+        title: _title,
+        onAdd: () => _add(context),
+      );
+    }
+
+    return _GroupedList(
+      sections: _grouped(items),
+      hero: _heroStats(all),
+      icon: _icon,
+      title: _title,
+      activeFilter: _groupByCategory ? _filter : null,
+      onClearFilter: () => setState(() => _filter = null),
+      onTap: (t) => _edit(context, t),
+    );
+  }
+
+  Future<void> _openFilter() async {
+    final all = store.tasks.where((t) => t.category == category).toList();
+    final cats = _presentCategories(all);
+    final picked = await showModalBottomSheet<String?>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _FilterSheet(categories: cats, selected: _filter),
+    );
+    // The sheet returns '' to mean "All" (clear); a name to filter; null = no-op.
+    if (picked != null) {
+      setState(() => _filter = picked.isEmpty ? null : picked);
+    }
+  }
 }
 
 /// A time-window section: a label and the items that fall in it.
@@ -261,6 +353,8 @@ class _GroupedList extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
+    this.activeFilter,
+    this.onClearFilter,
   });
 
   final List<_Section> sections;
@@ -268,12 +362,61 @@ class _GroupedList extends StatelessWidget {
   final IconData icon;
   final String title;
   final void Function(Task) onTap;
+  final String? activeFilter;
+  final VoidCallback? onClearFilter;
 
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[
       _CategoryHero(stats: hero, icon: icon, title: title),
     ];
+    // An active-filter banner with a clear (×) chip.
+    if (activeFilter != null) {
+      children.add(Padding(
+        padding: const EdgeInsets.fromLTRB(0, 16, 0, 2),
+        child: GestureDetector(
+          onTap: onClearFilter,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(999),
+              border:
+                  Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(subCategoryIcon(activeFilter),
+                    size: 15, color: AppColors.accent),
+                const SizedBox(width: 6),
+                Text(
+                  activeFilter!,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.close_rounded,
+                    size: 15, color: AppColors.inkSoft),
+              ],
+            ),
+          ),
+        ),
+      ));
+    }
+    if (sections.isEmpty) {
+      children.add(const Padding(
+        padding: EdgeInsets.only(top: 40),
+        child: Center(
+          child: Text('Nothing in this filter',
+              style: TextStyle(color: AppColors.inkSoft)),
+        ),
+      ));
+    }
     for (final s in sections) {
       children.add(_SectionHeader(label: s.label, count: s.items.length));
       for (final t in s.items) {
@@ -466,46 +609,9 @@ class _CategoryHero extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 18),
-
-          // Three-up sub-stats.
-          Row(
-            children: [
-              _HeroStat(
-                value: '${stats.total}',
-                label: 'active',
-              ),
-              _statDivider(),
-              _HeroStat(
-                value: '${stats.dueThisWeek}',
-                label: 'due this week',
-                highlight: stats.dueThisWeek > 0,
-              ),
-              _statDivider(),
-              _HeroStat(
-                value: stats.nextDate == null
-                    ? '—'
-                    : '${_days(stats.nextDate!)}d',
-                label: 'to next',
-              ),
-            ],
-          ),
         ],
       ),
     );
-  }
-
-  Widget _statDivider() => Container(
-        width: 1,
-        height: 30,
-        color: Colors.white.withValues(alpha: 0.08),
-      );
-
-  int _days(DateTime due) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final d = DateTime(due.year, due.month, due.day);
-    return d.difference(today).inDays;
   }
 }
 
@@ -564,47 +670,6 @@ class _OrbitBadge extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: AppColors.ink.withValues(alpha: 0.85),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroStat extends StatelessWidget {
-  const _HeroStat({
-    required this.value,
-    required this.label,
-    this.highlight = false,
-  });
-  final String value;
-  final String label;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: highlight ? AppColors.accent : AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.inkSoft,
             ),
           ),
         ],
@@ -917,6 +982,128 @@ class _EmptyCollection extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The filter sheet — "All" plus the categories present, as chips. Returns '' to
+/// clear (All), a category name to filter, or null if dismissed.
+class _FilterSheet extends StatelessWidget {
+  const _FilterSheet({required this.categories, required this.selected});
+  final List<String> categories;
+  final String? selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    return Container(
+      margin: EdgeInsets.only(bottom: bottomInset),
+      decoration: const BoxDecoration(
+        color: AppColors.bgTop,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: AppColors.cardBorder)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.inkFaint.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Filter by category',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _FilterChip(
+                    label: 'All',
+                    icon: Icons.blur_on_rounded,
+                    selected: selected == null,
+                    onTap: () => Navigator.of(context).pop(''),
+                  ),
+                  for (final c in categories)
+                    _FilterChip(
+                      label: c,
+                      icon: subCategoryIcon(c),
+                      selected: c == selected,
+                      onTap: () => Navigator.of(context).pop(c),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.accent.withValues(alpha: 0.16)
+              : AppColors.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.cardBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 17,
+                color: selected ? AppColors.accent : AppColors.inkSoft),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w800,
+                color: selected ? AppColors.ink : AppColors.inkSoft,
               ),
             ),
           ],

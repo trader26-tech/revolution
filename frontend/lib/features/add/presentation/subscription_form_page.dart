@@ -9,6 +9,7 @@ import '../../brand/presentation/brand_logo.dart';
 import '../../brand/presentation/brand_picker_sheet.dart';
 import '../../details/domain/currency.dart';
 import '../../tasks/domain/task.dart';
+import '../domain/subscription_categories.dart';
 
 /// The Subscription form — modelled on the reference: an identity card (logo +
 /// name + price), a grouped details card (first payment · cycle · free trial),
@@ -51,6 +52,10 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
   bool _freeTrial = false;
   int _remindDaysBefore = 1; // Notification lead time
 
+  String _subCategory = kOtherSubCategory; // auto-filled, editable
+  bool _categoryTouched = false; // user overrode → stop auto-filling
+  final Set<String> _customCategories = {}; // categories the user added
+
   bool get _valid => _name.text.trim().isNotEmpty;
 
   @override
@@ -65,7 +70,19 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
         widget.initialName!.trim().isNotEmpty) {
       _name.text = widget.initialName!.trim();
     }
-    _name.addListener(() => setState(() {}));
+    _autoCategorise();
+    _name.addListener(() {
+      _autoCategorise();
+      setState(() {});
+    });
+  }
+
+  /// Set the category from the typed/picked name — unless the user has manually
+  /// chosen one (then we respect their choice).
+  void _autoCategorise() {
+    if (_categoryTouched) return;
+    final guess = subCategoryFor(_name.text.trim());
+    if (guess != _subCategory) _subCategory = guess;
   }
 
   @override
@@ -84,6 +101,30 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
         _iconName = brand.name;
         _iconDomain = brand.domain;
         if (_name.text.trim().isEmpty) _name.text = brand.name;
+        // Auto-categorise from the picked brand (icon + category together),
+        // unless the user has manually overridden the category.
+        if (!_categoryTouched) _subCategory = subCategoryFor(brand.name);
+      });
+    }
+  }
+
+  Future<void> _pickCategory() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _CategorySheet(
+        selected: _subCategory,
+        custom: _customCategories.toList(),
+      ),
+    );
+    if (picked != null && picked.trim().isNotEmpty) {
+      setState(() {
+        _subCategory = picked.trim();
+        _categoryTouched = true; // stop auto-filling once chosen
+        final isBuiltIn = kSubCategories
+            .any((c) => c.name.toLowerCase() == picked.trim().toLowerCase());
+        if (!isBuiltIn) _customCategories.add(picked.trim());
       });
     }
   }
@@ -124,6 +165,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
         amount: amount,
         currency: _currency,
         storedCategory: TaskCategory.subscription,
+        subCategory: _subCategory,
       ),
     );
   }
@@ -162,9 +204,14 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                     ),
                     const SizedBox(height: 22),
 
-                    // ── Details: first payment · cycle · free trial ──
+                    // ── Details: category · next payment · cycle · free trial ──
                     _GroupCard(
                       children: [
+                        _CategoryRow(
+                          value: _subCategory,
+                          onTap: _pickCategory,
+                        ),
+                        const _RowDivider(),
                         _NavRow(
                           label: 'Next payment',
                           value: _dateLabel(_firstPayment),
@@ -569,6 +616,57 @@ class _NavRow extends StatelessWidget {
   }
 }
 
+/// The category row — shows the current sub-category as an icon+label pill and
+/// opens the category picker on tap.
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({required this.value, required this.onTap});
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        child: Row(
+          children: [
+            const Text('Category', style: _labelStyle),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(subCategoryIcon(value), size: 15, color: AppColors.accent),
+                  const SizedBox(width: 6),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  const Icon(Icons.expand_more_rounded,
+                      size: 15, color: AppColors.inkSoft),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// The billing-cycle row — a segmented inline picker (tap to cycle through, or
 /// long-press-free chips). Kept to the common four so it's one tap.
 class _CycleRow extends StatelessWidget {
@@ -899,6 +997,276 @@ class _CurrencyRow extends StatelessWidget {
               const Icon(Icons.check_circle_rounded,
                   color: AppColors.accent, size: 22),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Category picker sheet ────────────────────────────────────────────────────
+
+/// Choose a subscription category — the 8 built-ins plus any the user added,
+/// with an "Add category" action to create a custom one. Returns the chosen
+/// category name, or null if dismissed.
+class _CategorySheet extends StatefulWidget {
+  const _CategorySheet({required this.selected, required this.custom});
+  final String selected;
+  final List<String> custom;
+
+  @override
+  State<_CategorySheet> createState() => _CategorySheetState();
+}
+
+class _CategorySheetState extends State<_CategorySheet> {
+  late final List<String> _custom = [...widget.custom];
+
+  Future<void> _addCustom() async {
+    final name = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _NewCategorySheet(),
+    );
+    if (name != null && name.trim().isNotEmpty && mounted) {
+      Navigator.of(context).pop(name.trim());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    final builtIn = kSubCategories.map((c) => c.name).toList();
+    final all = <String>[
+      ...builtIn,
+      ..._custom.where((c) => !builtIn.contains(c)),
+    ];
+
+    return Container(
+      margin: EdgeInsets.only(bottom: bottomInset),
+      decoration: const BoxDecoration(
+        color: AppColors.bgTop,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: AppColors.cardBorder)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.inkFaint.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Text(
+                    'Category',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _addCustom,
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.add_rounded,
+                            size: 18, color: AppColors.accent),
+                        const SizedBox(width: 4),
+                        Text('Add',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.accent,
+                            )),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final name in all)
+                    _CategoryChip(
+                      name: name,
+                      selected: name == widget.selected,
+                      onTap: () => Navigator.of(context).pop(name),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.name,
+    required this.selected,
+    required this.onTap,
+  });
+  final String name;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.accent.withValues(alpha: 0.16)
+              : AppColors.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? AppColors.accent : AppColors.cardBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(subCategoryIcon(name),
+                size: 17,
+                color: selected ? AppColors.accent : AppColors.inkSoft),
+            const SizedBox(width: 8),
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w800,
+                color: selected ? AppColors.ink : AppColors.inkSoft,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A tiny sheet to name a new custom category.
+class _NewCategorySheet extends StatefulWidget {
+  const _NewCategorySheet();
+
+  @override
+  State<_NewCategorySheet> createState() => _NewCategorySheetState();
+}
+
+class _NewCategorySheetState extends State<_NewCategorySheet> {
+  final _controller = TextEditingController();
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.bgTop,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border(top: BorderSide(color: AppColors.cardBorder)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'New category',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.cardBorder),
+                  ),
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focus,
+                    textCapitalization: TextCapitalization.words,
+                    cursorColor: AppColors.accent,
+                    onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. News, Kids, Work…',
+                      hintStyle: TextStyle(color: AppColors.inkFaint),
+                      border: InputBorder.none,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                GestureDetector(
+                  onTap: () =>
+                      Navigator.of(context).pop(_controller.text.trim()),
+                  child: Container(
+                    height: 52,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                          colors: [AppColors.accent, AppColors.accentDeep]),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Text(
+                      'Add category',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

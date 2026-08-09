@@ -164,6 +164,7 @@ class TaskStore extends ChangeNotifier {
     String? category,
     String? source,
     String? imagePath,
+    String? subCategory,
   }) async {
     final body = {
       'title': title.trim(),
@@ -175,14 +176,20 @@ class TaskStore extends ChangeNotifier {
       'currency': ?currency,
       'category': ?category,
       'source': ?source,
+      'sub_category': ?subCategory,
     };
     final json = await _api.post('/tasks', body) as Map<String, dynamic>;
-    // The server doesn't store the local image path, so graft it back on
-    // locally so the avatar shows and it's written to the on-device cache.
-    final created = Task.fromJson(json)
-      ..imagePath = (imagePath != null && imagePath.isNotEmpty)
-          ? imagePath
-          : null;
+    // The server may not echo these back, so graft them on locally (they're
+    // also written to the on-device cache).
+    final created = Task.fromJson(json);
+    if (imagePath != null && imagePath.isNotEmpty) {
+      created.imagePath = imagePath;
+    }
+    if (created.subCategory == null &&
+        subCategory != null &&
+        subCategory.isNotEmpty) {
+      created.subCategory = subCategory;
+    }
     _tasks.insert(0, created);
     notifyListeners();
     unawaited(_writeCache(_tasks));

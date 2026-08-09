@@ -105,6 +105,7 @@ class Task {
     this.documentPath,
     this.imagePath,
     this.storedCategory,
+    this.subCategory,
   });
 
   final String id;
@@ -143,6 +144,11 @@ class Task {
   /// use [category], which falls back to [inferCategory].
   TaskCategory? storedCategory;
 
+  /// A free-text SUB-category within a category — e.g. a subscription's
+  /// "Entertainment" / "Music" / "AI" bucket (auto-filled from the app, or a
+  /// custom label the user typed). Null = uncategorised → "Other".
+  String? subCategory;
+
   bool get isScheduled => dueAt != null;
   bool get hasIcon => (iconName != null && iconName!.isNotEmpty);
   bool get hasAmount => amount != null;
@@ -170,6 +176,7 @@ class Task {
     String? imagePath,
     bool clearImage = false,
     TaskCategory? category,
+    String? subCategory,
   }) {
     return Task(
       id: id,
@@ -185,6 +192,7 @@ class Task {
       documentPath: documentPath ?? this.documentPath,
       imagePath: clearImage ? null : (imagePath ?? this.imagePath),
       storedCategory: category ?? storedCategory,
+      subCategory: subCategory ?? this.subCategory,
     );
   }
 
@@ -206,6 +214,7 @@ class Task {
         // ignores unknown fields.
         'image_path': imagePath,
         if (storedCategory != null) 'category': storedCategory!.name,
+        if (subCategory != null) 'sub_category': subCategory,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -231,5 +240,6 @@ class Task {
                 (c) => c.name == j['category'],
                 orElse: () => TaskCategory.other,
               ),
+        subCategory: j['sub_category'] as String?,
       );
 }

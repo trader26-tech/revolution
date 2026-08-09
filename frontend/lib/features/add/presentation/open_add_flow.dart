@@ -151,5 +151,6 @@ Future<void> persistAddResult(TaskStore store, AddResult? result) async {
     currency: task.currency,
     category: task.storedCategory?.name,
     imagePath: task.imagePath,
+    subCategory: task.subCategory,
   );
 }

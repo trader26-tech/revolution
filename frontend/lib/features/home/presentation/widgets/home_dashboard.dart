@@ -1316,12 +1316,10 @@ class BrowseGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Only categories that have items — plus "All" — so the list stays useful
-    // and quick to scan (no empty rows cluttering it).
-    final live = [
-      for (final c in kBrowseCategories)
-        if (_countFor(c) > 0) c,
-    ];
+    // Always show every built-in category (even empty) so it's a launcher —
+    // the user can add to any of them, including Important dates before they
+    // have their first one.
+    final live = kBrowseCategories;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

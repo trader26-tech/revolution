@@ -2167,38 +2167,6 @@ class BrowseGrid extends StatelessWidget {
 
   int _countFor(TaskCategory c) => tasks.where((t) => t.category == c).length;
 
-  /// A category's info: the soonest upcoming item's name as a subtitle, plus a
-  /// short "when" tag shown separately (so it never gets cut off). Returns a
-  /// gentle prompt + no tag when there's nothing scheduled.
-  (String, String?) _infoFor(TaskCategory c) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final upcoming = tasks
-        .where((t) => t.category == c && t.isScheduled)
-        .toList()
-      ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
-    if (upcoming.isEmpty) {
-      return (_countFor(c) == 0 ? 'Nothing yet' : 'No dates set', null);
-    }
-    final next = upcoming.firstWhere(
-      (t) => !DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day)
-          .isBefore(today),
-      orElse: () => upcoming.first,
-    );
-    final d = DateTime(next.dueAt!.year, next.dueAt!.month, next.dueAt!.day);
-    final days = d.difference(today).inDays;
-    final when = days < 0
-        ? 'soon'
-        : days == 0
-            ? 'today'
-            : days == 1
-                ? 'tomorrow'
-                : days < 30
-                    ? 'in ${days}d'
-                    : 'in ${(days / 30).round()}mo';
-    return ('Next: ${next.title}', when);
-  }
-
   @override
   Widget build(BuildContext context) {
     // Always show every built-in category (even empty) so it's a launcher —
@@ -2240,26 +2208,18 @@ class BrowseGrid extends StatelessWidget {
           child: Column(
             children: [
               for (var i = 0; i < live.length; i++) ...[
-                Builder(builder: (_) {
-                  final (subtitle, whenTag) = _infoFor(live[i]);
-                  return _BrowseRow(
-                    icon: live[i].icon,
-                    label: live[i].label,
-                    subtitle: subtitle,
-                    trailingWhen: whenTag,
-                    count: _countFor(live[i]),
-                    onTap: () => onOpenCategory(live[i]),
-                  );
-                }),
+                _BrowseRow(
+                  icon: live[i].icon,
+                  label: live[i].label,
+                  count: _countFor(live[i]),
+                  onTap: () => onOpenCategory(live[i]),
+                ),
                 const _BrowseDivider(),
               ],
               // The catch-all "All" row — every reminder in one place.
               _BrowseRow(
                 icon: Icons.blur_on_rounded,
                 label: 'All reminders',
-                subtitle: tasks.isEmpty
-                    ? 'Nothing yet'
-                    : 'Everything in one place',
                 count: tasks.length,
                 onTap: onOpenAll,
               ),
@@ -2271,28 +2231,21 @@ class BrowseGrid extends StatelessWidget {
   }
 }
 
-/// One category as a plain LIST row (NO box) — an accent icon badge, the name +
-/// an info line, and a right-aligned "when" chip so the timing is never cut off.
-/// Reads as a fast, scannable launcher; a press subtly highlights it.
+/// One category as a plain LIST row (NO box) — an accent icon badge, the name,
+/// and a right-aligned count of items. Minimal by design: just what it is and
+/// how many. A press subtly highlights it.
 class _BrowseRow extends StatefulWidget {
   const _BrowseRow({
     required this.icon,
     required this.label,
-    required this.subtitle,
     required this.count,
     required this.onTap,
-    this.trailingWhen,
   });
 
   final IconData icon;
   final String label;
-  final String subtitle;
   final int count;
   final VoidCallback onTap;
-
-  /// A short "when" tag (e.g. "in 2d") shown as a pill on the right; null hides
-  /// it. Guaranteed visible — never truncated by the subtitle.
-  final String? trailingWhen;
 
   @override
   State<_BrowseRow> createState() => _BrowseRowState();
@@ -2303,6 +2256,7 @@ class _BrowseRowState extends State<_BrowseRow> {
 
   @override
   Widget build(BuildContext context) {
+    final count = widget.count;
     return GestureDetector(
       onTapDown: (_) => setState(() => _down = true),
       onTapUp: (_) => setState(() => _down = false),
@@ -2313,7 +2267,7 @@ class _BrowseRowState extends State<_BrowseRow> {
         color: _down
             ? AppColors.accent.withValues(alpha: 0.06)
             : Colors.transparent,
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 13),
         child: Row(
           children: [
             // Accent icon badge.
@@ -2330,73 +2284,32 @@ class _BrowseRowState extends State<_BrowseRow> {
               child: Icon(widget.icon, color: AppColors.accent, size: 22),
             ),
             const SizedBox(width: 14),
-            // Name + info line.
+            // Just the name.
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          widget.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.2,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Count in the accent, right after the name.
-                      Text(
-                        '${widget.count}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.inkFaint,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    widget.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                ],
+              child: Text(
+                widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  color: AppColors.ink,
+                ),
               ),
             ),
             const SizedBox(width: 10),
-            // The "when" pill — always fully visible.
-            if (widget.trailingWhen != null)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  widget.trailingWhen!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.accent,
-                  ),
-                ),
+            // The count — "3 items" (or "None"): the one piece of info kept.
+            Text(
+              count == 0 ? 'None' : '$count ${count == 1 ? 'item' : 'items'}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.inkSoft,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-            const SizedBox(width: 4),
+            ),
+            const SizedBox(width: 6),
             Icon(Icons.chevron_right_rounded,
                 size: 20, color: AppColors.inkFaint.withValues(alpha: 0.8)),
           ],

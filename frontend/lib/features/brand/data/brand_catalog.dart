@@ -303,6 +303,42 @@ class BrandCatalog {
     return out;
   }
 
+  /// Resolve a KNOWN subscription's logo from a typed name — covers the full
+  /// top-subscriptions shelf (not just `popular`/aliases). Tries, in order:
+  /// exact name, alias, then a best contains-match against the shelf. Returns a
+  /// brand with an empty domain if nothing known matches (→ no blank favicon).
+  ///
+  /// Used by the subscription form's type-ahead so "JioSaavn", "YouTube
+  /// Premium", "ChatGPT Plus" etc. all pop their icon as you type — consistent
+  /// with the category auto-fill, which also spans the whole shelf.
+  static Brand resolveSubscription(String query) {
+    final q = query.trim();
+    final lower = q.toLowerCase();
+    if (lower.isEmpty) return Brand(name: q, domain: '');
+
+    // 1. A known brand via the general resolver (popular/catalog/alias/custom).
+    final known = resolveKnown(q);
+    if (known.domain.isNotEmpty) return known;
+
+    // 2. Exact match on the subscriptions shelf.
+    for (final b in topSubscriptions) {
+      if (b.name.toLowerCase() == lower) return b;
+    }
+    // 3. The shelf entry that best contains the query (or vice-versa) — e.g.
+    //    "youtube premium" → the YouTube Premium entry; "saavn" → JioSaavn.
+    Brand? best;
+    for (final b in topSubscriptions) {
+      final name = b.name.toLowerCase();
+      if (name.contains(lower) || lower.contains(name)) {
+        // Prefer the shortest matching name (the tightest fit).
+        if (best == null || b.name.length < best.name.length) best = b;
+      }
+    }
+    if (best != null) return best;
+
+    return Brand(name: q, domain: '');
+  }
+
   /// A few common name → domain aliases so short/informal names still resolve.
   /// Name → domain for apps whose logo domain isn't just `<name>.com`. This is
   /// what pushes coverage to ~90-95% — anything not here still falls back to a

@@ -61,6 +61,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
 
   String _subCategory = kOtherSubCategory; // auto-filled, editable
   bool _categoryTouched = false; // user overrode → stop auto-filling
+  bool _priceTouched = false; // user typed a price → stop auto-filling it
+  bool _cycleTouched = false; // user changed the cycle → stop auto-filling it
   final Set<String> _customCategories = {}; // categories the user added
 
   bool get _valid => _name.text.trim().isNotEmpty;
@@ -74,12 +76,14 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
       _name.text = edit.title;
       _iconName = edit.iconName;
       _iconDomain = edit.iconDomain;
-      // Keep the saved logo — don't let type-ahead override an existing icon.
+      // Keep the saved logo/price/cycle — don't let type-ahead override them.
       if (edit.hasIcon) _iconTouched = true;
       if (edit.hasAmount) {
         _amount.text = edit.amount!.toStringAsFixed(
             edit.amount == edit.amount!.roundToDouble() ? 0 : 2);
       }
+      _priceTouched = true;
+      _cycleTouched = true;
       _currency = edit.currency;
       _cycle = edit.repeat == RepeatCadence.none
           ? RepeatCadence.monthly
@@ -108,8 +112,37 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     _name.addListener(() {
       _autoCategorise();
       _autoIcon();
+      _autoPlan();
       setState(() {});
     });
+    // If the USER types in the price field, stop auto-filling it. Programmatic
+    // fills (from _autoPlan) set _settingPrice so they don't trip this.
+    _amount.addListener(() {
+      if (!_settingPrice && _amount.text.isNotEmpty) _priceTouched = true;
+    });
+  }
+
+  bool _settingPrice = false; // true while _autoPlan writes the price field
+
+  /// Pre-fill a typical price + cycle for a known subscription (unless the user
+  /// has already edited them). "Netflix" → ₹499 / Monthly, "Prime" → ₹1499 /
+  /// Yearly, etc. Gives the user a real starting number.
+  void _autoPlan() {
+    final plan = subscriptionDefault(_name.text.trim());
+    if (plan == null) return;
+    if (!_cycleTouched) _cycle = plan.cycle;
+    if (!_priceTouched) {
+      // A 0 default (e.g. bundled free perks) → leave blank rather than "0".
+      final text = plan.price > 0
+          ? plan.price.toStringAsFixed(
+              plan.price == plan.price.roundToDouble() ? 0 : 2)
+          : '';
+      if (_amount.text != text) {
+        _settingPrice = true; // mark this as a programmatic write
+        _amount.text = text;
+        _settingPrice = false;
+      }
+    }
   }
 
   /// Set the category from the typed/picked name — unless the user has manually
@@ -132,7 +165,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
       _iconDomain = null;
       return;
     }
-    final brand = BrandCatalog.resolveKnown(query);
+    final brand = BrandCatalog.resolveSubscription(query);
     if (brand.domain.isNotEmpty) {
       _iconName = brand.name;
       _iconDomain = brand.domain;
@@ -300,7 +333,10 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                         const _RowDivider(),
                         _CycleRow(
                           value: _cycle,
-                          onChanged: (c) => setState(() => _cycle = c),
+                          onChanged: (c) => setState(() {
+                            _cycle = c;
+                            _cycleTouched = true; // stop auto-filling the cycle
+                          }),
                         ),
                         const _RowDivider(),
                         _ToggleRow(

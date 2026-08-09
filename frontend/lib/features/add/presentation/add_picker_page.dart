@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/glass.dart';
 import '../domain/reminder_catalog.dart';
 
 /// What the add picker resolved to.
@@ -147,7 +148,12 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Row(
         children: [
-          _CancelPill(onTap: onCancel),
+          // iPhone-style frosted-glass circular back button.
+          GlassIconButton(
+            icon: Icons.arrow_back_ios_new_rounded,
+            tooltip: 'Back',
+            onTap: onCancel,
+          ),
           const Expanded(
             child: Text(
               'Add to Revolution',
@@ -160,36 +166,10 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 84), // balance the Cancel pill → keep title centred
+          // Balance the back button so the title stays centred (a glass button
+          // is ~44px).
+          const SizedBox(width: 44),
         ],
-      ),
-    );
-  }
-}
-
-class _CancelPill extends StatelessWidget {
-  const _CancelPill({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.card,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-          child: Text(
-            'Cancel',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.ink,
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -219,17 +199,19 @@ class _Browse extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(top: 6, bottom: 16),
       children: [
-        // Pick a category — one clean, tappable row each.
+        // Pick a category — one clean, tappable row each. Every row uses the
+        // SAME neutral "add reminder" glyph (no per-category colour), so the
+        // list reads as one calm, uniform set instead of a rainbow of icons.
         for (final cat in kReminderCatalog)
           _CategoryRow(
             title: cat.title,
             blurb: _blurbFor(cat.key),
-            icon: cat.icon,
-            color: cat.color,
+            icon: Icons.add_alert_rounded,
+            color: AppColors.inkSoft,
             onTap: () => onPickCategory(cat),
           ),
         const _RowDivider(),
-        // The catch-all: a blank reminder, no category.
+        // The catch-all: a blank reminder, no category — same neutral glyph.
         _CategoryRow(
           title: 'Add a reminder',
           blurb: 'Anything else — just a name & date',
@@ -340,23 +322,21 @@ class _ItemRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
         child: Row(
           children: [
+            // Every item shows the SAME neutral "add reminder" glyph — no
+            // per-item colour or logo, so the list stays uniform and calm.
             Container(
               width: 40,
               height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: other
-                    ? Colors.white.withValues(alpha: 0.04)
-                    : cat.color.withValues(alpha: 0.14),
+                color: Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(12),
-                border: other
-                    ? Border.all(color: AppColors.cardBorder)
-                    : null,
+                border: Border.all(color: AppColors.cardBorder),
               ),
-              child: Icon(
-                item.icon,
+              child: const Icon(
+                Icons.add_alert_rounded,
                 size: 20,
-                color: other ? AppColors.inkSoft : cat.color,
+                color: AppColors.inkSoft,
               ),
             ),
             const SizedBox(width: 14),

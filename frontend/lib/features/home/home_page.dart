@@ -13,8 +13,11 @@ import '../tasks/presentation/open_task_details.dart';
 import '../tasks/presentation/widgets/delete_snackbar.dart';
 import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
+import '../settings/data/profile_store.dart';
 import 'domain/home_groups.dart';
+import 'domain/home_stats.dart';
 import 'presentation/search_page.dart';
+import 'presentation/widgets/home_dashboard.dart';
 import 'presentation/widgets/home_loading.dart';
 import 'presentation/widgets/revo_hero.dart';
 import 'presentation/widgets/task_section.dart';
@@ -92,6 +95,10 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  /// Tapping a category card → open search (where the user can find everything
+  /// in that category). A dedicated filtered view can replace this later.
+  void _openCategory(TaskCategory _) => _openSearch();
 
   /// Press + → pick a category (Subscription, Birthday, Insurance) → fill its
   /// tailored form. Subscription/Birthday hand back a ready-to-save [Task];
@@ -189,41 +196,14 @@ class _HomePageState extends State<HomePage> {
                 onFilter: _openFilter,
                 filterActive: _filter.isActive,
               ),
-              const SizedBox(height: 12),
-              // Search — above the hero. Tap to open a full-screen search where
-              // any item can be found and fully edited/deleted. Only shown once
-              // there's something to search (hidden during the first load and
-              // the empty state).
-              AnimatedBuilder(
-                animation: widget.store,
-                builder: (context, _) {
-                  if (widget.store.isInitialLoad ||
-                      widget.store.tasks.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: _SearchTapBar(onTap: _openSearch),
-                  );
-                },
-              ),
-              // Revo hero — always present (it's the hero): panicking (due
-              // today), sad (overdue pending), or happy (all clear / nothing
-              // yet). Hidden only during the very first fetch so it doesn't
-              // flash a wrong state before tasks load.
-              AnimatedBuilder(
-                animation: widget.store,
-                builder: (context, _) {
-                  if (widget.store.isInitialLoad) {
-                    return const SizedBox.shrink();
-                  }
-                  return RevoHero(tasks: widget.store.tasks);
-                },
-              ),
+              const SizedBox(height: 8),
+              // Everything below the top bar scrolls together: greeting → search
+              // → Revo + hero metrics → Up Next → category cards → the list.
               Expanded(
                 child: AnimatedBuilder(
-                  animation: widget.store,
-                  builder: (context, _) => _buildList(),
+                  animation: Listenable.merge(
+                      [widget.store, ProfileStore.instance]),
+                  builder: (context, _) => _buildBody(),
                 ),
               ),
             ],
@@ -233,35 +213,55 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildList() {
+  /// The whole scrollable Home: greeting → search → Revo + hero metrics →
+  /// Up Next cards → category cards → the grouped task list.
+  Widget _buildBody() {
     final allTasks = widget.store.tasks;
 
-    // Still fetching for the first time → a premium shimmer skeleton, so the
-    // content resolves into place instead of flashing "All clear" then the list.
+    // Still fetching for the first time → a premium shimmer skeleton.
     if (widget.store.isInitialLoad) {
       return const HomeLoading();
     }
-
-    // Surface a server error clearly instead of silently showing an empty list.
+    // Server error with nothing to show → a clear error, not a blank list.
     if (widget.store.error != null && allTasks.isEmpty) {
       return _ServerError(
         error: widget.store.error!,
         onRetry: () => widget.store.load(),
       );
     }
-    // Truly empty (no tasks at all) → the welcoming empty state (drawn behind).
+    // Truly empty → the welcoming empty state (drawn behind this).
     if (allTasks.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final stats = computeHomeStats(allTasks);
     final groups = groupForHome(allTasks, filter: _filter);
 
     return ListView(
-      // No side padding on the list — the section headers and task rows carry
-      // their own consistent 20px inset, so rows can use the full width.
-      padding: const EdgeInsets.fromLTRB(0, 4, 0, 140),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 140),
       children: [
-        // Nothing matches the active funnel filter.
+        // 1 · Warm greeting.
+        GreetingHeader(name: ProfileStore.instance.name, stats: stats),
+        const SizedBox(height: 14),
+        // 2 · Search (tap → full-screen search).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+          child: _SearchTapBar(onTap: _openSearch),
+        ),
+        // 3 · Revo, reacting to the day.
+        RevoHero(tasks: allTasks),
+        // 4 · The hero metrics card — everything at a glance.
+        HeroMetricsCard(stats: stats),
+        // 5 · Up Next — the soonest reminders as cards.
+        UpNextStrip(items: stats.upNext, onTap: _editTask),
+        // 6 · Category cards.
+        CategoryCards(
+          stats: stats,
+          tasks: allTasks,
+          onTapCategory: _openCategory,
+        ),
+        const SizedBox(height: 8),
+        // 7 · The grouped list below.
         if (groups.isEmpty)
           _FilteredEmpty(
             filter: _filter,

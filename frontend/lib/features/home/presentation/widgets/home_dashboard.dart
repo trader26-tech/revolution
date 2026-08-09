@@ -1014,72 +1014,46 @@ class _WhenChipState extends State<_WhenChip>
 
 const double _kCardW = 264;
 
-/// A subscription line written from Revolution's stance — keep only what you use.
-/// It's SUBTLE: never tells the user to cancel or to invest; it just poses the
-/// "still using it?" question and, when we know the price, makes the yearly cost
-/// tangible ("you'd save ₹7,788 a year"). The saving does the persuading.
+/// A subscription highlight — 4–5 words, glanceable. Leads with the tangible
+/// yearly cost when known ("₹7,788/yr if unused"), else a quick "still using it?".
 String _subscriptionPunch(Task t) {
   final yearly = _yearlyInr(t);
-  final sub = (t.subCategory ?? '').toLowerCase();
-
-  // The lead question, tuned to the sub-category — a gentle "do you still…?".
-  final String question = switch (sub) {
-    'entertainment' => 'Still watching it?',
-    'music' => 'Still on repeat?',
-    'ai' => 'Still earning its price?',
-    'cloud & tools' => 'Still using it?',
-    'learning' => 'Still learning from it?',
-    'gaming' => 'Still playing?',
-    'food & shopping' => 'Perks still worth it?',
-    _ => 'Still using it?',
-  };
-
-  if (yearly != null) {
-    // Tangible saving, no verbs telling them what to do.
-    return '$question If not, that\'s $yearly a year saved.';
-  }
-  return '$question If not, it\'s quietly costing you each cycle.';
+  if (yearly != null) return '$yearly/yr if unused';
+  return 'Still using it?';
 }
 
-/// A benefit line for a SIP, keyed to its investment sub-category. The amount is
-/// already the big hero above, so the line stays SHORT — it fits in two lines
-/// with room to spare and never clips. [amt] is the amount, [byWhen] the due.
-String _sipPunch(Task t, String amt, String byWhen) {
+/// A SIP highlight — 4–5 words. The amount is already the big hero, so this is
+/// just a short nudge keyed to the investment sub-category.
+String _sipPunch(Task t, String byWhen) {
   final sub = (t.subCategory ?? '').toLowerCase();
   switch (sub) {
     case 'stocks':
-      return 'Keep $amt ready $byWhen — keep building your portfolio.';
+      return 'Ready $byWhen — grow your stocks';
     case 'mutual funds':
-      return 'Keep $amt ready $byWhen — let your units compound.';
+      return 'Ready $byWhen — keep compounding';
     case 'bonds':
-      return 'Keep $amt ready $byWhen — keep your income on track.';
+      return 'Ready $byWhen — steady income';
     case 'gold':
-      return 'Keep $amt ready $byWhen — keep stacking your hedge.';
+      return 'Ready $byWhen — keep stacking';
     case 'goal':
-      return 'Keep $amt ready $byWhen — stay on pace for your goal.';
+      return 'Ready $byWhen — stay on track';
   }
-  return 'Keep $amt ready $byWhen so your wealth keeps compounding.';
+  return 'Keep it ready $byWhen';
 }
 
-/// A warm line for an occasion, keyed to its type (Birthday, Anniversary,
-/// Wedding, Memorial). [name] is the person, [age] the milestone (nullable),
-/// [whenText] the "today/tomorrow/in N days" phrase.
+/// An occasion highlight — 4–5 words, keyed to its type.
 String _occasionPunch(String type, String name, int? age, String whenText) {
   switch (type.toLowerCase()) {
     case 'birthday':
-      return age != null
-          ? '$name turns $age $whenText — don’t miss the wish.'
-          : '$name’s big day is $whenText — send a little joy.';
+      return age != null ? '$name turns $age $whenText' : '$name\'s day $whenText';
     case 'anniversary':
-      return age != null
-          ? '$age years together $whenText — mark the milestone.'
-          : 'Their anniversary is $whenText — celebrate the two of them.';
+      return age != null ? '$age years — $whenText' : 'Anniversary $whenText';
     case 'wedding':
-      return 'The wedding is $whenText — block the day and bring your best wishes.';
+      return 'Wedding day $whenText';
     case 'memorial':
-      return 'A day to remember $name, $whenText — pause and honour them.';
+      return 'Remember $name $whenText';
   }
-  return 'A moment worth remembering — $whenText.';
+  return 'Coming up $whenText';
 }
 
 // The card ideology (from the birthday card you liked): a big MAIN VALUE sits
@@ -1152,8 +1126,8 @@ class _SipCard extends StatelessWidget {
           ? '${task.subCategory ?? 'SIP'} · you invest'
           : 'SIP instalment',
       highlight: has
-          ? _sipPunch(task, _amountStr(task), byWhen)
-          : 'Fund your account $byWhen so your SIP goes through.',
+          ? _sipPunch(task, byWhen)
+          : 'Fund account $byWhen',
       highlightIcon: Icons.account_balance_wallet_rounded,
     );
   }
@@ -1487,19 +1461,17 @@ class _GenericCard extends StatelessWidget {
       TaskCategory.bills => (
           Icons.receipt_long_rounded,
           task.hasAmount ? _amountStr(task) : 'Bill',
-          task.hasAmount
-              ? 'Clear ${_amountStr(task)} $byWhen so you dodge the late fee.'
-              : 'Settle it $byWhen so you dodge the late fee.'
+          'Pay $byWhen — avoid late fee'
         ),
       TaskCategory.insurance => (
           Icons.shield_rounded,
           'Insurance',
-          'Renew it $byWhen so your cover never lapses.'
+          'Renew $byWhen — stay covered'
         ),
       _ => (
           Icons.bolt_rounded,
           _whenLabel(days, task.dueAt!),
-          days <= 1 ? 'This one’s up — knock it out today.' : 'On your radar $byWhen.'
+          days <= 1 ? 'Due now' : 'Coming up $byWhen'
         ),
     };
 

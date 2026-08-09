@@ -8,7 +8,14 @@ import '../tasks/data/task_store.dart';
 
 /// The app shell: two tabs (Home, Calendar) behind a floating glass nav.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.verified = true, this.onVerify});
+
+  /// Whether the session is phone-verified. Kept for the auth gate's API even
+  /// when the verify banner isn't currently rendered.
+  final bool verified;
+
+  /// Starts phone verification (opens the OTP flow). Null hides any prompt.
+  final VoidCallback? onVerify;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -81,22 +88,26 @@ class _GlassNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 0, 40, 16),
-        child: GlassPanel(
-          borderRadius: 999,
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              children: [
-                for (var i = 0; i < _items.length; i++)
-                  Expanded(
-                    child: _NavButton(
+        // Nav pill in the LEFT corner; Home's glass "+" sits in the right corner
+        // of this same row. The right inset leaves room for it.
+        padding: const EdgeInsets.fromLTRB(20, 0, 92, 16),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: GlassPanel(
+            borderRadius: 999,
+            child: SizedBox(
+              height: 64,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < _items.length; i++)
+                    _NavButton(
                       item: _items[i],
                       selected: i == index,
                       onTap: () => onChanged(i),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

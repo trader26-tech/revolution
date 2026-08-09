@@ -543,11 +543,11 @@ class OrbitFrequencyField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
         children: [
           const Text('every', style: orbitLabelStyle),
-          const Spacer(),
+          const SizedBox(width: 10),
           // The −/N/+ stepper.
           Container(
             decoration: BoxDecoration(
@@ -563,7 +563,7 @@ class OrbitFrequencyField extends StatelessWidget {
                   onInterval(interval - 1);
                 }),
                 SizedBox(
-                  width: 42,
+                  width: 34,
                   child: Text(
                     '$interval',
                     textAlign: TextAlign.center,
@@ -583,8 +583,14 @@ class OrbitFrequencyField extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          // The unit dropdown pill.
-          _UnitDropdown(unit: unit, interval: interval, onUnit: onUnit),
+          // The unit dropdown pill — flexes so a long label ("minutes") can
+          // shrink instead of overflowing the row.
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _UnitDropdown(unit: unit, interval: interval, onUnit: onUnit),
+            ),
+          ),
         ],
       ),
     );
@@ -595,7 +601,7 @@ class OrbitFrequencyField extends StatelessWidget {
       onTap: enabled ? onTap : null,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 40,
+        width: 36,
         height: 40,
         alignment: Alignment.center,
         child: Icon(icon,
@@ -651,12 +657,16 @@ class _UnitDropdown extends StatelessWidget {
             const Icon(Icons.expand_more_rounded,
                 size: 16, color: AppColors.accent),
             const SizedBox(width: 4),
-            Text(
-              _label(),
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink,
+            Flexible(
+              child: Text(
+                _label(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
               ),
             ),
           ],

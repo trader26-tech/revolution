@@ -808,7 +808,7 @@ class _WhenChipState extends State<_WhenChip>
     super.initState();
     if (_urgent) {
       _pulse = AnimationController(
-          vsync: this, duration: const Duration(milliseconds: 1400))
+          vsync: this, duration: const Duration(milliseconds: 2200))
         ..repeat(reverse: true);
     }
   }
@@ -1278,8 +1278,9 @@ class _ParticleStage extends StatefulWidget {
 
 class _ParticleStageState extends State<_ParticleStage>
     with SingleTickerProviderStateMixin {
+  // Slow, ambient motion — background texture, not something that grabs the eye.
   late final AnimationController _c = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 3600))
+      vsync: this, duration: const Duration(milliseconds: 8000))
     ..repeat();
 
   @override
@@ -1402,7 +1403,8 @@ class _ParticleFieldPainter extends CustomPainter {
         ..color = _violet.withValues(alpha: 0.12),
     );
     for (var i = 0; i < 2; i++) {
-      final a = t * 2 * math.pi + i * math.pi; // opposite sides
+      // Half a revolution per loop → ~16s for a full orbit: a slow, calm drift.
+      final a = t * math.pi + i * math.pi; // opposite sides
       final p = Offset(c.dx + rx * math.cos(a), c.dy + ry * math.sin(a));
       // Fade as it passes BEHIND (top half) so it reads as depth, never fights
       // the logo — but it's always clear of the mark regardless.

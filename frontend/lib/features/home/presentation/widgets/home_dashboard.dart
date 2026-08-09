@@ -578,7 +578,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 200,
+            height: 192,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -940,10 +940,12 @@ class _SipCard extends StatelessWidget {
           : const Icon(Icons.trending_up_rounded,
               size: 46, color: AppColors.accent),
       title: task.title,
-      subtitle: has ? 'SIP · every instalment' : 'SIP instalment',
+      // "You invest" makes the direction unmistakable — this is money going OUT
+      // to work for you, not a credit landing in your account.
+      subtitle: has ? 'You invest · every instalment' : 'SIP instalment',
       highlight: has
-          ? 'Keep ${_amountStr(task)} in your bank $byWhen so your SIP goes through and your wealth keeps compounding.'
-          : 'Fund your account $byWhen so your SIP goes through and your wealth keeps compounding.',
+          ? 'Keep ${_amountStr(task)} ready in your bank $byWhen so this SIP debits smoothly and your wealth keeps compounding.'
+          : 'Fund your account $byWhen so this SIP debits smoothly and your wealth keeps compounding.',
       highlightIcon: Icons.account_balance_wallet_rounded,
     );
   }
@@ -1032,32 +1034,36 @@ class _HeroCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Hero band — value centred over a themed particle field, chip
-          // floating top-right. The field is painted behind, so it never
-          // obstructs the value.
+          // Hero band — the value sits centred over a themed particle field,
+          // completely unobstructed (nothing floats on top of it now).
           SizedBox(
-            height: 72,
+            height: 64,
             child: Stack(
               children: [
                 Positioned.fill(child: _ParticleStage(style: particles)),
                 Center(child: value),
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: _WhenChip(days: days, due: due),
-                ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
-                  color: AppColors.ink)),
+          const SizedBox(height: 6),
+          // Title + the countdown chip on the SAME row — the chip sits beside
+          // the name, clear of the amount above it.
+          Row(
+            children: [
+              Expanded(
+                child: Text(title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                        color: AppColors.ink)),
+              ),
+              const SizedBox(width: 8),
+              _WhenChip(days: days, due: due),
+            ],
+          ),
           const SizedBox(height: 1),
           Text(subtitle,
               maxLines: 1,
@@ -1153,46 +1159,51 @@ class _ParticleFieldPainter extends CustomPainter {
     [0.90, 1.0, 0.15],
   ];
 
-  bool _nearChip(double x, double y, Size s) =>
-      x > s.width - 92 && y < 30; // the top-right chip zone
-
   @override
   void paint(Canvas canvas, Size size) {
     switch (style) {
       case _Particles.confetti:
-        _falling(canvas, size, dot: true);
+        _confetti(canvas, size);
       case _Particles.coins:
-        _falling(canvas, size, dot: false); // little coin ovals
+        _coinsRising(canvas, size); // money set ASIDE to invest — rises up
       case _Particles.drift:
         _driftUp(canvas, size);
       case _Particles.pulse:
-        _pulse(canvas, size);
+        _orbit(canvas, size);
     }
   }
 
-  // Confetti / coins: seeds fall top→bottom, fading in then out.
-  void _falling(Canvas canvas, Size size, {required bool dot}) {
+  // Confetti: dots fall top→bottom, fading in then out. Celebration.
+  void _confetti(Canvas canvas, Size size) {
     for (final s in _seeds) {
       final x = s[0] * size.width;
       final phase = (t + s[2]) % 1.0;
       final y = phase * size.height;
-      if (_nearChip(x, y, size)) continue;
       final op = math.sin(phase * math.pi) * 0.6;
       if (op <= 0) continue;
+      canvas.drawCircle(Offset(x, y), 2.4,
+          Paint()..color = (s[1] == 0.0 ? _violet : _lilac).withValues(alpha: op));
+    }
+  }
+
+  // Coins RISING: little coin ovals float upward from the base — money being
+  // set aside and put to work (investing / growing), not raining in as credit.
+  void _coinsRising(Canvas canvas, Size size) {
+    for (final s in _seeds) {
+      final x = s[0] * size.width;
+      final phase = (t + s[2]) % 1.0;
+      final y = size.height - phase * size.height; // bottom → top
+      final op = math.sin(phase * math.pi) * 0.55;
+      if (op <= 0) continue;
       final color = (s[1] == 0.0 ? _violet : _lilac).withValues(alpha: op);
-      if (dot) {
-        canvas.drawCircle(Offset(x, y), 2.4, Paint()..color = color);
-      } else {
-        // a small coin: filled oval + rim
-        final r = Rect.fromCenter(center: Offset(x, y), width: 9, height: 6);
-        canvas.drawOval(r, Paint()..color = color.withValues(alpha: op * 0.6));
-        canvas.drawOval(
-            r,
-            Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.3
-              ..color = color);
-      }
+      final r = Rect.fromCenter(center: Offset(x, y), width: 9, height: 6);
+      canvas.drawOval(r, Paint()..color = color.withValues(alpha: op * 0.6));
+      canvas.drawOval(
+          r,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.3
+            ..color = color);
     }
   }
 
@@ -1202,7 +1213,6 @@ class _ParticleFieldPainter extends CustomPainter {
       final x = s[0] * size.width;
       final phase = (t + s[2]) % 1.0;
       final y = size.height - phase * size.height;
-      if (_nearChip(x, y, size)) continue;
       final op = math.sin(phase * math.pi) * 0.45;
       if (op <= 0) continue;
       canvas.drawCircle(Offset(x, y), 2.0,
@@ -1210,22 +1220,30 @@ class _ParticleFieldPainter extends CustomPainter {
     }
   }
 
-  // Pulse: soft rings breathing out from behind the centre value — "it's live".
-  void _pulse(Canvas canvas, Size size) {
+  // Orbit: two little satellites circle the centre logo on an elliptical path —
+  // the subscription is "in rotation / recurring". Clean and clearly in motion.
+  void _orbit(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
+    const rx = 46.0, ry = 26.0; // ellipse radii around the logo
     for (var i = 0; i < 2; i++) {
-      final phase = (t + i * 0.5) % 1.0;
-      final r = 34 + phase * 26;
-      final op = (1 - phase) * 0.4;
-      canvas.drawCircle(
-        c,
-        r,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color = _violet.withValues(alpha: op),
-      );
+      final a = t * 2 * math.pi + i * math.pi; // opposite sides
+      final p = Offset(c.dx + rx * math.cos(a), c.dy + ry * math.sin(a));
+      // Fade the satellite as it passes BEHIND (top of the ellipse) so it reads
+      // as depth and never fights the logo.
+      final front = (math.sin(a) + 1) / 2; // 0 behind, 1 front
+      final op = 0.25 + 0.55 * front;
+      final color = i == 0 ? _violet : _lilac;
+      canvas.drawCircle(p, 3.0 + 1.5 * front,
+          Paint()..color = color.withValues(alpha: op));
     }
+    // A faint orbit track for context.
+    canvas.drawOval(
+      Rect.fromCenter(center: c, width: rx * 2, height: ry * 2),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = _violet.withValues(alpha: 0.12),
+    );
   }
 
   @override

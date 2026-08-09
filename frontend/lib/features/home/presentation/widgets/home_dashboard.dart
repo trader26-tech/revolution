@@ -495,12 +495,19 @@ class UpNextStrip extends StatelessWidget {
   const UpNextStrip({
     super.key,
     required this.items,
+    required this.anchor,
     required this.onTap,
     this.windowLabel = 'next 7 days',
     this.onSeeAll,
   });
 
   final List<Task> items;
+
+  /// The selected calendar day the window starts from. Cards are labelled
+  /// relative to THIS day (not today), and items falling ON this day are called
+  /// out distinctly from ones scheduled later in the window.
+  final DateTime anchor;
+
   final void Function(Task) onTap;
 
   /// The little window hint next to the "Up next" title — reflects the anchor
@@ -514,6 +521,32 @@ class UpNextStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     // All items in the 7-day window from the anchor day, soonest first.
     final shown = items.take(10).toList();
+
+    // Split into "on the selected day" vs "later in the window", so the strip
+    // makes clear what's happening ON the tapped day versus after it.
+    final anchorDay = DateTime(anchor.year, anchor.month, anchor.day);
+    bool onAnchor(Task t) {
+      final d = t.dueAt;
+      if (d == null) return false;
+      return DateTime(d.year, d.month, d.day) == anchorDay;
+    }
+
+    final onDay = shown.where(onAnchor).toList();
+    final later = shown.where((t) => !onAnchor(t)).toList();
+
+    // Build the horizontal children: the on-day group, then a slim "Later"
+    // divider, then the later group. Each card is labelled relative to [anchor].
+    final children = <Widget>[];
+    for (final t in onDay) {
+      children.add(_UpNextCard(task: t, anchor: anchor, onTap: () => onTap(t)));
+    }
+    if (onDay.isNotEmpty && later.isNotEmpty) {
+      children.add(const _LaterDivider());
+    }
+    for (final t in later) {
+      children.add(_UpNextCard(task: t, anchor: anchor, onTap: () => onTap(t)));
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -582,10 +615,9 @@ class UpNextStrip extends StatelessWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: shown.length,
+              itemCount: children.length,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (_, i) =>
-                  _UpNextCard(task: shown[i], onTap: () => onTap(shown[i])),
+              itemBuilder: (_, i) => children[i],
             ),
           ),
       ],
@@ -605,6 +637,14 @@ int _daysUntil(DateTime d) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   return DateTime(d.year, d.month, d.day).difference(today).inDays;
+}
+
+/// Days from an ANCHOR day (the selected calendar day) to [d]. Used so an
+/// Up-Next card reads relative to the tapped day: 0 = on that day, 1 = the day
+/// after it, etc. — the differentiation between "on this day" and "later".
+int _daysFromAnchor(DateTime anchor, DateTime d) {
+  final a = DateTime(anchor.year, anchor.month, anchor.day);
+  return DateTime(d.year, d.month, d.day).difference(a).inDays;
 }
 
 /// "Today" / "Tomorrow" / "Fri" / "in 3 wk" — a compact, human due hint.
@@ -655,24 +695,65 @@ int? _ageOnNext(Task t) {
 }
 
 /// The Up-Next card — routes to a layout tailored to the task's category, so
-/// each kind of thing looks and reads differently at a glance.
+/// each kind of thing looks and reads differently at a glance. [anchor] is the
+/// selected calendar day, so the due-chip reads relative to it.
 class _UpNextCard extends StatelessWidget {
-  const _UpNextCard({required this.task, required this.onTap});
+  const _UpNextCard(
+      {required this.task, required this.anchor, required this.onTap});
   final Task task;
+  final DateTime anchor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final Widget inner = switch (task.category) {
-      TaskCategory.investment => _SipCard(task: task),
-      TaskCategory.birthday => _OccasionCard(task: task),
-      TaskCategory.subscription => _SubscriptionCard(task: task),
-      _ => _GenericCard(task: task),
+      TaskCategory.investment => _SipCard(task: task, anchor: anchor),
+      TaskCategory.birthday => _OccasionCard(task: task, anchor: anchor),
+      TaskCategory.subscription => _SubscriptionCard(task: task, anchor: anchor),
+      _ => _GenericCard(task: task, anchor: anchor),
     };
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: inner,
+    );
+  }
+}
+
+/// A slim vertical separator card between the "on this day" group and the
+/// "later this week" group — the visual break that tells you when the window
+/// shifts from the selected day to what's scheduled after it.
+class _LaterDivider extends StatelessWidget {
+  const _LaterDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 64,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(width: 1.4, height: 26, color: AppColors.glassBorder),
+          const SizedBox(height: 8),
+          const RotatedBox(
+            quarterTurns: 0,
+            child: Text(
+              'LATER',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+                color: AppColors.inkFaint,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Icon(Icons.chevron_right_rounded,
+              size: 18, color: AppColors.inkFaint),
+          const SizedBox(height: 8),
+          Container(width: 1.4, height: 26, color: AppColors.glassBorder),
+        ],
+      ),
     );
   }
 }
@@ -722,9 +803,14 @@ class _CardShell extends StatelessWidget {
 /// gently pulsing when it's ≤1 day out (urgent), quieter otherwise. It's the
 /// one element on the card meant to catch the eye first.
 class _WhenChip extends StatefulWidget {
-  const _WhenChip({required this.days, required this.due});
-  final int days;
+  const _WhenChip({required this.days, required this.due, this.anchor});
+  final int days; // days from TODAY — drives urgency/pulse
   final DateTime due;
+
+  /// The selected calendar day. When set, the LABEL reads relative to it, so a
+  /// card in the Up-Next strip says whether it falls ON the tapped day or how
+  /// many days AFTER it. Urgency (the glow) still tracks real closeness to today.
+  final DateTime? anchor;
 
   @override
   State<_WhenChip> createState() => _WhenChipState();
@@ -753,6 +839,26 @@ class _WhenChipState extends State<_WhenChip>
   }
 
   String _text() {
+    // Relative to the selected day, when there is one — so the strip tells you
+    // what's ON the tapped day vs. later.
+    final anchor = widget.anchor;
+    if (anchor != null) {
+      final now = DateTime.now();
+      final anchorIsToday =
+          DateTime(anchor.year, anchor.month, anchor.day) ==
+              DateTime(now.year, now.month, now.day);
+      final ad = _daysFromAnchor(anchor, widget.due);
+      if (ad <= 0) {
+        // On the selected day. If that day is today, say TODAY; else name it.
+        if (anchorIsToday) return 'TODAY';
+        const wd = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+        return 'ON ${wd[widget.due.weekday - 1]} ${widget.due.day}';
+      }
+      if (ad == 1) return anchorIsToday ? 'TOMORROW' : 'NEXT DAY';
+      if (ad < 7) return 'IN $ad DAYS';
+      return 'LATER';
+    }
+    // No anchor → plain today-relative label.
     final d = widget.days;
     if (d <= 0) return 'TODAY';
     if (d == 1) return 'TOMORROW';
@@ -939,8 +1045,9 @@ String _occasionPunch(String type, String name, int? age, String whenText) {
 
 // ── Subscription card — logo centred, soft "renew" pulse behind ──────────────
 class _SubscriptionCard extends StatelessWidget {
-  const _SubscriptionCard({required this.task});
+  const _SubscriptionCard({required this.task, this.anchor});
   final Task task;
+  final DateTime? anchor;
 
   @override
   Widget build(BuildContext context) {
@@ -952,6 +1059,7 @@ class _SubscriptionCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
+      anchor: anchor,
       particles: _Particles.pulse,
       value: _Logo(task: task, size: 56, radius: 16, snug: true),
       title: task.title,
@@ -964,8 +1072,9 @@ class _SubscriptionCard extends StatelessWidget {
 
 // ── SIP card — the amount centred, coins showering behind ────────────────────
 class _SipCard extends StatelessWidget {
-  const _SipCard({required this.task});
+  const _SipCard({required this.task, this.anchor});
   final Task task;
+  final DateTime? anchor;
 
   @override
   Widget build(BuildContext context) {
@@ -976,6 +1085,7 @@ class _SipCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
+      anchor: anchor,
       particles: _Particles.coins,
       value: has
           ? Text(
@@ -1006,8 +1116,9 @@ class _SipCard extends StatelessWidget {
 
 // ── Occasion card — the big age (the reference), confetti behind ─────────────
 class _OccasionCard extends StatelessWidget {
-  const _OccasionCard({required this.task});
+  const _OccasionCard({required this.task, this.anchor});
   final Task task;
+  final DateTime? anchor;
 
   @override
   Widget build(BuildContext context) {
@@ -1036,6 +1147,7 @@ class _OccasionCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
+      anchor: anchor,
       particles: _Particles.confetti,
       value: value,
       title: task.title,
@@ -1064,6 +1176,7 @@ class _HeroCard extends StatelessWidget {
     required this.subtitle,
     required this.highlight,
     required this.highlightIcon,
+    this.anchor,
   });
   final int days;
   final DateTime due;
@@ -1073,6 +1186,9 @@ class _HeroCard extends StatelessWidget {
   final String subtitle;
   final String highlight;
   final IconData highlightIcon;
+
+  /// The selected calendar day — makes the due-chip read relative to it.
+  final DateTime? anchor;
 
   @override
   Widget build(BuildContext context) {
@@ -1110,7 +1226,7 @@ class _HeroCard extends StatelessWidget {
                         color: AppColors.ink)),
               ),
               const SizedBox(width: 8),
-              _WhenChip(days: days, due: due),
+              _WhenChip(days: days, due: due, anchor: anchor),
             ],
           ),
           const SizedBox(height: 1),
@@ -1305,8 +1421,9 @@ class _ParticleFieldPainter extends CustomPainter {
 
 // ── Generic card — insurance / bills / other ─────────────────────────────────
 class _GenericCard extends StatelessWidget {
-  const _GenericCard({required this.task});
+  const _GenericCard({required this.task, this.anchor});
   final Task task;
+  final DateTime? anchor;
 
   @override
   Widget build(BuildContext context) {
@@ -1336,6 +1453,7 @@ class _GenericCard extends StatelessWidget {
     return _HeroCard(
       days: days,
       due: task.dueAt!,
+      anchor: anchor,
       particles: _Particles.drift,
       value: _Logo(task: task, size: 54, radius: 15),
       title: task.title,

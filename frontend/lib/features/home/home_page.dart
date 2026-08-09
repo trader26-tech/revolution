@@ -213,6 +213,7 @@ class _HomePageState extends State<HomePage> {
       // (moves as you tap the strip); arrow → the full upcoming list.
       UpNextStrip(
         items: _upNextFromSelected(allTasks),
+        anchor: _selectedDate,
         windowLabel: _upNextLabel(),
         onTap: _editTask,
         onSeeAll: _openUpcoming,

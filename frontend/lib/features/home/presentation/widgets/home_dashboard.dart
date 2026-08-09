@@ -1366,54 +1366,56 @@ class _ParticleFieldPainter extends CustomPainter {
     }
   }
 
-  // SIP: a FEW round ₹ coins drifting gently upward — money being put to work.
-  // Each is a filled disc with a rim and a ₹ glyph. Just 4, so it stays clean.
-  static const _coinSeeds = [
-    // x fraction, colour pick 0/1, phase offset
-    [0.20, 0.0, 0.0],
-    [0.44, 1.0, 0.5],
-    [0.64, 0.0, 0.25],
-    [0.84, 1.0, 0.75],
-  ];
-
+  // SIP: two SIDE stacks of ₹ coins that grow taller then reset — money piling
+  // up on the flanks, framing the amount in the centre (never over it). Clean,
+  // symmetric, and clearly "investment building".
   void _coins(Canvas canvas, Size size) {
-    const radius = 8.0;
-    for (final s in _coinSeeds) {
-      final x = s[0] * size.width;
-      final phase = (t + s[2]) % 1.0;
-      final y = size.height - phase * size.height; // bottom → top
-      final op = math.sin(phase * math.pi) * 0.7;
-      if (op <= 0) continue;
-      final color = s[1] == 0.0 ? _violet : _lilac;
-      final centre = Offset(x, y);
-      // Filled disc.
-      canvas.drawCircle(
-        centre,
-        radius,
-        Paint()..color = color.withValues(alpha: op * 0.5),
-      );
-      // Rim.
-      canvas.drawCircle(
-        centre,
-        radius,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4
-          ..color = color.withValues(alpha: op),
-      );
-      // The ₹ symbol, centred on the coin.
-      final tp = TextPainter(
-        text: TextSpan(
-          text: '₹',
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-            color: color.withValues(alpha: op),
+    const radius = 7.0;
+    const gap = 4.0; // vertical spacing between stacked coins
+    final baseY = size.height - radius - 2;
+    // The two stacks sit near the left and right edges, clear of the centre.
+    final columns = [size.width * 0.13, size.width * 0.87];
+
+    // A slow 0→1→0 breathe drives how many coins are "stacked" right now.
+    final breathe = (math.sin(t * 2 * math.pi) + 1) / 2; // 0..1
+    // Up to 2 coins per stack; the top one grows in via a fractional height.
+    const maxCoins = 2;
+    final filled = breathe * maxCoins;
+
+    for (var col = 0; col < columns.length; col++) {
+      final cx = columns[col];
+      // Offset the two columns' phase so they don't pulse in lock-step.
+      final f = col == 0 ? filled : (((breathe + 0.5) % 1.0) * maxCoins);
+      for (var i = 0; i < maxCoins; i++) {
+        final present = f - i; // >1 fully in, 0..1 rising, <0 not yet
+        if (present <= 0) continue;
+        final grow = present.clamp(0.0, 1.0); // fade+rise the topmost coin
+        final cy = baseY - i * (radius * 2 + gap) - (1 - grow) * 6;
+        final op = 0.6 * grow;
+        final color = i.isEven ? _violet : _lilac;
+        final centre = Offset(cx, cy);
+        canvas.drawCircle(
+            centre, radius, Paint()..color = color.withValues(alpha: op * 0.5));
+        canvas.drawCircle(
+            centre,
+            radius,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.4
+              ..color = color.withValues(alpha: op));
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '₹',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              color: color.withValues(alpha: op),
+            ),
           ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, centre - Offset(tp.width / 2, tp.height / 2));
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, centre - Offset(tp.width / 2, tp.height / 2));
+      }
     }
   }
 

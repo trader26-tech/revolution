@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../../add/domain/subscription_categories.dart';
 import '../../add/presentation/open_add_flow.dart';
+import '../../add/presentation/subscription_form_page.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
 import '../../details/domain/currency.dart';
@@ -225,6 +226,16 @@ class _CollectionPageState extends State<CollectionPage> {
   }
 
   Future<void> _edit(BuildContext context, Task task) async {
+    // Subscriptions edit in the SAME orbit form (prefilled) as adding, so the
+    // category and every field save consistently. Others keep the quick sheet.
+    if (task.category == TaskCategory.subscription) {
+      final updated = await Navigator.of(context).push<Task>(MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => SubscriptionFormPage(editTask: task),
+      ));
+      if (updated != null) store.update(updated);
+      return;
+    }
     final updated = await showTaskDetailsSheet(context, task);
     if (updated != null) store.update(updated);
   }

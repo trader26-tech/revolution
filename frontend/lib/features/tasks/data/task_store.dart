@@ -202,6 +202,10 @@ class TaskStore extends ChangeNotifier {
         await _api.patch('/tasks/${updated.id}', updated.toJson())
             as Map<String, dynamic>;
     final saved = Task.fromJson(json);
+    // Local-only fields (not stored/echoed by the server) would be wiped by the
+    // round-trip — carry them over from what the caller intended to save.
+    saved.subCategory ??= updated.subCategory;
+    saved.imagePath ??= updated.imagePath;
     final i = _tasks.indexWhere((t) => t.id == saved.id);
     if (i != -1) _tasks[i] = saved;
     notifyListeners();

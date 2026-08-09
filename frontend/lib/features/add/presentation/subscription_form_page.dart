@@ -26,6 +26,7 @@ class SubscriptionFormPage extends StatefulWidget {
     this.initialCycle,
     this.title,
     this.accent, // kept for call-site compatibility; the form is always accent
+    this.editTask,
   });
 
   final Brand? initialBrand;
@@ -33,6 +34,10 @@ class SubscriptionFormPage extends StatefulWidget {
   final RepeatCadence? initialCycle;
   final String? title;
   final Color? accent;
+
+  /// When set, the form opens in EDIT mode pre-filled from this task and its
+  /// Save returns an updated copy (same id) instead of a brand-new task.
+  final Task? editTask;
 
   @override
   State<SubscriptionFormPage> createState() => _SubscriptionFormPageState();
@@ -61,16 +66,41 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
   @override
   void initState() {
     super.initState();
-    final b = widget.initialBrand;
-    if (b != null) {
-      _iconName = b.name;
-      _iconDomain = b.domain;
-      _name.text = b.name;
-    } else if (widget.initialName != null &&
-        widget.initialName!.trim().isNotEmpty) {
-      _name.text = widget.initialName!.trim();
+    final edit = widget.editTask;
+    if (edit != null) {
+      // EDIT mode — prefill everything from the existing task.
+      _name.text = edit.title;
+      _iconName = edit.iconName;
+      _iconDomain = edit.iconDomain;
+      if (edit.hasAmount) {
+        _amount.text = edit.amount!.toStringAsFixed(
+            edit.amount == edit.amount!.roundToDouble() ? 0 : 2);
+      }
+      _currency = edit.currency;
+      _cycle = edit.repeat == RepeatCadence.none
+          ? RepeatCadence.monthly
+          : edit.repeat;
+      if (edit.dueAt != null) _firstPayment = edit.dueAt!;
+      if (edit.subCategory != null && edit.subCategory!.trim().isNotEmpty) {
+        _subCategory = edit.subCategory!.trim();
+        _categoryTouched = true; // respect the saved category
+        if (!kSubCategories
+            .any((c) => c.name.toLowerCase() == _subCategory.toLowerCase())) {
+          _customCategories.add(_subCategory);
+        }
+      }
+    } else {
+      final b = widget.initialBrand;
+      if (b != null) {
+        _iconName = b.name;
+        _iconDomain = b.domain;
+        _name.text = b.name;
+      } else if (widget.initialName != null &&
+          widget.initialName!.trim().isNotEmpty) {
+        _name.text = widget.initialName!.trim();
+      }
+      _autoCategorise();
     }
-    _autoCategorise();
     _name.addListener(() {
       _autoCategorise();
       setState(() {});
@@ -154,6 +184,25 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     HapticFeedback.lightImpact();
     final amount =
         double.tryParse(_amount.text.replaceAll(RegExp(r'[^0-9.]'), ''));
+    final edit = widget.editTask;
+    if (edit != null) {
+      // EDIT — return a copy with the same id so store.update patches it.
+      Navigator.of(context).pop(
+        edit.copyWith(
+          title: _name.text.trim(),
+          dueAt: _firstPayment,
+          repeat: _cycle,
+          iconName: _iconName,
+          iconDomain: _iconDomain,
+          amount: amount,
+          clearAmount: amount == null,
+          currency: _currency,
+          category: TaskCategory.subscription,
+          subCategory: _subCategory,
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pop(
       Task(
         id: 'new',
@@ -181,7 +230,9 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
           child: Column(
             children: [
               _Header(
-                title: widget.title ?? 'Add Subscription',
+                title: widget.editTask != null
+                    ? 'Edit Subscription'
+                    : (widget.title ?? 'Add Subscription'),
                 canSave: _valid,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
@@ -1094,18 +1145,24 @@ class _CategorySheetState extends State<_CategorySheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final name in all)
-                    _CategoryChip(
-                      name: name,
-                      selected: name == widget.selected,
-                      onTap: () => Navigator.of(context).pop(name),
-                    ),
-                ],
+              const SizedBox(height: 8),
+              // A clean vertical LIST of categories (not chips). Capped height
+              // so long lists scroll instead of overflowing the sheet.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.55,
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.only(top: 6, bottom: 4),
+                  itemCount: all.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) => _CategoryListRow(
+                    name: all[i],
+                    selected: all[i] == widget.selected,
+                    onTap: () => Navigator.of(context).pop(all[i]),
+                  ),
+                ),
               ),
             ],
           ),
@@ -1115,8 +1172,9 @@ class _CategorySheetState extends State<_CategorySheet> {
   }
 }
 
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
+/// One category as a full-width list row — icon · name · check when selected.
+class _CategoryListRow extends StatelessWidget {
+  const _CategoryListRow({
     required this.name,
     required this.selected,
     required this.onTap,
@@ -1131,31 +1189,43 @@ class _CategoryChip extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.accent.withValues(alpha: 0.16)
+              ? AppColors.accent.withValues(alpha: 0.14)
               : AppColors.card,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected ? AppColors.accent : AppColors.cardBorder,
           ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(subCategoryIcon(name),
-                size: 17,
-                color: selected ? AppColors.accent : AppColors.inkSoft),
-            const SizedBox(width: 8),
-            Text(
-              name,
-              style: TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w800,
-                color: selected ? AppColors.ink : AppColors.inkSoft,
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(subCategoryIcon(name),
+                  size: 20, color: AppColors.accent),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
               ),
             ),
+            if (selected)
+              const Icon(Icons.check_circle_rounded,
+                  color: AppColors.accent, size: 22),
           ],
         ),
       ),

@@ -30,6 +30,10 @@ class AppColors {
   // Solid card surface (elevated above the sky).
   static const card = Color(0xFF1C1636);
   static const cardBorder = Color(0xFF2C2450);
+
+  // Backing tile behind brand logos — a soft, lifted dark-violet (NEVER white),
+  // so logos sit naturally on the space-dark UI.
+  static const logoTile = Color(0xFF2A2150);
 }
 
 class AppTheme {

@@ -61,18 +61,7 @@ class BrandLogo extends StatelessWidget {
           errorBuilder: (_, _, _) => fallback,
         ),
       );
-      if (!bare) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: Container(
-            width: size,
-            height: size,
-            color: Colors.white,
-            padding: EdgeInsets.all(size * 0.12),
-            child: image,
-          ),
-        );
-      }
+      if (!bare) return _tile(image);
       if (circular) return ClipOval(child: image);
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
@@ -99,17 +88,29 @@ class BrandLogo extends StatelessWidget {
       );
     }
 
-    // Try each candidate in order; the first that loads is shown. `contain` +
-    // white backdrop keeps the WHOLE logo visible (no crop). Simple + reliable.
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: Container(
-        width: size,
-        height: size,
-        color: Colors.white,
-        padding: EdgeInsets.all(size * 0.12),
-        child: _chain(urls, 0, fallback),
+    // Default: the whole logo (contain) on a SPACE-THEMED badge — a subtle dark
+    // violet tile, never white, so it sits naturally on the dark UI.
+    return _tile(SizedBox(
+      width: size,
+      height: size,
+      child: _chain(urls, 0, fallback),
+    ));
+  }
+
+  /// A space-themed badge behind a `contain` logo: a soft dark-violet fill and a
+  /// faint border — reads as an intentional tile, not a glaring white patch,
+  /// while keeping transparent/dark logos visible on the dark UI.
+  Widget _tile(Widget image) {
+    return Container(
+      width: size,
+      height: size,
+      padding: EdgeInsets.all(size * 0.14),
+      decoration: BoxDecoration(
+        color: AppColors.logoTile,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: AppColors.glassBorder),
       ),
+      child: image,
     );
   }
 

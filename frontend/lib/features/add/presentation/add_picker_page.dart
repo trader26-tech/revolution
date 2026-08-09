@@ -18,6 +18,11 @@ class AddPickerResult {
   const AddPickerResult.query(this.query)
       : category = null,
         item = null;
+  /// A blank general reminder — no category, no name. The "Add a reminder" row.
+  const AddPickerResult.blank()
+      : category = null,
+        item = null,
+        query = null;
 
   final ReminderCategory? category;
   final ReminderItem? item;

@@ -109,6 +109,14 @@ class _AuthGateState extends State<AuthGate> {
   /// Integrity/reCAPTCHA), the screen flips from "sending…" to ready.
   void Function(String verificationId)? _onCodeArrived;
 
+  /// DEV escape hatch — skip verification and drop straight into the app under a
+  /// placeholder number, so the app itself can be worked on while login is WIP.
+  /// Logs in via the same [AuthStore.login] path, so onboarding data is claimed
+  /// exactly as a real sign-in would.
+  Future<void> _skipToHome() async {
+    await _safeLogin('+10000000000');
+  }
+
   /// The preview lock's "Verify & continue" was tapped: rise the shared name +
   /// phone claim sheet (the same premium sheet onboarding uses), which collects
   /// the name and number and calls [_startVerification] — the OTP screen and

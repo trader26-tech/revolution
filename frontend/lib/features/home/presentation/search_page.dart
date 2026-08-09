@@ -97,7 +97,7 @@ class _SearchPageState extends State<SearchPage> {
                   return ListView.separated(
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                     itemCount: results.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 4),
+                    separatorBuilder: (_, _) => const SizedBox(height: 4),
                     itemBuilder: (context, i) {
                       final task = results[i];
                       // Reuse the exact home row — same look, same swipe-to-

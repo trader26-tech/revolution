@@ -13,6 +13,35 @@ import '../../tasks/domain/category_visuals.dart';
 import '../../tasks/domain/task.dart';
 import '../../tasks/presentation/task_details_sheet.dart';
 
+/// The task's NEXT occurrence on/after [from] (date-only). A recurring item
+/// whose stored date is in the past is rolled forward by its cadence, so we
+/// never show a "past" renewal — there's no completion, dates just recur.
+DateTime nextOccurrence(Task t, {required DateTime from}) {
+  var d = DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day);
+  if (!d.isBefore(from)) return d;
+  switch (t.repeat) {
+    case RepeatCadence.none:
+      // A one-off in the past has no future occurrence; keep its date.
+      return d;
+    case RepeatCadence.daily:
+      final days = from.difference(d).inDays;
+      return d.add(Duration(days: days));
+    case RepeatCadence.weekly:
+      final weeks = (from.difference(d).inDays / 7).ceil();
+      return d.add(Duration(days: weeks * 7));
+    case RepeatCadence.monthly:
+      while (d.isBefore(from)) {
+        d = DateTime(d.year, d.month + 1, d.day);
+      }
+      return d;
+    case RepeatCadence.yearly:
+      while (d.isBefore(from)) {
+        d = DateTime(d.year + 1, d.month, d.day);
+      }
+      return d;
+  }
+}
+
 /// A full-screen "tab" for ONE product — e.g. all Subscriptions, all SIPs. Its
 /// own header (category icon + name + count), a "+" that jumps straight into
 /// that category's add form, and the items as glass rows. Pass [category] =
@@ -47,14 +76,15 @@ class CollectionPage extends StatelessWidget {
   }
 
   /// Group the items into time windows so the page reads as a clear overview of
-  /// what's coming and when: Overdue · This week · This month · Later · No date.
+  /// what's coming and when: This week · This month · Later · No date. Past
+  /// dates are rolled forward to their next occurrence (nothing is "overdue" —
+  /// we never mark items complete, so a past date just means it recurred).
   List<_Section> _grouped(List<Task> items) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final weekEnd = today.add(const Duration(days: 7));
     final monthEnd = today.add(const Duration(days: 30));
 
-    final overdue = <Task>[];
     final week = <Task>[];
     final month = <Task>[];
     final later = <Task>[];
@@ -65,10 +95,8 @@ class CollectionPage extends StatelessWidget {
         undated.add(t);
         continue;
       }
-      final d = DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day);
-      if (d.isBefore(today)) {
-        overdue.add(t);
-      } else if (d.isBefore(weekEnd)) {
+      final d = nextOccurrence(t, from: today);
+      if (d.isBefore(weekEnd)) {
         week.add(t);
       } else if (d.isBefore(monthEnd)) {
         month.add(t);
@@ -77,8 +105,14 @@ class CollectionPage extends StatelessWidget {
       }
     }
 
+    // Sort each bucket by its (rolled-forward) next occurrence.
+    int byNext(Task a, Task b) =>
+        nextOccurrence(a, from: today).compareTo(nextOccurrence(b, from: today));
+    week.sort(byNext);
+    month.sort(byNext);
+    later.sort(byNext);
+
     return [
-      if (overdue.isNotEmpty) _Section('Overdue', overdue),
       if (week.isNotEmpty) _Section('This week', week),
       if (month.isNotEmpty) _Section('This month', month),
       if (later.isNotEmpty) _Section('Later', later),
@@ -95,7 +129,7 @@ class CollectionPage extends StatelessWidget {
     final spend = <String, double>{}; // currency → summed amount (as billed)
     var monthlyEq = 0.0; // ₹-equivalent normalised to /month (INR amounts only)
     var dueThisWeek = 0;
-    Task? next;
+    DateTime? nextDate;
 
     for (final t in items) {
       if (t.hasAmount) {
@@ -105,11 +139,9 @@ class CollectionPage extends StatelessWidget {
         if (t.currency == 'INR') monthlyEq += _toMonthly(t.amount!, t.repeat);
       }
       if (t.isScheduled) {
-        final d = DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day);
-        if (!d.isBefore(today) && d.isBefore(weekEnd)) dueThisWeek++;
-        if (!d.isBefore(today)) {
-          if (next == null || t.dueAt!.isBefore(next.dueAt!)) next = t;
-        }
+        final d = nextOccurrence(t, from: today); // rolled forward, never past
+        if (d.isBefore(weekEnd)) dueThisWeek++;
+        if (nextDate == null || d.isBefore(nextDate)) nextDate = d;
       }
     }
 
@@ -118,7 +150,7 @@ class CollectionPage extends StatelessWidget {
       spend: spend,
       monthlyEqInr: monthlyEq,
       dueThisWeek: dueThisWeek,
-      next: next,
+      nextDate: nextDate,
     );
   }
 
@@ -165,8 +197,8 @@ class CollectionPage extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Slim nav bar: back · title · add. The rich identity + stats
-                  // live in the hero below, so this stays clean.
+                  // Slim nav bar: just back · add. The title lives BIG in the
+                  // hero below, so no redundant title text here.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 8, 16, 6),
                     child: Row(
@@ -176,20 +208,7 @@ class CollectionPage extends StatelessWidget {
                           tooltip: 'Back',
                           onTap: () => Navigator.of(context).maybePop(),
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            _title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                        ),
+                        const Spacer(),
                         GlassIconButton(
                           icon: Icons.add_rounded,
                           tooltip: 'Add',
@@ -253,7 +272,7 @@ class _GroupedList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[
-      _CategoryHero(stats: hero, icon: icon, title: title, onTapNext: onTap),
+      _CategoryHero(stats: hero, icon: icon, title: title),
     ];
     for (final s in sections) {
       children.add(_SectionHeader(label: s.label, count: s.items.length));
@@ -282,30 +301,28 @@ class _HeroStats {
     required this.spend,
     required this.monthlyEqInr,
     required this.dueThisWeek,
-    required this.next,
+    required this.nextDate,
   });
   final int total;
   final Map<String, double> spend; // currency → total (as billed)
   final double monthlyEqInr; // INR items normalised to /month
   final int dueThisWeek;
-  final Task? next;
+  final DateTime? nextDate; // next occurrence across all items (rolled forward)
 }
 
 /// The orbit-themed hero — an at-a-glance overview of everything about this
-/// category: the headline monthly spend (with a little orbiting planet), the
-/// next renewal, and a three-up sub-stat row.
+/// category: the big category name, the headline monthly spend (with a little
+/// orbiting planet), and a three-up sub-stat row.
 class _CategoryHero extends StatelessWidget {
   const _CategoryHero({
     required this.stats,
     required this.icon,
     required this.title,
-    required this.onTapNext,
   });
 
   final _HeroStats stats;
   final IconData icon;
   final String title;
-  final void Function(Task) onTapNext;
 
   String _fmt(double v) => v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2);
 
@@ -353,23 +370,47 @@ class _CategoryHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row: category label + the orbiting planet motif.
+          // Header row: the BIG category name (this card's identity) + the
+          // orbiting planet motif.
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                title.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.6,
-                  color: AppColors.accent.withValues(alpha: 0.95),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        height: 1.05,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      stats.total == 1
+                          ? '1 tracked'
+                          : '${stats.total} tracked',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                        color: AppColors.accent.withValues(alpha: 0.95),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 12),
               _OrbitBadge(icon: icon),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
 
           // Headline spend figure.
           Row(
@@ -425,12 +466,8 @@ class _CategoryHero extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
-          // Next renewal highlight.
-          if (stats.next != null) _NextRenewal(task: stats.next!, onTap: onTapNext),
-
-          const SizedBox(height: 14),
           // Three-up sub-stats.
           Row(
             children: [
@@ -446,9 +483,9 @@ class _CategoryHero extends StatelessWidget {
               ),
               _statDivider(),
               _HeroStat(
-                value: stats.next == null
+                value: stats.nextDate == null
                     ? '—'
-                    : '${_days(stats.next!.dueAt!)}d',
+                    : '${_days(stats.nextDate!)}d',
                 label: 'to next',
               ),
             ],
@@ -535,78 +572,6 @@ class _OrbitBadge extends StatelessWidget {
   }
 }
 
-/// The "next renewal" highlight strip inside the hero.
-class _NextRenewal extends StatelessWidget {
-  const _NextRenewal({required this.task, required this.onTap});
-  final Task task;
-  final void Function(Task) onTap;
-
-  static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final d = DateTime(task.dueAt!.year, task.dueAt!.month, task.dueAt!.day);
-    final days = d.difference(today).inDays;
-    final rel = days == 0
-        ? 'today'
-        : days == 1
-            ? 'tomorrow'
-            : 'in $days days';
-
-    return GestureDetector(
-      onTap: () => onTap(task),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.glassBorder),
-        ),
-        child: Row(
-          children: [
-            _Avatar(task: task, tint: AppColors.accent),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Next: ${task.title}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${d.day} ${_months[d.month - 1]} · renews $rel',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.inkFaint, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _HeroStat extends StatelessWidget {
   const _HeroStat({
     required this.value,
@@ -662,13 +627,11 @@ class _SectionHeader extends StatelessWidget {
         children: [
           Text(
             label.toUpperCase(),
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.2,
-              color: label == 'Overdue'
-                  ? const Color(0xFFFF7A7A)
-                  : AppColors.accent,
+              color: AppColors.accent,
             ),
           ),
           const SizedBox(width: 8),
@@ -755,13 +718,14 @@ class _CollectionRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            // The DATE, made explicit — exact day on top, relative below.
+            // The DATE, made explicit — the NEXT occurrence (rolled forward, so
+            // never "overdue"): exact day on top, relative below.
             if (task.isScheduled)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    _dateLabel(task.dueAt!),
+                    _dateLabel(_next()),
                     style: const TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
@@ -779,7 +743,7 @@ class _CollectionRow extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      _relLabel(task.dueAt!),
+                      _relLabel(),
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
@@ -804,6 +768,14 @@ class _CollectionRow extends StatelessWidget {
     );
   }
 
+  DateTime _next() =>
+      nextOccurrence(task, from: _today());
+
+  DateTime _today() {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
+
   String _priceLine() {
     if (task.hasAmount) {
       final sym = currencyOf(task.currency).symbol;
@@ -818,16 +790,12 @@ class _CollectionRow extends StatelessWidget {
 
   int? _daysAway() {
     if (!task.isScheduled) return null;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final d = DateTime(task.dueAt!.year, task.dueAt!.month, task.dueAt!.day);
-    return d.difference(today).inDays;
+    return _next().difference(_today()).inDays;
   }
 
-  String _relLabel(DateTime due) {
+  String _relLabel() {
     final days = _daysAway()!;
-    if (days < 0) return '${-days}d overdue';
-    if (days == 0) return 'Today';
+    if (days <= 0) return 'Today';
     if (days == 1) return 'Tomorrow';
     if (days < 7) return 'in $days days';
     if (days < 30) return 'in ${(days / 7).round()} wk';

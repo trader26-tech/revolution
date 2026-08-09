@@ -1345,7 +1345,7 @@ class _ParticleFieldPainter extends CustomPainter {
       case _Particles.confetti:
         _confetti(canvas, size);
       case _Particles.coins:
-        _valueRings(canvas, size); // symmetric rings radiating from the amount
+        _coins(canvas, size); // round coins drifting up — investing / growing
       case _Particles.drift:
         _driftUp(canvas, size);
       case _Particles.pulse:
@@ -1366,25 +1366,33 @@ class _ParticleFieldPainter extends CustomPainter {
     }
   }
 
-  // SIP: clean, SYMMETRIC concentric rings that expand and fade from the centre
-  // behind the amount — steady value radiating outward. Calm and even, never the
-  // messy scattered look of the old rising coins.
-  void _valueRings(Canvas canvas, Size size) {
-    final c = Offset(size.width / 2, size.height / 2);
-    const rings = 3;
-    final maxR = size.width * 0.42;
-    for (var i = 0; i < rings; i++) {
-      final phase = (t + i / rings) % 1.0;
-      final r = 14 + phase * maxR;
-      final op = (1 - phase) * 0.32; // brightest small, fades as it grows
+  // SIP: round COINS drifting gently upward — money being put to work. Each is
+  // a filled disc with a soft rim (a proper coin, not a flat oval), fading in
+  // then out as it rises.
+  void _coins(Canvas canvas, Size size) {
+    const radius = 5.0;
+    for (final s in _seeds) {
+      final x = s[0] * size.width;
+      final phase = (t + s[2]) % 1.0;
+      final y = size.height - phase * size.height; // bottom → top
+      final op = math.sin(phase * math.pi) * 0.6;
       if (op <= 0) continue;
+      final color = s[1] == 0.0 ? _violet : _lilac;
+      final centre = Offset(x, y);
+      // Filled disc.
       canvas.drawCircle(
-        c,
-        r,
+        centre,
+        radius,
+        Paint()..color = color.withValues(alpha: op * 0.55),
+      );
+      // Rim, so it reads as a coin.
+      canvas.drawCircle(
+        centre,
+        radius,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6
-          ..color = _violet.withValues(alpha: op),
+          ..strokeWidth = 1.4
+          ..color = color.withValues(alpha: op),
       );
     }
   }

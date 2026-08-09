@@ -299,96 +299,113 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 16, 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(
-              width: 60, height: 60, child: AnimatedMascot(size: 60)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
+    // Same structure as Home: a top bar row (the Suggest action on the right),
+    // then BELOW it the Revo + title block.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Top bar: Suggest button on the right ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 16, 0),
+          child: Row(
+            children: [
+              const Spacer(),
+              GestureDetector(
+                onTap: posting ? null : onPost,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                        colors: [AppColors.accent, AppColors.accentDeep]),
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: [
+                      BoxShadow(
+                          color: AppColors.accent.withValues(alpha: 0.4),
+                          blurRadius: 16,
+                          offset: const Offset(0, 5)),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (posting)
+                        const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                      else
+                        const Icon(Icons.add_rounded,
+                            size: 18, color: Colors.white),
+                      const SizedBox(width: 6),
+                      const Text('Suggest',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // ── Revo + title, below the bar (like the Home greeting) ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(
+                  width: 60, height: 60, child: AnimatedMascot(size: 60)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.lightbulb_rounded,
-                        size: 13, color: AppColors.accent),
-                    const SizedBox(width: 6),
-                    Text(
-                      'IDEAS BOARD',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2.2,
-                        color: AppColors.accent.withValues(alpha: 0.85),
+                    Row(
+                      children: [
+                        const Icon(Icons.lightbulb_rounded,
+                            size: 13, color: AppColors.accent),
+                        const SizedBox(width: 6),
+                        Text(
+                          'IDEAS BOARD',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2.2,
+                            color: AppColors.accent.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    ShaderMask(
+                      shaderCallback: (r) => const LinearGradient(
+                        colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                      ).createShader(r),
+                      child: const Text(
+                        'Shape Revolution',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 23,
+                          height: 1.1,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.6,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 5),
-                ShaderMask(
-                  shaderCallback: (r) => const LinearGradient(
-                    colors: [AppColors.ink, Color(0xFFB9A8FF)],
-                  ).createShader(r),
-                  child: const Text(
-                    'Shape Revolution',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 23,
-                      height: 1.1,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          // The Suggest action — top-right corner, where the add button sits.
-          GestureDetector(
-            onTap: posting ? null : onPost,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [AppColors.accent, AppColors.accentDeep]),
-                borderRadius: BorderRadius.circular(999),
-                boxShadow: [
-                  BoxShadow(
-                      color: AppColors.accent.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                      offset: const Offset(0, 5)),
-                ],
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (posting)
-                    const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                  else
-                    const Icon(Icons.add_rounded, size: 18, color: Colors.white),
-                  const SizedBox(width: 6),
-                  const Text('Suggest',
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white)),
-                ],
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

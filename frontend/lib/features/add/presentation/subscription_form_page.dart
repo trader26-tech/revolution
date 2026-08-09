@@ -103,7 +103,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
       initial: _firstPayment,
       firstDate: DateTime(DateTime.now().year - 1),
       lastDate: DateTime(DateTime.now().year + 30),
-      title: 'First payment date',
+      title: 'Next payment date',
     );
     if (picked != null) setState(() => _firstPayment = picked);
   }
@@ -166,7 +166,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                     _GroupCard(
                       children: [
                         _NavRow(
-                          label: 'First payment',
+                          label: 'Next payment',
                           value: _dateLabel(_firstPayment),
                           onTap: _pickDate,
                         ),

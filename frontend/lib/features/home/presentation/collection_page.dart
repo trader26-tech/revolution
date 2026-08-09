@@ -46,6 +46,58 @@ class CollectionPage extends StatelessWidget {
     return list;
   }
 
+  /// Group the items into time windows so the page reads as a clear overview of
+  /// what's coming and when: Overdue · This week · This month · Later · No date.
+  List<_Section> _grouped(List<Task> items) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekEnd = today.add(const Duration(days: 7));
+    final monthEnd = today.add(const Duration(days: 30));
+
+    final overdue = <Task>[];
+    final week = <Task>[];
+    final month = <Task>[];
+    final later = <Task>[];
+    final undated = <Task>[];
+
+    for (final t in items) {
+      if (!t.isScheduled) {
+        undated.add(t);
+        continue;
+      }
+      final d = DateTime(t.dueAt!.year, t.dueAt!.month, t.dueAt!.day);
+      if (d.isBefore(today)) {
+        overdue.add(t);
+      } else if (d.isBefore(weekEnd)) {
+        week.add(t);
+      } else if (d.isBefore(monthEnd)) {
+        month.add(t);
+      } else {
+        later.add(t);
+      }
+    }
+
+    return [
+      if (overdue.isNotEmpty) _Section('Overdue', overdue),
+      if (week.isNotEmpty) _Section('This week', week),
+      if (month.isNotEmpty) _Section('This month', month),
+      if (later.isNotEmpty) _Section('Later', later),
+      if (undated.isNotEmpty) _Section('No date yet', undated),
+    ];
+  }
+
+  /// Sum of amounts on scheduled items, grouped by currency, for the overview.
+  Map<String, double> _spendByCurrency(List<Task> items) {
+    final out = <String, double>{};
+    for (final t in items) {
+      if (t.hasAmount) {
+        out.update(t.currency, (v) => v + t.amount!,
+            ifAbsent: () => t.amount!);
+      }
+    }
+    return out;
+  }
+
   Future<void> _add(BuildContext context) async {
     final result = await openCategoryForm(
       context,
@@ -147,18 +199,10 @@ class CollectionPage extends StatelessWidget {
                             title: _title,
                             onAdd: () => _add(context),
                           )
-                        : ListView.builder(
-                            padding:
-                                const EdgeInsets.fromLTRB(20, 10, 20, 120),
-                            itemCount: items.length,
-                            itemBuilder: (_, i) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _CollectionRow(
-                                task: items[i],
-                                accent: _accent,
-                                onTap: () => _edit(context, items[i]),
-                              ),
-                            ),
+                        : _GroupedList(
+                            sections: _grouped(items),
+                            spend: _spendByCurrency(items),
+                            onTap: (t) => _edit(context, t),
                           ),
                   ),
                 ],
@@ -177,6 +221,175 @@ class CollectionPage extends StatelessWidget {
   }
 }
 
+/// A time-window section: a label and the items that fall in it.
+class _Section {
+  const _Section(this.label, this.items);
+  final String label;
+  final List<Task> items;
+}
+
+/// The grouped list — an overview summary card, then time-window sections, each
+/// with a header and its rows. Reads as a clean "what's coming, and when".
+class _GroupedList extends StatelessWidget {
+  const _GroupedList({
+    required this.sections,
+    required this.spend,
+    required this.onTap,
+  });
+
+  final List<_Section> sections;
+  final Map<String, double> spend; // currency code → total
+  final void Function(Task) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Flatten into a single row list: [summary, header, row, row, header, …].
+    final children = <Widget>[
+      _Overview(spend: spend, total: sections.fold(0, (n, s) => n + s.items.length)),
+      const SizedBox(height: 6),
+    ];
+    for (final s in sections) {
+      children.add(_SectionHeader(label: s.label, count: s.items.length));
+      for (final t in s.items) {
+        children.add(Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _CollectionRow(
+            task: t,
+            accent: AppColors.accent,
+            onTap: () => onTap(t),
+          ),
+        ));
+      }
+    }
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 120),
+      children: children,
+    );
+  }
+}
+
+/// A compact overview strip — total per month/cycle spend + item count.
+class _Overview extends StatelessWidget {
+  const _Overview({required this.spend, required this.total});
+  final Map<String, double> spend;
+  final int total;
+
+  String _fmt(double v) =>
+      v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2);
+
+  @override
+  Widget build(BuildContext context) {
+    if (spend.isEmpty) return const SizedBox(height: 4);
+    // Build a "₹1,234 · $9" style string across currencies.
+    final parts = spend.entries
+        .map((e) => '${currencyOf(e.key).symbol}${_fmt(e.value)}')
+        .join('  ·  ');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.accent.withValues(alpha: 0.14),
+            AppColors.card,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.payments_rounded,
+                color: AppColors.accent, size: 21),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  parts,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'across $total active',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A section label + a count pill.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.label, required this.count});
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 18, 2, 12),
+      child: Row(
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+              color: label == 'Overdue'
+                  ? const Color(0xFFFF7A7A)
+                  : AppColors.accent,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$count',
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.inkFaint,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: AppColors.hairline,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// One item as a full-width glass row (photo/logo · title · sub · when).
 class _CollectionRow extends StatelessWidget {
   const _CollectionRow({
@@ -188,8 +401,14 @@ class _CollectionRow extends StatelessWidget {
   final Color accent;
   final VoidCallback onTap;
 
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final urgent = _daysAway() != null && _daysAway()! <= 3;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -220,7 +439,7 @@ class _CollectionRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    _subline(),
+                    _priceLine(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -233,13 +452,47 @@ class _CollectionRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
+            // The DATE, made explicit — exact day on top, relative below.
             if (task.isScheduled)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _dateLabel(task.dueAt!),
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: urgent
+                          ? accent.withValues(alpha: 0.18)
+                          : Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      _relLabel(task.dueAt!),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: urgent ? accent : AppColors.inkSoft,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
               Text(
-                _whenLabel(task.dueAt!),
+                'No date',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  color: accent,
+                  color: AppColors.inkFaint,
                 ),
               ),
           ],
@@ -248,27 +501,34 @@ class _CollectionRow extends StatelessWidget {
     );
   }
 
-  String _subline() {
+  String _priceLine() {
     if (task.hasAmount) {
       final sym = currencyOf(task.currency).symbol;
       final amt = task.amount!.toStringAsFixed(
           task.amount == task.amount!.roundToDouble() ? 0 : 2);
       return '$sym$amt · ${task.repeat.label}';
     }
-    return task.category.label;
+    return task.repeat.label == 'Never' ? 'One-time' : task.repeat.label;
   }
 
-  String _whenLabel(DateTime due) {
+  String _dateLabel(DateTime d) => '${d.day} ${_months[d.month - 1]}';
+
+  int? _daysAway() {
+    if (!task.isScheduled) return null;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final d = DateTime(due.year, due.month, due.day);
-    final days = d.difference(today).inDays;
-    if (days < 0) return 'overdue';
-    if (days == 0) return 'today';
-    if (days == 1) return 'tomorrow';
-    if (days < 7) return 'in ${days}d';
-    if (days < 30) return 'in ${(days / 7).round()}w';
-    return 'in ${(days / 30).round()}mo';
+    final d = DateTime(task.dueAt!.year, task.dueAt!.month, task.dueAt!.day);
+    return d.difference(today).inDays;
+  }
+
+  String _relLabel(DateTime due) {
+    final days = _daysAway()!;
+    if (days < 0) return '${-days}d overdue';
+    if (days == 0) return 'Today';
+    if (days == 1) return 'Tomorrow';
+    if (days < 7) return 'in $days days';
+    if (days < 30) return 'in ${(days / 7).round()} wk';
+    return 'in ${(days / 30).round()} mo';
   }
 }
 

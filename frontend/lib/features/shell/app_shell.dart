@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
-import '../calendar/calendar_page.dart';
 import '../home/home_page.dart';
+import '../suggestions/presentation/suggestions_page.dart';
 import '../tasks/data/task_store.dart';
 
-/// The app shell: two tabs (Home, Calendar) behind a floating glass nav.
+/// The app shell: two tabs (Home, Ideas) behind a floating glass nav.
 class AppShell extends StatefulWidget {
   const AppShell({super.key, this.verified = true, this.onVerify});
 
@@ -44,7 +44,7 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final pages = [
       HomePage(store: _store),
-      CalendarPage(store: _store),
+      const SuggestionsPage(),
     ];
 
     return Scaffold(
@@ -77,9 +77,9 @@ class _GlassNav extends StatelessWidget {
   static const _items = <({IconData icon, IconData active, String label})>[
     (icon: Icons.home_outlined, active: Icons.home_rounded, label: 'Home'),
     (
-      icon: Icons.calendar_today_outlined,
-      active: Icons.calendar_month_rounded,
-      label: 'Calendar',
+      icon: Icons.lightbulb_outline_rounded,
+      active: Icons.lightbulb_rounded,
+      label: 'Ideas',
     ),
   ];
 

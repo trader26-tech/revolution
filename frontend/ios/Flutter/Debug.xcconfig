@@ -1,2 +1,8 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+
+// Skip code signing for local debug/simulator runs so `flutter run` never fails
+// on a stale/mismatched signature (the simulator doesn't need signing anyway).
+// Only affects Debug builds; Release/device signing is unchanged.
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGNING_REQUIRED = NO

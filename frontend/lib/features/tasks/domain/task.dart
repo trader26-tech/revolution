@@ -83,6 +83,7 @@ class Task {
     this.amount,
     this.currency = 'INR',
     this.documentPath,
+    this.imagePath,
     this.storedCategory,
   });
 
@@ -113,6 +114,11 @@ class Task {
   /// bucket. Non-null → the item has a document; tapping its icon opens it.
   String? documentPath;
 
+  /// A LOCAL, on-device image file path (a person's face for a birthday, a
+  /// subscription's picture). Not synced to the server — stored per-device via
+  /// the task cache. Shown as the task's avatar when present.
+  String? imagePath;
+
   /// The explicitly-set category (from the add flow). Null for older tasks —
   /// use [category], which falls back to [inferCategory].
   TaskCategory? storedCategory;
@@ -121,6 +127,7 @@ class Task {
   bool get hasIcon => (iconName != null && iconName!.isNotEmpty);
   bool get hasAmount => amount != null;
   bool get hasDocument => documentPath != null && documentPath!.isNotEmpty;
+  bool get hasImage => imagePath != null && imagePath!.isNotEmpty;
 
   /// The task's category — the explicit one if set, else a best-guess from its
   /// fields. Always returns something (never null), so the Home can group.
@@ -140,6 +147,8 @@ class Task {
     bool clearAmount = false,
     String? currency,
     String? documentPath,
+    String? imagePath,
+    bool clearImage = false,
     TaskCategory? category,
   }) {
     return Task(
@@ -154,6 +163,7 @@ class Task {
       amount: clearAmount ? null : (amount ?? this.amount),
       currency: currency ?? this.currency,
       documentPath: documentPath ?? this.documentPath,
+      imagePath: clearImage ? null : (imagePath ?? this.imagePath),
       storedCategory: category ?? storedCategory,
     );
   }
@@ -172,6 +182,9 @@ class Task {
         'amount': amount,
         'currency': currency,
         'document_path': documentPath,
+        // Local-only image path — persisted in the on-device cache; the server
+        // ignores unknown fields.
+        'image_path': imagePath,
         if (storedCategory != null) 'category': storedCategory!.name,
       };
 
@@ -191,6 +204,7 @@ class Task {
         amount: (j['amount'] as num?)?.toDouble(),
         currency: j['currency'] as String? ?? 'INR',
         documentPath: j['document_path'] as String?,
+        imagePath: j['image_path'] as String?,
         storedCategory: j['category'] == null
             ? null
             : TaskCategory.values.firstWhere(

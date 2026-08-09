@@ -4,6 +4,7 @@ import '../../tasks/data/task_store.dart';
 import '../../tasks/domain/task.dart';
 import 'add_picker_page.dart';
 import 'birthday_form_page.dart';
+import 'sip_form_page.dart';
 import 'subscription_form_page.dart';
 
 /// The result of the add flow. Most forms hand back a ready-to-save [Task] the
@@ -40,6 +41,24 @@ Future<AddResult?> openAddFlow(BuildContext context, TaskStore store) async {
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => const BirthdayFormPage(),
+      ),
+    );
+    return task == null ? null : AddResult(task: task);
+  }
+
+  // Money & investments → the tailored SIP form (amount + platform + cadence).
+  // Whether the whole "Money & investments" row or a specific SIP item was
+  // tapped.
+  final isSip = pick.category?.key == 'investments' ||
+      pick.item?.label == 'SIP investment';
+  if (isSip) {
+    final task = await Navigator.of(context).push<Task>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => SipFormPage(
+          initialName: pick.item?.label,
+          accent: pick.category?.color,
+        ),
       ),
     );
     return task == null ? null : AddResult(task: task);

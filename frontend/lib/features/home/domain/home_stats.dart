@@ -40,8 +40,8 @@ class HomeStats {
   /// Task count per category, only categories that have at least one.
   final Map<TaskCategory, int> byCategory;
 
-  /// The soonest upcoming scheduled, unfinished reminders (today onward),
-  /// nearest first — for the "Up Next" cards.
+  /// Upcoming scheduled, unfinished reminders in the next 7 days (from today,
+  /// inclusive), nearest first — for the "Up Next" cards.
   final List<Task> upNext;
 
   bool get isEmpty => total == 0;
@@ -55,6 +55,8 @@ HomeStats computeHomeStats(List<Task> tasks, {DateTime? now}) {
   final today = _dayOf(n);
   final monthStart = DateTime(n.year, n.month, 1);
   final monthEnd = DateTime(n.year, n.month + 1, 1); // exclusive
+  // "Up next" window: today through the next 7 days (inclusive).
+  final upNextEnd = today.add(const Duration(days: 8)); // exclusive bound
 
   var dueToday = 0;
   var dueThisMonth = 0;
@@ -86,8 +88,8 @@ HomeStats computeHomeStats(List<Task> tasks, {DateTime? now}) {
     if (day == today) dueToday++;
     if (day.isBefore(today)) overdue++;
 
-    // Up-next: today onward, unfinished.
-    if (!day.isBefore(today)) upcoming.add(t);
+    // Up-next: from today through the next 7 days, unfinished.
+    if (!day.isBefore(today) && day.isBefore(upNextEnd)) upcoming.add(t);
   }
 
   upcoming.sort((a, b) => a.dueAt!.compareTo(b.dueAt!));

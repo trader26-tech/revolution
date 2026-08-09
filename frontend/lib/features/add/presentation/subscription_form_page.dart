@@ -8,6 +8,7 @@ import '../../brand/presentation/brand_picker_sheet.dart';
 import '../../tasks/domain/task.dart';
 import '../domain/add_category.dart';
 import 'widgets/add_scaffold.dart';
+import 'widgets/local_photo_field.dart';
 import 'widgets/repeat_cycle_field.dart';
 
 /// The Subscription form — only what a subscription needs: what it is (name +
@@ -56,6 +57,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
 
   String? _iconName;
   String? _iconDomain;
+  String? _photo; // optional local picture of the subscription
   late RepeatCadence _cycle = widget.initialCycle ?? RepeatCadence.monthly;
   DateTime _nextDate = DateTime.now().add(const Duration(days: 30));
 
@@ -119,6 +121,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
         iconDomain: _iconDomain,
         amount: amount,
         currency: 'INR',
+        imagePath: _photo,
+        storedCategory: TaskCategory.subscription,
       ),
     );
   }
@@ -191,6 +195,18 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
           date: _nextDate,
           accent: _accent,
           onTap: _pickDate,
+        ),
+        const SizedBox(height: 22),
+
+        // An optional picture of the subscription (used when there's no brand
+        // logo, or just to personalise it).
+        const AddFieldLabel('PICTURE  (optional)'),
+        const SizedBox(height: 12),
+        LocalPhotoField(
+          path: _photo,
+          accent: _accent,
+          label: 'Add a picture',
+          onChanged: (p) => setState(() => _photo = p),
         ),
       ],
     );

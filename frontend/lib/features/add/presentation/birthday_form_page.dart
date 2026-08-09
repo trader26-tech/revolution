@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../tasks/domain/task.dart';
 import '../domain/add_category.dart';
 import 'widgets/add_scaffold.dart';
+import 'widgets/local_photo_field.dart';
 
 /// The Birthday form — the leanest of all. A birthday only needs WHOSE it is and
 /// WHEN. No price, no billing, no documents. It always repeats yearly, so we
@@ -26,6 +27,9 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
   // doesn't matter for a yearly reminder, but we keep this year for the first
   // occurrence.
   DateTime _date = DateTime.now();
+
+  /// The person's photo (local device path), shown as a round avatar.
+  String? _photo;
 
   bool get _valid => _name.text.trim().isNotEmpty;
 
@@ -66,6 +70,8 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
         title: title,
         dueAt: _date,
         repeat: RepeatCadence.yearly,
+        imagePath: _photo,
+        storedCategory: TaskCategory.birthday,
       ),
     );
   }
@@ -79,6 +85,18 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
       canSave: _valid,
       onSave: _save,
       children: [
+        // The person's photo — a round face avatar, shown everywhere later.
+        const AddFieldLabel('PHOTO  (optional)'),
+        const SizedBox(height: 12),
+        LocalPhotoField(
+          path: _photo,
+          accent: _accent,
+          circular: true,
+          label: 'Add their photo',
+          onChanged: (p) => setState(() => _photo = p),
+        ),
+        const SizedBox(height: 22),
+
         const AddFieldLabel('WHOSE BIRTHDAY?'),
         const SizedBox(height: 10),
         AddTextField(

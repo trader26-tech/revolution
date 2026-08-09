@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -70,13 +72,16 @@ class _TaskTileState extends State<TaskTile> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 children: [
-                  // The LEFT icon. For an item with an attached document
-                  // (insurance policy), the icon IS the document — tap it to
-                  // open the real PDF/photo. Otherwise the brand logo (or letter
-                  // fallback).
-                  task.hasDocument
-                      ? _DocumentIcon(taskId: task.id)
-                      : BrandLogo(brand: _brandOf(task), size: 44, radius: 12),
+                  // The LEFT icon. A local photo wins (a round face for a
+                  // birthday, a rounded picture otherwise); then an attached
+                  // document (insurance policy) — the icon IS the document, tap
+                  // to open; else the brand logo (or letter fallback).
+                  if (task.hasImage)
+                    _PhotoIcon(task: task)
+                  else if (task.hasDocument)
+                    _DocumentIcon(taskId: task.id)
+                  else
+                    BrandLogo(brand: _brandOf(task), size: 44, radius: 12),
                   const SizedBox(width: 14),
                   // Title + date in the middle.
                   Expanded(
@@ -315,6 +320,27 @@ class _DeleteSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A local photo avatar for a task — a round face for a birthday, a rounded
+/// square otherwise.
+class _PhotoIcon extends StatelessWidget {
+  const _PhotoIcon({required this.task});
+  final Task task;
+
+  @override
+  Widget build(BuildContext context) {
+    final circular = task.category == TaskCategory.birthday;
+    return Container(
+      width: 44,
+      height: 44,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(circular ? 44 : 12),
+      ),
+      child: Image.file(File(task.imagePath!), fit: BoxFit.cover),
     );
   }
 }

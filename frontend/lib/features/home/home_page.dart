@@ -61,6 +61,7 @@ class _HomePageState extends State<HomePage> {
         amount: task.amount,
         currency: task.currency,
         category: task.storedCategory?.name,
+        imagePath: task.imagePath,
       );
     }
   }

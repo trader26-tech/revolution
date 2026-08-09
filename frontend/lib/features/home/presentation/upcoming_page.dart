@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -236,6 +238,18 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (task.hasImage) {
+      final circular = task.category == TaskCategory.birthday;
+      return Container(
+        width: 46,
+        height: 46,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(circular ? 46 : 12),
+        ),
+        child: Image.file(File(task.imagePath!), fit: BoxFit.cover),
+      );
+    }
     if (task.hasIcon) {
       return BrandLogo(
         brand: Brand(

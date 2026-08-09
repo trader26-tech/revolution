@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -516,7 +517,8 @@ class UpNextStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
-    final shown = items.take(6).toList();
+    // All items in the next-7-day window (already bounded), soonest first.
+    final shown = items.take(10).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -530,6 +532,13 @@ class UpNextStrip extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
                       color: AppColors.ink)),
+              const SizedBox(width: 8),
+              // "· next 7 days" hint so the window is explicit.
+              Text('next 7 days',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkFaint.withValues(alpha: 0.9))),
               const Spacer(),
               if (onSeeAll != null)
                 // The right-arrow → the full upcoming list, all of it.
@@ -668,6 +677,19 @@ class _CardAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A local photo wins — a round face for birthdays, a rounded picture else.
+    if (task.hasImage) {
+      final circular = task.category == TaskCategory.birthday;
+      return Container(
+        width: size,
+        height: size,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(circular ? size : 11),
+        ),
+        child: Image.file(File(task.imagePath!), fit: BoxFit.cover),
+      );
+    }
     if (task.hasIcon) {
       return BrandLogo(
         brand: Brand(
@@ -1006,9 +1028,10 @@ class _WelcomeEmptyState extends State<WelcomeEmpty>
 
 // ── Compact week-strip calendar ──────────────────────────────────────────────
 
-/// A small horizontal strip of dates (a scrollable running calendar starting
-/// today). Days that have a reminder show an accent dot; the selected day is a
-/// filled accent pill. Tapping a day calls [onSelect] — the Home then shows the
+/// A small horizontal strip of dates (a scrollable running calendar). Today sits
+/// in the CENTRE with a few past days to its left and future days to its right.
+/// Days that have a reminder show an accent dot; the selected day is a filled
+/// accent pill. Tapping a day calls [onSelect] — the Home then shows the
 /// reminders from that day onward. Takes very little vertical space.
 class WeekStripCalendar extends StatefulWidget {
   const WeekStripCalendar({
@@ -1016,12 +1039,18 @@ class WeekStripCalendar extends StatefulWidget {
     required this.tasks,
     required this.selected,
     required this.onSelect,
+    this.daysBefore = 7,
     this.daysAhead = 30,
   });
 
   final List<Task> tasks;
   final DateTime selected;
   final ValueChanged<DateTime> onSelect;
+
+  /// Past days shown to the left of today.
+  final int daysBefore;
+
+  /// Future days shown to the right of today.
   final int daysAhead;
 
   @override
@@ -1044,10 +1073,26 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
 
   int _key(DateTime d) => d.year * 10000 + d.month * 100 + d.day;
 
+  static const _cellW = 50.0;
+  static const _gap = 8.0;
+
   @override
   void initState() {
     super.initState();
     _recompute();
+    // Centre today after first layout: scroll so today's cell lands mid-screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _centreToday());
+  }
+
+  void _centreToday() {
+    if (!_controller.hasClients) return;
+    final viewport = _controller.position.viewportDimension;
+    // Offset of today's cell start (today is at index `daysBefore`).
+    final todayStart = widget.daysBefore * (_cellW + _gap);
+    // Shift so the cell's centre aligns with the viewport centre.
+    final target = todayStart + _cellW / 2 - viewport / 2;
+    final max = _controller.position.maxScrollExtent;
+    _controller.jumpTo(target.clamp(0.0, max));
   }
 
   @override
@@ -1072,9 +1117,11 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
   @override
   Widget build(BuildContext context) {
     final today = _dayOf(DateTime.now());
+    // Start `daysBefore` days ago so today sits mid-strip, past on the left.
+    final start = today.subtract(Duration(days: widget.daysBefore));
+    final count = widget.daysBefore + widget.daysAhead;
     final days = [
-      for (var i = 0; i < widget.daysAhead; i++)
-        today.add(Duration(days: i)),
+      for (var i = 0; i < count; i++) start.add(Duration(days: i)),
     ];
     final sel = _dayOf(widget.selected);
 
@@ -1085,12 +1132,13 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: days.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: _gap),
         itemBuilder: (_, i) {
           final d = days[i];
           final selected = _key(d) == _key(sel);
           final busy = _busyDays.contains(_key(d));
-          final isToday = i == 0;
+          final isToday = _key(d) == _key(today);
+          final isPast = d.isBefore(today);
           // Month label appears on the 1st of a month (and the very first cell).
           final showMonth = i == 0 || d.day == 1;
           return GestureDetector(
@@ -1098,7 +1146,7 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
-              width: 50,
+              width: _cellW,
               decoration: BoxDecoration(
                 gradient: selected
                     ? const LinearGradient(
@@ -1117,45 +1165,49 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
                           : AppColors.glassBorder),
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    showMonth ? _mo[d.month - 1] : _wd[d.weekday - 1],
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.4,
-                      color: selected
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : AppColors.inkFaint,
+              child: Opacity(
+                // Past days are dimmed so today+future read as the focus.
+                opacity: (isPast && !selected) ? 0.45 : 1,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      showMonth ? _mo[d.month - 1] : _wd[d.weekday - 1],
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                        color: selected
+                            ? Colors.white.withValues(alpha: 0.85)
+                            : AppColors.inkFaint,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${d.day}',
-                    style: TextStyle(
-                      fontSize: 19,
-                      height: 1.0,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      color: selected ? Colors.white : AppColors.ink,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                    const SizedBox(height: 3),
+                    Text(
+                      '${d.day}',
+                      style: TextStyle(
+                        fontSize: 19,
+                        height: 1.0,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        color: selected ? Colors.white : AppColors.ink,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  // A dot for days that have a reminder (hollow when selected).
-                  Container(
-                    width: 5,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: busy
-                          ? (selected ? Colors.white : AppColors.accent)
-                          : Colors.transparent,
+                    const SizedBox(height: 4),
+                    // A dot for days that have a reminder (hollow when selected).
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: busy
+                            ? (selected ? Colors.white : AppColors.accent)
+                            : Colors.transparent,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );

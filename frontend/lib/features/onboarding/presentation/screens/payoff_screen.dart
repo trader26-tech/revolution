@@ -4,11 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/mascot.dart';
-import '../../../tasks/domain/task.dart';
-import '../../domain/onboarding_chip_catalog.dart';
-import 'chip_select_screen.dart';
 
-/// Screen 3 — the payoff, told as a STORY, not a statement.
+/// Screen 2 — the payoff, told as a STORY, not a statement.
 ///
 /// The sequence is a little conversation with Revo, in order:
 ///   1. Revo floats in, alone in the sky.
@@ -26,14 +23,11 @@ import 'chip_select_screen.dart';
 /// structure — problem, beat, hero — is carried purely by timing and Revo's
 /// body language.
 class PayoffScreen extends StatefulWidget {
-  const PayoffScreen({super.key, required this.picked, this.onDone});
+  const PayoffScreen({super.key, this.onDone});
 
-  final Set<String> picked;
-
-  /// Finish onboarding — the flow's "we're done" callback. The button lives on
-  /// THIS screen (like the intro's) rather than in the flow's shared bottom
-  /// bar, so no CTA can ever bleed onto the intro or wizard during a page
-  /// transition. Null in previews/tests → the button hides.
+  /// Advance to the next onboarding screen. The button lives on THIS screen so
+  /// no CTA can bleed onto neighbours during a page transition. Null in
+  /// previews/tests → the button hides.
   final VoidCallback? onDone;
 
   @override
@@ -82,12 +76,13 @@ class _PayoffScreenState extends State<PayoffScreen>
   static const _ctaTailStart = _tailLeadIn + _tailStep; //      0.50 — CTA
   static const _tailWindow = 0.22;
 
-  int _total = 0;
+  /// A representative number of things a person tracks in a year — the count
+  /// climbs to this to make the point. Fixed (no picking during onboarding).
+  static const _total = 150;
 
   @override
   void initState() {
     super.initState();
-    _total = _countReminders();
     _tail = AnimationController(vsync: this, duration: _tailDuration);
     _c = AnimationController(vsync: this, duration: _duration)
       ..addStatusListener(_onStoryStatus)
@@ -104,18 +99,6 @@ class _PayoffScreenState extends State<PayoffScreen>
   }
 
   @override
-  void didUpdateWidget(covariant PayoffScreen old) {
-    super.didUpdateWidget(old);
-    // The parent rebuilds when the user lands here (and when picks change) —
-    // recompute and replay so arriving always plays the story from the top.
-    _total = _countReminders();
-    _tail.reset();
-    _c
-      ..duration = _duration
-      ..forward(from: 0);
-  }
-
-  @override
   void dispose() {
     _c.removeStatusListener(_onStoryStatus);
     _c.dispose();
@@ -124,37 +107,9 @@ class _PayoffScreenState extends State<PayoffScreen>
     super.dispose();
   }
 
-  /// A touch more time for bigger years, so the climb stays readable, and a
-  /// long, unhurried tail so the whole story sinks in — the count climbs
+  /// A long, unhurried timeline so the whole story sinks in — the count climbs
   /// slowly, then a real pause, then the reassurance fades in gently.
-  Duration get _duration =>
-      Duration(milliseconds: (5200 + _total * 6).clamp(5200, 7000));
-
-  /// How many times a year one picked chip fires.
-  static int _firesPerYear(RepeatCadence f) => switch (f) {
-        RepeatCadence.minute => 365 * 24 * 60,
-        RepeatCadence.hour => 365 * 24,
-        RepeatCadence.daily => 365,
-        RepeatCadence.weekly => 52,
-        RepeatCadence.monthly => 12,
-        RepeatCadence.yearly => 1,
-        RepeatCadence.none => 1,
-      };
-
-  /// Total reminders a year across everything the user picked.
-  int _countReminders() {
-    final picked =
-        widget.picked.isNotEmpty ? widget.picked : preselectedChipKeys();
-    var total = 0;
-    for (final s in kOnboardingChipSections) {
-      for (final item in s.items) {
-        if (picked.contains(item.key)) {
-          total += _firesPerYear(item.defaultFrequency);
-        }
-      }
-    }
-    return total;
-  }
+  Duration get _duration => const Duration(milliseconds: 5600);
 
   /// The live running count, eased across the count window.
   int get _running {
@@ -285,7 +240,7 @@ class _PayoffScreenState extends State<PayoffScreen>
               ),
             ),
           ),
-          const TextSpan(text: ' things to remember already…'),
+          const TextSpan(text: ' things to remember every year…'),
           // The turn of the story — same paragraph, same size, fading in
           // slowly on its own beat.
           TextSpan(
@@ -402,9 +357,8 @@ class _PayoffScreenState extends State<PayoffScreen>
     );
   }
 
-  /// The "Get started" CTA — the final beat, landing after its own pause once
-  /// the closing line has settled. Full-width to match the app's primary
-  /// buttons.
+  /// The CTA — the final beat, landing after its own pause once the closing
+  /// line has settled. Full-width to match the app's primary buttons.
   Widget _getStarted() {
     return _tailReveal(
       _ctaTailStart,
@@ -415,8 +369,7 @@ class _PayoffScreenState extends State<PayoffScreen>
           onPressed: widget.onDone,
           child: const Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
-            // Leads into the schedule step (day + how often), not the app yet.
-            child: Text('Set my reminders'),
+            child: Text('Show me how'),
           ),
         ),
       ),

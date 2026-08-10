@@ -6,17 +6,18 @@ import '../../auth/data/auth_store.dart';
 import '../../auth/presentation/auth_gate.dart';
 import '../data/onboarding_store.dart';
 import 'screens/intro_screen.dart';
-import 'screens/stat_screen.dart';
+import 'screens/payoff_screen.dart';
+import 'screens/preview_screen.dart';
 
-/// The onboarding flow — deliberately short:
+/// The onboarding flow — short and visual:
 ///
-///   1. Intro     — the "Orbit" welcome (what Revolution is).
-///   2. Stat      — the reassurance beat ("people juggle 450 things a day —
-///                  don't worry, I'll remember"), one button forward.
+///   1. Intro    — the "Orbit" welcome (what Revolution is).
+///   2. Payoff   — Revo's story: "That's 150 things to remember every year… but
+///                 don't worry — Revo's got you."
+///   3. Preview  — a peek at the app itself (a phone-frame Home mock).
 ///   → then straight to phone verify + login, and into the app.
 ///
-/// No pickers, no preselected details, nothing to configure. The point is to
-/// welcome, reassure, and get the user moving.
+/// No pickers, no preselected details, nothing to configure.
 Future<void> showOnboarding(BuildContext context) {
   return Navigator.of(context).push(
     MaterialPageRoute(
@@ -41,7 +42,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final _controller = PageController();
   int _page = 0;
 
-  static const _pageCount = 2;
+  static const _pageCount = 3;
 
   @override
   void dispose() {
@@ -104,7 +105,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   onPageChanged: (i) => setState(() => _page = i),
                   children: [
                     IntroScreen(onStart: _next),
-                    StatScreen(onContinue: _toAuth),
+                    PayoffScreen(onDone: _next),
+                    PreviewScreen(onContinue: _toAuth),
                   ],
                 ),
               ),

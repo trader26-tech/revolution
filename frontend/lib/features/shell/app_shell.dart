@@ -5,6 +5,8 @@ import '../../core/widgets/glass.dart';
 import '../home/home_page.dart';
 import '../suggestions/presentation/suggestions_page.dart';
 import '../tasks/data/task_store.dart';
+import '../update/data/update_service.dart';
+import '../update/presentation/update_prompt.dart';
 
 /// The app shell: two tabs (Home, Ideas) behind a floating glass nav.
 class AppShell extends StatefulWidget {
@@ -32,6 +34,19 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     // Restore saved tasks (and their icons) from on-device storage.
     _store.load();
+    // Check for a newer app version on launch, and prompt (blocking if the
+    // build is below the server's min-supported → mandatory update).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+  }
+
+  /// Ask the backend if a newer build exists. When one does, show the update
+  /// prompt — dismissible for an optional update, non-dismissible (blocking)
+  /// when it's forced, so every device converges on the latest version. Fails
+  /// silently offline; it re-checks on the next launch.
+  Future<void> _checkForUpdate() async {
+    final info = await UpdateService.instance.check();
+    if (!mounted || !info.available) return;
+    await showUpdatePrompt(context, info);
   }
 
   @override

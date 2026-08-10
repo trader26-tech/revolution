@@ -1378,8 +1378,7 @@ class _ParticleFieldPainter extends CustomPainter {
   // (x fraction, colour pick 0/1, bob phase offset, size, rest-Y bias)
   static const _coinSpots = [
     [0.06, 0.0, 0.00, 7.5, -6.0], // far left, high
-    [0.50, 1.0, 0.40, 6.0, 19.0], // centre, below the amount (smaller so it fits)
-    [0.94, 0.0, 0.75, 7.5, -2.0], // far right, near middle
+    [0.94, 1.0, 0.55, 7.5, -2.0], // far right, near middle
   ];
 
   void _coins(Canvas canvas, Size size) {

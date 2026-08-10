@@ -15,6 +15,7 @@ import '../../tasks/data/task_store.dart';
 import '../../tasks/domain/category_visuals.dart';
 import '../../tasks/domain/task.dart';
 import '../../tasks/presentation/task_details_sheet.dart';
+import '../../tasks/presentation/widgets/delete_snackbar.dart';
 
 /// The task's NEXT occurrence on/after [from] (date-only). A recurring item
 /// whose stored date is in the past is rolled forward by its cadence, so we
@@ -282,6 +283,22 @@ class _CollectionPageState extends State<CollectionPage> {
     );
   }
 
+  /// Delete an item from this category (swipe → delete), with an Undo toast that
+  /// restores it. The store handles the server delete + rollback on failure.
+  Future<void> _delete(BuildContext context, Task task) async {
+    final index = store.tasks.indexWhere((t) => t.id == task.id);
+    HapticFeedback.mediumImpact();
+    // Show the Undo toast immediately — the removal is optimistic in the store,
+    // and it rolls back itself if the server call fails.
+    store.remove(task);
+    if (!context.mounted) return;
+    showDeleteSnackBar(
+      context,
+      title: task.title,
+      onUndo: () => store.restore(task, at: index < 0 ? null : index),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -375,6 +392,7 @@ class _CollectionPageState extends State<CollectionPage> {
       onClearFilter: () => setState(() => _filter = null),
       isOccasions: category == TaskCategory.birthday,
       onTap: (t) => _edit(context, t),
+      onDelete: (t) => _delete(context, t),
     );
   }
 
@@ -410,6 +428,7 @@ class _GroupedList extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
+    required this.onDelete,
     this.subtitle,
     this.activeFilter,
     this.onClearFilter,
@@ -422,6 +441,7 @@ class _GroupedList extends StatelessWidget {
   final String title;
   final String? subtitle;
   final void Function(Task) onTap;
+  final void Function(Task) onDelete;
   final String? activeFilter;
   final VoidCallback? onClearFilter;
   final bool isOccasions;
@@ -490,10 +510,17 @@ class _GroupedList extends StatelessWidget {
       for (final t in s.items) {
         children.add(Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: _CollectionRow(
-            task: t,
-            accent: AppColors.accent,
-            onTap: () => onTap(t),
+          // Swipe left to delete (with an Undo toast). Tap still edits.
+          child: Dismissible(
+            key: ValueKey('collection-row-${t.id}'),
+            direction: DismissDirection.endToStart,
+            background: _deleteBackground(),
+            onDismissed: (_) => onDelete(t),
+            child: _CollectionRow(
+              task: t,
+              accent: AppColors.accent,
+              onTap: () => onTap(t),
+            ),
           ),
         ));
       }
@@ -501,6 +528,31 @@ class _GroupedList extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 120),
       children: children,
+    );
+  }
+
+  /// The red "Delete" panel revealed behind a row as it's swiped left.
+  Widget _deleteBackground() {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 22),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF6B6B).withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFF6B6B).withValues(alpha: 0.4)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFFF6B6B)),
+          SizedBox(width: 6),
+          Text('Delete',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFFF6B6B))),
+        ],
+      ),
     );
   }
 }

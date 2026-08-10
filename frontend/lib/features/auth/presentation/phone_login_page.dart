@@ -108,6 +108,23 @@ class _PhoneLoginPageState extends State<PhoneLoginPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded,
+                                size: 14, color: AppColors.accent),
+                            const SizedBox(width: 6),
+                            Text(
+                              'ALMOST DONE',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 2,
+                                color: AppColors.accent.withValues(alpha: 0.9),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
                         const Text(
                           'What’s your number?',
                           style: TextStyle(

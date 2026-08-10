@@ -7,15 +7,13 @@ import '../../auth/presentation/auth_gate.dart';
 import '../data/onboarding_store.dart';
 import 'screens/intro_screen.dart';
 import 'screens/payoff_screen.dart';
-import 'screens/preview_screen.dart';
 
 /// The onboarding flow — short and visual:
 ///
-///   1. Intro    — the "Orbit" welcome (what Revolution is).
-///   2. Payoff   — Revo's story: "That's 150 things to remember every year… but
-///                 don't worry — Revo's got you."
-///   3. Preview  — a peek at the app itself (a phone-frame Home mock).
-///   → then straight to phone verify + login, and into the app.
+///   1. Intro   — the "Orbit" welcome (what Revolution is).
+///   2. Payoff  — Revo's story: "On average, there are 250 things to remember…
+///                but don't worry — Revo's got you."
+///   → then straight to the phone verify page ("Almost done"), and into the app.
 ///
 /// No pickers, no preselected details, nothing to configure.
 Future<void> showOnboarding(BuildContext context) {
@@ -42,7 +40,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final _controller = PageController();
   int _page = 0;
 
-  static const _pageCount = 3;
+  static const _pageCount = 2;
 
   @override
   void dispose() {
@@ -105,8 +103,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   onPageChanged: (i) => setState(() => _page = i),
                   children: [
                     IntroScreen(onStart: _next),
-                    PayoffScreen(onDone: _next),
-                    PreviewScreen(onContinue: _toAuth),
+                    // The payoff's CTA goes straight to the phone-verify page.
+                    PayoffScreen(onDone: _toAuth),
                   ],
                 ),
               ),

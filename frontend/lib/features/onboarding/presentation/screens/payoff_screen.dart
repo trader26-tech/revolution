@@ -76,9 +76,9 @@ class _PayoffScreenState extends State<PayoffScreen>
   static const _ctaTailStart = _tailLeadIn + _tailStep; //      0.50 — CTA
   static const _tailWindow = 0.22;
 
-  /// A representative number of things a person tracks in a year — the count
-  /// climbs to this to make the point. Fixed (no picking during onboarding).
-  static const _total = 150;
+  /// The "interesting fact" figure — roughly how many things a person is meant
+  /// to keep track of. The count climbs to it to make the point.
+  static const _total = 250;
 
   @override
   void initState() {
@@ -220,7 +220,7 @@ class _PayoffScreenState extends State<PayoffScreen>
     return Text.rich(
       TextSpan(
         children: [
-          const TextSpan(text: "That's "),
+          const TextSpan(text: "On average, there are "),
           // Accent violet, heavier, tabular so the width doesn't jitter.
           WidgetSpan(
             alignment: PlaceholderAlignment.baseline,
@@ -240,7 +240,7 @@ class _PayoffScreenState extends State<PayoffScreen>
               ),
             ),
           ),
-          const TextSpan(text: ' things to remember every year…'),
+          const TextSpan(text: ' things to keep track of…'),
           // The turn of the story — same paragraph, same size, fading in
           // slowly on its own beat.
           TextSpan(
@@ -369,7 +369,7 @@ class _PayoffScreenState extends State<PayoffScreen>
           onPressed: widget.onDone,
           child: const Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
-            child: Text('Show me how'),
+            child: Text('Count me in'),
           ),
         ),
       ),

@@ -73,16 +73,19 @@ class _StatScreenState extends State<StatScreen> with TickerProviderStateMixin {
 
             return Column(
               children: [
-                const Spacer(flex: 2),
+                // Balanced, modest breathing room top and bottom — the content
+                // is grouped tightly in the middle so it reads as one compact,
+                // deliberate block rather than floating in empty space.
+                const Spacer(flex: 3),
                 // Revo, popping in.
                 Opacity(
                   opacity: revoT.clamp(0.0, 1.0),
                   child: Transform.scale(
                     scale: 0.6 + 0.4 * revoT,
-                    child: const AnimatedMascot(size: 88),
+                    child: const AnimatedMascot(size: 74),
                   ),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
                 // The lead-in line.
                 _fade(
                   headT,
@@ -90,72 +93,87 @@ class _StatScreenState extends State<StatScreen> with TickerProviderStateMixin {
                     'On an average day, people juggle',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16,
-                      height: 1.35,
+                      fontSize: 14.5,
+                      height: 1.3,
                       fontWeight: FontWeight.w600,
                       color: AppColors.inkSoft,
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                // The big counting number.
+                const SizedBox(height: 4),
+                // The big counting number + its label, on one baseline.
                 _fade(
                   numT,
-                  ShaderMask(
-                    shaderCallback: (r) => const LinearGradient(
-                      colors: [AppColors.ink, Color(0xFFB9A8FF)],
-                    ).createShader(r),
-                    child: Text(
-                      '$count',
-                      style: const TextStyle(
-                        fontSize: 76,
-                        height: 1,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -2,
-                        color: Colors.white,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      ShaderMask(
+                        shaderCallback: (r) => const LinearGradient(
+                          colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                        ).createShader(r),
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(
+                            fontSize: 60,
+                            height: 1,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -2,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'things',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
                 _fade(
                   numT,
                   const Text(
-                    'things worth remembering',
+                    'worth remembering',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14.5,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.ink,
+                      color: AppColors.inkSoft,
                     ),
                   ),
                 ),
-                const SizedBox(height: 26),
+                const SizedBox(height: 22),
                 // Revo's reassurance.
                 _fade(
                   subT,
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 14),
+                        horizontal: 16, vertical: 13),
                     decoration: BoxDecoration(
                       color: AppColors.accent.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                           color: AppColors.accent.withValues(alpha: 0.28)),
                     ),
                     child: const Text(
-                      'You can’t hold all that in your head — and you don’t have to. I was made to remember, so you never have to.',
+                      'You can’t hold all that in your head — and you don’t have to. Revo remembers, so you never have to.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 14.5,
-                        height: 1.4,
+                        fontSize: 13.5,
+                        height: 1.35,
                         fontWeight: FontWeight.w600,
                         color: AppColors.ink,
                       ),
                     ),
                   ),
                 ),
-                const Spacer(flex: 3),
+                const Spacer(flex: 4),
                 if (widget.onContinue != null)
                   _fade(
                     btnT,
@@ -165,7 +183,7 @@ class _StatScreenState extends State<StatScreen> with TickerProviderStateMixin {
                         onTap: widget.onContinue,
                         child: Container(
                           alignment: Alignment.center,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                                 colors: [AppColors.accent, AppColors.accentDeep]),
@@ -183,20 +201,20 @@ class _StatScreenState extends State<StatScreen> with TickerProviderStateMixin {
                             children: [
                               Text('Let Revo remember',
                                   style: TextStyle(
-                                    fontSize: 16,
+                                    fontSize: 15.5,
                                     fontWeight: FontWeight.w800,
                                     color: Colors.white,
                                   )),
                               SizedBox(width: 8),
                               Icon(Icons.arrow_forward_rounded,
-                                  size: 19, color: Colors.white),
+                                  size: 18, color: Colors.white),
                             ],
                           ),
                         ),
                       ),
                     ),
                   ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
               ],
             );
           },

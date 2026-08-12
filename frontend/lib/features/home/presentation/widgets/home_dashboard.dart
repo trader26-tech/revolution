@@ -596,7 +596,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 188,
+            height: 162,
             // Cap the text scale for the fixed-height cards so a large system
             // font can never push their content past the card and overflow.
             child: MediaQuery.withClampedTextScaling(
@@ -739,11 +739,11 @@ class _DayIntroCard extends StatelessWidget {
         : '$count ${count == 1 ? 'thing' : 'things'} lined up';
 
     return Container(
-      width: 150,
-      padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
+      width: 132,
+      padding: const EdgeInsets.fromLTRB(10, 11, 13, 11),
       decoration: BoxDecoration(
         color: AppColors.card.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: p.isToday
               ? AppColors.accent.withValues(alpha: 0.5)
@@ -780,10 +780,10 @@ class _DayIntroCard extends StatelessWidget {
                 Text(
                   dayNum,
                   style: const TextStyle(
-                    fontSize: 34,
+                    fontSize: 28,
                     fontWeight: FontWeight.w900,
                     height: 1,
-                    letterSpacing: -1.5,
+                    letterSpacing: -1.2,
                     color: AppColors.ink,
                   ),
                 ),
@@ -1069,7 +1069,7 @@ class _SubscriptionCard extends StatelessWidget {
       due: task.dueAt!,
       anchor: anchor,
       particles: _Particles.pulse,
-      value: _Logo(task: task, size: 48, radius: 14, snug: true),
+      value: _Logo(task: task, size: 40, radius: 12, snug: true),
       title: task.title,
       subtitle: priceLine,
       highlight: _subscriptionPunch(task),
@@ -1148,7 +1148,7 @@ class _OccasionCard extends StatelessWidget {
               color: AppColors.ink,
             ),
           )
-        : _RoundFace(task: task, size: 48);
+        : _RoundFace(task: task, size: 40);
 
     final String highlight = _occasionPunch(type, first, age, whenText);
 
@@ -1498,7 +1498,7 @@ class _GenericCard extends StatelessWidget {
       due: task.dueAt!,
       anchor: anchor,
       particles: _Particles.drift,
-      value: _Logo(task: task, size: 46, radius: 13),
+      value: _Logo(task: task, size: 40, radius: 12),
       title: task.title,
       subtitle: subtitle,
       highlight: highlight,
@@ -2412,8 +2412,8 @@ class _AddChoiceRow extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        margin: const EdgeInsets.only(bottom: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.centerLeft,
@@ -2423,24 +2423,24 @@ class _AddChoiceRow extends StatelessWidget {
               AppColors.card,
             ],
           ),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.glassBorder),
         ),
         child: Row(
           children: [
             Container(
-              width: 46,
-              height: 46,
+              width: 38,
+              height: 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: AppColors.accent.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(11),
                 border:
                     Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
               ),
-              child: Icon(category.icon, color: AppColors.accent, size: 23),
+              child: Icon(category.icon, color: AppColors.accent, size: 20),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

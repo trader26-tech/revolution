@@ -637,7 +637,7 @@ class _CategoryHeroState extends State<_CategoryHero> {
           end: Alignment.bottomRight,
           colors: [Color(0xFF241A44), Color(0xFF1A1330)],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
         boxShadow: [
           BoxShadow(
@@ -845,7 +845,7 @@ class _OccasionHeroState extends State<_OccasionHero> {
           end: Alignment.bottomRight,
           colors: [Color(0xFF241A44), Color(0xFF1A1330)],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
         boxShadow: [
           BoxShadow(
@@ -1274,7 +1274,7 @@ class _Avatar extends StatelessWidget {
       brand: task.hasIcon
           ? Brand(name: task.iconName ?? task.title, domain: task.iconDomain ?? '')
           : Brand(name: task.title, domain: ''),
-      size: 46,
+      size: 40,
       radius: 12,
     );
   }

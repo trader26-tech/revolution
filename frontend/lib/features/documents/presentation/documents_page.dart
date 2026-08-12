@@ -252,7 +252,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
             builder: (context, _) => Column(
               children: [
                 const SizedBox(height: 6),
-                _TopBar(
+                // Slim nav — back · new-folder "+". The title lives BIG in the
+                // hero below (same pattern as the category collection pages).
+                _NavBar(
                   onBack: () => Navigator.of(context).pop(),
                   onNewFolder: () => _newFolder(),
                 ),
@@ -274,11 +276,18 @@ class _DocumentsPageState extends State<DocumentsPage> {
     final rootFolders = store.foldersIn(null);
     final rootItems = store.itemsIn(null);
 
+    // Totals across the WHOLE library, for the hero.
+    final totalFiles = store.totalCount;
+    final totalFolders = store.folderCount;
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
       children: [
-        // New folder lives in the top-right corner button now — the tree just
-        // renders inline here (folders expand in place).
+        // The hero — same immersive card as the category pages: the big title,
+        // a count, and the orbit badge.
+        _DocumentsHero(fileCount: totalFiles, folderCount: totalFolders),
+        const SizedBox(height: 4),
+        // The tree — folders expand in place.
         for (final f in rootFolders) ..._folderNode(f, depth: 0),
         // Loose documents at the root (rare, but supported).
         for (final d in rootItems)
@@ -385,47 +394,154 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 }
 
-// ── Top bar ───────────────────────────────────────────────────────────────
+// ── Nav bar + hero ──────────────────────────────────────────────────────────
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onBack, required this.onNewFolder});
+/// The slim nav bar — back (left) + new-folder "+" (right). No title: the title
+/// lives BIG in the hero below, matching the category collection pages.
+class _NavBar extends StatelessWidget {
+  const _NavBar({required this.onBack, required this.onNewFolder});
   final VoidCallback onBack;
   final VoidCallback onNewFolder;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(12, 0, 16, 4),
+      child: Row(
         children: [
-          // Row 1 — the action buttons: back (left) and new-folder "+" (right).
-          Row(
-            children: [
-              GlassIconButton(
-                icon: Icons.arrow_back_rounded,
-                tooltip: 'Back',
-                onTap: onBack,
-              ),
-              const Spacer(),
-              // Same 46px as the app's "+" buttons. Morphs "+" → folder-plus.
-              MorphIconButton(
-                from: Icons.add_rounded,
-                to: Icons.create_new_folder_rounded,
-                tooltip: 'New folder',
-                onTap: onNewFolder,
-              ),
-            ],
+          GlassIconButton(
+            icon: Icons.arrow_back_rounded,
+            tooltip: 'Back',
+            onTap: onBack,
           ),
-          const SizedBox(height: 6),
-          // Row 2 — the title on its OWN line, below the buttons.
-          const Padding(
-            padding: EdgeInsets.only(left: 2, bottom: 4),
-            child: Text(
-              'Documents',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.headline,
+          const Spacer(),
+          MorphIconButton(
+            from: Icons.add_rounded,
+            to: Icons.create_new_folder_rounded,
+            tooltip: 'New folder',
+            onTap: onNewFolder,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The Documents hero — the same immersive gradient card the category pages use:
+/// the big "Documents" title, a live count, and the orbit badge.
+class _DocumentsHero extends StatelessWidget {
+  const _DocumentsHero({required this.fileCount, required this.folderCount});
+  final int fileCount;
+  final int folderCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = <String>[
+      '$fileCount file${fileCount == 1 ? '' : 's'}',
+      if (folderCount > 0) '$folderCount folder${folderCount == 1 ? '' : 's'}',
+    ];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF241A44), Color(0xFF1A1330)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.18),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Documents',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 22,
+                      height: 1.05,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: AppColors.ink,
+                    )),
+                const SizedBox(height: 3),
+                Text(
+                  parts.join(' · '),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          _OrbitBadge(icon: Icons.folder_copy_rounded),
+        ],
+      ),
+    );
+  }
+}
+
+/// The little orbiting-planet emblem — a folder glyph with a ring + moon, the
+/// same motif the category heroes use, so Documents feels part of the family.
+class _OrbitBadge extends StatelessWidget {
+  const _OrbitBadge({required this.icon});
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 46,
+      height: 46,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.35),
+                width: 1.4,
+              ),
+            ),
+          ),
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.accent.withValues(alpha: 0.16),
+            ),
+            child: Icon(icon, size: 18, color: AppColors.accent),
+          ),
+          // A tiny orbiting "moon".
+          Positioned(
+            top: 2,
+            right: 4,
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.accent,
+              ),
             ),
           ),
         ],

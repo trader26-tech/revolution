@@ -28,6 +28,9 @@ class DocumentsStore extends ChangeNotifier {
   /// Total documents across the whole tree (for the Home badge).
   int get totalCount => _items.length;
 
+  /// Total folders across the whole tree (for the Documents hero).
+  int get folderCount => _folders.length;
+
   // ── Tree queries ──────────────────────────────────────────────────────────
 
   /// Sub-folders directly inside [folderId] (root when null), name-sorted.

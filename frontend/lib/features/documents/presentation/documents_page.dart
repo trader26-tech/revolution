@@ -802,24 +802,17 @@ class _EmptyState extends StatelessWidget {
               child: const Icon(Icons.folder_copy_rounded,
                   size: 44, color: AppColors.accent),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Text(
-              atRoot ? 'Your private document vault' : 'This folder is empty',
+              atRoot ? 'No documents yet' : 'This folder is empty',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 19,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: AppColors.ink,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Make folders, drop in any file, and open or share it anytime. '
-              'Everything stays privately on your phone.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.inkSoft),
-            ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 14),
             // Point to the "+" in the top-right corner.
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -829,20 +822,20 @@ class _EmptyState extends StatelessWidget {
                   style: TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
                 ),
                 Container(
-                  width: 26,
-                  height: 26,
+                  width: 24,
+                  height: 24,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [AppColors.accent, AppColors.accentDeep],
                     ),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(7),
                   ),
                   child: const Icon(Icons.note_add_rounded,
-                      color: Colors.white, size: 16),
+                      color: Colors.white, size: 15),
                 ),
                 const Text(
-                  ' to add a document',
+                  ' to add',
                   style: TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
                 ),
               ],

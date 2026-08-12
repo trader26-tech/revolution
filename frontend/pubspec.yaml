@@ -72,6 +72,10 @@ dependencies:
   # so no heavy in-app PDF renderer is needed.
   file_picker: ^8.1.2
 
+  # Native share sheet — used to share a document's signed link from the
+  # Documents tab (share, save to Files, send on WhatsApp, …).
+  share_plus: ^10.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

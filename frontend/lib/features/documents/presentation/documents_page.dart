@@ -10,18 +10,15 @@ import '../domain/document.dart';
 import 'add_document_sheet.dart';
 import 'folder_name_sheet.dart';
 
-/// The local Documents library — a private, on-device file browser.
+/// The local Documents library — a private, on-device file tree.
 ///
-/// A real folder tree: create folders and sub-folders to any depth, drop
-/// documents into any of them, navigate with a breadcrumb, and open / share /
-/// rename / move / delete. Nothing is ever uploaded.
+/// ONE screen: folders expand INLINE (accordion) to reveal their sub-folders
+/// and documents — no page pushes. Create folders from the "New folder" tile,
+/// add a document / sub-folder from each folder's own "+". Nothing is uploaded.
 class DocumentsPage extends StatefulWidget {
-  const DocumentsPage({super.key, required this.store, this.folderId});
+  const DocumentsPage({super.key, required this.store});
 
   final DocumentsStore store;
-
-  /// The folder to open at (null = root). Deeper folders push a new page.
-  final String? folderId;
 
   @override
   State<DocumentsPage> createState() => _DocumentsPageState();
@@ -29,7 +26,9 @@ class DocumentsPage extends StatefulWidget {
 
 class _DocumentsPageState extends State<DocumentsPage> {
   DocumentsStore get store => widget.store;
-  String? get _folderId => widget.folderId;
+
+  /// Which folders are expanded (by id). Persisted only for the session.
+  final Set<String> _expanded = {};
 
   @override
   void initState() {
@@ -39,23 +38,24 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
-  /// Add a document INTO [intoFolderId] (defaults to the page's current folder).
+  // ── Actions ─────────────────────────────────────────────────────────────
+
   Future<void> _addDocument({String? intoFolderId}) async {
     HapticFeedback.selectionClick();
     final added = await showAddDocumentSheet(
       context,
       store: store,
-      folderId: intoFolderId ?? _folderId,
+      folderId: intoFolderId,
     );
     if (added != null && mounted) {
+      // Reveal where it landed.
+      if (intoFolderId != null) setState(() => _expanded.add(intoFolderId));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Saved “${added.name}” on your phone')),
       );
     }
   }
 
-  /// Create a folder INSIDE [parentId] (defaults to the current folder). Used
-  /// both by the "New folder" tile and each folder row's "+" (a subfolder).
   Future<void> _newFolder({String? parentId}) async {
     HapticFeedback.selectionClick();
     final name = await showFolderNameSheet(
@@ -63,15 +63,19 @@ class _DocumentsPageState extends State<DocumentsPage> {
       title: parentId != null ? 'New subfolder' : 'New folder',
     );
     if (name == null || name.trim().isEmpty) return;
-    await store.createFolder(name: name, parentId: parentId ?? _folderId);
+    final created = await store.createFolder(name: name, parentId: parentId);
+    // Auto-expand the parent so the new folder is visible.
+    if (parentId != null && mounted) setState(() => _expanded.add(parentId));
+    // And expand the new (empty) folder so its add affordances show.
+    if (mounted) setState(() => _expanded.add(created.id));
   }
 
-  void _openFolder(DocFolder f) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DocumentsPage(store: store, folderId: f.id),
-      ),
-    );
+  void _toggle(String folderId) {
+    setState(() {
+      _expanded.contains(folderId)
+          ? _expanded.remove(folderId)
+          : _expanded.add(folderId);
+    });
   }
 
   Future<void> _open(DocItem doc) async {
@@ -134,131 +138,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
               'removed from your phone.'
           : '“${f.displayName}” will be removed.',
     );
-    if (ok) {
-      await store.deleteFolder(f.id);
-      if (mounted && _folderId == f.id) Navigator.of(context).pop();
-    }
+    if (ok) await store.deleteFolder(f.id);
   }
 
-  Future<bool> _confirm({required String title, required String body}) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.card,
-        title: Text(title, style: const TextStyle(color: AppColors.ink)),
-        content: Text(body, style: const TextStyle(color: AppColors.inkSoft)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B6B)),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    return ok ?? false;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.bgTop, AppColors.bg],
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: AnimatedBuilder(
-            animation: store,
-            builder: (context, _) {
-              final folder = store.folderById(_folderId);
-              return Column(
-                children: [
-                  const SizedBox(height: 6),
-                  _TopBar(
-                    title: folder?.displayName ?? 'Documents',
-                    onBack: () => Navigator.of(context).pop(),
-                    onAdd: () => _addDocument(),
-                    // Root has no ⋯ (nothing to rename/delete); a folder does.
-                    onRenameFolder: folder == null ? null : () => _renameFolder(folder),
-                    onDeleteFolder: folder == null ? null : () => _deleteFolder(folder),
-                  ),
-                  if (_folderId != null) _Breadcrumb(store: store, folderId: _folderId),
-                  Expanded(child: _buildBody()),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    if (store.isInitialLoad) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.accent));
-    }
-    final folders = store.foldersIn(_folderId);
-    final items = store.itemsIn(_folderId);
-    final empty = folders.isEmpty && items.isEmpty;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 40),
-      children: [
-        // FOLDERS — always shown, led by the "+ New folder" tile so you can
-        // build the tree from anywhere (root or inside a folder).
-        const _SectionLabel('FOLDERS'),
-        _NewFolderTile(onTap: () => _newFolder(parentId: _folderId)),
-        for (final f in folders)
-          _FolderRow(
-            folder: f,
-            itemCount: store.itemsUnder(f.id),
-            subfolderCount: store.foldersIn(f.id).length,
-            onTap: () => _openFolder(f),
-            onAddInside: () => _addInside(f),
-            onRename: () => _renameFolder(f),
-            onDelete: () => _deleteFolder(f),
-          ),
-        const SizedBox(height: 10),
-        // DOCUMENTS in this folder.
-        const _SectionLabel('DOCUMENTS'),
-        if (items.isEmpty)
-          _AddHereTile(onTap: () => _addDocument())
-        else
-          for (final d in items)
-            _DocRow(
-              doc: d,
-              onOpen: () => _open(d),
-              onShare: () => _share(d),
-              onRename: () => _renameItem(d),
-              onDelete: () => _deleteItem(d),
-            ),
-        if (empty) ...[
-          const SizedBox(height: 24),
-          Center(
-            child: Text(
-              _folderId == null
-                  ? 'Make a folder or add a document to get started.'
-                  : 'This folder is empty.',
-              style: const TextStyle(fontSize: 13, color: AppColors.inkFaint),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  /// The folder-row "+" menu — create a subfolder or add a document INSIDE [f]
-  /// without opening it.
+  /// A folder's "+" — create a sub-folder or add a document INSIDE it.
   Future<void> _addInside(DocFolder f) async {
     HapticFeedback.selectionClick();
     final choice = await showModalBottomSheet<String>(
@@ -300,14 +183,16 @@ class _DocumentsPageState extends State<DocumentsPage> {
               leading: const Icon(Icons.create_new_folder_outlined,
                   color: AppColors.accent),
               title: const Text('New subfolder',
-                  style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600)),
+                  style: TextStyle(
+                      color: AppColors.ink, fontWeight: FontWeight.w600)),
               onTap: () => Navigator.pop(context, 'folder'),
             ),
             ListTile(
               leading:
                   const Icon(Icons.note_add_rounded, color: AppColors.accent),
               title: const Text('Add document',
-                  style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600)),
+                  style: TextStyle(
+                      color: AppColors.ink, fontWeight: FontWeight.w600)),
               onTap: () => Navigator.pop(context, 'document'),
             ),
             const SizedBox(height: 8),
@@ -321,31 +206,160 @@ class _DocumentsPageState extends State<DocumentsPage> {
       await _addDocument(intoFolderId: f.id);
     }
   }
+
+  Future<bool> _confirm({required String title, required String body}) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text(title, style: const TextStyle(color: AppColors.ink)),
+        content: Text(body, style: const TextStyle(color: AppColors.inkSoft)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style:
+                TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B6B)),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  // ── Build ───────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.bgTop, AppColors.bg],
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: AnimatedBuilder(
+            animation: store,
+            builder: (context, _) => Column(
+              children: [
+                const SizedBox(height: 6),
+                _TopBar(onBack: () => Navigator.of(context).pop()),
+                Expanded(child: _buildBody()),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (store.isInitialLoad) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.accent));
+    }
+
+    final rootFolders = store.foldersIn(null);
+    final rootItems = store.itemsIn(null);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 40),
+      children: [
+        // The one clear way to start the tree — always at the top.
+        _NewFolderTile(onTap: () => _newFolder()),
+        // The whole tree, rendered inline (folders expand in place).
+        for (final f in rootFolders) ..._folderNode(f, depth: 0),
+        // Loose documents at the root (rare, but supported).
+        for (final d in rootItems)
+          Padding(
+            padding: const EdgeInsets.only(left: 0),
+            child: _DocRow(
+              doc: d,
+              onOpen: () => _open(d),
+              onShare: () => _share(d),
+              onRename: () => _renameItem(d),
+              onDelete: () => _deleteItem(d),
+            ),
+          ),
+        if (rootFolders.isEmpty && rootItems.isEmpty) ...[
+          const SizedBox(height: 28),
+          const Center(
+            child: Text(
+              'Make a folder to get started.',
+              style: TextStyle(fontSize: 13, color: AppColors.inkFaint),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// One folder and, when expanded, its children — rendered as a flat list of
+  /// widgets with a left indent per [depth], so any nesting reads as a tree.
+  List<Widget> _folderNode(DocFolder f, {required int depth}) {
+    final expanded = _expanded.contains(f.id);
+    final subs = store.foldersIn(f.id);
+    final docs = store.itemsIn(f.id);
+
+    return [
+      Padding(
+        padding: EdgeInsets.only(left: depth * 16.0),
+        child: _FolderRow(
+          folder: f,
+          expanded: expanded,
+          itemCount: store.itemsUnder(f.id),
+          subfolderCount: subs.length,
+          onTap: () => _toggle(f.id),
+          onAddInside: () => _addInside(f),
+          onRename: () => _renameFolder(f),
+          onDelete: () => _deleteFolder(f),
+        ),
+      ),
+      if (expanded) ...[
+        // Sub-folders first…
+        for (final sub in subs) ..._folderNode(sub, depth: depth + 1),
+        // …then this folder's documents.
+        for (final d in docs)
+          Padding(
+            padding: EdgeInsets.only(left: (depth + 1) * 16.0),
+            child: _DocRow(
+              doc: d,
+              onOpen: () => _open(d),
+              onShare: () => _share(d),
+              onRename: () => _renameItem(d),
+              onDelete: () => _deleteItem(d),
+            ),
+          ),
+        // An empty folder still offers a clear add.
+        if (subs.isEmpty && docs.isEmpty)
+          Padding(
+            padding: EdgeInsets.only(left: (depth + 1) * 16.0),
+            child: _AddHereTile(onTap: () => _addInside(f)),
+          ),
+      ],
+    ];
+  }
 }
 
 // ── Top bar ───────────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.title,
-    required this.onBack,
-    required this.onAdd,
-    this.onRenameFolder,
-    this.onDeleteFolder,
-  });
-
-  final String title;
+  const _TopBar({required this.onBack});
   final VoidCallback onBack;
-
-  /// Tapping the corner "+" adds a document directly.
-  final VoidCallback onAdd;
-  final VoidCallback? onRenameFolder;
-  final VoidCallback? onDeleteFolder;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 0, 16, 0),
       child: Row(
         children: [
           GlassIconButton(
@@ -353,247 +367,29 @@ class _TopBar extends StatelessWidget {
             tooltip: 'Back',
             onTap: onBack,
           ),
-          const SizedBox(width: 10),
-          Expanded(
+          const SizedBox(width: 12),
+          const Expanded(
             child: Text(
-              title,
+              'Documents',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 25,
+              style: TextStyle(
+                fontSize: 26,
                 fontWeight: FontWeight.w800,
                 color: AppColors.ink,
                 letterSpacing: -0.6,
               ),
             ),
           ),
-          // The corner "+" — ONLY adds a document (direct, no menu). It morphs
-          // from a plain "+" into a document-plus when the page opens. Folders
-          // are created from the in-list "New folder" tile / each folder's own
-          // "+", so this button stays a clean single-purpose document add.
-          GestureDetector(
-            onTap: onAdd,
-            child: const Tooltip(
-              message: 'Add document',
-              child: _MorphAddButton(),
-            ),
-          ),
-          if (onRenameFolder != null || onDeleteFolder != null)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded, color: AppColors.inkSoft),
-              color: AppColors.card,
-              onSelected: (v) {
-                if (v == 'rename') onRenameFolder?.call();
-                if (v == 'delete') onDeleteFolder?.call();
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'rename',
-                  child: _MenuRow(icon: Icons.edit_outlined, label: 'Rename folder'),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: _MenuRow(
-                    icon: Icons.delete_outline_rounded,
-                    label: 'Delete folder',
-                    danger: true,
-                  ),
-                ),
-              ],
-            ),
         ],
       ),
     );
   }
 }
 
-/// The corner add "+" that plays a ONE-TIME morph from a plain "+" into a
-/// document-plus when the Documents page opens. A pure visual — the
-/// PopupMenuButton wrapping it owns the tap (Add document / New folder).
-class _MorphAddButton extends StatefulWidget {
-  const _MorphAddButton();
+// ── Tiles & rows ────────────────────────────────────────────────────────────
 
-  @override
-  State<_MorphAddButton> createState() => _MorphAddButtonState();
-}
-
-class _MorphAddButtonState extends State<_MorphAddButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 620),
-    );
-    // A brief beat after the page settles, then morph "+" → document-plus.
-    Future<void>.delayed(const Duration(milliseconds: 220), () {
-      if (mounted) _c.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-          width: 46,
-          height: 46,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.accent, AppColors.accentDeep],
-            ),
-            borderRadius: BorderRadius.circular(23),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.accent.withValues(alpha: 0.38),
-                blurRadius: 18,
-                offset: const Offset(0, 7),
-              ),
-            ],
-          ),
-          child: AnimatedBuilder(
-            animation: _c,
-            builder: (context, _) {
-              final t = Curves.easeInOutBack.transform(_c.value.clamp(0.0, 1.0));
-              final outOpacity = (1 - (_c.value * 1.6)).clamp(0.0, 1.0);
-              final inOpacity = ((_c.value - 0.4) / 0.6).clamp(0.0, 1.0);
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  Opacity(
-                    opacity: outOpacity,
-                    child: Transform.rotate(
-                      angle: t * 0.9,
-                      child: Transform.scale(
-                        scale: 1 - 0.4 * t,
-                        child: const Icon(Icons.add_rounded,
-                            color: Colors.white, size: 24),
-                      ),
-                    ),
-                  ),
-                  Opacity(
-                    opacity: inOpacity,
-                    child: Transform.rotate(
-                      angle: (t - 1) * 0.9,
-                      child: Transform.scale(
-                        scale: 0.6 + 0.4 * t,
-                        child: const Icon(Icons.note_add_rounded,
-                            color: Colors.white, size: 23),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-  }
-}
-
-/// The breadcrumb trail — Documents › Folder › Sub-folder. Tapping a crumb pops
-/// back to that level.
-class _Breadcrumb extends StatelessWidget {
-  const _Breadcrumb({required this.store, required this.folderId});
-  final DocumentsStore store;
-  final String? folderId;
-
-  @override
-  Widget build(BuildContext context) {
-    final path = store.pathTo(folderId);
-    return SizedBox(
-      height: 34,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Row(
-          children: [
-            _Crumb(
-              label: 'Documents',
-              // The root Documents page is `path.length` pages down the stack.
-              onTap: () => _popLevels(context, path.length),
-              isLast: path.isEmpty,
-            ),
-            for (var i = 0; i < path.length; i++) ...[
-              const Icon(Icons.chevron_right_rounded,
-                  size: 18, color: AppColors.inkFaint),
-              _Crumb(
-                label: path[i].displayName,
-                // This crumb's page is `path.length - 1 - i` pages down.
-                onTap: () => _popLevels(context, path.length - 1 - i),
-                isLast: i == path.length - 1,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Pop exactly [n] routes (each folder level is one pushed DocumentsPage).
-  void _popLevels(BuildContext context, int n) {
-    final nav = Navigator.of(context);
-    for (var k = 0; k < n && nav.canPop(); k++) {
-      nav.pop();
-    }
-  }
-}
-
-class _Crumb extends StatelessWidget {
-  const _Crumb({required this.label, required this.onTap, required this.isLast});
-  final String label;
-  final VoidCallback onTap;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: isLast ? null : onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: isLast ? FontWeight.w800 : FontWeight.w600,
-            color: isLast ? AppColors.ink : AppColors.inkSoft,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(6, 14, 6, 8),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.0,
-            color: AppColors.inkFaint,
-          ),
-        ),
-      );
-}
-
-// ── Rows ────────────────────────────────────────────────────────────────────
-
-/// A dashed "+ New folder" tile — leads the folders list so the tree can be
-/// grown from anywhere.
+/// The "+ New folder" tile — the primary way to grow the tree, easy to tap.
 class _NewFolderTile extends StatelessWidget {
   const _NewFolderTile({required this.onTap});
   final VoidCallback onTap;
@@ -601,14 +397,12 @@ class _NewFolderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.accent.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.accent.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
       ),
       child: Material(
         type: MaterialType.transparency,
@@ -647,8 +441,7 @@ class _NewFolderTile extends StatelessWidget {
   }
 }
 
-/// A subtle "Add a document here" tile, shown when a folder has no documents
-/// yet — so the empty section still has an obvious action.
+/// A subtle "Add a document here" tile for an empty, expanded folder.
 class _AddHereTile extends StatelessWidget {
   const _AddHereTile({required this.onTap});
   final VoidCallback onTap;
@@ -660,7 +453,7 @@ class _AddHereTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.glassBorder),
       ),
       child: Material(
@@ -668,25 +461,15 @@ class _AddHereTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.note_add_rounded,
-                      size: 20, color: AppColors.accent),
-                ),
-                const SizedBox(width: 12),
+                const Icon(Icons.add_rounded, size: 18, color: AppColors.accent),
+                const SizedBox(width: 10),
                 const Text(
-                  'Add a document here',
+                  'Add to this folder',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.inkSoft,
                   ),
@@ -700,9 +483,12 @@ class _AddHereTile extends StatelessWidget {
   }
 }
 
+/// A folder row — tapping it EXPANDS/COLLAPSES in place (a rotating caret shows
+/// the state). No right-arrow; its "+" adds inside, ⋯ renames/deletes.
 class _FolderRow extends StatelessWidget {
   const _FolderRow({
     required this.folder,
+    required this.expanded,
     required this.itemCount,
     required this.subfolderCount,
     required this.onTap,
@@ -712,11 +498,10 @@ class _FolderRow extends StatelessWidget {
   });
 
   final DocFolder folder;
+  final bool expanded;
   final int itemCount;
   final int subfolderCount;
   final VoidCallback onTap;
-
-  /// The row's "+" — create a subfolder or add a document INSIDE this folder.
   final VoidCallback onAddInside;
   final VoidCallback onRename;
   final VoidCallback onDelete;
@@ -724,15 +509,22 @@ class _FolderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = <String>[
-      if (subfolderCount > 0) '$subfolderCount folder${subfolderCount == 1 ? '' : 's'}',
+      if (subfolderCount > 0)
+        '$subfolderCount folder${subfolderCount == 1 ? '' : 's'}',
       '$itemCount document${itemCount == 1 ? '' : 's'}',
     ];
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: expanded
+            ? AppColors.accent.withValues(alpha: 0.07)
+            : Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.glassBorder),
+        border: Border.all(
+          color: expanded
+              ? AppColors.accent.withValues(alpha: 0.30)
+              : AppColors.glassBorder,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: Material(
@@ -740,19 +532,30 @@ class _FolderRow extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
+            padding: const EdgeInsets.fromLTRB(10, 10, 4, 10),
             child: Row(
               children: [
+                // Rotating caret — the expand/collapse cue (replaces the arrow).
+                AnimatedRotation(
+                  duration: const Duration(milliseconds: 200),
+                  turns: expanded ? 0.25 : 0.0,
+                  child: const Icon(Icons.chevron_right_rounded,
+                      color: AppColors.inkSoft),
+                ),
+                const SizedBox(width: 4),
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 40,
+                  height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: AppColors.accent.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(11),
                   ),
-                  child: const Icon(Icons.folder_rounded,
-                      size: 22, color: AppColors.accent),
+                  child: Icon(
+                    expanded ? Icons.folder_open_rounded : Icons.folder_rounded,
+                    size: 21,
+                    color: AppColors.accent,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -781,7 +584,6 @@ class _FolderRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                // "+" — add a subfolder / document inside this folder.
                 IconButton(
                   onPressed: onAddInside,
                   icon: const Icon(Icons.add_rounded, size: 22),
@@ -794,10 +596,6 @@ class _FolderRow extends StatelessWidget {
                     _MenuAction('delete', Icons.delete_outline_rounded, 'Delete',
                         onDelete, danger: true),
                   ],
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(right: 6),
-                  child: Icon(Icons.chevron_right_rounded, color: AppColors.inkFaint),
                 ),
               ],
             ),
@@ -833,7 +631,7 @@ class _DocRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.glassBorder),
       ),
@@ -843,20 +641,22 @@ class _DocRow extends StatelessWidget {
         child: InkWell(
           onTap: onOpen,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
+            padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
             child: Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 40,
+                  height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: AppColors.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(11),
                   ),
                   child: Icon(
-                    doc.isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded,
-                    size: 21,
+                    doc.isPdf
+                        ? Icons.picture_as_pdf_rounded
+                        : Icons.image_rounded,
+                    size: 20,
                     color: AppColors.accent,
                   ),
                 ),
@@ -870,7 +670,7 @@ class _DocRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 15.5,
+                          fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: AppColors.ink,
                         ),
@@ -909,6 +709,8 @@ class _DocRow extends StatelessWidget {
     );
   }
 }
+
+// ── Row overflow menu ───────────────────────────────────────────────────────
 
 class _MenuAction {
   const _MenuAction(this.value, this.icon, this.label, this.onTap,

@@ -6,6 +6,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/theme/app_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../domain/document.dart';
@@ -73,12 +74,7 @@ class _ViewerBar extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink,
-                letterSpacing: -0.3,
-              ),
+              style: AppText.headline,
             ),
           ),
           // Consistent with the add-document "+" morph: the share button

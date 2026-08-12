@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/theme/app_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/documents_store.dart';
 import '../domain/document.dart';
@@ -145,14 +146,7 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Add a document',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                ),
-              ),
+              const Text('Add a document', style: AppText.headline),
               const SizedBox(height: 14),
 
               _FileTile(file: _file, onTap: _pickFile),
@@ -184,7 +178,7 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                   _error!,
                   style: const TextStyle(
                     color: Color(0xFFFF6B6B),
-                    fontSize: 13.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -309,7 +303,7 @@ class _FileTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppColors.ink,
                       ),
@@ -318,7 +312,7 @@ class _FileTile extends StatelessWidget {
                     Text(
                       f == null ? 'PDF or image · up to 10 MB' : 'Tap to change',
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 11,
                         color: AppColors.inkFaint,
                       ),
                     ),
@@ -364,7 +358,7 @@ class _FolderSelector extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 15.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.ink,
                   ),
@@ -413,7 +407,7 @@ class _PrivacyNote extends StatelessWidget {
         Text(
           'Added locally',
           style: TextStyle(
-            fontSize: 12.5,
+            fontSize: 11,
             fontWeight: FontWeight.w700,
             color: AppColors.inkFaint,
           ),

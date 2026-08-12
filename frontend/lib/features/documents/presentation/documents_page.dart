@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/theme/app_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../data/documents_store.dart';
@@ -171,7 +172,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                 child: Text(
                   'Add to “${f.displayName}”',
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                     color: AppColors.ink,
                   ),
@@ -307,21 +308,12 @@ class _DocumentsPageState extends State<DocumentsPage> {
                       size: 38, color: AppColors.accent),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'No documents yet',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.ink,
-                  ),
-                ),
+                const Text('No documents yet', style: AppText.title),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Tap ',
-                        style: TextStyle(
-                            fontSize: 13.5, color: AppColors.inkFaint)),
+                    const Text('Tap ', style: AppText.label),
                     Container(
                       width: 24,
                       height: 24,
@@ -335,9 +327,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                       child: const Icon(Icons.create_new_folder_rounded,
                           color: Colors.white, size: 15),
                     ),
-                    const Text(' to make a folder',
-                        style: TextStyle(
-                            fontSize: 13.5, color: AppColors.inkFaint)),
+                    const Text(' to make a folder', style: AppText.label),
                   ],
                 ),
               ],
@@ -420,12 +410,7 @@ class _TopBar extends StatelessWidget {
               'Documents',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink,
-                letterSpacing: -0.4,
-              ),
+              style: AppText.headline,
             ),
           ),
           // The consistent corner action — morphs from a plain "+" into a
@@ -470,14 +455,8 @@ class _AddHereTile extends StatelessWidget {
               children: [
                 const Icon(Icons.add_rounded, size: 17, color: AppColors.accent),
                 const SizedBox(width: 8),
-                const Text(
-                  'Add to this folder',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkSoft,
-                  ),
-                ),
+                Text('Add to this folder',
+                    style: AppText.label.copyWith(color: AppColors.inkSoft)),
               ],
             ),
           ),
@@ -512,10 +491,13 @@ class _FolderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Compact meta so it never crowds the name off the row — short units
+    // ("2 folders · 5 files" → "2 · 5" with glyphs would be cryptic, so keep
+    // short words): "5 files", plus "· 2 folders" only when it has subfolders.
     final parts = <String>[
+      '$itemCount file${itemCount == 1 ? '' : 's'}',
       if (subfolderCount > 0)
         '$subfolderCount folder${subfolderCount == 1 ? '' : 's'}',
-      '$itemCount document${itemCount == 1 ? '' : 's'}',
     ];
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -554,29 +536,23 @@ class _FolderRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: folder.displayName,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                        TextSpan(
-                          text: '    ${parts.join(' · ')}',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.inkFaint,
-                          ),
-                        ),
-                      ],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        folder.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.body,
+                      ),
+                      Text(
+                        parts.join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.caption,
+                      ),
+                    ],
                   ),
                 ),
                 _RowIconButton(
@@ -643,29 +619,23 @@ class _DocRow extends StatelessWidget {
                 DocThumbnail(doc: doc, size: 34),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: doc.name,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                        TextSpan(
-                          text: '    $meta',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.inkFaint,
-                          ),
-                        ),
-                      ],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        doc.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.body,
+                      ),
+                      Text(
+                        meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.caption,
+                      ),
+                    ],
                   ),
                 ),
                 _RowIconButton(

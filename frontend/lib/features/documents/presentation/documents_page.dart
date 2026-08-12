@@ -274,11 +274,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
     final rootItems = store.itemsIn(null);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 40),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
       children: [
-        // The one clear way to start the tree — always at the top.
-        _NewFolderTile(onTap: () => _newFolder()),
-        // The whole tree, rendered inline (folders expand in place).
+        // New folder lives in the top-right corner button now — the tree just
+        // renders inline here (folders expand in place).
         for (final f in rootFolders) ..._folderNode(f, depth: 0),
         // Loose documents at the root (rare, but supported).
         for (final d in rootItems)
@@ -293,11 +292,55 @@ class _DocumentsPageState extends State<DocumentsPage> {
             ),
           ),
         if (rootFolders.isEmpty && rootItems.isEmpty) ...[
-          const SizedBox(height: 28),
-          const Center(
-            child: Text(
-              'Make a folder to get started.',
-              style: TextStyle(fontSize: 13, color: AppColors.inkFaint),
+          const SizedBox(height: 64),
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.10),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.folder_copy_rounded,
+                      size: 38, color: AppColors.accent),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'No documents yet',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Tap ',
+                        style: TextStyle(
+                            fontSize: 13.5, color: AppColors.inkFaint)),
+                    Container(
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.accent, AppColors.accentDeep],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.create_new_folder_rounded,
+                          color: Colors.white, size: 15),
+                    ),
+                    const Text(' to make a folder',
+                        style: TextStyle(
+                            fontSize: 13.5, color: AppColors.inkFaint)),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -399,58 +442,6 @@ class _TopBar extends StatelessWidget {
 }
 
 // ── Tiles & rows ────────────────────────────────────────────────────────────
-
-/// The "+ New folder" tile — the primary way to grow the tree, easy to tap.
-class _NewFolderTile extends StatelessWidget {
-  const _NewFolderTile({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.create_new_folder_rounded,
-                      size: 20, color: AppColors.accent),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'New folder',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.accent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// A subtle "Add a document here" tile for an empty, expanded folder.
 class _AddHereTile extends StatelessWidget {

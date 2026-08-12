@@ -395,16 +395,16 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 0, 12, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Row(
         children: [
+          // Same 46px glass button as the rest of the app's headers.
           GlassIconButton(
             icon: Icons.arrow_back_rounded,
             tooltip: 'Back',
             onTap: onBack,
-            size: 38,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           const Expanded(
             child: Text(
               'Documents',
@@ -413,14 +413,13 @@ class _TopBar extends StatelessWidget {
               style: AppText.headline,
             ),
           ),
-          // The consistent corner action — morphs from a plain "+" into a
-          // folder-plus when the page opens, then creates a new (root) folder.
+          // The corner action — same 46px size as the app's "+" buttons, so the
+          // header buttons are all identical. Morphs "+" → folder-plus on open.
           MorphIconButton(
             from: Icons.add_rounded,
             to: Icons.create_new_folder_rounded,
             tooltip: 'New folder',
             onTap: onNewFolder,
-            size: 38,
           ),
         ],
       ),

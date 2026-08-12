@@ -1,44 +1,46 @@
 import '../../tasks/domain/task.dart';
 
-/// One item in the Documents library.
+/// One document in the LOCAL library.
 ///
-/// A document comes from one of two sources, unified here so the Documents tab
-/// shows everything in one place:
-///   • [DocSource.standalone] — added directly in the Documents tab (its own
-///     server record, id = the documents-row id).
-///   • [DocSource.task]       — a file attached to a reminder (e.g. an insurance
-///     policy). id = the TASK id; opened/shared via the task document endpoint.
-enum DocSource { standalone, task }
-
+/// Documents are stored entirely on-device: the file is copied into the app's
+/// documents directory and this metadata is persisted in shared_preferences.
+/// Nothing is ever uploaded — the library is private to the phone.
 class Document {
   const Document({
     required this.id,
     required this.name,
     required this.folder,
-    required this.source,
-    this.contentType,
+    required this.localPath,
+    required this.addedAt,
+    this.originalName,
     this.size,
-    this.createdAt,
   });
 
-  /// Standalone → documents-row id. Task → the task id.
+  /// Stable local id (a timestamp-based key).
   final String id;
 
-  /// The user-facing name (standalone: user-given; task: the reminder title).
+  /// The user-given display name.
   final String name;
 
-  /// The folder = a [TaskCategory] name (subscription/insurance/…).
+  /// The folder = a [TaskCategory].
   final TaskCategory folder;
 
-  final DocSource source;
-  final String? contentType;
+  /// Absolute path to the on-device copy of the file.
+  final String localPath;
+
+  /// When it was added.
+  final DateTime addedAt;
+
+  /// The picked file's original filename (keeps the real extension for viewers).
+  final String? originalName;
+
+  /// File size in bytes, when known.
   final int? size;
-  final DateTime? createdAt;
 
-  bool get isPdf => (contentType ?? '').contains('pdf') ||
-      name.toLowerCase().endsWith('.pdf');
+  bool get isPdf =>
+      localPath.toLowerCase().endsWith('.pdf') ||
+      (originalName ?? '').toLowerCase().endsWith('.pdf');
 
-  /// Human size, e.g. "1.2 MB" — null when unknown.
   String? get sizeLabel {
     final s = size;
     if (s == null || s <= 0) return null;
@@ -47,35 +49,29 @@ class Document {
     return '${(s / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  static TaskCategory _folderFrom(String? raw) {
-    return TaskCategory.values.firstWhere(
-      (c) => c.name == raw,
-      orElse: () => TaskCategory.other,
-    );
-  }
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'folder': folder.name,
+        'local_path': localPath,
+        'added_at': addedAt.toIso8601String(),
+        'original_name': originalName,
+        'size': size,
+      };
 
-  /// From a standalone `/documents` row.
   factory Document.fromJson(Map<String, dynamic> j) => Document(
-        id: j['id'].toString(),
+        id: j['id'] as String,
         name: (j['name'] as String?)?.trim().isNotEmpty == true
             ? j['name'] as String
             : 'Document',
-        folder: _folderFrom(j['folder'] as String?),
-        source: DocSource.standalone,
-        contentType: j['content_type'] as String?,
+        folder: TaskCategory.values.firstWhere(
+          (c) => c.name == j['folder'],
+          orElse: () => TaskCategory.other,
+        ),
+        localPath: j['local_path'] as String? ?? '',
+        addedAt: DateTime.tryParse(j['added_at'] as String? ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0),
+        originalName: j['original_name'] as String?,
         size: (j['size'] as num?)?.toInt(),
-        createdAt: j['created_at'] == null
-            ? null
-            : DateTime.tryParse(j['created_at'] as String),
-      );
-
-  /// From a reminder that carries an attached document.
-  factory Document.fromTask(Task t) => Document(
-        id: t.id,
-        name: t.title,
-        folder: t.category,
-        source: DocSource.task,
-        contentType: null,
-        createdAt: t.dueAt,
       );
 }

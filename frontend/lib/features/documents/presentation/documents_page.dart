@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
@@ -48,28 +48,22 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   Future<void> _open(Document doc) async {
     HapticFeedback.selectionClick();
-    final url = await widget.store.urlFor(doc);
+    final result = await OpenFilex.open(doc.localPath);
     if (!mounted) return;
-    if (url == null) {
+    if (result.type != ResultType.done) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Couldn't open this document")),
       );
-      return;
     }
-    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
   Future<void> _share(Document doc) async {
     HapticFeedback.selectionClick();
-    final url = await widget.store.urlFor(doc);
-    if (!mounted) return;
-    if (url == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't get a share link")),
-      );
-      return;
-    }
-    await Share.share(url, subject: doc.name);
+    // Share the actual on-device file.
+    await Share.shareXFiles(
+      [XFile(doc.localPath, name: doc.originalName ?? doc.name)],
+      subject: doc.name,
+    );
   }
 
   Future<void> _delete(Document doc) async {
@@ -110,27 +104,39 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-          _TopBar(onAdd: _add),
-          const SizedBox(height: 8),
-          Expanded(
-            child: AnimatedBuilder(
-              animation: widget.store,
-              builder: (context, _) => _buildBody(),
-            ),
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.bgTop, AppColors.bg],
           ),
-        ],
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              const SizedBox(height: 6),
+              _TopBar(onAdd: _add, onBack: () => Navigator.of(context).pop()),
+              const SizedBox(height: 8),
+              Expanded(
+                child: AnimatedBuilder(
+                  animation: widget.store,
+                  builder: (context, _) => _buildBody(),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildBody() {
     final store = widget.store;
-    if (store.isInitialLoad && store.loading) {
+    if (store.isInitialLoad) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.accent),
       );
@@ -160,22 +166,29 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 }
 
-/// The glass top bar — title + a prominent "Add" button.
+/// The glass top bar — back + title + a prominent "Add" button.
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onAdd});
+  const _TopBar({required this.onAdd, required this.onBack});
   final VoidCallback onAdd;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 16, 0),
+      padding: const EdgeInsets.fromLTRB(12, 0, 16, 0),
       child: Row(
         children: [
+          GlassIconButton(
+            icon: Icons.arrow_back_rounded,
+            tooltip: 'Back',
+            onTap: onBack,
+          ),
+          const SizedBox(width: 12),
           const Expanded(
             child: Text(
               'Documents',
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 26,
                 fontWeight: FontWeight.w800,
                 color: AppColors.ink,
                 letterSpacing: -0.6,
@@ -280,7 +293,7 @@ class _DocRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final meta = <String>[
-      if (doc.source == DocSource.task) 'From reminder',
+      if (doc.isPdf) 'PDF' else 'Image',
       if (doc.sizeLabel != null) doc.sizeLabel!,
     ].join(' · ');
 
@@ -355,8 +368,7 @@ class _DocRow extends StatelessWidget {
                 _MoreMenu(
                   onOpen: onOpen,
                   onShare: onShare,
-                  // Only standalone docs can be deleted from here.
-                  onDelete: doc.source == DocSource.standalone ? onDelete : null,
+                  onDelete: onDelete,
                 ),
               ],
             ),
@@ -466,7 +478,7 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               'Add any file — a statement, a policy, an ID — into a folder, and '
-              'open or share it anytime.',
+              'open or share it anytime. Kept privately on your phone.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.inkSoft),
             ),

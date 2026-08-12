@@ -1,68 +1,38 @@
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'dart:io';
 
-import '../../../core/api/api_client.dart';
-import '../../tasks/data/task_store.dart';
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../tasks/domain/task.dart';
 import '../domain/document.dart';
 
-/// The Documents library store.
+/// The LOCAL documents library — everything lives on-device, nothing uploads.
 ///
-/// Presents ONE unified list from two sources:
-///   • standalone documents (its own `/documents` records), and
-///   • every reminder that has an attached document (from the shared
-///     [TaskStore], so the two views stay in sync with no extra fetch).
-///
-/// The Documents tab reads [byFolder] to render folder sections. Adding,
-/// opening (signed URL), and deleting all live here.
+/// Files are COPIED into the app's documents directory (so a document survives
+/// even if the user later deletes the original from Downloads), and the list of
+/// documents (name, folder, local path, size) is persisted in shared_preferences
+/// as JSON. Fully offline, fully private.
 class DocumentsStore extends ChangeNotifier {
-  DocumentsStore({required TaskStore tasks, ApiClient? api})
-      : _tasks = tasks,
-        _api = api ?? ApiClient.instance {
-    // Task-attached docs change when the task list does — restay in sync.
-    _tasks.addListener(_onTasksChanged);
-  }
+  DocumentsStore();
 
-  final ApiClient _api;
-  final TaskStore _tasks;
+  static const _prefsKey = 'documents_v1';
+  static const _subDir = 'documents';
 
-  final List<Document> _standalone = [];
-  bool _loading = false;
-  bool _hasLoaded = false;
-  Object? _error;
+  final List<Document> _docs = [];
+  bool _loaded = false;
 
-  bool get isInitialLoad => !_hasLoaded;
-  bool get loading => _loading;
-  Object? get error => _error;
+  bool get isInitialLoad => !_loaded;
+  List<Document> get all => List.unmodifiable(_docs);
+  int get count => _docs.length;
 
-  void _onTasksChanged() {
-    // Task-attached docs are derived live; just repaint.
-    if (hasListeners) notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _tasks.removeListener(_onTasksChanged);
-    super.dispose();
-  }
-
-  /// The reminders that carry a document, as library items.
-  List<Document> get _fromTasks => [
-        for (final t in _tasks.tasks)
-          if (t.hasDocument) Document.fromTask(t),
-      ];
-
-  /// The full, merged library — standalone first (newest), then task docs.
-  List<Document> get all => [..._standalone, ..._fromTasks];
-
-  int get count => all.length;
-
-  /// Grouped by folder, in the app's canonical category order, skipping empties.
+  /// Grouped by folder, in the app's canonical category order, empties skipped.
   Map<TaskCategory, List<Document>> get byFolder {
     final map = <TaskCategory, List<Document>>{};
-    for (final d in all) {
+    for (final d in _docs) {
       map.putIfAbsent(d.folder, () => []).add(d);
     }
-    // Canonical order.
     final ordered = <TaskCategory, List<Document>>{};
     for (final c in TaskCategory.values) {
       final items = map[c];
@@ -71,70 +41,129 @@ class DocumentsStore extends ChangeNotifier {
     return ordered;
   }
 
-  /// Fetch the standalone documents. Call on tab open.
+  /// Load the saved library from disk. Safe to call repeatedly.
   Future<void> load() async {
-    _loading = true;
-    _error = null;
-    notifyListeners();
     try {
-      final rows = await _api.listDocuments();
-      _standalone
-        ..clear()
-        ..addAll(rows.map((e) => Document.fromJson(e as Map<String, dynamic>)));
-      _error = null;
-    } catch (e) {
-      _error = e;
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefsKey);
+      _docs.clear();
+      if (raw != null && raw.isNotEmpty) {
+        final list = jsonDecode(raw) as List<dynamic>;
+        for (final e in list) {
+          final doc = Document.fromJson(e as Map<String, dynamic>);
+          // Drop entries whose file has gone missing, so the list never lies.
+          if (doc.localPath.isNotEmpty && File(doc.localPath).existsSync()) {
+            _docs.add(doc);
+          }
+        }
+      }
+    } catch (_) {
+      // Corrupt/absent store → start empty.
     } finally {
-      _loading = false;
-      _hasLoaded = true;
+      _loaded = true;
       notifyListeners();
     }
   }
 
-  /// Add a standalone document (name + folder + file bytes). Inserts the
-  /// returned row at the top on success.
-  Future<Document> add({
+  Future<void> _persist() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _prefsKey,
+        jsonEncode(_docs.map((d) => d.toJson()).toList()),
+      );
+    } catch (_) {
+      // Best-effort; the in-memory list is still correct for this session.
+    }
+  }
+
+  /// The directory the on-device copies live in (created on first use).
+  Future<Directory> _docsDir() async {
+    final base = await getApplicationDocumentsDirectory();
+    final dir = Directory('${base.path}/$_subDir');
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    return dir;
+  }
+
+  /// Add a document by COPYING [sourcePath] into local storage. Returns the
+  /// created [Document]. Nothing leaves the device.
+  Future<Document> addFromPath({
+    required String name,
+    required TaskCategory folder,
+    required String sourcePath,
+    String? originalName,
+  }) async {
+    final id = DateTime.now().microsecondsSinceEpoch.toString();
+    final ext = _extOf(originalName ?? sourcePath);
+    final dir = await _docsDir();
+    final dest = '${dir.path}/$id${ext.isEmpty ? '' : '.$ext'}';
+
+    final srcFile = File(sourcePath);
+    final copied = await srcFile.copy(dest);
+    final size = await copied.length();
+
+    final doc = Document(
+      id: id,
+      name: name.trim().isEmpty ? 'Document' : name.trim(),
+      folder: folder,
+      localPath: copied.path,
+      addedAt: DateTime.now(),
+      originalName: originalName,
+      size: size,
+    );
+    _docs.insert(0, doc);
+    notifyListeners();
+    await _persist();
+    return doc;
+  }
+
+  /// Add a document from picked BYTES (when the picker gave bytes, not a path).
+  Future<Document> addFromBytes({
     required String name,
     required TaskCategory folder,
     required List<int> bytes,
-    required String filename,
-    required String contentType,
+    String? originalName,
   }) async {
-    final json = await _api.uploadStandaloneDocument(
-      name: name,
-      folder: folder.name,
-      bytes: bytes,
-      filename: filename,
-      contentType: contentType,
+    final id = DateTime.now().microsecondsSinceEpoch.toString();
+    final ext = _extOf(originalName ?? '');
+    final dir = await _docsDir();
+    final dest = '${dir.path}/$id${ext.isEmpty ? '' : '.$ext'}';
+
+    final file = await File(dest).writeAsBytes(bytes, flush: true);
+
+    final doc = Document(
+      id: id,
+      name: name.trim().isEmpty ? 'Document' : name.trim(),
+      folder: folder,
+      localPath: file.path,
+      addedAt: DateTime.now(),
+      originalName: originalName,
+      size: bytes.length,
     );
-    final created = Document.fromJson(json);
-    _standalone.insert(0, created);
+    _docs.insert(0, doc);
     notifyListeners();
-    return created;
+    await _persist();
+    return doc;
   }
 
-  /// A short-lived signed URL to VIEW/SHARE [doc], from whichever source.
-  Future<String?> urlFor(Document doc) {
-    return switch (doc.source) {
-      DocSource.standalone => _api.documentUrlById(doc.id),
-      DocSource.task => _api.documentUrl(doc.id),
-    };
-  }
-
-  /// Delete a STANDALONE document. (Task-attached docs are removed by editing
-  /// the reminder, so this only handles the library's own records.) Optimistic.
+  /// Remove a document — deletes the on-device copy and forgets it. Optimistic.
   Future<void> remove(Document doc) async {
-    if (doc.source != DocSource.standalone) return;
-    final i = _standalone.indexWhere((d) => d.id == doc.id);
+    final i = _docs.indexWhere((d) => d.id == doc.id);
     if (i == -1) return;
-    final removed = _standalone.removeAt(i);
+    final removed = _docs.removeAt(i);
     notifyListeners();
     try {
-      await _api.deleteDocument(doc.id);
+      final f = File(removed.localPath);
+      if (f.existsSync()) await f.delete();
     } catch (_) {
-      _standalone.insert(i, removed); // roll back
-      notifyListeners();
-      rethrow;
+      // File already gone — fine.
     }
+    await _persist();
+  }
+
+  static String _extOf(String nameOrPath) {
+    final dot = nameOrPath.lastIndexOf('.');
+    if (dot < 0 || dot == nameOrPath.length - 1) return '';
+    return nameOrPath.substring(dot + 1).toLowerCase();
   }
 }

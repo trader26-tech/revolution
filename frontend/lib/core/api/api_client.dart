@@ -240,55 +240,6 @@ class ApiClient {
     }
   }
 
-  // ── Standalone documents (the Documents tab library) ──────────────────────
-
-  /// Every standalone document the user has added (newest first).
-  Future<List<dynamic>> listDocuments() async {
-    final data = await get('/documents');
-    return data as List<dynamic>;
-  }
-
-  /// Upload a standalone document — multipart to POST /documents with a
-  /// user-given [name] and [folder] (a task category). Returns the created row.
-  Future<Map<String, dynamic>> uploadStandaloneDocument({
-    required String name,
-    required String folder,
-    required List<int> bytes,
-    required String filename,
-    required String contentType,
-  }) async {
-    await _ensureId();
-    final req = http.MultipartRequest('POST', _uri('/documents'))
-      ..headers['X-User-Id'] = _userId ?? ''
-      ..headers['X-Owner-Id'] = _userId ?? ''
-      ..fields['name'] = name
-      ..fields['folder'] = folder
-      ..files.add(http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: filename,
-        contentType: MediaType.parse(contentType),
-      ));
-    final streamed = await req.send().timeout(const Duration(seconds: 60));
-    final res = await http.Response.fromStream(streamed);
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return jsonDecode(res.body) as Map<String, dynamic>;
-    }
-    throw ApiException(res.statusCode, res.body);
-  }
-
-  /// A short-lived signed URL to VIEW/SHARE a standalone document, or null.
-  Future<String?> documentUrlById(String docId) async {
-    try {
-      final json = await get('/documents/$docId') as Map<String, dynamic>;
-      return json['url'] as String?;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Delete a standalone document (row + stored file).
-  Future<void> deleteDocument(String docId) => delete('/documents/$docId');
 
   dynamic _decode(http.Response res) {
     if (res.statusCode >= 200 && res.statusCode < 300) {

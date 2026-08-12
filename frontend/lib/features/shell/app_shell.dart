@@ -2,16 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
-import '../documents/data/documents_store.dart';
-import '../documents/presentation/documents_page.dart';
 import '../home/home_page.dart';
 import '../suggestions/presentation/suggestions_page.dart';
 import '../tasks/data/task_store.dart';
 import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
 
-/// The app shell: three tabs (Home, Documents, Ideas) behind a floating glass
-/// nav.
+/// The app shell: two tabs (Home, Ideas) behind a floating glass nav.
 class AppShell extends StatefulWidget {
   const AppShell({super.key, this.verified = true, this.onVerify});
 
@@ -31,10 +28,6 @@ class _AppShellState extends State<AppShell> {
 
   // One shared task store so Home and Calendar stay in sync.
   final _store = TaskStore();
-
-  // The Documents library reads from the SAME task store, so reminder-attached
-  // files show up in the library with no extra fetch and stay in sync.
-  late final _docsStore = DocumentsStore(tasks: _store);
 
   @override
   void initState() {
@@ -58,7 +51,6 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
-    _docsStore.dispose();
     _store.dispose();
     super.dispose();
   }
@@ -67,7 +59,6 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final pages = [
       HomePage(store: _store),
-      DocumentsPage(store: _docsStore),
       const SuggestionsPage(),
     ];
 
@@ -100,11 +91,6 @@ class _GlassNav extends StatelessWidget {
 
   static const _items = <({IconData icon, IconData active, String label})>[
     (icon: Icons.home_outlined, active: Icons.home_rounded, label: 'Home'),
-    (
-      icon: Icons.folder_outlined,
-      active: Icons.folder_rounded,
-      label: 'Documents',
-    ),
     (
       icon: Icons.lightbulb_outline_rounded,
       active: Icons.lightbulb_rounded,

@@ -9,7 +9,6 @@ from app.api.routes import (
     app_version,
     brand_logos,
     claim,
-    documents,
     prefs,
     reminders,
     suggestions,
@@ -31,7 +30,6 @@ app.add_middleware(
 app.include_router(tasks.router)
 app.include_router(brand_logos.router)
 app.include_router(prefs.router)
-app.include_router(documents.router)
 app.include_router(claim.router)
 app.include_router(app_version.router)
 app.include_router(reminders.router)

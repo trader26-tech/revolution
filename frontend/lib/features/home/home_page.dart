@@ -5,6 +5,8 @@ import '../../core/widgets/glass.dart';
 import '../add/presentation/added_success.dart';
 import '../add/presentation/open_add_flow.dart';
 import '../auth/data/auth_store.dart';
+import '../documents/data/documents_store.dart';
+import '../documents/presentation/documents_page.dart';
 import '../settings/data/profile_store.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
@@ -13,6 +15,7 @@ import '../tasks/presentation/task_details_sheet.dart';
 import 'presentation/collection_page.dart';
 import 'presentation/upcoming_page.dart';
 import 'presentation/widgets/home_dashboard.dart';
+import 'presentation/widgets/quick_access_bar.dart';
 
 /// The Home screen.
 ///
@@ -31,9 +34,32 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
 
+  // The LOCAL documents library — files kept on-device, opened from the
+  // quick-access button above Browse. Loaded once so the button can show a count.
+  final _documents = DocumentsStore();
+
+  @override
+  void initState() {
+    super.initState();
+    _documents.load();
+  }
+
+  @override
+  void dispose() {
+    _documents.dispose();
+    super.dispose();
+  }
+
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SettingsPage()),
+    );
+  }
+
+  /// Open the local Documents library (a pushed full screen).
+  void _openDocuments() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => DocumentsPage(store: _documents)),
     );
   }
 
@@ -196,6 +222,21 @@ class _HomePageState extends State<HomePage> {
         windowLabel: 'next 7 days',
         onTap: _editTask,
         onSeeAll: _openUpcoming,
+      ),
+      // Quick access — the launcher strip ABOVE Browse. Documents today; more
+      // tiles can be added to this row later.
+      AnimatedBuilder(
+        animation: _documents,
+        builder: (context, _) => QuickAccessBar(
+          items: [
+            QuickAccessItem(
+              icon: Icons.folder_rounded,
+              label: 'Documents',
+              badge: _documents.count > 0 ? '${_documents.count}' : null,
+              onTap: _openDocuments,
+            ),
+          ],
+        ),
       ),
       // Browse — the launcher to every category's collection page.
       BrowseGrid(

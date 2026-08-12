@@ -38,7 +38,7 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
   TaskCategory _folder = TaskCategory.other;
 
   PlatformFile? _file;
-  bool _uploading = false;
+  bool _saving = false;
   String? _error;
 
   static const _allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'heic', 'webp'];
@@ -56,13 +56,15 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
   }
 
   bool get _valid =>
-      _file != null && _nameCtrl.text.trim().isNotEmpty && !_uploading;
+      _file != null && _nameCtrl.text.trim().isNotEmpty && !_saving;
 
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: _allowedExts,
-      withData: true, // we upload the bytes
+      // Keep the on-device path (we copy it locally). withData is the fallback
+      // for platforms/pickers that only return bytes.
+      withData: true,
     );
     final picked = result?.files.firstOrNull;
     if (picked == null) return;
@@ -77,45 +79,36 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
     });
   }
 
-  String _contentTypeFor(PlatformFile f) {
-    final ext = (f.extension ?? '').toLowerCase();
-    return switch (ext) {
-      'pdf' => 'application/pdf',
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'heic' => 'image/heic',
-      'webp' => 'image/webp',
-      _ => 'application/octet-stream',
-    };
-  }
-
   Future<void> _submit() async {
     final file = _file;
     if (file == null || !_valid) return;
-    final bytes = file.bytes;
-    if (bytes == null) {
-      setState(() => _error = "Couldn't read the file — pick it again.");
-      return;
-    }
     HapticFeedback.mediumImpact();
     setState(() {
-      _uploading = true;
+      _saving = true;
       _error = null;
     });
     try {
-      final doc = await widget.store.add(
-        name: _nameCtrl.text.trim(),
-        folder: _folder,
-        bytes: bytes,
-        filename: file.name,
-        contentType: _contentTypeFor(file),
-      );
+      // Store LOCALLY — copy the on-device file when we have a path, else write
+      // the picked bytes. Never leaves the phone.
+      final doc = file.path != null
+          ? await widget.store.addFromPath(
+              name: _nameCtrl.text.trim(),
+              folder: _folder,
+              sourcePath: file.path!,
+              originalName: file.name,
+            )
+          : await widget.store.addFromBytes(
+              name: _nameCtrl.text.trim(),
+              folder: _folder,
+              bytes: file.bytes ?? const <int>[],
+              originalName: file.name,
+            );
       if (mounted) Navigator.of(context).pop(doc);
     } catch (e) {
       if (mounted) {
         setState(() {
-          _uploading = false;
-          _error = 'Upload failed — check your connection and try again.';
+          _saving = false;
+          _error = "Couldn't save the file — try picking it again.";
         });
       }
     }
@@ -203,7 +196,11 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                 ),
               ],
 
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
+              // Reassurance — the whole point of this being local.
+              const _PrivacyNote(),
+
+              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 height: 54,
@@ -216,7 +213,7 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: _uploading
+                  child: _saving
                       ? const SizedBox(
                           width: 22,
                           height: 22,
@@ -226,7 +223,7 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                           ),
                         )
                       : const Text(
-                          'Save document',
+                          'Save to my phone',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -405,6 +402,51 @@ class _Label extends StatelessWidget {
         fontWeight: FontWeight.w800,
         letterSpacing: 0.6,
         color: AppColors.inkFaint,
+      ),
+    );
+  }
+}
+
+/// A calm reassurance line: this stays on the phone, never uploaded.
+class _PrivacyNote extends StatelessWidget {
+  const _PrivacyNote();
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF34D399);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: green.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: green.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.lock_rounded, size: 18, color: green),
+          const SizedBox(width: 10),
+          Expanded(
+            child: RichText(
+              text: const TextSpan(
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.35,
+                  color: AppColors.inkSoft,
+                  fontWeight: FontWeight.w600,
+                ),
+                children: [
+                  TextSpan(
+                    text: 'Saved on your phone. ',
+                    style: TextStyle(color: AppColors.ink),
+                  ),
+                  TextSpan(
+                    text: 'Kept privately on this device — never uploaded.',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -407,18 +407,15 @@ class _PrivacyNote extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.lock_rounded, size: 14, color: AppColors.inkFaint),
-        const SizedBox(width: 7),
-        Flexible(
-          child: Text(
-            'Saved on your phone — never uploaded.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.5,
-              height: 1.3,
-              fontWeight: FontWeight.w600,
-              color: AppColors.inkFaint,
-            ),
+        const Icon(Icons.check_circle_rounded,
+            size: 14, color: Color(0xFF34D399)),
+        const SizedBox(width: 6),
+        Text(
+          'Added locally',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: AppColors.inkFaint,
           ),
         ),
       ],

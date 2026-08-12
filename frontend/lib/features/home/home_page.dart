@@ -230,11 +230,7 @@ class _HomePageState extends State<HomePage> {
         builder: (context, _) => QuickAccessBar(
           items: [
             QuickAccessItem(
-              // A DOCUMENT-plus glyph — distinct from Home's plain "+" (add a
-              // reminder). It morphs in from a plain "+" so the difference is
-              // felt: "this plus is for documents".
-              icon: Icons.note_add_rounded,
-              morphFrom: Icons.add_rounded,
+              icon: Icons.folder_rounded,
               label: 'Documents',
               badge: _documents.totalCount > 0
                   ? '${_documents.totalCount}'
@@ -290,14 +286,108 @@ class _TopBar extends StatelessWidget {
           ),
           const Spacer(),
           // Add button, right corner — accent-filled with a purple glow so it
-          // reads as the app's one special action.
-          GlassIconButton(
-            icon: Icons.add_rounded,
-            tooltip: 'Add reminder',
-            accent: true,
-            onTap: onAdd,
-          ),
+          // reads as the app's one special action. Its glyph plays a one-time
+          // morph from a plain "+" into a document-plus so it stands out.
+          _MorphAddButton(onTap: onAdd),
         ],
+      ),
+    );
+  }
+}
+
+/// The right-corner accent "+" whose glyph plays a ONE-TIME morph from a plain
+/// "+" into a document-plus — a purple, glowing pill that reads as the app's one
+/// special action, with a little motion to draw the eye.
+class _MorphAddButton extends StatefulWidget {
+  const _MorphAddButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  State<_MorphAddButton> createState() => _MorphAddButtonState();
+}
+
+class _MorphAddButtonState extends State<_MorphAddButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 720),
+    );
+    // A brief beat so the plain "+" registers first, then it morphs.
+    Future<void>.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _c.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Add reminder',
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: 46,
+          height: 46,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.accent, AppColors.accentDeep],
+            ),
+            borderRadius: BorderRadius.circular(23),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: 0.38),
+                blurRadius: 18,
+                offset: const Offset(0, 7),
+              ),
+            ],
+          ),
+          child: AnimatedBuilder(
+            animation: _c,
+            builder: (context, _) {
+              final t = Curves.easeInOutBack.transform(_c.value.clamp(0.0, 1.0));
+              final outOpacity = (1 - (_c.value * 1.6)).clamp(0.0, 1.0);
+              final inOpacity = ((_c.value - 0.4) / 0.6).clamp(0.0, 1.0);
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  Opacity(
+                    opacity: outOpacity,
+                    child: Transform.rotate(
+                      angle: t * 0.9,
+                      child: Transform.scale(
+                        scale: 1 - 0.4 * t,
+                        child: const Icon(Icons.add_rounded,
+                            color: Colors.white, size: 24),
+                      ),
+                    ),
+                  ),
+                  Opacity(
+                    opacity: inOpacity,
+                    child: Transform.rotate(
+                      angle: (t - 1) * 0.9,
+                      child: Transform.scale(
+                        scale: 0.6 + 0.4 * t,
+                        child: const Icon(Icons.note_add_rounded,
+                            color: Colors.white, size: 23),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }

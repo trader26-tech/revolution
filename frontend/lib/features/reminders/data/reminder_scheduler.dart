@@ -97,7 +97,7 @@ class ReminderScheduler {
 
     await _plugin.initialize(
       settings: InitializationSettings(
-        android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: const AndroidInitializationSettings('ic_stat_notification'),
         iOS: DarwinInitializationSettings(
           // Permission is requested explicitly (ensurePermissions) once the
           // user reaches the app, not silently at first launch.
@@ -216,6 +216,7 @@ class ReminderScheduler {
               channelDescription: _channelDescription,
               importance: Importance.high,
               priority: Priority.high,
+              icon: 'ic_stat_notification',
               color: AppColors.accentDeep,
             ),
             iOS: const DarwinNotificationDetails(
@@ -329,6 +330,7 @@ class ReminderScheduler {
         channelDescription: _channelDescription,
         importance: Importance.high,
         priority: Priority.high,
+        icon: 'ic_stat_notification',
         color: AppColors.accentDeep,
         // Expanded view: one clean line per item, count in the summary row.
         styleInformation: InboxStyleInformation(
@@ -417,7 +419,7 @@ class ReminderScheduler {
     await _plugin.initialize(
       settings: InitializationSettings(
         android:
-            const AndroidInitializationSettings('@mipmap/ic_launcher'),
+            const AndroidInitializationSettings('ic_stat_notification'),
         iOS: const DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,

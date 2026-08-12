@@ -119,12 +119,17 @@ class SettingsTile extends StatelessWidget {
           children: [
             _IconChip(icon: icon, color: tint),
             const SizedBox(width: 14),
-            Expanded(
+            // Title hugs its content; when there's no value the subtitle can
+            // still take the rest of the row.
+            Flexible(
+              flex: value != null ? 0 : 1,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 15.5,
                       fontWeight: FontWeight.w600,
@@ -145,19 +150,25 @@ class SettingsTile extends StatelessWidget {
                 ],
               ),
             ),
-            if (trailing != null)
-              trailing!
-            else ...[
+            if (trailing != null) ...[
+              const Spacer(),
+              trailing!,
+            ] else ...[
+              // The value fills the remaining space and sits hard RIGHT.
               if (value != null)
-                Flexible(
-                  child: Text(
-                    value!,
-                    textAlign: TextAlign.right,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.inkSoft,
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 12),
+                    child: Text(
+                      value!,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.inkSoft,
+                      ),
                     ),
                   ),
                 ),

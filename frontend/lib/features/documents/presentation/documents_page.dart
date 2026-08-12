@@ -39,12 +39,13 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
-  Future<void> _addDocument() async {
+  /// Add a document INTO [intoFolderId] (defaults to the page's current folder).
+  Future<void> _addDocument({String? intoFolderId}) async {
     HapticFeedback.selectionClick();
     final added = await showAddDocumentSheet(
       context,
       store: store,
-      folderId: _folderId,
+      folderId: intoFolderId ?? _folderId,
     );
     if (added != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -53,11 +54,16 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
-  Future<void> _newFolder() async {
+  /// Create a folder INSIDE [parentId] (defaults to the current folder). Used
+  /// both by the "New folder" tile and each folder row's "+" (a subfolder).
+  Future<void> _newFolder({String? parentId}) async {
     HapticFeedback.selectionClick();
-    final name = await showFolderNameSheet(context, title: 'New folder');
+    final name = await showFolderNameSheet(
+      context,
+      title: parentId != null ? 'New subfolder' : 'New folder',
+    );
     if (name == null || name.trim().isEmpty) return;
-    await store.createFolder(name: name, parentId: _folderId);
+    await store.createFolder(name: name, parentId: parentId ?? _folderId);
   }
 
   void _openFolder(DocFolder f) {
@@ -181,8 +187,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   _TopBar(
                     title: folder?.displayName ?? 'Documents',
                     onBack: () => Navigator.of(context).pop(),
-                    onAdd: _addDocument,
-                    onNewFolder: _newFolder,
+                    onAdd: () => _addDocument(),
                     // Root has no ⋯ (nothing to rename/delete); a folder does.
                     onRenameFolder: folder == null ? null : () => _renameFolder(folder),
                     onDeleteFolder: folder == null ? null : () => _deleteFolder(folder),
@@ -204,29 +209,31 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
     final folders = store.foldersIn(_folderId);
     final items = store.itemsIn(_folderId);
-
-    if (folders.isEmpty && items.isEmpty) {
-      return _EmptyState(atRoot: _folderId == null);
-    }
+    final empty = folders.isEmpty && items.isEmpty;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 40),
       children: [
-        if (folders.isNotEmpty) ...[
-          const _SectionLabel('FOLDERS'),
-          for (final f in folders)
-            _FolderRow(
-              folder: f,
-              itemCount: store.itemsUnder(f.id),
-              subfolderCount: store.foldersIn(f.id).length,
-              onTap: () => _openFolder(f),
-              onRename: () => _renameFolder(f),
-              onDelete: () => _deleteFolder(f),
-            ),
-          const SizedBox(height: 8),
-        ],
-        if (items.isNotEmpty) ...[
-          const _SectionLabel('DOCUMENTS'),
+        // FOLDERS — always shown, led by the "+ New folder" tile so you can
+        // build the tree from anywhere (root or inside a folder).
+        const _SectionLabel('FOLDERS'),
+        _NewFolderTile(onTap: () => _newFolder(parentId: _folderId)),
+        for (final f in folders)
+          _FolderRow(
+            folder: f,
+            itemCount: store.itemsUnder(f.id),
+            subfolderCount: store.foldersIn(f.id).length,
+            onTap: () => _openFolder(f),
+            onAddInside: () => _addInside(f),
+            onRename: () => _renameFolder(f),
+            onDelete: () => _deleteFolder(f),
+          ),
+        const SizedBox(height: 10),
+        // DOCUMENTS in this folder.
+        const _SectionLabel('DOCUMENTS'),
+        if (items.isEmpty)
+          _AddHereTile(onTap: () => _addDocument())
+        else
           for (final d in items)
             _DocRow(
               doc: d,
@@ -235,9 +242,84 @@ class _DocumentsPageState extends State<DocumentsPage> {
               onRename: () => _renameItem(d),
               onDelete: () => _deleteItem(d),
             ),
+        if (empty) ...[
+          const SizedBox(height: 24),
+          Center(
+            child: Text(
+              _folderId == null
+                  ? 'Make a folder or add a document to get started.'
+                  : 'This folder is empty.',
+              style: const TextStyle(fontSize: 13, color: AppColors.inkFaint),
+            ),
+          ),
         ],
       ],
     );
+  }
+
+  /// The folder-row "+" menu — create a subfolder or add a document INSIDE [f]
+  /// without opening it.
+  Future<void> _addInside(DocFolder f) async {
+    HapticFeedback.selectionClick();
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.cardBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Add to “${f.displayName}”',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.create_new_folder_outlined,
+                  color: AppColors.accent),
+              title: const Text('New subfolder',
+                  style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600)),
+              onTap: () => Navigator.pop(context, 'folder'),
+            ),
+            ListTile(
+              leading:
+                  const Icon(Icons.note_add_rounded, color: AppColors.accent),
+              title: const Text('Add document',
+                  style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600)),
+              onTap: () => Navigator.pop(context, 'document'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (choice == 'folder') {
+      await _newFolder(parentId: f.id);
+    } else if (choice == 'document') {
+      await _addDocument(intoFolderId: f.id);
+    }
   }
 }
 
@@ -248,7 +330,6 @@ class _TopBar extends StatelessWidget {
     required this.title,
     required this.onBack,
     required this.onAdd,
-    required this.onNewFolder,
     this.onRenameFolder,
     this.onDeleteFolder,
   });
@@ -258,9 +339,6 @@ class _TopBar extends StatelessWidget {
 
   /// Tapping the corner "+" adds a document directly.
   final VoidCallback onAdd;
-
-  /// Creating a folder — the small icon next to "+".
-  final VoidCallback onNewFolder;
   final VoidCallback? onRenameFolder;
   final VoidCallback? onDeleteFolder;
 
@@ -289,33 +367,16 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
-          // ONE corner button — the document-"+" that morphs in when the page
-          // opens. Tapping it opens a small menu: Add document (primary) or New
-          // folder. No separate folder icon.
-          PopupMenuButton<String>(
-            tooltip: 'Add',
-            color: AppColors.card,
-            offset: const Offset(0, 54),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+          // The corner "+" — ONLY adds a document (direct, no menu). It morphs
+          // from a plain "+" into a document-plus when the page opens. Folders
+          // are created from the in-list "New folder" tile / each folder's own
+          // "+", so this button stays a clean single-purpose document add.
+          GestureDetector(
+            onTap: onAdd,
+            child: const Tooltip(
+              message: 'Add document',
+              child: _MorphAddButton(),
             ),
-            onSelected: (v) {
-              if (v == 'document') onAdd();
-              if (v == 'folder') onNewFolder();
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'document',
-                child: _MenuRow(
-                    icon: Icons.note_add_rounded, label: 'Add document'),
-              ),
-              PopupMenuItem(
-                value: 'folder',
-                child: _MenuRow(
-                    icon: Icons.create_new_folder_outlined, label: 'New folder'),
-              ),
-            ],
-            child: const _MorphAddButton(),
           ),
           if (onRenameFolder != null || onDeleteFolder != null)
             PopupMenuButton<String>(
@@ -531,12 +592,121 @@ class _SectionLabel extends StatelessWidget {
 
 // ── Rows ────────────────────────────────────────────────────────────────────
 
+/// A dashed "+ New folder" tile — leads the folders list so the tree can be
+/// grown from anywhere.
+class _NewFolderTile extends StatelessWidget {
+  const _NewFolderTile({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.accent.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.create_new_folder_rounded,
+                      size: 20, color: AppColors.accent),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'New folder',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A subtle "Add a document here" tile, shown when a folder has no documents
+/// yet — so the empty section still has an obvious action.
+class _AddHereTile extends StatelessWidget {
+  const _AddHereTile({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.note_add_rounded,
+                      size: 20, color: AppColors.accent),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Add a document here',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FolderRow extends StatelessWidget {
   const _FolderRow({
     required this.folder,
     required this.itemCount,
     required this.subfolderCount,
     required this.onTap,
+    required this.onAddInside,
     required this.onRename,
     required this.onDelete,
   });
@@ -545,6 +715,9 @@ class _FolderRow extends StatelessWidget {
   final int itemCount;
   final int subfolderCount;
   final VoidCallback onTap;
+
+  /// The row's "+" — create a subfolder or add a document INSIDE this folder.
+  final VoidCallback onAddInside;
   final VoidCallback onRename;
   final VoidCallback onDelete;
 
@@ -607,6 +780,13 @@ class _FolderRow extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+                // "+" — add a subfolder / document inside this folder.
+                IconButton(
+                  onPressed: onAddInside,
+                  icon: const Icon(Icons.add_rounded, size: 22),
+                  color: AppColors.accent,
+                  tooltip: 'Add inside',
                 ),
                 _RowMenu(
                   items: [
@@ -776,73 +956,6 @@ class _MenuRow extends StatelessWidget {
         const SizedBox(width: 12),
         Text(label, style: TextStyle(color: c, fontWeight: FontWeight.w600)),
       ],
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.atRoot});
-  final bool atRoot;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.10),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.folder_copy_rounded,
-                  size: 44, color: AppColors.accent),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              atRoot ? 'No documents yet' : 'This folder is empty',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink,
-              ),
-            ),
-            const SizedBox(height: 14),
-            // Point to the "+" in the top-right corner.
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Tap ',
-                  style: TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
-                ),
-                Container(
-                  width: 24,
-                  height: 24,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.accent, AppColors.accentDeep],
-                    ),
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: const Icon(Icons.note_add_rounded,
-                      color: Colors.white, size: 15),
-                ),
-                const Text(
-                  ' to add',
-                  style: TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

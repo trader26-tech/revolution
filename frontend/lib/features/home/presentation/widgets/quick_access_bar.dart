@@ -44,6 +44,7 @@ class QuickAccessItem {
     required this.onTap,
     this.color = AppColors.accent,
     this.badge,
+    this.morphFrom,
   });
 
   final IconData icon;
@@ -53,6 +54,11 @@ class QuickAccessItem {
 
   /// An optional small count (e.g. how many documents) shown as a pill.
   final String? badge;
+
+  /// When set, the tile's glyph plays a one-time MORPH from [morphFrom] to
+  /// [icon] on first appearance — used to signal "this is a different kind of
+  /// plus" (a plain + turning into a document-plus).
+  final IconData? morphFrom;
 }
 
 class _QuickTile extends StatelessWidget {
@@ -87,7 +93,12 @@ class _QuickTile extends StatelessWidget {
                   color: item.color.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(item.icon, size: 19, color: item.color),
+                child: _MorphIcon(
+                  from: item.morphFrom,
+                  to: item.icon,
+                  color: item.color,
+                  size: 19,
+                ),
               ),
               const SizedBox(width: 10),
               Text(
@@ -121,6 +132,98 @@ class _QuickTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A glyph that, when [from] is set, plays a ONE-TIME morph from [from] to [to]
+/// on first appearance: the plain "+" spins/scales/fades out as the destination
+/// icon (a document-plus) spins/scales/fades in — a clear "this + is different"
+/// cue. With no [from] it's just a static icon.
+class _MorphIcon extends StatefulWidget {
+  const _MorphIcon({
+    required this.from,
+    required this.to,
+    required this.color,
+    required this.size,
+  });
+
+  final IconData? from;
+  final IconData to;
+  final Color color;
+  final double size;
+
+  @override
+  State<_MorphIcon> createState() => _MorphIconState();
+}
+
+class _MorphIconState extends State<_MorphIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 720),
+    );
+    if (widget.from != null) {
+      // A brief beat so the eye registers the plain "+" first, THEN it morphs.
+      Future<void>.delayed(const Duration(milliseconds: 260), () {
+        if (mounted) _c.forward();
+      });
+    } else {
+      _c.value = 1; // no morph → show the destination icon immediately
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final from = widget.from;
+    if (from == null) {
+      return Icon(widget.to, size: widget.size, color: widget.color);
+    }
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = Curves.easeInOutBack.transform(_c.value.clamp(0.0, 1.0));
+        // The outgoing "+" fades/rotates/shrinks in the first half; the
+        // document-plus rises in the second half — a clean hand-off.
+        final outOpacity = (1 - (_c.value * 1.6)).clamp(0.0, 1.0);
+        final inOpacity = ((_c.value - 0.4) / 0.6).clamp(0.0, 1.0);
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Opacity(
+              opacity: outOpacity,
+              child: Transform.rotate(
+                angle: t * 0.9,
+                child: Transform.scale(
+                  scale: 1 - 0.4 * t,
+                  child: Icon(from, size: widget.size, color: widget.color),
+                ),
+              ),
+            ),
+            Opacity(
+              opacity: inOpacity,
+              child: Transform.rotate(
+                angle: (t - 1) * 0.9,
+                child: Transform.scale(
+                  scale: 0.6 + 0.4 * t,
+                  child: Icon(widget.to, size: widget.size, color: widget.color),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -230,7 +230,11 @@ class _HomePageState extends State<HomePage> {
         builder: (context, _) => QuickAccessBar(
           items: [
             QuickAccessItem(
-              icon: Icons.folder_rounded,
+              // A DOCUMENT-plus glyph — distinct from Home's plain "+" (add a
+              // reminder). It morphs in from a plain "+" so the difference is
+              // felt: "this plus is for documents".
+              icon: Icons.note_add_rounded,
+              morphFrom: Icons.add_rounded,
               label: 'Documents',
               badge: _documents.totalCount > 0
                   ? '${_documents.totalCount}'

@@ -93,14 +93,14 @@ class _GreetingRevoState extends State<GreetingRevo>
     final mood = revoMoodFor(widget.tasks);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Revo — animated entrance + perpetual idle, expression from mood.
           SizedBox(
-            width: 60,
-            height: 60,
+            width: 44,
+            height: 44,
             child: AnimatedBuilder(
               animation: Listenable.merge([_in, _idle]),
               builder: (context, _) {
@@ -109,13 +109,13 @@ class _GreetingRevoState extends State<GreetingRevo>
                   opacity: Curves.easeOut.transform(_in.value.clamp(0, 1)),
                   child: Transform.scale(
                     scale: 0.4 + 0.6 * pop,
-                    child: _GreetMascot(t: _idle.value, mood: mood, size: 60),
+                    child: _GreetMascot(t: _idle.value, mood: mood, size: 44),
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,7 +536,7 @@ class UpNextStrip extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
+          padding: const EdgeInsets.fromLTRB(18, 12, 12, 6),
           child: Row(
             children: [
               const Text('Up next',
@@ -596,7 +596,7 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 162,
+            height: 146,
             // Cap the text scale for the fixed-height cards so a large system
             // font can never push their content past the card and overflow.
             child: MediaQuery.withClampedTextScaling(
@@ -739,8 +739,8 @@ class _DayIntroCard extends StatelessWidget {
         : '$count ${count == 1 ? 'thing' : 'things'} lined up';
 
     return Container(
-      width: 132,
-      padding: const EdgeInsets.fromLTRB(10, 11, 13, 11),
+      width: 116,
+      padding: const EdgeInsets.fromLTRB(9, 9, 11, 9),
       decoration: BoxDecoration(
         color: AppColors.card.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
@@ -841,7 +841,7 @@ class _CardShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -1611,7 +1611,7 @@ class CategoryCards extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+          padding: EdgeInsets.fromLTRB(18, 12, 18, 6),
           child: Text('Your reminders',
               style: TextStyle(
                   fontSize: 18,
@@ -1798,7 +1798,7 @@ class _WelcomeEmptyState extends State<WelcomeEmpty>
           children: [
             // Revo — big, floating, tail-left, with a soft scale-in entrance.
             SizedBox(
-              width: 132,
+              width: 116,
               height: 132,
               child: AnimatedBuilder(
                 animation: Listenable.merge([_in, _idle]),
@@ -2168,7 +2168,7 @@ class BrowseGrid extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 6),
           child: Row(
             children: [
               const Text(

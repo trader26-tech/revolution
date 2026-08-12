@@ -18,7 +18,7 @@ class QuickAccessBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.only(top: 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -77,7 +77,7 @@ class _QuickTile extends StatelessWidget {
           item.onTap();
         },
         child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
+          padding: const EdgeInsets.fromLTRB(12, 9, 14, 9),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.glassBorder),
@@ -86,25 +86,25 @@ class _QuickTile extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 30,
+                height: 30,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: item.color.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(9),
                 ),
                 child: _MorphIcon(
                   from: item.morphFrom,
                   to: item.icon,
                   color: item.color,
-                  size: 19,
+                  size: 17,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 9),
               Text(
                 item.label,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.ink,
                 ),

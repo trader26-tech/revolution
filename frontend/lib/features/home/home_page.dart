@@ -213,7 +213,7 @@ class _HomePageState extends State<HomePage> {
     final rows = <Widget>[
       // Greeting — Revo says "Good <time>, <name>" + "Welcome to Revolution".
       GreetingRevo(name: displayName, tasks: allTasks),
-      const SizedBox(height: 6),
+      const SizedBox(height: 2),
       // Up Next — the next 7 days from today, day by day. The arrow opens the
       // full vertical upcoming list.
       UpNextStrip(

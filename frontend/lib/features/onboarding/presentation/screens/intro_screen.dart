@@ -372,7 +372,7 @@ class _IntroScreenState extends State<IntroScreen>
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                'Welcome to Revolution',
+                'Welcome to Revora',
                 maxLines: 1,
                 style: text.headlineLarge?.copyWith(
                   color: AppColors.ink,

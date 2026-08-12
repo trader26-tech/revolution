@@ -335,7 +335,7 @@ class _PayoffScreenState extends State<PayoffScreen>
       Text.rich(
         const TextSpan(
           children: [
-            TextSpan(text: 'Revolution remembers '),
+            TextSpan(text: 'Revora remembers '),
             TextSpan(
               text: 'every single one.',
               style: TextStyle(

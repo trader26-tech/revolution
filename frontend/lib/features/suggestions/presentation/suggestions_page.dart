@@ -417,7 +417,7 @@ class _Header extends StatelessWidget {
                           colors: [AppColors.ink, Color(0xFFB9A8FF)],
                         ).createShader(r),
                         child: const Text(
-                          'Shape Revolution',
+                          'Shape Revora',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -906,7 +906,7 @@ class _ComposerSheetState extends State<_ComposerSheet> {
                         fontWeight: FontWeight.w500),
                     decoration: const InputDecoration(
                       border: InputBorder.none,
-                      hintText: 'What would make Revolution better?',
+                      hintText: 'What would make Revora better?',
                       hintStyle: TextStyle(color: AppColors.inkFaint),
                       counterStyle: TextStyle(color: AppColors.inkFaint),
                     ),
@@ -1096,8 +1096,8 @@ class _ShippedOverlayState extends State<_ShippedOverlay>
     final one = widget.shipped.length == 1;
     final headline = one ? 'Your idea shipped!' : 'Your ideas shipped!';
     final sub = one
-        ? 'The one you backed is now live. Thanks for shaping Revolution.'
-        : '${widget.shipped.length} ideas you backed are now live. Thanks for shaping Revolution.';
+        ? 'The one you backed is now live. Thanks for shaping Revora.'
+        : '${widget.shipped.length} ideas you backed are now live. Thanks for shaping Revora.';
 
     return GestureDetector(
       onTap: () => Navigator.of(context).maybePop(),

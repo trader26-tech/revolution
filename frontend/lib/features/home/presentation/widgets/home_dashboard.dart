@@ -128,7 +128,7 @@ class _GreetingRevoState extends State<GreetingRevo>
                     Icon(_timeGlyph, size: 13, color: AppColors.accent),
                     const SizedBox(width: 6),
                     Text(
-                      'REVOLUTION',
+                      'REVORA',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -1842,7 +1842,7 @@ class _WelcomeEmptyState extends State<WelcomeEmpty>
             ),
             const SizedBox(height: 6),
             Text(
-              'Welcome to Revolution — I’ll remember\nthe things you shouldn’t have to.',
+              'Welcome to Revora — I’ll remember\nthe things you shouldn’t have to.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -2384,7 +2384,7 @@ class _AddBrowseSheet extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Add to Revolution',
+                'Add to Revora',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,

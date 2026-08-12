@@ -150,7 +150,7 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _notifAllowed = granted);
     _toast(granted
         ? 'Notifications enabled — try a test'
-        : 'Still off — enable Revolution in system settings');
+        : 'Still off — enable Revora in system settings');
   }
 
   /// Fire a notification with TODAY's real digest and tell the user what

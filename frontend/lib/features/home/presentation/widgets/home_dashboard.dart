@@ -736,9 +736,9 @@ class _DayIntroCard extends StatelessWidget {
     final dayNum = p.date.split(' ').first; // "10"
     final month = _monthFull(day.month); // "August"
     final empty = count == 0;
-    final sub = empty
-        ? "you're free"
-        : '$count ${count == 1 ? 'thing' : 'things'} lined up';
+    // Keep it SHORT — the card is narrow (a long "N things lined up" got cut
+    // off with an ellipsis). "N due" always fits on one line.
+    final sub = empty ? 'Free' : '$count due';
 
     return Container(
       width: 116,

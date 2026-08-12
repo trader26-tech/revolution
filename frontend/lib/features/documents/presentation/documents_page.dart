@@ -10,6 +10,7 @@ import 'add_document_sheet.dart';
 import 'document_viewer_page.dart';
 import 'folder_name_sheet.dart';
 import 'widgets/doc_thumbnail.dart';
+import 'widgets/morph_icon_button.dart';
 
 /// The local Documents library — a private, on-device file tree.
 ///
@@ -250,7 +251,10 @@ class _DocumentsPageState extends State<DocumentsPage> {
             builder: (context, _) => Column(
               children: [
                 const SizedBox(height: 6),
-                _TopBar(onBack: () => Navigator.of(context).pop()),
+                _TopBar(
+                  onBack: () => Navigator.of(context).pop(),
+                  onNewFolder: () => _newFolder(),
+                ),
                 Expanded(child: _buildBody()),
               ],
             ),
@@ -351,8 +355,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
 // ── Top bar ───────────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onBack});
+  const _TopBar({required this.onBack, required this.onNewFolder});
   final VoidCallback onBack;
+  final VoidCallback onNewFolder;
 
   @override
   Widget build(BuildContext context) {
@@ -378,6 +383,14 @@ class _TopBar extends StatelessWidget {
                 letterSpacing: -0.6,
               ),
             ),
+          ),
+          // The consistent corner action — morphs from a plain "+" into a
+          // folder-plus when the page opens, then creates a new (root) folder.
+          MorphIconButton(
+            from: Icons.add_rounded,
+            to: Icons.create_new_folder_rounded,
+            tooltip: 'New folder',
+            onTap: onNewFolder,
           ),
         ],
       ),

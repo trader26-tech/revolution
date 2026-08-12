@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../domain/document.dart';
+import 'widgets/morph_icon_button.dart';
 
 /// Views a LOCAL document INSIDE the app — a full-screen reader that renders the
 /// file itself (no bounce to an external app):
@@ -80,10 +81,13 @@ class _ViewerBar extends StatelessWidget {
               ),
             ),
           ),
-          GlassIconButton(
-            icon: Icons.ios_share_rounded,
+          // Consistent with the add-document "+" morph: the share button
+          // morphs from a document glyph into the share icon as the viewer
+          // opens, so the whole system speaks one motion language.
+          MorphIconButton(
+            from: Icons.description_rounded,
+            to: Icons.ios_share_rounded,
             tooltip: 'Share',
-            accent: true,
             onTap: onShare,
           ),
         ],

@@ -69,7 +69,7 @@ class _TaskTileState extends State<TaskTile> {
               // A single, consistent 20px inset — the list itself has no side
               // padding, so the row spreads across the FULL width (no more
               // double-inset squishing everything into the middle).
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
               child: Row(
                 children: [
                   // The LEFT icon. A local photo wins (a round face for a
@@ -81,8 +81,8 @@ class _TaskTileState extends State<TaskTile> {
                   else if (task.hasDocument)
                     _DocumentIcon(taskId: task.id)
                   else
-                    BrandLogo(brand: _brandOf(task), size: 44, radius: 12),
-                  const SizedBox(width: 14),
+                    BrandLogo(brand: _brandOf(task), size: 38, radius: 11),
+                  const SizedBox(width: 12),
                   // Title + date in the middle.
                   Expanded(
                     child: Column(
@@ -92,7 +92,7 @@ class _TaskTileState extends State<TaskTile> {
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeOut,
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color:
                                 task.done ? AppColors.inkFaint : AppColors.ink,
@@ -104,22 +104,22 @@ class _TaskTileState extends State<TaskTile> {
                           child:
                               Text(task.title, overflow: TextOverflow.ellipsis),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
                         _DueLine(text: _subtitle(task), scheduled: task.isScheduled),
                       ],
                     ),
                   ),
                   // Amount — money going out, shown as −₹1,000.
                   if (task.hasAmount) ...[
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     _AmountLabel(amount: task.amount!, currencyCode: task.currency),
                   ],
                   // Checkbox on the RIGHT, after the amount — toggles done.
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   AnimatedCheckCircle(
                     checked: task.done,
                     onTap: widget.onToggle,
-                    size: 24,
+                    size: 22,
                   ),
                 ],
               ),

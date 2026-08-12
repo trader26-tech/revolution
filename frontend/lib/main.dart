@@ -61,6 +61,20 @@ class RevolutionApp extends StatelessWidget {
       title: 'Revolution',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
+      // ONE global type-density knob: everything renders a touch smaller and
+      // tighter across every screen, so more content fits and the app reads
+      // compact-yet-professional — without hand-resizing each layout. We scale
+      // DOWN by ~8%, then still clamp the user's system font setting so large
+      // accessibility sizes can't blow the layouts up.
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        final base = media.textScaler.scale(1.0); // the user's chosen factor
+        final compact = (base * 0.92).clamp(0.85, 1.08);
+        return MediaQuery(
+          data: media.copyWith(textScaler: TextScaler.linear(compact)),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       // The flow: Onboarding (first launch only) → Phone number → Home.
       // OnboardingGate shows the intro once, then hands off to AuthGate, which
       // requires phone login before revealing the app.

@@ -612,14 +612,15 @@ class _DocRow extends StatelessWidget {
                 // The actual document preview — image thumb / PDF first page.
                 DocThumbnail(doc: doc, size: 34),
                 const SizedBox(width: 10),
-                // Just the document name — the thumbnail already shows the type,
-                // so no meta clutter. Wraps to a second line if long.
+                // Just the document name — the thumbnail already shows the type.
+                // File names are REGULAR weight (folders are bold), so folders
+                // vs files read apart at a glance. Wraps to a second line.
                 Expanded(
                   child: Text(
                     doc.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppText.body,
+                    style: AppText.bodyRegular,
                   ),
                 ),
                 _RowIconButton(

@@ -596,11 +596,13 @@ class UpNextStrip extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 146,
-            // Cap the text scale for the fixed-height cards so a large system
-            // font can never push their content past the card and overflow.
+            height: 158,
+            // Cap the text scale INSIDE the fixed-height cards at 1.0 (no
+            // upward scaling past the app's compact factor), so their content
+            // can never grow past the card and overflow — whatever the system
+            // font size.
             child: MediaQuery.withClampedTextScaling(
-              maxScaleFactor: 1.15,
+              maxScaleFactor: 1.0,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1210,7 +1212,7 @@ class _HeroCard extends StatelessWidget {
           // Hero band — the value centred over its themed particle field. The
           // value is scaled to fit so a long amount can never overflow the band.
           SizedBox(
-            height: 52,
+            height: 42,
             child: Stack(
               children: [
                 Positioned.fill(child: _ParticleStage(style: particles)),
@@ -1223,7 +1225,7 @@ class _HeroCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           // Title + the countdown chip on the SAME row — the chip sits beside
           // the name, clear of the amount above it.
           Row(
@@ -1250,7 +1252,7 @@ class _HeroCard extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppColors.inkSoft)),
-          const SizedBox(height: 7),
+          const SizedBox(height: 5),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1262,7 +1264,7 @@ class _HeroCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   highlight,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 12,

@@ -164,13 +164,15 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                 ),
                 decoration: _fieldDecoration('e.g. Zerodha statement'),
               ),
-              const SizedBox(height: 12),
-
-              // Destination folder — a dropdown-style row that opens the folder
-              // picker (browse / create), replacing the old category chips.
-              const _Label('FOLDER'),
-              const SizedBox(height: 8),
-              _FolderSelector(label: _folderLabel, onTap: _pickFolder),
+              // Destination folder — ONLY shown when the destination isn't
+              // already known. If you tapped "add" from INSIDE a folder, the
+              // folder is implied, so we skip the picker (no confusing choice).
+              if (widget.initialFolderId == null) ...[
+                const SizedBox(height: 12),
+                const _Label('FOLDER'),
+                const SizedBox(height: 8),
+                _FolderSelector(label: _folderLabel, onTap: _pickFolder),
+              ],
 
               if (_error != null) ...[
                 const SizedBox(height: 14),

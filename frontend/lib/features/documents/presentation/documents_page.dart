@@ -405,14 +405,14 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 2, 12, 2),
+      padding: const EdgeInsets.fromLTRB(8, 0, 12, 0),
       child: Row(
         children: [
           GlassIconButton(
             icon: Icons.arrow_back_rounded,
             tooltip: 'Back',
             onTap: onBack,
-            size: 40,
+            size: 38,
           ),
           const SizedBox(width: 8),
           const Expanded(
@@ -421,7 +421,7 @@ class _TopBar extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 21,
+                fontSize: 19,
                 fontWeight: FontWeight.w800,
                 color: AppColors.ink,
                 letterSpacing: -0.4,
@@ -435,7 +435,7 @@ class _TopBar extends StatelessWidget {
             to: Icons.create_new_folder_rounded,
             tooltip: 'New folder',
             onTap: onNewFolder,
-            size: 40,
+            size: 38,
           ),
         ],
       ),
@@ -518,12 +518,12 @@ class _FolderRow extends StatelessWidget {
       '$itemCount document${itemCount == 1 ? '' : 's'}',
     ];
     return Container(
-      margin: const EdgeInsets.only(bottom: 5),
+      margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
         color: expanded
             ? AppColors.accent.withValues(alpha: 0.08)
             : Colors.white.withValues(alpha: 0.035),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: expanded
               ? AppColors.accent.withValues(alpha: 0.32)
@@ -536,7 +536,7 @@ class _FolderRow extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 6, 4, 6),
+            padding: const EdgeInsets.fromLTRB(5, 3, 2, 3),
             child: Row(
               children: [
                 // Rotating caret — the expand/collapse cue (replaces the arrow).
@@ -544,15 +544,15 @@ class _FolderRow extends StatelessWidget {
                   duration: const Duration(milliseconds: 200),
                   turns: expanded ? 0.25 : 0.0,
                   child: const Icon(Icons.chevron_right_rounded,
-                      size: 20, color: AppColors.inkSoft),
+                      size: 17, color: AppColors.inkSoft),
                 ),
                 const SizedBox(width: 2),
                 Icon(
                   expanded ? Icons.folder_open_rounded : Icons.folder_rounded,
-                  size: 22,
+                  size: 18,
                   color: AppColors.accent,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text.rich(
                     TextSpan(
@@ -560,7 +560,7 @@ class _FolderRow extends StatelessWidget {
                         TextSpan(
                           text: folder.displayName,
                           style: const TextStyle(
-                            fontSize: 14.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppColors.ink,
                           ),
@@ -568,7 +568,7 @@ class _FolderRow extends StatelessWidget {
                         TextSpan(
                           text: '   ${parts.join(' · ')}',
                           style: const TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w600,
                             color: AppColors.inkFaint,
                           ),
@@ -624,10 +624,10 @@ class _DocRow extends StatelessWidget {
     ].join(' · ');
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 5),
+      margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.glassBorder),
       ),
       clipBehavior: Clip.antiAlias,
@@ -636,12 +636,12 @@ class _DocRow extends StatelessWidget {
         child: InkWell(
           onTap: onOpen,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+            padding: const EdgeInsets.fromLTRB(6, 4, 2, 4),
             child: Row(
               children: [
                 // The actual document preview — image thumb / PDF first page.
-                DocThumbnail(doc: doc, size: 36),
-                const SizedBox(width: 10),
+                DocThumbnail(doc: doc, size: 30),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text.rich(
                     TextSpan(
@@ -649,7 +649,7 @@ class _DocRow extends StatelessWidget {
                         TextSpan(
                           text: doc.name,
                           style: const TextStyle(
-                            fontSize: 14.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppColors.ink,
                           ),
@@ -657,7 +657,7 @@ class _DocRow extends StatelessWidget {
                         TextSpan(
                           text: '   $meta',
                           style: const TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w600,
                             color: AppColors.inkFaint,
                           ),
@@ -720,10 +720,10 @@ class _RowIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final w = InkResponse(
       onTap: onTap,
-      radius: 22,
+      radius: 18,
       child: Padding(
-        padding: const EdgeInsets.all(7),
-        child: Icon(icon, size: 19, color: color),
+        padding: const EdgeInsets.all(6),
+        child: Icon(icon, size: 17, color: color),
       ),
     );
     return tooltip == null ? w : Tooltip(message: tooltip!, child: w);
@@ -737,10 +737,10 @@ class _RowMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert_rounded, size: 19),
+      icon: const Icon(Icons.more_vert_rounded, size: 17),
       color: AppColors.card,
-      padding: const EdgeInsets.all(6),
-      splashRadius: 20,
+      padding: const EdgeInsets.all(4),
+      splashRadius: 18,
       onSelected: (v) => items.firstWhere((a) => a.value == v).onTap(),
       itemBuilder: (_) => [
         for (final a in items)

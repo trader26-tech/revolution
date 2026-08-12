@@ -536,7 +536,7 @@ class UpNextStrip extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 26, 12, 12),
+          padding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
           child: Row(
             children: [
               const Text('Up next',
@@ -1611,7 +1611,7 @@ class CategoryCards extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.fromLTRB(20, 28, 20, 12),
+          padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
           child: Text('Your reminders',
               style: TextStyle(
                   fontSize: 18,
@@ -1826,7 +1826,7 @@ class _WelcomeEmptyState extends State<WelcomeEmpty>
                 },
               ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 14),
             Text(
               first == null ? '$_timeGreeting!' : '$_timeGreeting, $first!',
               textAlign: TextAlign.center,
@@ -1849,7 +1849,7 @@ class _WelcomeEmptyState extends State<WelcomeEmpty>
                 color: AppColors.inkSoft.withValues(alpha: 0.95),
               ),
             ),
-            const SizedBox(height: 26),
+            const SizedBox(height: 16),
             // One calm primary action.
             GestureDetector(
               onTap: widget.onAdd,
@@ -2168,7 +2168,7 @@ class BrowseGrid extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
           child: Row(
             children: [
               const Text(

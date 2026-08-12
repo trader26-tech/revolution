@@ -190,10 +190,7 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                 ),
               ],
 
-              const SizedBox(height: 18),
-              const _PrivacyNote(),
-
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 54,
@@ -224,6 +221,10 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                         ),
                 ),
               ),
+              // The reassurance reads naturally as a quiet footnote UNDER the
+              // action — no coloured box, just a small lock + line.
+              const SizedBox(height: 12),
+              const _PrivacyNote(),
             ],
           ),
         ),
@@ -396,47 +397,31 @@ class _Label extends StatelessWidget {
   }
 }
 
-/// A calm reassurance line: this stays on the phone, never uploaded.
+/// A calm reassurance footnote under the action — no coloured box, just a quiet
+/// lock + line so it's easy to read without competing with the button.
 class _PrivacyNote extends StatelessWidget {
   const _PrivacyNote();
 
   @override
   Widget build(BuildContext context) {
-    const green = Color(0xFF34D399);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: green.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: green.withValues(alpha: 0.28)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.lock_rounded, size: 18, color: green),
-          const SizedBox(width: 10),
-          Expanded(
-            child: RichText(
-              text: const TextSpan(
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.35,
-                  color: AppColors.inkSoft,
-                  fontWeight: FontWeight.w600,
-                ),
-                children: [
-                  TextSpan(
-                    text: 'Saved on your phone. ',
-                    style: TextStyle(color: AppColors.ink),
-                  ),
-                  TextSpan(
-                    text: 'Kept privately on this device — never uploaded.',
-                  ),
-                ],
-              ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.lock_rounded, size: 14, color: AppColors.inkFaint),
+        const SizedBox(width: 7),
+        Flexible(
+          child: Text(
+            'Saved on your phone — never uploaded.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.3,
+              fontWeight: FontWeight.w600,
+              color: AppColors.inkFaint,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

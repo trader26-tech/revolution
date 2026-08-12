@@ -31,9 +31,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
   String _versionLabel = 'Version …';
 
-  /// True while a test notification is being sent (disables the row + shows
-  /// "Sending…").
+  /// True while a test notification is being sent.
   bool _testingNotif = false;
+
+  /// Whether the OS currently allows notifications (null until first checked) —
+  /// drives the button: "Allow" when off, "Send test" when on.
+  bool? _notifAllowed;
+
+  late final _LifecycleHook _lifecycleHook;
 
   @override
   void initState() {
@@ -44,6 +49,21 @@ class _SettingsPageState extends State<SettingsPage> {
             _versionLabel = 'Version ${info.version} (${info.buildNumber})');
       }
     });
+    _refreshNotifStatus();
+    // Re-check when returning from system settings.
+    _lifecycleHook = _LifecycleHook(_refreshNotifStatus);
+    WidgetsBinding.instance.addObserver(_lifecycleHook);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(_lifecycleHook);
+    super.dispose();
+  }
+
+  Future<void> _refreshNotifStatus() async {
+    final allowed = await ReminderScheduler.instance.notificationsAllowed();
+    if (mounted) setState(() => _notifAllowed = allowed);
   }
 
   /// Manual update check. Tells the user when they're already up to date.
@@ -123,7 +143,18 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) _toast('Daily summary at ${picked.format(context)}');
   }
 
-  /// Fire a test notification now and tell the user what happened.
+  /// Ask the OS for notification permission, then reflect the new state.
+  Future<void> _allowNotifications() async {
+    final granted = await ReminderScheduler.instance.requestPermission();
+    if (!mounted) return;
+    setState(() => _notifAllowed = granted);
+    _toast(granted
+        ? 'Notifications enabled — try a test'
+        : 'Still off — enable Revolution in system settings');
+  }
+
+  /// Fire a notification with TODAY's real digest and tell the user what
+  /// happened. If permission got granted during send, reflect it.
   Future<void> _sendTestNotification() async {
     setState(() => _testingNotif = true);
     final result = await ReminderScheduler.instance.sendTestNotification();
@@ -131,9 +162,11 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _testingNotif = false);
     switch (result) {
       case TestNotifResult.sent:
+        setState(() => _notifAllowed = true);
         _toast('Sent — check your notifications');
       case TestNotifResult.denied:
-        _toast('Notifications are off — enable them in system settings');
+        setState(() => _notifAllowed = false);
+        _toast('Notifications are off — tap “Allow” first');
       case TestNotifResult.unsupported:
         _toast('Notifications aren’t available on this device');
       case TestNotifResult.failed:
@@ -260,13 +293,26 @@ class _SettingsPageState extends State<SettingsPage> {
                   value: _formatMinutes(_profile.digestTimeMin),
                   onTap: _pickDigestTime,
                 ),
-              // Fire a test notification NOW so the user can confirm alerts
-              // actually reach their tray.
+              // Notification check — a right-aligned button that ALLOWS
+              // notifications when they're off, or fires TODAY's digest as a
+              // test when they're on, so the user can verify delivery.
               SettingsTile(
-                icon: Icons.notification_add_outlined,
-                title: 'Send a test notification',
-                value: _testingNotif ? 'Sending…' : 'Tap to try',
-                onTap: _testingNotif ? null : _sendTestNotification,
+                icon: _notifAllowed == false
+                    ? Icons.notifications_off_outlined
+                    : Icons.notification_add_outlined,
+                title: _notifAllowed == false
+                    ? 'Notifications are off'
+                    : 'Test notification',
+                subtitle: _notifAllowed == false
+                    ? 'Allow to receive your daily reminders'
+                    : 'See today’s reminder right now',
+                showChevron: false,
+                trailing: _NotifButton(
+                  allowed: _notifAllowed,
+                  busy: _testingNotif,
+                  onAllow: _allowNotifications,
+                  onTest: _sendTestNotification,
+                ),
               ),
               SettingsSwitchTile(
                 icon: Icons.call_outlined,
@@ -328,5 +374,72 @@ class _SettingsPageState extends State<SettingsPage> {
       return '${split.country.dial} $head $tail';
     }
     return '${split.country.dial} $n';
+  }
+}
+
+/// A small right-aligned button for the notification row: "Allow" when
+/// notifications are off, "Send test" when they're on, a spinner while sending.
+class _NotifButton extends StatelessWidget {
+  const _NotifButton({
+    required this.allowed,
+    required this.busy,
+    required this.onAllow,
+    required this.onTest,
+  });
+
+  final bool? allowed;
+  final bool busy;
+  final VoidCallback onAllow;
+  final VoidCallback onTest;
+
+  @override
+  Widget build(BuildContext context) {
+    if (busy) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.accent),
+      );
+    }
+    final off = allowed == false;
+    return GestureDetector(
+      onTap: off ? onAllow : onTest,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.accent, AppColors.accentDeep],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Text(
+          off ? 'Allow' : 'Send test',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Re-runs [onResume] each time the app returns to the foreground — used to
+/// re-check notification permission after the user visits system settings.
+class _LifecycleHook extends WidgetsBindingObserver {
+  _LifecycleHook(this.onResume);
+  final VoidCallback onResume;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) onResume();
   }
 }

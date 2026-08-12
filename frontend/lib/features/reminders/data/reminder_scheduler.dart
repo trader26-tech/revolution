@@ -152,13 +152,31 @@ class ReminderScheduler {
     _requestSync();
   }
 
-  /// Fire an immediate test notification, so the user can confirm alerts
-  /// actually reach their tray. Returns a result describing what happened, so
-  /// the UI can guide them if it's blocked.
-  ///
-  /// It first ensures permission (prompting if needed), then shows a one-off
-  /// notification RIGHT NOW on the same channel the daily digest uses — so a
-  /// success here proves the real reminders will land too.
+  /// Whether the OS currently allows this app to post notifications. Lets the
+  /// settings button show the right state ("Allow" vs "Send a test").
+  Future<bool> notificationsAllowed() async {
+    if (!_supported) return false;
+    if (!_ready) await init();
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.areNotificationsEnabled() ?? false;
+    }
+    final ios = _plugin.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    final s = await ios?.checkPermissions();
+    return s?.isEnabled ?? false;
+  }
+
+  /// Request notification permission (prompts the OS dialog). Returns whether
+  /// it's granted afterwards — so the "Allow notifications" button can flip to
+  /// "Send a test" on success.
+  Future<bool> requestPermission() => _ensureGranted();
+
+  /// Fire an immediate notification showing TODAY's real digest, so the user
+  /// sees exactly what their daily reminder will look like — not a generic
+  /// "this is a test". Ensures permission first; fires on the same channel the
+  /// scheduled digest uses, so a success here proves the real ones will land.
   Future<TestNotifResult> sendTestNotification() async {
     if (!_supported) return TestNotifResult.unsupported;
     if (!_ready) {
@@ -166,32 +184,48 @@ class ReminderScheduler {
       if (!_ready) return TestNotifResult.unsupported;
     }
 
-    // Make sure we're allowed to post.
     final granted = await _ensureGranted();
     if (!granted) return TestNotifResult.denied;
 
+    // Build TODAY's digest from the real tasks. If nothing's due today, show a
+    // friendly "all clear" so the notification still demonstrates delivery.
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final digest = buildDailyDigest(_tasks, today);
+
     try {
-      await _plugin.show(
-        id: _testId,
-        title: 'Test notification ✓',
-        body: "Great — your reminders are working. You'll get your daily "
-            'summary at your chosen time.',
-        notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            _channelId,
-            _channelName,
-            channelDescription: _channelDescription,
-            importance: Importance.high,
-            priority: Priority.high,
-            color: AppColors.accentDeep,
+      if (digest != null) {
+        // Real content — same rich style as the scheduled digest.
+        await _plugin.show(
+          id: _testId,
+          title: digest.title,
+          body: digest.expandedBody,
+          notificationDetails: _details(digest),
+          payload: digest.toPayload(),
+        );
+      } else {
+        // Nothing due today — a clean "you're all caught up" digest.
+        await _plugin.show(
+          id: _testId,
+          title: 'Today’s reminders',
+          body: 'You’re all caught up — nothing due today. 🎉',
+          notificationDetails: NotificationDetails(
+            android: AndroidNotificationDetails(
+              _channelId,
+              _channelName,
+              channelDescription: _channelDescription,
+              importance: Importance.high,
+              priority: Priority.high,
+              color: AppColors.accentDeep,
+            ),
+            iOS: const DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
           ),
-          iOS: const DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
-        ),
-      );
+        );
+      }
       return TestNotifResult.sent;
     } catch (_) {
       return TestNotifResult.failed;

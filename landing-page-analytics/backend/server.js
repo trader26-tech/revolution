@@ -60,7 +60,7 @@ app.get('/download/android', (_req, res) => {
   );
   res.setHeader(
     'Content-Disposition',
-    'attachment; filename="Revolution.apk"'
+    'attachment; filename="Revora.apk"'
   );
   fs.createReadStream(APK).pipe(res);
 });

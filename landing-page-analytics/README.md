@@ -1,6 +1,6 @@
-# Revolution — Download Site
+# Revora — Download Site
 
-A polished landing page that lets anyone download the Revolution app. Android
+A polished landing page that lets anyone download the Revora app. Android
 installs directly (an APK is streamed as a download); iOS shows "Coming soon to
 the App Store".
 

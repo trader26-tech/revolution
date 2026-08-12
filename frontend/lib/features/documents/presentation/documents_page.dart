@@ -206,7 +206,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
     final items = store.itemsIn(_folderId);
 
     if (folders.isEmpty && items.isEmpty) {
-      return _EmptyState(atRoot: _folderId == null, onAdd: _addDocument, onNewFolder: _newFolder);
+      return _EmptyState(atRoot: _folderId == null);
     }
 
     return ListView(
@@ -285,17 +285,32 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
-          GlassIconButton(
-            icon: Icons.create_new_folder_outlined,
-            tooltip: 'New folder',
-            onTap: onNewFolder,
-          ),
-          const SizedBox(width: 8),
-          GlassIconButton(
-            icon: Icons.add_rounded,
-            tooltip: 'Add document',
-            accent: true,
-            onTap: onAdd,
+          // ONE "+" — a menu offering both actions, so there's a single, clear
+          // add affordance (no rival icons).
+          PopupMenuButton<String>(
+            tooltip: 'Add',
+            color: AppColors.card,
+            offset: const Offset(0, 52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            onSelected: (v) {
+              if (v == 'document') onAdd();
+              if (v == 'folder') onNewFolder();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'document',
+                child: _MenuRow(
+                    icon: Icons.upload_file_rounded, label: 'Add document'),
+              ),
+              PopupMenuItem(
+                value: 'folder',
+                child: _MenuRow(
+                    icon: Icons.create_new_folder_outlined, label: 'New folder'),
+              ),
+            ],
+            child: const _AddPlusButton(),
           ),
           if (onRenameFolder != null || onDeleteFolder != null)
             PopupMenuButton<String>(
@@ -322,6 +337,35 @@ class _TopBar extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// The accent "+" pill that opens the add menu (document / folder). A plain
+/// visual — the PopupMenuButton wrapping it owns the tap.
+class _AddPlusButton extends StatelessWidget {
+  const _AddPlusButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.accent, AppColors.accentDeep],
+        ),
+        borderRadius: BorderRadius.circular(23),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
     );
   }
 }
@@ -670,14 +714,8 @@ class _MenuRow extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.atRoot,
-    required this.onAdd,
-    required this.onNewFolder,
-  });
+  const _EmptyState({required this.atRoot});
   final bool atRoot;
-  final VoidCallback onAdd;
-  final VoidCallback onNewFolder;
 
   @override
   Widget build(BuildContext context) {
@@ -714,31 +752,33 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.inkSoft),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: onAdd,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Add a document'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onNewFolder,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.ink,
-                  side: const BorderSide(color: AppColors.cardBorder),
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(27),
-                  ),
+            const SizedBox(height: 22),
+            // Point to the single "+" in the top bar — one clear add affordance.
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Tap ',
+                  style: TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
                 ),
-                icon: const Icon(Icons.create_new_folder_outlined),
-                label: const Text('New folder'),
-              ),
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.accent, AppColors.accentDeep],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.add_rounded,
+                      color: Colors.white, size: 17),
+                ),
+                const Text(
+                  ' above to add',
+                  style: TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
+                ),
+              ],
             ),
           ],
         ),

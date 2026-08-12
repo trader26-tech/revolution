@@ -169,6 +169,9 @@ class TaskStore extends ChangeNotifier {
     String? subCategory,
     int? birthYear,
     int remindDaysBefore = 0,
+    double? returnAmount,
+    DateTime? maturityAt,
+    PayoutMethod? payoutMethod,
   }) async {
     final body = {
       'title': title.trim(),
@@ -183,6 +186,9 @@ class TaskStore extends ChangeNotifier {
       'category': ?category,
       'source': ?source,
       'sub_category': ?subCategory,
+      'return_amount': ?returnAmount,
+      'maturity_at': ?maturityAt?.toIso8601String(),
+      'payout_method': ?payoutMethod?.name,
     };
     final json = await _api.post('/tasks', body) as Map<String, dynamic>;
     // The server may not echo these back, so graft them on locally (they're
@@ -207,6 +213,10 @@ class TaskStore extends ChangeNotifier {
     if (created.remindDaysBefore == 0 && remindDaysBefore != 0) {
       created.remindDaysBefore = remindDaysBefore;
     }
+    // Policy return-side — server may not echo these; keep the user's choice.
+    created.returnAmount ??= returnAmount;
+    created.maturityAt ??= maturityAt;
+    created.payoutMethod ??= payoutMethod;
     _tasks.insert(0, created);
     notifyListeners();
     unawaited(_writeCache(_tasks));
@@ -224,6 +234,9 @@ class TaskStore extends ChangeNotifier {
     saved.subCategory ??= updated.subCategory;
     saved.imagePath ??= updated.imagePath;
     saved.birthYear ??= updated.birthYear;
+    saved.returnAmount ??= updated.returnAmount;
+    saved.maturityAt ??= updated.maturityAt;
+    saved.payoutMethod ??= updated.payoutMethod;
     if (saved.repeatTimes == 1 && updated.repeatTimes != 1) {
       saved.repeatTimes = updated.repeatTimes;
     }

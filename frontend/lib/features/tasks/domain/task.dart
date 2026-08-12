@@ -46,7 +46,15 @@ String frequencyLabel(RepeatCadence repeat, int interval) {
 /// What kind of thing a reminder is — used to group the Home into per-category
 /// cards. `other` is the catch-all for anything that doesn't fit (or older
 /// tasks created before categories existed).
-enum TaskCategory { subscription, birthday, insurance, investment, bills, other }
+enum TaskCategory {
+  subscription,
+  birthday,
+  insurance,
+  investment,
+  bills,
+  policies,
+  other
+}
 
 extension TaskCategoryInfo on TaskCategory {
   String get label => switch (this) {
@@ -55,6 +63,7 @@ extension TaskCategoryInfo on TaskCategory {
         TaskCategory.insurance => 'Insurance',
         TaskCategory.investment => 'SIPs',
         TaskCategory.bills => 'Bills',
+        TaskCategory.policies => 'Policies',
         TaskCategory.other => 'Other',
       };
 
@@ -65,7 +74,26 @@ extension TaskCategoryInfo on TaskCategory {
         TaskCategory.insurance => 'insurance item',
         TaskCategory.investment => 'SIP',
         TaskCategory.bills => 'bill',
+        TaskCategory.policies => 'policy',
         TaskCategory.other => 'reminder',
+      };
+}
+
+/// How a maturing policy pays out.
+enum PayoutMethod { lumpSum, monthlyPension, annualPayout }
+
+extension PayoutMethodInfo on PayoutMethod {
+  String get label => switch (this) {
+        PayoutMethod.lumpSum => 'Lump sum',
+        PayoutMethod.monthlyPension => 'Monthly pension',
+        PayoutMethod.annualPayout => 'Annual payout',
+      };
+
+  /// Short one-liner shown under the return amount.
+  String get blurb => switch (this) {
+        PayoutMethod.lumpSum => 'The whole return in one payment at maturity',
+        PayoutMethod.monthlyPension => 'A fixed amount every month after maturity',
+        PayoutMethod.annualPayout => 'A fixed amount every year after maturity',
       };
 }
 
@@ -142,6 +170,9 @@ class Task {
     this.subCategory,
     this.birthYear,
     this.remindDaysBefore = 0,
+    this.returnAmount,
+    this.maturityAt,
+    this.payoutMethod,
   });
 
   final String id;
@@ -200,7 +231,52 @@ class Task {
   /// How many days before the due date to remind (0 = on the day).
   int remindDaysBefore;
 
+  // ── Policies: the "return" side ──────────────────────────────────────────
+  // For a savings/endowment policy, [amount] is the premium you PAY (its
+  // [repeat] cadence tells us monthly vs yearly). These three describe what
+  // comes BACK: how much, when it matures, and how it's paid out.
+
+  /// The total you get back at/after maturity (null = not a returning policy).
+  double? returnAmount;
+
+  /// The date the policy matures — when the return starts/arrives.
+  DateTime? maturityAt;
+
+  /// How the return is paid out (lump sum / monthly pension / annual payout).
+  PayoutMethod? payoutMethod;
+
   bool get isScheduled => dueAt != null;
+  bool get hasReturn => returnAmount != null && returnAmount! > 0;
+
+  /// How many premium payments land between now and maturity, given the premium
+  /// cadence. Best-effort — null if we can't compute it (no maturity/cadence).
+  int? get premiumPeriods {
+    final m = maturityAt;
+    if (m == null) return null;
+    final months =
+        (m.year - DateTime.now().year) * 12 + (m.month - DateTime.now().month);
+    if (months <= 0) return null;
+    return switch (repeat) {
+      RepeatCadence.monthly => months,
+      RepeatCadence.yearly => (months / 12).ceil(),
+      _ => null,
+    };
+  }
+
+  /// Total you'll have paid in by maturity = premium × periods. Null if either
+  /// the premium [amount] or the period count is unknown.
+  double? get totalPaidIn {
+    final periods = premiumPeriods;
+    if (amount == null || periods == null) return null;
+    return amount! * periods;
+  }
+
+  /// Net gain = what you get back − what you put in. Null if either is unknown.
+  double? get netGain {
+    final paid = totalPaidIn;
+    if (returnAmount == null || paid == null) return null;
+    return returnAmount! - paid;
+  }
   bool get hasIcon => (iconName != null && iconName!.isNotEmpty);
   bool get hasAmount => amount != null;
   bool get hasDocument => documentPath != null && documentPath!.isNotEmpty;
@@ -233,6 +309,11 @@ class Task {
     int? birthYear,
     bool clearBirthYear = false,
     int? remindDaysBefore,
+    double? returnAmount,
+    bool clearReturnAmount = false,
+    DateTime? maturityAt,
+    bool clearMaturityAt = false,
+    PayoutMethod? payoutMethod,
   }) {
     return Task(
       id: id,
@@ -253,6 +334,10 @@ class Task {
       subCategory: subCategory ?? this.subCategory,
       birthYear: clearBirthYear ? null : (birthYear ?? this.birthYear),
       remindDaysBefore: remindDaysBefore ?? this.remindDaysBefore,
+      returnAmount:
+          clearReturnAmount ? null : (returnAmount ?? this.returnAmount),
+      maturityAt: clearMaturityAt ? null : (maturityAt ?? this.maturityAt),
+      payoutMethod: payoutMethod ?? this.payoutMethod,
     );
   }
 
@@ -279,6 +364,11 @@ class Task {
         if (subCategory != null) 'sub_category': subCategory,
         if (birthYear != null) 'birth_year': birthYear,
         'remind_days_before': remindDaysBefore,
+        // Policy "return" side — snake_case; the server roundtrips/ignores
+        // unknown fields (same as image_path), so this stays build-safe.
+        if (returnAmount != null) 'return_amount': returnAmount,
+        if (maturityAt != null) 'maturity_at': maturityAt!.toIso8601String(),
+        if (payoutMethod != null) 'payout_method': payoutMethod!.name,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -312,5 +402,15 @@ class Task {
         subCategory: j['sub_category'] as String?,
         birthYear: (j['birth_year'] as num?)?.toInt(),
         remindDaysBefore: (j['remind_days_before'] as num?)?.toInt() ?? 0,
+        returnAmount: (j['return_amount'] as num?)?.toDouble(),
+        maturityAt: j['maturity_at'] == null
+            ? null
+            : DateTime.tryParse(j['maturity_at'] as String),
+        payoutMethod: j['payout_method'] == null
+            ? null
+            : PayoutMethod.values.firstWhere(
+                (p) => p.name == j['payout_method'],
+                orElse: () => PayoutMethod.lumpSum,
+              ),
       );
 }

@@ -6,6 +6,7 @@ import '../../tasks/domain/task.dart';
 import 'add_picker_page.dart';
 import 'birthday_form_page.dart';
 import 'insurance_form_page.dart';
+import 'policy_form_page.dart';
 import 'sip_form_page.dart';
 import 'subscription_form_page.dart';
 
@@ -109,6 +110,13 @@ Future<AddResult?> openCategoryForm(
           .push<bool>(_formRoute(InsuranceFormPage(store: store)));
       return saved == true ? const AddResult(selfSaved: true) : null;
 
+    case TaskCategory.policies:
+      // Policies self-save too (they can attach a document, and compute their
+      // own return fields — no generic add path fits).
+      final saved = await Navigator.of(context)
+          .push<bool>(_formRoute(PolicyFormPage(store: store)));
+      return saved == true ? const AddResult(selfSaved: true) : null;
+
     case TaskCategory.subscription:
     case TaskCategory.bills:
     case TaskCategory.other:
@@ -189,6 +197,15 @@ Future<bool> openEditForm(
   Task task, {
   Future<Task?> Function()? fallback,
 }) async {
+  // Policies own their save (patch in place), so they short-circuit here and
+  // return whether they saved — they never fall through to the store.update
+  // roundtrip below.
+  if (task.category == TaskCategory.policies) {
+    final saved = await Navigator.of(context)
+        .push<bool>(_formRoute(PolicyFormPage(store: store, editTask: task)));
+    return saved == true;
+  }
+
   Widget? form;
   switch (task.category) {
     case TaskCategory.subscription:
@@ -198,6 +215,7 @@ Future<bool> openEditForm(
     case TaskCategory.birthday:
       form = BirthdayFormPage(editTask: task);
     case TaskCategory.insurance:
+    case TaskCategory.policies:
     case TaskCategory.bills:
     case TaskCategory.other:
       form = null; // no tailored form → use the fallback sheet

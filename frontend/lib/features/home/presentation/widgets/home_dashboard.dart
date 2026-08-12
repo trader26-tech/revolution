@@ -657,9 +657,12 @@ String _byLabel(int days, DateTime due) {
 }
 
 /// The amount in its own currency, grouped Indian-style for INR.
-String _amountStr(Task t) {
-  final cur = currencyOf(t.currency);
-  final a = t.amount!;
+String _amountStr(Task t) => _moneyIn(t.currency, t.amount!);
+
+/// Format an arbitrary value in a task's currency (e.g. a policy's return),
+/// reusing the same grouping/symbol as [_amountStr].
+String _moneyIn(String currency, double a) {
+  final cur = currencyOf(currency);
   final whole = a == a.roundToDouble();
   final body = whole
       ? formatAmount(a.round().toString(), cur.grouping)
@@ -1487,6 +1490,11 @@ class _GenericCard extends StatelessWidget {
           Icons.shield_rounded,
           'Insurance',
           'Renew $byWhen — stay covered'
+        ),
+      TaskCategory.policies => (
+          Icons.account_balance_rounded,
+          task.hasReturn ? _moneyIn(task.currency, task.returnAmount!) : 'Policy',
+          'Matures $byWhen'
         ),
       _ => (
           Icons.bolt_rounded,

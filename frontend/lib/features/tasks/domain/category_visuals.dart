@@ -13,6 +13,7 @@ extension TaskCategoryVisuals on TaskCategory {
         TaskCategory.insurance => Icons.shield_rounded,
         TaskCategory.investment => Icons.savings_rounded,
         TaskCategory.bills => Icons.receipt_long_rounded,
+        TaskCategory.policies => Icons.account_balance_rounded,
         TaskCategory.other => Icons.auto_awesome_rounded,
       };
 
@@ -22,6 +23,7 @@ extension TaskCategoryVisuals on TaskCategory {
         TaskCategory.insurance => const Color(0xFF34D399), // green
         TaskCategory.investment => const Color(0xFF4ADE80), // fresh green
         TaskCategory.bills => const Color(0xFFFBBF24), // amber
+        TaskCategory.policies => const Color(0xFFF0B429), // gold — money returns
         TaskCategory.other => const Color(0xFFA5B4FC), // soft indigo
       };
 }
@@ -32,5 +34,6 @@ const List<TaskCategory> kBrowseCategories = [
   TaskCategory.subscription,
   TaskCategory.birthday,
   TaskCategory.investment,
+  TaskCategory.policies,
   // Insurance & Bills temporarily removed from browse — add back later.
 ];

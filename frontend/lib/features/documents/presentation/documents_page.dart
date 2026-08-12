@@ -289,15 +289,34 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
-          GlassIconButton(
-            icon: Icons.create_new_folder_outlined,
-            tooltip: 'New folder',
-            onTap: onNewFolder,
+          // ONE corner button — the document-"+" that morphs in when the page
+          // opens. Tapping it opens a small menu: Add document (primary) or New
+          // folder. No separate folder icon.
+          PopupMenuButton<String>(
+            tooltip: 'Add',
+            color: AppColors.card,
+            offset: const Offset(0, 54),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            onSelected: (v) {
+              if (v == 'document') onAdd();
+              if (v == 'folder') onNewFolder();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'document',
+                child: _MenuRow(
+                    icon: Icons.note_add_rounded, label: 'Add document'),
+              ),
+              PopupMenuItem(
+                value: 'folder',
+                child: _MenuRow(
+                    icon: Icons.create_new_folder_outlined, label: 'New folder'),
+              ),
+            ],
+            child: const _MorphAddButton(),
           ),
-          const SizedBox(width: 8),
-          // The corner "+" — morphs from a plain "+" into a document-plus when
-          // the Documents page opens, then adds a document on tap.
-          _MorphAddButton(onTap: onAdd),
           if (onRenameFolder != null || onDeleteFolder != null)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded, color: AppColors.inkSoft),
@@ -328,11 +347,10 @@ class _TopBar extends StatelessWidget {
 }
 
 /// The corner add "+" that plays a ONE-TIME morph from a plain "+" into a
-/// document-plus when the Documents page opens — so the user sees the plus they
-/// tapped on Home "become" the documents plus. Tapping adds a document.
+/// document-plus when the Documents page opens. A pure visual — the
+/// PopupMenuButton wrapping it owns the tap (Add document / New folder).
 class _MorphAddButton extends StatefulWidget {
-  const _MorphAddButton({required this.onTap});
-  final VoidCallback onTap;
+  const _MorphAddButton();
 
   @override
   State<_MorphAddButton> createState() => _MorphAddButtonState();
@@ -363,11 +381,7 @@ class _MorphAddButtonState extends State<_MorphAddButton>
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Add document',
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
+    return Container(
           width: 46,
           height: 46,
           alignment: Alignment.center,
@@ -419,9 +433,7 @@ class _MorphAddButtonState extends State<_MorphAddButton>
               );
             },
           ),
-        ),
-      ),
-    );
+        );
   }
 }
 

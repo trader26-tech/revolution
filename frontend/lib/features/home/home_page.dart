@@ -232,7 +232,9 @@ class _HomePageState extends State<HomePage> {
             QuickAccessItem(
               icon: Icons.folder_rounded,
               label: 'Documents',
-              badge: _documents.count > 0 ? '${_documents.count}' : null,
+              badge: _documents.totalCount > 0
+                  ? '${_documents.totalCount}'
+                  : null,
               onTap: _openDocuments,
             ),
           ],

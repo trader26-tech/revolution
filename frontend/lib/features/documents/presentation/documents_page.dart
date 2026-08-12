@@ -5,48 +5,70 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
-import '../../tasks/domain/category_visuals.dart';
-import '../../tasks/domain/task.dart';
 import '../data/documents_store.dart';
 import '../domain/document.dart';
 import 'add_document_sheet.dart';
+import 'folder_name_sheet.dart';
 
-/// The Documents tab — the go-to place for every file the user keeps.
+/// The local Documents library — a private, on-device file browser.
 ///
-/// One unified library: documents added here directly PLUS any file attached to
-/// a reminder, grouped into folders (the task categories). Each row opens in the
-/// native viewer or shares with one tap; the "+" adds a new document (name →
-/// folder → file). Built to make add / view / share effortless.
+/// A real folder tree: create folders and sub-folders to any depth, drop
+/// documents into any of them, navigate with a breadcrumb, and open / share /
+/// rename / move / delete. Nothing is ever uploaded.
 class DocumentsPage extends StatefulWidget {
-  const DocumentsPage({super.key, required this.store});
+  const DocumentsPage({super.key, required this.store, this.folderId});
 
   final DocumentsStore store;
+
+  /// The folder to open at (null = root). Deeper folders push a new page.
+  final String? folderId;
 
   @override
   State<DocumentsPage> createState() => _DocumentsPageState();
 }
 
 class _DocumentsPageState extends State<DocumentsPage> {
+  DocumentsStore get store => widget.store;
+  String? get _folderId => widget.folderId;
+
   @override
   void initState() {
     super.initState();
-    // Load the standalone library once, after first frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.store.isInitialLoad) widget.store.load();
-    });
+    if (store.isInitialLoad) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => store.load());
+    }
   }
 
-  Future<void> _add() async {
+  Future<void> _addDocument() async {
     HapticFeedback.selectionClick();
-    final added = await showAddDocumentSheet(context, store: widget.store);
+    final added = await showAddDocumentSheet(
+      context,
+      store: store,
+      folderId: _folderId,
+    );
     if (added != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Added “${added.name}”')),
+        SnackBar(content: Text('Saved “${added.name}” on your phone')),
       );
     }
   }
 
-  Future<void> _open(Document doc) async {
+  Future<void> _newFolder() async {
+    HapticFeedback.selectionClick();
+    final name = await showFolderNameSheet(context, title: 'New folder');
+    if (name == null || name.trim().isEmpty) return;
+    await store.createFolder(name: name, parentId: _folderId);
+  }
+
+  void _openFolder(DocFolder f) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DocumentsPage(store: store, folderId: f.id),
+      ),
+    );
+  }
+
+  Future<void> _open(DocItem doc) async {
     HapticFeedback.selectionClick();
     final result = await OpenFilex.open(doc.localPath);
     if (!mounted) return;
@@ -57,26 +79,68 @@ class _DocumentsPageState extends State<DocumentsPage> {
     }
   }
 
-  Future<void> _share(Document doc) async {
+  Future<void> _share(DocItem doc) async {
     HapticFeedback.selectionClick();
-    // Share the actual on-device file.
     await Share.shareXFiles(
       [XFile(doc.localPath, name: doc.originalName ?? doc.name)],
       subject: doc.name,
     );
   }
 
-  Future<void> _delete(Document doc) async {
+  Future<void> _renameItem(DocItem doc) async {
+    final name = await showFolderNameSheet(
+      context,
+      title: 'Rename document',
+      initial: doc.name,
+      cta: 'Save',
+    );
+    if (name != null && name.trim().isNotEmpty) {
+      await store.renameItem(doc.id, name);
+    }
+  }
+
+  Future<void> _deleteItem(DocItem doc) async {
+    final ok = await _confirm(
+      title: 'Delete document?',
+      body: '“${doc.name}” will be removed from your phone.',
+    );
+    if (ok) await store.removeItem(doc);
+  }
+
+  Future<void> _renameFolder(DocFolder f) async {
+    final name = await showFolderNameSheet(
+      context,
+      title: 'Rename folder',
+      initial: f.displayName,
+      cta: 'Save',
+    );
+    if (name != null && name.trim().isNotEmpty) {
+      await store.renameFolder(f.id, name);
+    }
+  }
+
+  Future<void> _deleteFolder(DocFolder f) async {
+    final n = store.itemsUnder(f.id);
+    final ok = await _confirm(
+      title: 'Delete folder?',
+      body: n > 0
+          ? '“${f.displayName}” and its $n document${n == 1 ? '' : 's'} will be '
+              'removed from your phone.'
+          : '“${f.displayName}” will be removed.',
+    );
+    if (ok) {
+      await store.deleteFolder(f.id);
+      if (mounted && _folderId == f.id) Navigator.of(context).pop();
+    }
+  }
+
+  Future<bool> _confirm({required String title, required String body}) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: const Text('Delete document?',
-            style: TextStyle(color: AppColors.ink)),
-        content: Text(
-          '“${doc.name}” will be removed from your library.',
-          style: const TextStyle(color: AppColors.inkSoft),
-        ),
+        title: Text(title, style: const TextStyle(color: AppColors.ink)),
+        content: Text(body, style: const TextStyle(color: AppColors.inkSoft)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -90,16 +154,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
         ],
       ),
     );
-    if (ok != true) return;
-    try {
-      await widget.store.remove(doc);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Couldn't delete — try again")),
-        );
-      }
-    }
+    return ok ?? false;
   }
 
   @override
@@ -116,18 +171,27 @@ class _DocumentsPageState extends State<DocumentsPage> {
         ),
         child: SafeArea(
           bottom: false,
-          child: Column(
-            children: [
-              const SizedBox(height: 6),
-              _TopBar(onAdd: _add, onBack: () => Navigator.of(context).pop()),
-              const SizedBox(height: 8),
-              Expanded(
-                child: AnimatedBuilder(
-                  animation: widget.store,
-                  builder: (context, _) => _buildBody(),
-                ),
-              ),
-            ],
+          child: AnimatedBuilder(
+            animation: store,
+            builder: (context, _) {
+              final folder = store.folderById(_folderId);
+              return Column(
+                children: [
+                  const SizedBox(height: 6),
+                  _TopBar(
+                    title: folder?.displayName ?? 'Documents',
+                    onBack: () => Navigator.of(context).pop(),
+                    onNewFolder: _newFolder,
+                    onAdd: _addDocument,
+                    // Root has no ⋯ (nothing to rename/delete); a folder does.
+                    onRenameFolder: folder == null ? null : () => _renameFolder(folder),
+                    onDeleteFolder: folder == null ? null : () => _deleteFolder(folder),
+                  ),
+                  if (_folderId != null) _Breadcrumb(store: store, folderId: _folderId),
+                  Expanded(child: _buildBody()),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -135,47 +199,71 @@ class _DocumentsPageState extends State<DocumentsPage> {
   }
 
   Widget _buildBody() {
-    final store = widget.store;
     if (store.isInitialLoad) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.accent),
-      );
+      return const Center(child: CircularProgressIndicator(color: AppColors.accent));
     }
-    final groups = store.byFolder;
-    if (groups.isEmpty) {
-      return _EmptyState(onAdd: _add);
+    final folders = store.foldersIn(_folderId);
+    final items = store.itemsIn(_folderId);
+
+    if (folders.isEmpty && items.isEmpty) {
+      return _EmptyState(atRoot: _folderId == null, onAdd: _addDocument, onNewFolder: _newFolder);
     }
-    return RefreshIndicator(
-      color: AppColors.accent,
-      backgroundColor: AppColors.card,
-      onRefresh: store.load,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 140),
-        children: [
-          for (final entry in groups.entries)
-            _FolderSection(
-              category: entry.key,
-              docs: entry.value,
-              onOpen: _open,
-              onShare: _share,
-              onDelete: _delete,
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 40),
+      children: [
+        if (folders.isNotEmpty) ...[
+          const _SectionLabel('FOLDERS'),
+          for (final f in folders)
+            _FolderRow(
+              folder: f,
+              itemCount: store.itemsUnder(f.id),
+              subfolderCount: store.foldersIn(f.id).length,
+              onTap: () => _openFolder(f),
+              onRename: () => _renameFolder(f),
+              onDelete: () => _deleteFolder(f),
+            ),
+          const SizedBox(height: 8),
+        ],
+        if (items.isNotEmpty) ...[
+          const _SectionLabel('DOCUMENTS'),
+          for (final d in items)
+            _DocRow(
+              doc: d,
+              onOpen: () => _open(d),
+              onShare: () => _share(d),
+              onRename: () => _renameItem(d),
+              onDelete: () => _deleteItem(d),
             ),
         ],
-      ),
+      ],
     );
   }
 }
 
-/// The glass top bar — back + title + a prominent "Add" button.
+// ── Top bar ───────────────────────────────────────────────────────────────
+
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onAdd, required this.onBack});
-  final VoidCallback onAdd;
+  const _TopBar({
+    required this.title,
+    required this.onBack,
+    required this.onNewFolder,
+    required this.onAdd,
+    this.onRenameFolder,
+    this.onDeleteFolder,
+  });
+
+  final String title;
   final VoidCallback onBack;
+  final VoidCallback onNewFolder;
+  final VoidCallback onAdd;
+  final VoidCallback? onRenameFolder;
+  final VoidCallback? onDeleteFolder;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 16, 0),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
       child: Row(
         children: [
           GlassIconButton(
@@ -183,12 +271,14 @@ class _TopBar extends StatelessWidget {
             tooltip: 'Back',
             onTap: onBack,
           ),
-          const SizedBox(width: 12),
-          const Expanded(
+          const SizedBox(width: 10),
+          Expanded(
             child: Text(
-              'Documents',
-              style: TextStyle(
-                fontSize: 26,
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 25,
                 fontWeight: FontWeight.w800,
                 color: AppColors.ink,
                 letterSpacing: -0.6,
@@ -196,104 +286,256 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           GlassIconButton(
+            icon: Icons.create_new_folder_outlined,
+            tooltip: 'New folder',
+            onTap: onNewFolder,
+          ),
+          const SizedBox(width: 8),
+          GlassIconButton(
             icon: Icons.add_rounded,
             tooltip: 'Add document',
             accent: true,
             onTap: onAdd,
           ),
+          if (onRenameFolder != null || onDeleteFolder != null)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: AppColors.inkSoft),
+              color: AppColors.card,
+              onSelected: (v) {
+                if (v == 'rename') onRenameFolder?.call();
+                if (v == 'delete') onDeleteFolder?.call();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'rename',
+                  child: _MenuRow(icon: Icons.edit_outlined, label: 'Rename folder'),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: _MenuRow(
+                    icon: Icons.delete_outline_rounded,
+                    label: 'Delete folder',
+                    danger: true,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
   }
 }
 
-/// One folder block: a category header with a count, then its document rows.
-class _FolderSection extends StatelessWidget {
-  const _FolderSection({
-    required this.category,
-    required this.docs,
-    required this.onOpen,
-    required this.onShare,
-    required this.onDelete,
-  });
-
-  final TaskCategory category;
-  final List<Document> docs;
-  final ValueChanged<Document> onOpen;
-  final ValueChanged<Document> onShare;
-  final ValueChanged<Document> onDelete;
+/// The breadcrumb trail — Documents › Folder › Sub-folder. Tapping a crumb pops
+/// back to that level.
+class _Breadcrumb extends StatelessWidget {
+  const _Breadcrumb({required this.store, required this.folderId});
+  final DocumentsStore store;
+  final String? folderId;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(6, 18, 6, 10),
-          child: Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: category.color.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(category.icon, size: 17, color: category.color),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                category.label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${docs.length}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.inkFaint,
-                ),
+    final path = store.pathTo(folderId);
+    return SizedBox(
+      height: 34,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Row(
+          children: [
+            _Crumb(
+              label: 'Documents',
+              // The root Documents page is `path.length` pages down the stack.
+              onTap: () => _popLevels(context, path.length),
+              isLast: path.isEmpty,
+            ),
+            for (var i = 0; i < path.length; i++) ...[
+              const Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppColors.inkFaint),
+              _Crumb(
+                label: path[i].displayName,
+                // This crumb's page is `path.length - 1 - i` pages down.
+                onTap: () => _popLevels(context, path.length - 1 - i),
+                isLast: i == path.length - 1,
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Pop exactly [n] routes (each folder level is one pushed DocumentsPage).
+  void _popLevels(BuildContext context, int n) {
+    final nav = Navigator.of(context);
+    for (var k = 0; k < n && nav.canPop(); k++) {
+      nav.pop();
+    }
+  }
+}
+
+class _Crumb extends StatelessWidget {
+  const _Crumb({required this.label, required this.onTap, required this.isLast});
+  final String label;
+  final VoidCallback onTap;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: isLast ? null : onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: isLast ? FontWeight.w800 : FontWeight.w600,
+            color: isLast ? AppColors.ink : AppColors.inkSoft,
           ),
         ),
-        for (final d in docs)
-          _DocRow(
-            doc: d,
-            onOpen: () => onOpen(d),
-            onShare: () => onShare(d),
-            onDelete: () => onDelete(d),
-          ),
-      ],
+      ),
     );
   }
 }
 
-/// A single document row — icon, name, meta, and quick share. Tap opens it;
-/// long-press / the ⋯ menu offers share + delete.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(6, 14, 6, 8),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.0,
+            color: AppColors.inkFaint,
+          ),
+        ),
+      );
+}
+
+// ── Rows ────────────────────────────────────────────────────────────────────
+
+class _FolderRow extends StatelessWidget {
+  const _FolderRow({
+    required this.folder,
+    required this.itemCount,
+    required this.subfolderCount,
+    required this.onTap,
+    required this.onRename,
+    required this.onDelete,
+  });
+
+  final DocFolder folder;
+  final int itemCount;
+  final int subfolderCount;
+  final VoidCallback onTap;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = <String>[
+      if (subfolderCount > 0) '$subfolderCount folder${subfolderCount == 1 ? '' : 's'}',
+      '$itemCount document${itemCount == 1 ? '' : 's'}',
+    ];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: const Icon(Icons.folder_rounded,
+                      size: 22, color: AppColors.accent),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        folder.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        parts.join(' · '),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.inkFaint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _RowMenu(
+                  items: [
+                    _MenuAction('rename', Icons.edit_outlined, 'Rename', onRename),
+                    _MenuAction('delete', Icons.delete_outline_rounded, 'Delete',
+                        onDelete, danger: true),
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(right: 6),
+                  child: Icon(Icons.chevron_right_rounded, color: AppColors.inkFaint),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DocRow extends StatelessWidget {
   const _DocRow({
     required this.doc,
     required this.onOpen,
     required this.onShare,
+    required this.onRename,
     required this.onDelete,
   });
 
-  final Document doc;
+  final DocItem doc;
   final VoidCallback onOpen;
   final VoidCallback onShare;
+  final VoidCallback onRename;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final meta = <String>[
-      if (doc.isPdf) 'PDF' else 'Image',
+      doc.isPdf ? 'PDF' : 'Image',
       if (doc.sizeLabel != null) doc.sizeLabel!,
     ].join(' · ');
 
@@ -318,15 +560,13 @@ class _DocRow extends StatelessWidget {
                   height: 42,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: doc.folder.color.withValues(alpha: 0.14),
+                    color: AppColors.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(11),
                   ),
                   child: Icon(
-                    doc.isPdf
-                        ? Icons.picture_as_pdf_rounded
-                        : Icons.image_rounded,
+                    doc.isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded,
                     size: 21,
-                    color: doc.folder.color,
+                    color: AppColors.accent,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -344,31 +584,31 @@ class _DocRow extends StatelessWidget {
                           color: AppColors.ink,
                         ),
                       ),
-                      if (meta.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          meta,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.inkFaint,
-                          ),
+                      const SizedBox(height: 2),
+                      Text(
+                        meta,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.inkFaint,
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
-                // Quick share — the primary secondary action.
                 IconButton(
                   onPressed: onShare,
                   icon: const Icon(Icons.ios_share_rounded, size: 20),
                   color: AppColors.inkSoft,
                   tooltip: 'Share',
                 ),
-                _MoreMenu(
-                  onOpen: onOpen,
-                  onShare: onShare,
-                  onDelete: onDelete,
+                _RowMenu(
+                  items: [
+                    _MenuAction('open', Icons.open_in_new_rounded, 'Open', onOpen),
+                    _MenuAction('rename', Icons.edit_outlined, 'Rename', onRename),
+                    _MenuAction('delete', Icons.delete_outline_rounded, 'Delete',
+                        onDelete, danger: true),
+                  ],
                 ),
               ],
             ),
@@ -379,44 +619,31 @@ class _DocRow extends StatelessWidget {
   }
 }
 
-class _MoreMenu extends StatelessWidget {
-  const _MoreMenu({required this.onOpen, required this.onShare, this.onDelete});
-  final VoidCallback onOpen;
-  final VoidCallback onShare;
-  final VoidCallback? onDelete;
+class _MenuAction {
+  const _MenuAction(this.value, this.icon, this.label, this.onTap,
+      {this.danger = false});
+  final String value;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool danger;
+}
+
+class _RowMenu extends StatelessWidget {
+  const _RowMenu({required this.items});
+  final List<_MenuAction> items;
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert_rounded, size: 20),
       color: AppColors.card,
-      onSelected: (v) {
-        switch (v) {
-          case 'open':
-            onOpen();
-          case 'share':
-            onShare();
-          case 'delete':
-            onDelete?.call();
-        }
-      },
+      onSelected: (v) => items.firstWhere((a) => a.value == v).onTap(),
       itemBuilder: (_) => [
-        const PopupMenuItem(
-          value: 'open',
-          child: _MenuRow(icon: Icons.open_in_new_rounded, label: 'Open'),
-        ),
-        const PopupMenuItem(
-          value: 'share',
-          child: _MenuRow(icon: Icons.ios_share_rounded, label: 'Share'),
-        ),
-        if (onDelete != null)
-          const PopupMenuItem(
-            value: 'delete',
-            child: _MenuRow(
-              icon: Icons.delete_outline_rounded,
-              label: 'Delete',
-              danger: true,
-            ),
+        for (final a in items)
+          PopupMenuItem(
+            value: a.value,
+            child: _MenuRow(icon: a.icon, label: a.label, danger: a.danger),
           ),
       ],
     );
@@ -442,10 +669,15 @@ class _MenuRow extends StatelessWidget {
   }
 }
 
-/// The welcoming empty state — a single, obvious call to add the first doc.
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onAdd});
+  const _EmptyState({
+    required this.atRoot,
+    required this.onAdd,
+    required this.onNewFolder,
+  });
+  final bool atRoot;
   final VoidCallback onAdd;
+  final VoidCallback onNewFolder;
 
   @override
   Widget build(BuildContext context) {
@@ -466,10 +698,10 @@ class _EmptyState extends StatelessWidget {
                   size: 44, color: AppColors.accent),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Your documents, all in one place',
+            Text(
+              atRoot ? 'Your private document vault' : 'This folder is empty',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.w800,
                 color: AppColors.ink,
@@ -477,8 +709,8 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Add any file — a statement, a policy, an ID — into a folder, and '
-              'open or share it anytime. Kept privately on your phone.',
+              'Make folders, drop in any file, and open or share it anytime. '
+              'Everything stays privately on your phone.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.inkSoft),
             ),
@@ -489,6 +721,23 @@ class _EmptyState extends StatelessWidget {
                 onPressed: onAdd,
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('Add a document'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onNewFolder,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.ink,
+                  side: const BorderSide(color: AppColors.cardBorder),
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(27),
+                  ),
+                ),
+                icon: const Icon(Icons.create_new_folder_outlined),
+                label: const Text('New folder'),
               ),
             ),
           ],

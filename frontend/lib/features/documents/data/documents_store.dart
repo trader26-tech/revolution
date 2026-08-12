@@ -5,60 +5,111 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../tasks/domain/task.dart';
 import '../domain/document.dart';
 
-/// The LOCAL documents library — everything lives on-device, nothing uploads.
+/// The LOCAL documents library — a nestable folder tree, entirely on-device.
 ///
-/// Files are COPIED into the app's documents directory (so a document survives
-/// even if the user later deletes the original from Downloads), and the list of
-/// documents (name, folder, local path, size) is persisted in shared_preferences
-/// as JSON. Fully offline, fully private.
+/// Files are COPIED into the app's documents directory; the folder tree and
+/// document records are persisted in shared_preferences as JSON. Fully offline,
+/// fully private — nothing is ever uploaded.
 class DocumentsStore extends ChangeNotifier {
   DocumentsStore();
 
-  static const _prefsKey = 'documents_v1';
+  static const _foldersKey = 'doc_folders_v1';
+  static const _itemsKey = 'doc_items_v1';
   static const _subDir = 'documents';
 
-  final List<Document> _docs = [];
+  final List<DocFolder> _folders = [];
+  final List<DocItem> _items = [];
   bool _loaded = false;
 
   bool get isInitialLoad => !_loaded;
-  List<Document> get all => List.unmodifiable(_docs);
-  int get count => _docs.length;
 
-  /// Grouped by folder, in the app's canonical category order, empties skipped.
-  Map<TaskCategory, List<Document>> get byFolder {
-    final map = <TaskCategory, List<Document>>{};
-    for (final d in _docs) {
-      map.putIfAbsent(d.folder, () => []).add(d);
-    }
-    final ordered = <TaskCategory, List<Document>>{};
-    for (final c in TaskCategory.values) {
-      final items = map[c];
-      if (items != null && items.isNotEmpty) ordered[c] = items;
-    }
-    return ordered;
+  /// Total documents across the whole tree (for the Home badge).
+  int get totalCount => _items.length;
+
+  // ── Tree queries ──────────────────────────────────────────────────────────
+
+  /// Sub-folders directly inside [folderId] (root when null), name-sorted.
+  List<DocFolder> foldersIn(String? folderId) {
+    final list = _folders.where((f) => f.parentId == folderId).toList()
+      ..sort((a, b) =>
+          a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+    return list;
   }
 
-  /// Load the saved library from disk. Safe to call repeatedly.
+  /// Documents directly inside [folderId] (root when null), newest first.
+  List<DocItem> itemsIn(String? folderId) {
+    final list = _items.where((d) => d.folderId == folderId).toList()
+      ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+    return list;
+  }
+
+  DocFolder? folderById(String? id) {
+    if (id == null) return null;
+    for (final f in _folders) {
+      if (f.id == id) return f;
+    }
+    return null;
+  }
+
+  /// The breadcrumb path from root → [folderId] (inclusive). Empty at root.
+  List<DocFolder> pathTo(String? folderId) {
+    final path = <DocFolder>[];
+    var current = folderById(folderId);
+    while (current != null) {
+      path.insert(0, current);
+      current = folderById(current.parentId);
+    }
+    return path;
+  }
+
+  /// How many items live ANYWHERE under [folderId] (for a folder's subtitle).
+  int itemsUnder(String folderId) {
+    var count = itemsIn(folderId).length;
+    for (final sub in foldersIn(folderId)) {
+      count += itemsUnder(sub.id);
+    }
+    return count;
+  }
+
+  /// True if [maybeAncestor] is [folderId] or any ancestor of it — used to stop
+  /// a folder being moved into its own subtree.
+  bool _isSelfOrDescendant(String folderId, String maybeAncestor) {
+    var current = folderById(folderId);
+    while (current != null) {
+      if (current.id == maybeAncestor) return true;
+      current = folderById(current.parentId);
+    }
+    return false;
+  }
+
+  // ── Load / persist ────────────────────────────────────────────────────────
+
   Future<void> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_prefsKey);
-      _docs.clear();
-      if (raw != null && raw.isNotEmpty) {
-        final list = jsonDecode(raw) as List<dynamic>;
-        for (final e in list) {
-          final doc = Document.fromJson(e as Map<String, dynamic>);
-          // Drop entries whose file has gone missing, so the list never lies.
-          if (doc.localPath.isNotEmpty && File(doc.localPath).existsSync()) {
-            _docs.add(doc);
+      _folders.clear();
+      _items.clear();
+
+      final rawF = prefs.getString(_foldersKey);
+      if (rawF != null && rawF.isNotEmpty) {
+        for (final e in jsonDecode(rawF) as List<dynamic>) {
+          _folders.add(DocFolder.fromJson(e as Map<String, dynamic>));
+        }
+      }
+      final rawI = prefs.getString(_itemsKey);
+      if (rawI != null && rawI.isNotEmpty) {
+        for (final e in jsonDecode(rawI) as List<dynamic>) {
+          final item = DocItem.fromJson(e as Map<String, dynamic>);
+          // Drop entries whose file has gone missing so the list never lies.
+          if (item.localPath.isNotEmpty && File(item.localPath).existsSync()) {
+            _items.add(item);
           }
         }
       }
     } catch (_) {
-      // Corrupt/absent store → start empty.
+      // Corrupt/absent → start empty.
     } finally {
       _loaded = true;
       notifyListeners();
@@ -69,15 +120,16 @@ class DocumentsStore extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-        _prefsKey,
-        jsonEncode(_docs.map((d) => d.toJson()).toList()),
+        _foldersKey,
+        jsonEncode(_folders.map((f) => f.toJson()).toList()),
       );
-    } catch (_) {
-      // Best-effort; the in-memory list is still correct for this session.
-    }
+      await prefs.setString(
+        _itemsKey,
+        jsonEncode(_items.map((d) => d.toJson()).toList()),
+      );
+    } catch (_) {}
   }
 
-  /// The directory the on-device copies live in (created on first use).
   Future<Directory> _docsDir() async {
     final base = await getApplicationDocumentsDirectory();
     final dir = Directory('${base.path}/$_subDir');
@@ -85,11 +137,80 @@ class DocumentsStore extends ChangeNotifier {
     return dir;
   }
 
-  /// Add a document by COPYING [sourcePath] into local storage. Returns the
-  /// created [Document]. Nothing leaves the device.
-  Future<Document> addFromPath({
+  // ── Folder ops ────────────────────────────────────────────────────────────
+
+  Future<DocFolder> createFolder({
     required String name,
-    required TaskCategory folder,
+    String? parentId,
+  }) async {
+    final folder = DocFolder(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      name: name.trim().isEmpty ? 'Folder' : name.trim(),
+      parentId: parentId,
+      createdAt: DateTime.now(),
+    );
+    _folders.add(folder);
+    notifyListeners();
+    await _persist();
+    return folder;
+  }
+
+  Future<void> renameFolder(String id, String name) async {
+    final i = _folders.indexWhere((f) => f.id == id);
+    if (i == -1) return;
+    _folders[i] = _folders[i].copyWith(name: name.trim());
+    notifyListeners();
+    await _persist();
+  }
+
+  /// Move a folder under [newParentId] (null = root). No-op if it would create a
+  /// cycle (moving a folder into itself/its descendants).
+  Future<void> moveFolder(String id, String? newParentId) async {
+    if (newParentId != null && _isSelfOrDescendant(newParentId, id)) return;
+    final i = _folders.indexWhere((f) => f.id == id);
+    if (i == -1) return;
+    _folders[i] = DocFolder(
+      id: _folders[i].id,
+      name: _folders[i].name,
+      parentId: newParentId,
+      createdAt: _folders[i].createdAt,
+    );
+    notifyListeners();
+    await _persist();
+  }
+
+  /// Delete a folder and EVERYTHING under it (sub-folders + their files).
+  Future<void> deleteFolder(String id) async {
+    // Collect the whole subtree.
+    final folderIds = <String>{id};
+    var changed = true;
+    while (changed) {
+      changed = false;
+      for (final f in _folders) {
+        if (f.parentId != null &&
+            folderIds.contains(f.parentId) &&
+            !folderIds.contains(f.id)) {
+          folderIds.add(f.id);
+          changed = true;
+        }
+      }
+    }
+    // Delete the files of every item in that subtree.
+    final doomed = _items.where((d) => folderIds.contains(d.folderId)).toList();
+    for (final d in doomed) {
+      await _deleteFileFor(d);
+    }
+    _items.removeWhere((d) => folderIds.contains(d.folderId));
+    _folders.removeWhere((f) => folderIds.contains(f.id));
+    notifyListeners();
+    await _persist();
+  }
+
+  // ── Document ops ──────────────────────────────────────────────────────────
+
+  Future<DocItem> addFromPath({
+    required String name,
+    required String? folderId,
     required String sourcePath,
     String? originalName,
   }) async {
@@ -97,30 +218,14 @@ class DocumentsStore extends ChangeNotifier {
     final ext = _extOf(originalName ?? sourcePath);
     final dir = await _docsDir();
     final dest = '${dir.path}/$id${ext.isEmpty ? '' : '.$ext'}';
-
-    final srcFile = File(sourcePath);
-    final copied = await srcFile.copy(dest);
+    final copied = await File(sourcePath).copy(dest);
     final size = await copied.length();
-
-    final doc = Document(
-      id: id,
-      name: name.trim().isEmpty ? 'Document' : name.trim(),
-      folder: folder,
-      localPath: copied.path,
-      addedAt: DateTime.now(),
-      originalName: originalName,
-      size: size,
-    );
-    _docs.insert(0, doc);
-    notifyListeners();
-    await _persist();
-    return doc;
+    return _record(id, name, folderId, copied.path, originalName, size);
   }
 
-  /// Add a document from picked BYTES (when the picker gave bytes, not a path).
-  Future<Document> addFromBytes({
+  Future<DocItem> addFromBytes({
     required String name,
-    required TaskCategory folder,
+    required String? folderId,
     required List<int> bytes,
     String? originalName,
   }) async {
@@ -128,37 +233,63 @@ class DocumentsStore extends ChangeNotifier {
     final ext = _extOf(originalName ?? '');
     final dir = await _docsDir();
     final dest = '${dir.path}/$id${ext.isEmpty ? '' : '.$ext'}';
-
     final file = await File(dest).writeAsBytes(bytes, flush: true);
+    return _record(id, name, folderId, file.path, originalName, bytes.length);
+  }
 
-    final doc = Document(
+  Future<DocItem> _record(
+    String id,
+    String name,
+    String? folderId,
+    String path,
+    String? originalName,
+    int size,
+  ) async {
+    final doc = DocItem(
       id: id,
       name: name.trim().isEmpty ? 'Document' : name.trim(),
-      folder: folder,
-      localPath: file.path,
+      folderId: folderId,
+      localPath: path,
       addedAt: DateTime.now(),
       originalName: originalName,
-      size: bytes.length,
+      size: size,
     );
-    _docs.insert(0, doc);
+    _items.insert(0, doc);
     notifyListeners();
     await _persist();
     return doc;
   }
 
-  /// Remove a document — deletes the on-device copy and forgets it. Optimistic.
-  Future<void> remove(Document doc) async {
-    final i = _docs.indexWhere((d) => d.id == doc.id);
+  Future<void> renameItem(String id, String name) async {
+    final i = _items.indexWhere((d) => d.id == id);
     if (i == -1) return;
-    final removed = _docs.removeAt(i);
+    _items[i] = _items[i].copyWith(name: name.trim());
     notifyListeners();
-    try {
-      final f = File(removed.localPath);
-      if (f.existsSync()) await f.delete();
-    } catch (_) {
-      // File already gone — fine.
-    }
     await _persist();
+  }
+
+  Future<void> moveItem(String id, String? folderId) async {
+    final i = _items.indexWhere((d) => d.id == id);
+    if (i == -1) return;
+    _items[i] = _items[i].copyWith(folderId: folderId);
+    notifyListeners();
+    await _persist();
+  }
+
+  Future<void> removeItem(DocItem doc) async {
+    final i = _items.indexWhere((d) => d.id == doc.id);
+    if (i == -1) return;
+    final removed = _items.removeAt(i);
+    notifyListeners();
+    await _deleteFileFor(removed);
+    await _persist();
+  }
+
+  Future<void> _deleteFileFor(DocItem doc) async {
+    try {
+      final f = File(doc.localPath);
+      if (f.existsSync()) await f.delete();
+    } catch (_) {}
   }
 
   static String _extOf(String nameOrPath) {

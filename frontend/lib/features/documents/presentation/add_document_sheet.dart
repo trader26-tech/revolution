@@ -3,31 +3,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../tasks/domain/category_visuals.dart';
-import '../../tasks/domain/task.dart';
 import '../data/documents_store.dart';
 import '../domain/document.dart';
+import 'folder_picker_sheet.dart';
 
-/// Add a document: pick a file, name it, choose a folder, upload. Returns the
-/// created [Document], or null if dismissed.
-Future<Document?> showAddDocumentSheet(
+/// Add a document: pick a file, name it, choose a destination folder, save
+/// LOCALLY. Returns the created [DocItem], or null if dismissed.
+Future<DocItem?> showAddDocumentSheet(
   BuildContext context, {
   required DocumentsStore store,
+  String? folderId,
 }) {
-  return showModalBottomSheet<Document>(
+  return showModalBottomSheet<DocItem>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (_) => _AddDocumentSheet(store: store),
+    builder: (_) => _AddDocumentSheet(store: store, initialFolderId: folderId),
   );
 }
 
 class _AddDocumentSheet extends StatefulWidget {
-  const _AddDocumentSheet({required this.store});
+  const _AddDocumentSheet({required this.store, this.initialFolderId});
   final DocumentsStore store;
+  final String? initialFolderId;
 
   @override
   State<_AddDocumentSheet> createState() => _AddDocumentSheetState();
@@ -35,7 +36,7 @@ class _AddDocumentSheet extends StatefulWidget {
 
 class _AddDocumentSheetState extends State<_AddDocumentSheet> {
   final _nameCtrl = TextEditingController();
-  TaskCategory _folder = TaskCategory.other;
+  late String? _folderId = widget.initialFolderId;
 
   PlatformFile? _file;
   bool _saving = false;
@@ -58,12 +59,15 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
   bool get _valid =>
       _file != null && _nameCtrl.text.trim().isNotEmpty && !_saving;
 
+  String get _folderLabel {
+    final f = widget.store.folderById(_folderId);
+    return f?.displayName ?? 'Documents';
+  }
+
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: _allowedExts,
-      // Keep the on-device path (we copy it locally). withData is the fallback
-      // for platforms/pickers that only return bytes.
       withData: true,
     );
     final picked = result?.files.firstOrNull;
@@ -71,12 +75,19 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
     setState(() {
       _file = picked;
       _error = null;
-      // Seed the name from the filename (without extension) if empty.
       if (_nameCtrl.text.trim().isEmpty) {
-        final base = picked.name.replaceFirst(RegExp(r'\.[^.]+$'), '');
-        _nameCtrl.text = base;
+        _nameCtrl.text = picked.name.replaceFirst(RegExp(r'\.[^.]+$'), '');
       }
     });
+  }
+
+  Future<void> _pickFolder() async {
+    final choice = await showFolderPickerSheet(
+      context,
+      store: widget.store,
+      initialFolderId: _folderId,
+    );
+    if (choice != null) setState(() => _folderId = choice.folderId);
   }
 
   Future<void> _submit() async {
@@ -88,23 +99,21 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
       _error = null;
     });
     try {
-      // Store LOCALLY — copy the on-device file when we have a path, else write
-      // the picked bytes. Never leaves the phone.
       final doc = file.path != null
           ? await widget.store.addFromPath(
               name: _nameCtrl.text.trim(),
-              folder: _folder,
+              folderId: _folderId,
               sourcePath: file.path!,
               originalName: file.name,
             )
           : await widget.store.addFromBytes(
               name: _nameCtrl.text.trim(),
-              folder: _folder,
+              folderId: _folderId,
               bytes: file.bytes ?? const <int>[],
               originalName: file.name,
             );
       if (mounted) Navigator.of(context).pop(doc);
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _saving = false;
@@ -146,11 +155,9 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
               ),
               const SizedBox(height: 20),
 
-              // File picker tile.
               _FileTile(file: _file, onTap: _pickFile),
               const SizedBox(height: 18),
 
-              // Name.
               const _Label('NAME'),
               const SizedBox(height: 8),
               TextField(
@@ -165,24 +172,11 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
               ),
               const SizedBox(height: 18),
 
-              // Folder.
+              // Destination folder — a dropdown-style row that opens the folder
+              // picker (browse / create), replacing the old category chips.
               const _Label('FOLDER'),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final c in TaskCategory.values)
-                    _FolderChip(
-                      category: c,
-                      selected: _folder == c,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _folder = c);
-                      },
-                    ),
-                ],
-              ),
+              const SizedBox(height: 8),
+              _FolderSelector(label: _folderLabel, onTap: _pickFolder),
 
               if (_error != null) ...[
                 const SizedBox(height: 14),
@@ -197,7 +191,6 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
               ],
 
               const SizedBox(height: 18),
-              // Reassurance — the whole point of this being local.
               const _PrivacyNote(),
 
               const SizedBox(height: 16),
@@ -340,47 +333,43 @@ class _FileTile extends StatelessWidget {
   }
 }
 
-class _FolderChip extends StatelessWidget {
-  const _FolderChip({
-    required this.category,
-    required this.selected,
-    required this.onTap,
-  });
-  final TaskCategory category;
-  final bool selected;
+/// The dropdown-style folder selector row.
+class _FolderSelector extends StatelessWidget {
+  const _FolderSelector({required this.label, required this.onTap});
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final c = category.color;
     return Material(
-      color: selected ? c.withValues(alpha: 0.16) : Colors.white.withValues(alpha: 0.04),
-      borderRadius: BorderRadius.circular(12),
+      color: AppColors.bg,
+      borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? c : AppColors.cardBorder,
-              width: selected ? 1.6 : 1,
-            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.cardBorder),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(category.icon, size: 16, color: selected ? c : AppColors.inkSoft),
-              const SizedBox(width: 8),
-              Text(
-                category.label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? AppColors.ink : AppColors.inkSoft,
+              const Icon(Icons.folder_rounded, size: 20, color: AppColors.accent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
                 ),
               ),
+              const Icon(Icons.expand_more_rounded, color: AppColors.inkSoft),
             ],
           ),
         ),

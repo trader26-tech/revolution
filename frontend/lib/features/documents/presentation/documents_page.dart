@@ -396,30 +396,37 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Same 46px glass button as the rest of the app's headers.
-          GlassIconButton(
-            icon: Icons.arrow_back_rounded,
-            tooltip: 'Back',
-            onTap: onBack,
+          // Row 1 — the action buttons: back (left) and new-folder "+" (right).
+          Row(
+            children: [
+              GlassIconButton(
+                icon: Icons.arrow_back_rounded,
+                tooltip: 'Back',
+                onTap: onBack,
+              ),
+              const Spacer(),
+              // Same 46px as the app's "+" buttons. Morphs "+" → folder-plus.
+              MorphIconButton(
+                from: Icons.add_rounded,
+                to: Icons.create_new_folder_rounded,
+                tooltip: 'New folder',
+                onTap: onNewFolder,
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          const Expanded(
+          const SizedBox(height: 6),
+          // Row 2 — the title on its OWN line, below the buttons.
+          const Padding(
+            padding: EdgeInsets.only(left: 2, bottom: 4),
             child: Text(
               'Documents',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppText.headline,
             ),
-          ),
-          // The corner action — same 46px size as the app's "+" buttons, so the
-          // header buttons are all identical. Morphs "+" → folder-plus on open.
-          MorphIconButton(
-            from: Icons.add_rounded,
-            to: Icons.create_new_folder_rounded,
-            tooltip: 'New folder',
-            onTap: onNewFolder,
           ),
         ],
       ),

@@ -130,7 +130,7 @@ class _GreetingRevoState extends State<GreetingRevo>
                     Text(
                       'REVOLUTION',
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 2.2,
                         color: AppColors.accent.withValues(alpha: 0.85),
@@ -281,7 +281,7 @@ class HeroMetricsCard extends StatelessWidget {
               const SizedBox(width: 7),
               Text(hasSpend ? 'Due this month' : 'Your reminders',
                   style: const TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: AppColors.inkSoft,
                       letterSpacing: 0.1)),
@@ -299,7 +299,7 @@ class HeroMetricsCard extends StatelessWidget {
                 child: Text(
                   stats.dueToday > 0 ? '${stats.dueToday} today' : 'On track',
                   style: TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: stats.dueToday > 0
                         ? const Color(0xFFFFC66B)
@@ -319,7 +319,7 @@ class HeroMetricsCard extends StatelessWidget {
                     ? _money(stats.monthSpend, sym)
                     : '${stats.dueThisMonth}',
                 style: const TextStyle(
-                    fontSize: 46,
+                    fontSize: 32,
                     height: 1.0,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -1.8,
@@ -403,7 +403,7 @@ class _SubStat extends StatelessWidget {
         children: [
           Text(value,
               style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 20,
                   height: 1.0,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.6,
@@ -412,7 +412,7 @@ class _SubStat extends StatelessWidget {
           const SizedBox(height: 3),
           Text(label,
               style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.inkFaint)),
         ],
@@ -541,7 +541,7 @@ class UpNextStrip extends StatelessWidget {
             children: [
               const Text('Up next',
                   style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.3,
                       color: AppColors.ink)),
@@ -549,7 +549,7 @@ class UpNextStrip extends StatelessWidget {
               // Window hint — reflects the selected calendar day.
               Text(windowLabel,
                   style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.inkFaint.withValues(alpha: 0.9))),
               const Spacer(),
@@ -586,7 +586,7 @@ class UpNextStrip extends StatelessWidget {
                   child: Text(
                     'Nothing in this window — you’re free.',
                     style: TextStyle(
-                        fontSize: 13.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.inkSoft),
                   ),
@@ -764,7 +764,7 @@ class _DayIntroCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 3,
                   color: p.isToday ? AppColors.accent : AppColors.inkFaint,
@@ -807,7 +807,7 @@ class _DayIntroCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: AppColors.inkSoft,
                   ),
@@ -960,7 +960,7 @@ class _WhenChipState extends State<_WhenChip>
           const SizedBox(width: 5),
           Text(text,
               style: const TextStyle(
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.4,
                 color: Colors.white,
@@ -981,7 +981,7 @@ class _WhenChipState extends State<_WhenChip>
       ),
       child: Text(text,
           style: const TextStyle(
-            fontSize: 11.5,
+            fontSize: 11,
             fontWeight: FontWeight.w900,
             letterSpacing: 0.4,
             color: AppColors.accent,
@@ -1103,7 +1103,7 @@ class _SipCard extends StatelessWidget {
               _amountStr(task),
               maxLines: 1,
               style: const TextStyle(
-                fontSize: 30,
+                fontSize: 28,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -1,
                 color: AppColors.ink,
@@ -1144,7 +1144,7 @@ class _OccasionCard extends StatelessWidget {
         ? Text(
             '$age',
             style: const TextStyle(
-              fontSize: 40,
+              fontSize: 32,
               fontWeight: FontWeight.w900,
               letterSpacing: -1,
               color: AppColors.ink,
@@ -1235,7 +1235,7 @@ class _HeroCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.2,
                         color: AppColors.ink)),
@@ -1616,7 +1616,7 @@ class CategoryCards extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(18, 12, 18, 6),
           child: Text('Your reminders',
               style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.3,
                   color: AppColors.ink)),
@@ -1707,7 +1707,7 @@ class _CategoryCard extends StatelessWidget {
                 const Spacer(),
                 Text('$count',
                     style: TextStyle(
-                        fontSize: 30,
+                        fontSize: 28,
                         height: 1,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -1,
@@ -1718,7 +1718,7 @@ class _CategoryCard extends StatelessWidget {
             const Spacer(),
             Text(category.label,
                 style: const TextStyle(
-                    fontSize: 15.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: AppColors.ink)),
             const SizedBox(height: 2),
@@ -1729,7 +1729,7 @@ class _CategoryCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.inkSoft),
             ),
@@ -1845,7 +1845,7 @@ class _WelcomeEmptyState extends State<WelcomeEmpty>
               'Welcome to Revolution — I’ll remember\nthe things you shouldn’t have to.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 14.5,
+                fontSize: 14,
                 height: 1.4,
                 fontWeight: FontWeight.w500,
                 color: AppColors.inkSoft.withValues(alpha: 0.95),
@@ -1880,7 +1880,7 @@ class _WelcomeEmptyState extends State<WelcomeEmpty>
                       'Add your first reminder',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 15.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -2076,7 +2076,7 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
                     Text(
                       showMonth ? _mo[d.month - 1] : _wd[d.weekday - 1],
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.4,
                         color: selected
@@ -2088,7 +2088,7 @@ class _WeekStripCalendarState extends State<WeekStripCalendar> {
                     Text(
                       '${d.day}',
                       style: TextStyle(
-                        fontSize: 19,
+                        fontSize: 20,
                         height: 1.0,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
@@ -2176,7 +2176,7 @@ class BrowseGrid extends StatelessWidget {
               const Text(
                 'Browse',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.3,
                   color: AppColors.ink,
@@ -2186,7 +2186,7 @@ class BrowseGrid extends StatelessWidget {
               Text(
                 'your orbit',
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.inkFaint.withValues(alpha: 0.9),
                 ),
@@ -2295,7 +2295,7 @@ class _BrowseRowState extends State<_BrowseRow> {
             Text(
               count == 0 ? 'None' : '$count ${count == 1 ? 'item' : 'items'}',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: AppColors.inkSoft,
                 fontFeatures: const [FontFeature.tabularFigures()],
@@ -2381,7 +2381,7 @@ class _AddBrowseSheet extends StatelessWidget {
               const Text(
                 'What would you like to track?',
                 style: TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.inkSoft,
                 ),
@@ -2464,7 +2464,7 @@ class _AddChoiceRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.inkSoft,
                     ),

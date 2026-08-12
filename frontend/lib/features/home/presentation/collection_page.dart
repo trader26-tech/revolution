@@ -485,7 +485,7 @@ class _GroupedList extends StatelessWidget {
                 Text(
                   'Clear filter',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: AppColors.ink,
                   ),
@@ -665,7 +665,7 @@ class _CategoryHeroState extends State<_CategoryHero> {
                       Text(
                         'in ${subtitle!}'.toUpperCase(),
                         style: TextStyle(
-                          fontSize: 10.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.4,
                           color: AppColors.inkFaint.withValues(alpha: 0.95),
@@ -678,10 +678,10 @@ class _CategoryHeroState extends State<_CategoryHero> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 28,
+                        fontSize: 22,
                         height: 1.05,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: -0.6,
+                        letterSpacing: -0.5,
                         color: AppColors.ink,
                       ),
                     ),
@@ -691,7 +691,7 @@ class _CategoryHeroState extends State<_CategoryHero> {
                           ? '1 tracked'
                           : '${stats.total} tracked',
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.3,
                         color: AppColors.accent.withValues(alpha: 0.95),
@@ -722,7 +722,7 @@ class _CategoryHeroState extends State<_CategoryHero> {
                 Text(
                   sym,
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.w800,
                     color: AppColors.ink.withValues(alpha: 0.9),
                   ),
@@ -738,7 +738,7 @@ class _CategoryHeroState extends State<_CategoryHero> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 40,
+                        fontSize: 32,
                         height: 1.0,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -1.5,
@@ -755,7 +755,7 @@ class _CategoryHeroState extends State<_CategoryHero> {
                       Text(
                         caption,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: AppColors.inkSoft,
                         ),
@@ -867,10 +867,10 @@ class _OccasionHeroState extends State<_OccasionHero> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 28,
+                    fontSize: 22,
                     height: 1.05,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: -0.6,
+                    letterSpacing: -0.5,
                     color: AppColors.ink,
                   ),
                 ),
@@ -901,7 +901,7 @@ class _OccasionHeroState extends State<_OccasionHero> {
                   child: Text(
                     '$count',
                     style: const TextStyle(
-                      fontSize: 44,
+                      fontSize: 32,
                       height: 1.0,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -1.5,
@@ -915,7 +915,7 @@ class _OccasionHeroState extends State<_OccasionHero> {
                   child: Text(
                     noun,
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: AppColors.inkSoft,
                     ),
@@ -1016,7 +1016,7 @@ class _SectionHeader extends StatelessWidget {
           Text(
             label.toUpperCase(),
             style: const TextStyle(
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.2,
               color: AppColors.accent,
@@ -1026,7 +1026,7 @@ class _SectionHeader extends StatelessWidget {
           Text(
             '$count',
             style: const TextStyle(
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
               color: AppColors.inkFaint,
             ),
@@ -1088,7 +1088,7 @@ class _CollectionRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 15.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: AppColors.ink,
                     ),
@@ -1099,7 +1099,7 @@ class _CollectionRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.inkSoft,
                     ),
@@ -1117,7 +1117,7 @@ class _CollectionRow extends StatelessWidget {
                   Text(
                     _dateLabel(_next()),
                     style: const TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: AppColors.ink,
                     ),
@@ -1135,7 +1135,7 @@ class _CollectionRow extends StatelessWidget {
                     child: Text(
                       _relLabel(),
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: urgent ? accent : AppColors.inkSoft,
                       ),
@@ -1147,7 +1147,7 @@ class _CollectionRow extends StatelessWidget {
               Text(
                 'No date',
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppColors.inkFaint,
                 ),
@@ -1359,7 +1359,7 @@ class _EmptyCollection extends StatelessWidget {
                 'No ${title.toLowerCase()} yet',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: AppColors.ink,
                 ),
@@ -1455,7 +1455,7 @@ class _FilterSheet extends StatelessWidget {
               const Text(
                 'Filter by category',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: AppColors.ink,
                 ),
@@ -1526,7 +1526,7 @@ class _FilterChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 14.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: selected ? AppColors.ink : AppColors.inkSoft,
               ),

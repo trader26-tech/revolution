@@ -92,7 +92,7 @@ class _TaskTileState extends State<TaskTile> {
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeOut,
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color:
                                 task.done ? AppColors.inkFaint : AppColors.ink,
@@ -237,7 +237,7 @@ class _AmountLabel extends StatelessWidget {
         ],
       ),
       maxLines: 1,
-      style: const TextStyle(fontSize: 15.5, letterSpacing: -0.2),
+      style: const TextStyle(fontSize: 14, letterSpacing: -0.2),
     );
   }
 }
@@ -267,7 +267,7 @@ class _DueLine extends StatelessWidget {
             text,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: 12,
               color: color,
               fontWeight: scheduled ? FontWeight.w700 : FontWeight.w500,
             ),
@@ -312,7 +312,7 @@ class _DeleteSection extends StatelessWidget {
                   style: TextStyle(
                     color: _red,
                     fontWeight: FontWeight.w600,
-                    fontSize: 14.5,
+                    fontSize: 14,
                   ),
                 ),
               ],

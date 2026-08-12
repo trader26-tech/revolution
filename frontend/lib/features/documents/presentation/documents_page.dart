@@ -593,11 +593,6 @@ class _DocRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final meta = <String>[
-      doc.isPdf ? 'PDF' : 'Image',
-      if (doc.sizeLabel != null) doc.sizeLabel!,
-    ].join(' · ');
-
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
@@ -617,24 +612,14 @@ class _DocRow extends StatelessWidget {
                 // The actual document preview — image thumb / PDF first page.
                 DocThumbnail(doc: doc, size: 34),
                 const SizedBox(width: 10),
+                // Just the document name — the thumbnail already shows the type,
+                // so no meta clutter. Wraps to a second line if long.
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        doc.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.body,
-                      ),
-                      Text(
-                        meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.caption,
-                      ),
-                    ],
+                  child: Text(
+                    doc.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.body,
                   ),
                 ),
                 _RowIconButton(

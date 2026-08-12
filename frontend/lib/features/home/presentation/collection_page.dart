@@ -748,25 +748,34 @@ class _CategoryHeroState extends State<_CategoryHero> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 5),
-                  child: Row(
-                    children: [
-                      Text(
-                        caption,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.inkSoft,
+                // Shrink-safe: the caption ellipsizes instead of clipping the
+                // row when the amount is wide.
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            caption,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.inkSoft,
+                            ),
+                          ),
                         ),
-                      ),
-                      if (tappable) ...[
-                        const SizedBox(width: 4),
-                        Icon(Icons.swap_horiz_rounded,
-                            size: 15,
-                            color: AppColors.accent.withValues(alpha: 0.9)),
+                        if (tappable) ...[
+                          const SizedBox(width: 4),
+                          Icon(Icons.swap_horiz_rounded,
+                              size: 15,
+                              color: AppColors.accent.withValues(alpha: 0.9)),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -910,25 +919,32 @@ class _OccasionHeroState extends State<_OccasionHero> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    noun,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.inkSoft,
+                // Flexible so a long noun ("wedding anniversaries") ellipsizes
+                // cleanly instead of overflowing / clipping the row.
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      noun,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.inkSoft,
+                      ),
                     ),
                   ),
                 ),
-                const Spacer(),
-                if (canToggle)
+                if (canToggle) ...[
+                  const SizedBox(width: 8),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Icon(Icons.swap_horiz_rounded,
                         size: 18,
                         color: AppColors.accent.withValues(alpha: 0.9)),
                   ),
+                ],
               ],
             ),
           ),

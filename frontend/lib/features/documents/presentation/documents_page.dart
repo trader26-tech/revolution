@@ -181,15 +181,14 @@ class _DocumentsPageState extends State<DocumentsPage> {
                   _TopBar(
                     title: folder?.displayName ?? 'Documents',
                     onBack: () => Navigator.of(context).pop(),
+                    onAdd: _addDocument,
+                    onNewFolder: _newFolder,
                     // Root has no ⋯ (nothing to rename/delete); a folder does.
                     onRenameFolder: folder == null ? null : () => _renameFolder(folder),
                     onDeleteFolder: folder == null ? null : () => _deleteFolder(folder),
                   ),
                   if (_folderId != null) _Breadcrumb(store: store, folderId: _folderId),
                   Expanded(child: _buildBody()),
-                  // Add lives here — two clear, labelled actions instead of a
-                  // hidden "+" menu.
-                  _AddActionBar(onAddDocument: _addDocument, onNewFolder: _newFolder),
                 ],
               );
             },
@@ -248,12 +247,20 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.title,
     required this.onBack,
+    required this.onAdd,
+    required this.onNewFolder,
     this.onRenameFolder,
     this.onDeleteFolder,
   });
 
   final String title;
   final VoidCallback onBack;
+
+  /// Tapping the corner "+" adds a document directly.
+  final VoidCallback onAdd;
+
+  /// Creating a folder — the small icon next to "+".
+  final VoidCallback onNewFolder;
   final VoidCallback? onRenameFolder;
   final VoidCallback? onDeleteFolder;
 
@@ -282,8 +289,15 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
-          // Add lives in the bottom action bar (see _AddActionBar), so no "+"
-          // here — the top bar stays clean.
+          GlassIconButton(
+            icon: Icons.create_new_folder_outlined,
+            tooltip: 'New folder',
+            onTap: onNewFolder,
+          ),
+          const SizedBox(width: 8),
+          // The corner "+" — morphs from a plain "+" into a document-plus when
+          // the Documents page opens, then adds a document on tap.
+          _MorphAddButton(onTap: onAdd),
           if (onRenameFolder != null || onDeleteFolder != null)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded, color: AppColors.inkSoft),
@@ -313,69 +327,97 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// The bottom add bar — two clear, labelled actions (Add document / New folder)
-/// pinned above the safe area, so adding is obvious with no hidden "+" menu.
-class _AddActionBar extends StatelessWidget {
-  const _AddActionBar({required this.onAddDocument, required this.onNewFolder});
-  final VoidCallback onAddDocument;
-  final VoidCallback onNewFolder;
+/// The corner add "+" that plays a ONE-TIME morph from a plain "+" into a
+/// document-plus when the Documents page opens — so the user sees the plus they
+/// tapped on Home "become" the documents plus. Tapping adds a document.
+class _MorphAddButton extends StatefulWidget {
+  const _MorphAddButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  State<_MorphAddButton> createState() => _MorphAddButtonState();
+}
+
+class _MorphAddButtonState extends State<_MorphAddButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 620),
+    );
+    // A brief beat after the page settles, then morph "+" → document-plus.
+    Future<void>.delayed(const Duration(milliseconds: 220), () {
+      if (mounted) _c.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.bg.withValues(alpha: 0.0),
-            AppColors.bg.withValues(alpha: 0.85),
-            AppColors.bg,
-          ],
-          stops: const [0.0, 0.5, 1.0],
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: Row(
-            children: [
-              // New folder — secondary (outlined).
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onNewFolder,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.ink,
-                    side: const BorderSide(color: AppColors.cardBorder),
-                    minimumSize: const Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  icon: const Icon(Icons.create_new_folder_outlined, size: 20),
-                  label: const Text('New folder',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
-              ),
-              const SizedBox(width: 10),
-              // Add document — primary (accent), the go-to action.
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: onAddDocument,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    minimumSize: const Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  icon: const Icon(Icons.note_add_rounded, size: 20),
-                  label: const Text('Add document',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
+    return Tooltip(
+      message: 'Add document',
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: 46,
+          height: 46,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.accent, AppColors.accentDeep],
+            ),
+            borderRadius: BorderRadius.circular(23),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: 0.38),
+                blurRadius: 18,
+                offset: const Offset(0, 7),
               ),
             ],
+          ),
+          child: AnimatedBuilder(
+            animation: _c,
+            builder: (context, _) {
+              final t = Curves.easeInOutBack.transform(_c.value.clamp(0.0, 1.0));
+              final outOpacity = (1 - (_c.value * 1.6)).clamp(0.0, 1.0);
+              final inOpacity = ((_c.value - 0.4) / 0.6).clamp(0.0, 1.0);
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  Opacity(
+                    opacity: outOpacity,
+                    child: Transform.rotate(
+                      angle: t * 0.9,
+                      child: Transform.scale(
+                        scale: 1 - 0.4 * t,
+                        child: const Icon(Icons.add_rounded,
+                            color: Colors.white, size: 24),
+                      ),
+                    ),
+                  ),
+                  Opacity(
+                    opacity: inOpacity,
+                    child: Transform.rotate(
+                      angle: (t - 1) * 0.9,
+                      child: Transform.scale(
+                        scale: 0.6 + 0.4 * t,
+                        child: const Icon(Icons.note_add_rounded,
+                            color: Colors.white, size: 23),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -765,11 +807,33 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.inkSoft),
             ),
-            const SizedBox(height: 18),
-            const Text(
-              'Use the buttons below to add.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
+            const SizedBox(height: 22),
+            // Point to the "+" in the top-right corner.
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Tap ',
+                  style: TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
+                ),
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.accent, AppColors.accentDeep],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.note_add_rounded,
+                      color: Colors.white, size: 16),
+                ),
+                const Text(
+                  ' to add a document',
+                  style: TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
+                ),
+              ],
             ),
           ],
         ),

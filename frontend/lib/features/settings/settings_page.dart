@@ -7,6 +7,7 @@ import '../../core/widgets/app_toast.dart';
 import '../auth/data/auth_store.dart';
 import '../auth/domain/country_code.dart';
 import '../onboarding/data/onboarding_store.dart';
+import '../reminders/data/reminder_scheduler.dart';
 import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
 import 'data/profile_store.dart';
@@ -29,6 +30,10 @@ class _SettingsPageState extends State<SettingsPage> {
   final _profile = ProfileStore.instance;
 
   String _versionLabel = 'Version …';
+
+  /// True while a test notification is being sent (disables the row + shows
+  /// "Sending…").
+  bool _testingNotif = false;
 
   @override
   void initState() {
@@ -116,6 +121,24 @@ class _SettingsPageState extends State<SettingsPage> {
     if (picked == null) return;
     await _profile.setDigestTime(picked.hour * 60 + picked.minute);
     if (mounted) _toast('Daily summary at ${picked.format(context)}');
+  }
+
+  /// Fire a test notification now and tell the user what happened.
+  Future<void> _sendTestNotification() async {
+    setState(() => _testingNotif = true);
+    final result = await ReminderScheduler.instance.sendTestNotification();
+    if (!mounted) return;
+    setState(() => _testingNotif = false);
+    switch (result) {
+      case TestNotifResult.sent:
+        _toast('Sent — check your notifications');
+      case TestNotifResult.denied:
+        _toast('Notifications are off — enable them in system settings');
+      case TestNotifResult.unsupported:
+        _toast('Notifications aren’t available on this device');
+      case TestNotifResult.failed:
+        _toast('Couldn’t send — please try again');
+    }
   }
 
   void _toast(String message) => AppToast.show(context, message: message);
@@ -237,6 +260,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   value: _formatMinutes(_profile.digestTimeMin),
                   onTap: _pickDigestTime,
                 ),
+              // Fire a test notification NOW so the user can confirm alerts
+              // actually reach their tray.
+              SettingsTile(
+                icon: Icons.notification_add_outlined,
+                title: 'Send a test notification',
+                value: _testingNotif ? 'Sending…' : 'Tap to try',
+                onTap: _testingNotif ? null : _sendTestNotification,
+              ),
               SettingsSwitchTile(
                 icon: Icons.call_outlined,
                 title: 'Call me to remind',

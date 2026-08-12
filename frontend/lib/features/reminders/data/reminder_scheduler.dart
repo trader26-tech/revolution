@@ -12,6 +12,22 @@ import '../../settings/data/profile_store.dart';
 import '../../tasks/domain/task.dart';
 import '../domain/daily_digest.dart';
 
+/// The outcome of [ReminderScheduler.sendTestNotification], so the settings UI
+/// can tell the user exactly what happened.
+enum TestNotifResult {
+  /// Posted successfully — check your tray.
+  sent,
+
+  /// Notifications are turned off for the app — send them to system settings.
+  denied,
+
+  /// This platform can't post local notifications (e.g. web).
+  unsupported,
+
+  /// An unexpected error while posting.
+  failed,
+}
+
 /// The user taps "Mark all done" or "Snooze 1 hr" on the notification — often
 /// with the app killed — and the OS spins up a fresh background isolate to run
 /// this. It must be a top-level entry point (not a method) to survive
@@ -135,6 +151,74 @@ class ReminderScheduler {
     }
     _requestSync();
   }
+
+  /// Fire an immediate test notification, so the user can confirm alerts
+  /// actually reach their tray. Returns a result describing what happened, so
+  /// the UI can guide them if it's blocked.
+  ///
+  /// It first ensures permission (prompting if needed), then shows a one-off
+  /// notification RIGHT NOW on the same channel the daily digest uses — so a
+  /// success here proves the real reminders will land too.
+  Future<TestNotifResult> sendTestNotification() async {
+    if (!_supported) return TestNotifResult.unsupported;
+    if (!_ready) {
+      await init();
+      if (!_ready) return TestNotifResult.unsupported;
+    }
+
+    // Make sure we're allowed to post.
+    final granted = await _ensureGranted();
+    if (!granted) return TestNotifResult.denied;
+
+    try {
+      await _plugin.show(
+        id: _testId,
+        title: 'Test notification ✓',
+        body: "Great — your reminders are working. You'll get your daily "
+            'summary at your chosen time.',
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: _channelDescription,
+            importance: Importance.high,
+            priority: Priority.high,
+            color: AppColors.accentDeep,
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+      );
+      return TestNotifResult.sent;
+    } catch (_) {
+      return TestNotifResult.failed;
+    }
+  }
+
+  /// Ask for (and report) notification permission. True if we can post.
+  Future<bool> _ensureGranted() async {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      final enabled = await android?.areNotificationsEnabled() ?? false;
+      if (enabled) return true;
+      return await android?.requestNotificationsPermission() ?? false;
+    }
+    final ios = _plugin.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    return await ios?.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        ) ??
+        false;
+  }
+
+  /// A fixed id for the test notification (well clear of day/snooze ids).
+  static const _testId = 999999999;
 
   /// Called by [TaskStore] after every change; debounced so a burst of
   /// mutations rebuilds the schedule once.

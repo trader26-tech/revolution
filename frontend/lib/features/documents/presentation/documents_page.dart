@@ -357,7 +357,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
     return [
       Padding(
-        padding: EdgeInsets.only(left: depth * 16.0),
+        padding: EdgeInsets.only(left: depth * 14.0),
         child: _FolderRow(
           folder: f,
           expanded: expanded,
@@ -375,7 +375,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
         // …then this folder's documents.
         for (final d in docs)
           Padding(
-            padding: EdgeInsets.only(left: (depth + 1) * 16.0),
+            padding: EdgeInsets.only(left: (depth + 1) * 14.0),
             child: _DocRow(
               doc: d,
               onOpen: () => _open(d),
@@ -387,7 +387,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
         // An empty folder still offers a clear add.
         if (subs.isEmpty && docs.isEmpty)
           Padding(
-            padding: EdgeInsets.only(left: (depth + 1) * 16.0),
+            padding: EdgeInsets.only(left: (depth + 1) * 14.0),
             child: _AddHereTile(onTap: () => _addInside(f)),
           ),
       ],
@@ -405,25 +405,26 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 16, 0),
+      padding: const EdgeInsets.fromLTRB(8, 2, 12, 2),
       child: Row(
         children: [
           GlassIconButton(
             icon: Icons.arrow_back_rounded,
             tooltip: 'Back',
             onTap: onBack,
+            size: 40,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           const Expanded(
             child: Text(
               'Documents',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 26,
+                fontSize: 21,
                 fontWeight: FontWeight.w800,
                 color: AppColors.ink,
-                letterSpacing: -0.6,
+                letterSpacing: -0.4,
               ),
             ),
           ),
@@ -434,6 +435,7 @@ class _TopBar extends StatelessWidget {
             to: Icons.create_new_folder_rounded,
             tooltip: 'New folder',
             onTap: onNewFolder,
+            size: 40,
           ),
         ],
       ),
@@ -451,11 +453,11 @@ class _AddHereTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 5),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.glassBorder),
       ),
       child: Material(
@@ -463,15 +465,15 @@ class _AddHereTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             child: Row(
               children: [
-                const Icon(Icons.add_rounded, size: 18, color: AppColors.accent),
-                const SizedBox(width: 10),
+                const Icon(Icons.add_rounded, size: 17, color: AppColors.accent),
+                const SizedBox(width: 8),
                 const Text(
                   'Add to this folder',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.inkSoft,
                   ),
@@ -516,15 +518,15 @@ class _FolderRow extends StatelessWidget {
       '$itemCount document${itemCount == 1 ? '' : 's'}',
     ];
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 5),
       decoration: BoxDecoration(
         color: expanded
-            ? AppColors.accent.withValues(alpha: 0.07)
-            : Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
+            ? AppColors.accent.withValues(alpha: 0.08)
+            : Colors.white.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: expanded
-              ? AppColors.accent.withValues(alpha: 0.30)
+              ? AppColors.accent.withValues(alpha: 0.32)
               : AppColors.glassBorder,
         ),
       ),
@@ -534,7 +536,7 @@ class _FolderRow extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 4, 10),
+            padding: const EdgeInsets.fromLTRB(6, 6, 4, 6),
             child: Row(
               children: [
                 // Rotating caret — the expand/collapse cue (replaces the arrow).
@@ -542,55 +544,46 @@ class _FolderRow extends StatelessWidget {
                   duration: const Duration(milliseconds: 200),
                   turns: expanded ? 0.25 : 0.0,
                   child: const Icon(Icons.chevron_right_rounded,
-                      color: AppColors.inkSoft),
+                      size: 20, color: AppColors.inkSoft),
                 ),
-                const SizedBox(width: 4),
-                Container(
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Icon(
-                    expanded ? Icons.folder_open_rounded : Icons.folder_rounded,
-                    size: 21,
-                    color: AppColors.accent,
-                  ),
+                const SizedBox(width: 2),
+                Icon(
+                  expanded ? Icons.folder_open_rounded : Icons.folder_rounded,
+                  size: 22,
+                  color: AppColors.accent,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        folder.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: folder.displayName,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        parts.join(' · '),
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.inkFaint,
+                        TextSpan(
+                          text: '   ${parts.join(' · ')}',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.inkFaint,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                IconButton(
-                  onPressed: onAddInside,
-                  icon: const Icon(Icons.add_rounded, size: 22),
+                _RowIconButton(
+                  icon: Icons.add_rounded,
                   color: AppColors.accent,
                   tooltip: 'Add inside',
+                  onTap: onAddInside,
                 ),
                 _RowMenu(
                   items: [
@@ -631,10 +624,10 @@ class _DocRow extends StatelessWidget {
     ].join(' · ');
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 5),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.glassBorder),
       ),
       clipBehavior: Clip.antiAlias,
@@ -643,43 +636,43 @@ class _DocRow extends StatelessWidget {
         child: InkWell(
           onTap: onOpen,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+            padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
             child: Row(
               children: [
                 // The actual document preview — image thumb / PDF first page.
-                DocThumbnail(doc: doc, size: 44),
-                const SizedBox(width: 12),
+                DocThumbnail(doc: doc, size: 36),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        doc.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: doc.name,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        meta,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.inkFaint,
+                        TextSpan(
+                          text: '   $meta',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.inkFaint,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                IconButton(
-                  onPressed: onShare,
-                  icon: const Icon(Icons.ios_share_rounded, size: 20),
+                _RowIconButton(
+                  icon: Icons.ios_share_rounded,
                   color: AppColors.inkSoft,
                   tooltip: 'Share',
+                  onTap: onShare,
                 ),
                 _RowMenu(
                   items: [
@@ -710,6 +703,33 @@ class _MenuAction {
   final bool danger;
 }
 
+/// A compact row action — a small, tight tap target (no 48px IconButton bulk).
+class _RowIconButton extends StatelessWidget {
+  const _RowIconButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.tooltip,
+  });
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = InkResponse(
+      onTap: onTap,
+      radius: 22,
+      child: Padding(
+        padding: const EdgeInsets.all(7),
+        child: Icon(icon, size: 19, color: color),
+      ),
+    );
+    return tooltip == null ? w : Tooltip(message: tooltip!, child: w);
+  }
+}
+
 class _RowMenu extends StatelessWidget {
   const _RowMenu({required this.items});
   final List<_MenuAction> items;
@@ -717,13 +737,16 @@ class _RowMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert_rounded, size: 20),
+      icon: const Icon(Icons.more_vert_rounded, size: 19),
       color: AppColors.card,
+      padding: const EdgeInsets.all(6),
+      splashRadius: 20,
       onSelected: (v) => items.firstWhere((a) => a.value == v).onTap(),
       itemBuilder: (_) => [
         for (final a in items)
           PopupMenuItem(
             value: a.value,
+            height: 44,
             child: _MenuRow(icon: a.icon, label: a.label, danger: a.danger),
           ),
       ],

@@ -144,7 +144,7 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
               const Text(
                 'Add a document',
                 style: TextStyle(
@@ -153,10 +153,10 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                   color: AppColors.ink,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
               _FileTile(file: _file, onTap: _pickFile),
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
 
               const _Label('NAME'),
               const SizedBox(height: 8),
@@ -170,7 +170,7 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                 ),
                 decoration: _fieldDecoration('e.g. Zerodha statement'),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
 
               // Destination folder — a dropdown-style row that opens the folder
               // picker (browse / create), replacing the old category chips.
@@ -190,7 +190,7 @@ class _AddDocumentSheetState extends State<_AddDocumentSheet> {
                 ),
               ],
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 height: 54,

@@ -15,7 +15,6 @@ import '../tasks/presentation/task_details_sheet.dart';
 import 'presentation/collection_page.dart';
 import 'presentation/upcoming_page.dart';
 import 'presentation/widgets/home_dashboard.dart';
-import 'presentation/widgets/quick_access_bar.dart';
 
 /// The Home screen.
 ///
@@ -223,28 +222,17 @@ class _HomePageState extends State<HomePage> {
         onTap: _editTask,
         onSeeAll: _openUpcoming,
       ),
-      // Quick access — the launcher strip ABOVE Browse. Documents today; more
-      // tiles can be added to this row later.
+      // Browse — the launcher to every category's collection page. Documents
+      // now leads this list (first row) instead of a separate strip above.
       AnimatedBuilder(
         animation: _documents,
-        builder: (context, _) => QuickAccessBar(
-          items: [
-            QuickAccessItem(
-              icon: Icons.folder_rounded,
-              label: 'Documents',
-              badge: _documents.totalCount > 0
-                  ? '${_documents.totalCount}'
-                  : null,
-              onTap: _openDocuments,
-            ),
-          ],
+        builder: (context, _) => BrowseGrid(
+          tasks: allTasks,
+          onOpenCategory: _openCollection,
+          onOpenAll: () => _openCollection(null),
+          onOpenDocuments: _openDocuments,
+          documentCount: _documents.totalCount,
         ),
-      ),
-      // Browse — the launcher to every category's collection page.
-      BrowseGrid(
-        tasks: allTasks,
-        onOpenCategory: _openCollection,
-        onOpenAll: () => _openCollection(null),
       ),
     ];
 

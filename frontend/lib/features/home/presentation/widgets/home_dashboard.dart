@@ -2147,6 +2147,8 @@ class BrowseGrid extends StatelessWidget {
     required this.tasks,
     required this.onOpenCategory,
     required this.onOpenAll,
+    required this.onOpenDocuments,
+    this.documentCount = 0,
   });
 
   final List<Task> tasks;
@@ -2156,6 +2158,11 @@ class BrowseGrid extends StatelessWidget {
 
   /// Tap the "All" row → open the full collection.
   final VoidCallback onOpenAll;
+
+  /// Tap the Documents row → open the local documents library. Documents leads
+  /// the Browse list (first row).
+  final VoidCallback onOpenDocuments;
+  final int documentCount;
 
   int _countFor(TaskCategory c) => tasks.where((t) => t.category == c).length;
 
@@ -2199,6 +2206,14 @@ class BrowseGrid extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: [
+              // Documents leads the list — the go-to place for files.
+              _BrowseRow(
+                icon: Icons.folder_rounded,
+                label: 'Documents',
+                count: documentCount,
+                onTap: onOpenDocuments,
+              ),
+              const _BrowseDivider(),
               for (var i = 0; i < live.length; i++) ...[
                 _BrowseRow(
                   icon: live[i].icon,

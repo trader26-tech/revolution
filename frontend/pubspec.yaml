@@ -80,9 +80,15 @@ dependencies:
   # survive even if the original is moved/deleted. Nothing leaves the device.
   path_provider: ^2.1.4
 
-  # Open a LOCAL document file in the phone's native viewer (PDF/image), by
-  # path — no server/signed URL needed since documents live on-device.
+  # Open a LOCAL document file in the phone's native viewer (fallback only —
+  # documents are viewed IN-APP; this is used if the in-app viewer can't render
+  # a format).
   open_filex: ^4.5.0
+
+  # Render PDF pages to images entirely IN-APP (pure-Flutter, iOS+Android), so a
+  # document opens inside the app instead of bouncing to an external viewer.
+  # Also powers the first-page thumbnail on PDF rows.
+  pdfx: ^2.6.0
 
 dev_dependencies:
   flutter_test:

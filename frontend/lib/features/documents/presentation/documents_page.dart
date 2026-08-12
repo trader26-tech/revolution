@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -8,7 +7,9 @@ import '../../../core/widgets/glass.dart';
 import '../data/documents_store.dart';
 import '../domain/document.dart';
 import 'add_document_sheet.dart';
+import 'document_viewer_page.dart';
 import 'folder_name_sheet.dart';
+import 'widgets/doc_thumbnail.dart';
 
 /// The local Documents library — a private, on-device file tree.
 ///
@@ -78,15 +79,12 @@ class _DocumentsPageState extends State<DocumentsPage> {
     });
   }
 
-  Future<void> _open(DocItem doc) async {
+  void _open(DocItem doc) {
     HapticFeedback.selectionClick();
-    final result = await OpenFilex.open(doc.localPath);
-    if (!mounted) return;
-    if (result.type != ResultType.done) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't open this document")),
-      );
-    }
+    // View it IN-APP (image / PDF reader), never bouncing to an external app.
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => DocumentViewerPage(doc: doc)),
+    );
   }
 
   Future<void> _share(DocItem doc) async {
@@ -644,22 +642,8 @@ class _DocRow extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
             child: Row(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Icon(
-                    doc.isPdf
-                        ? Icons.picture_as_pdf_rounded
-                        : Icons.image_rounded,
-                    size: 20,
-                    color: AppColors.accent,
-                  ),
-                ),
+                // The actual document preview — image thumb / PDF first page.
+                DocThumbnail(doc: doc, size: 44),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

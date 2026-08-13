@@ -12,10 +12,12 @@ import 'presentation/collection_page.dart';
 /// The Browse tab — the launcher to every category's collection (General,
 /// Subscriptions, Occasions, SIPs, Policies…) and the local Documents library.
 ///
-/// Vibrancy comes from MOTION, not colour blocks: each destination fades and
-/// rises into place in a gentle stagger when the tab opens, springs on press,
-/// and carries a soft, slowly-breathing accent glow behind its icon. "General"
-/// leads — the open, easy "just remember anything" entry with a note.
+/// Vibrancy comes ENTIRELY from MOTION — every tile shares the one violet
+/// accent (no per-category colour). Each destination fades and rises in on open,
+/// springs on press, and its icon ALWAYS animates: a soft accent ring pulses
+/// outward and the icon gently bobs, phase-shifted per row so motion ripples
+/// down the list and the screen never feels stagnant. "General" leads — the
+/// open, easy "just remember anything" entry with a note.
 class BrowsePage extends StatefulWidget {
   const BrowsePage({super.key, required this.store});
 
@@ -32,9 +34,9 @@ class _BrowsePageState extends State<BrowsePage>
   /// Drives the one-time entrance stagger for the destinations.
   late final AnimationController _intro;
 
-  /// A slow, always-on breath for the accent glows — keeps the page feeling
-  /// alive without ever being busy. Deliberately gentle + low frequency.
-  late final AnimationController _breath;
+  /// A continuous loop driving every icon's pulse ring + bob — so the Browse
+  /// screen always has motion and never feels stagnant.
+  late final AnimationController _pulse;
 
   @override
   void initState() {
@@ -44,16 +46,18 @@ class _BrowsePageState extends State<BrowsePage>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..forward();
-    _breath = AnimationController(
+    // A continuous forward loop (NOT reversing) — each cycle sweeps a pulse
+    // ring outward and bobs the icon, so there is always motion on screen.
+    _pulse = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 2600),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _intro.dispose();
-    _breath.dispose();
+    _pulse.dispose();
     _documents.dispose();
     super.dispose();
   }
@@ -84,10 +88,11 @@ class _BrowsePageState extends State<BrowsePage>
         builder: (context, _) {
           // Build the destination list. "General" leads (the open catch-all),
           // then the tailored categories, then Documents.
+          // ONE colour throughout — the violet accent. Every destination looks
+          // the same; the ONLY differentiation is the icon + label, never hue.
           final destinations = <_Dest>[
             _Dest(
               icon: TaskCategory.other.icon,
-              tint: TaskCategory.other.color,
               label: 'General',
               subtitle: 'Anything you want to remember — with a note.',
               count: _countFor(TaskCategory.other),
@@ -97,7 +102,6 @@ class _BrowsePageState extends State<BrowsePage>
             for (final c in kBrowseCategoriesNoGeneral)
               _Dest(
                 icon: c.icon,
-                tint: c.color,
                 label: c.label,
                 subtitle: _subtitleFor(c),
                 count: _countFor(c),
@@ -105,7 +109,6 @@ class _BrowsePageState extends State<BrowsePage>
               ),
             _Dest(
               icon: Icons.folder_rounded,
-              tint: AppColors.accent,
               label: 'Documents',
               subtitle: 'Your files — policies, receipts, photos.',
               count: _documents.totalCount,
@@ -126,9 +129,9 @@ class _BrowsePageState extends State<BrowsePage>
                   total: destinations.length,
                   child: _DestTile(
                     dest: destinations[i],
-                    breath: _breath,
-                    // Offset each glow's breath phase so they don't pulse in
-                    // lockstep — reads as organic, not a metronome.
+                    pulse: _pulse,
+                    // Offset each row's pulse phase so the motion ripples down
+                    // the list instead of firing in unison.
                     phase: i / destinations.length,
                   ),
                 ),
@@ -179,11 +182,10 @@ class _BrowsePageState extends State<BrowsePage>
       };
 }
 
-/// A destination’s data.
+/// A destination’s data. No colour here — every tile uses the one accent.
 class _Dest {
   const _Dest({
     required this.icon,
-    required this.tint,
     required this.label,
     required this.subtitle,
     required this.count,
@@ -191,7 +193,6 @@ class _Dest {
     this.highlight = false,
   });
   final IconData icon;
-  final Color tint;
   final String label;
   final String subtitle;
   final int count;
@@ -240,17 +241,17 @@ class _StaggerIn extends StatelessWidget {
   }
 }
 
-/// One destination row: a breathing accent glow behind its icon, the label +
-/// subtitle, a count, and a chevron. Springs on press.
+/// One destination row: an always-animating accent icon, the label + subtitle,
+/// a count, and a chevron. Springs on press.
 class _DestTile extends StatefulWidget {
   const _DestTile({
     required this.dest,
-    required this.breath,
+    required this.pulse,
     required this.phase,
   });
 
   final _Dest dest;
-  final AnimationController breath;
+  final AnimationController pulse;
   final double phase;
 
   @override
@@ -281,22 +282,21 @@ class _DestTileState extends State<_DestTile> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             color: d.highlight
-                ? d.tint.withValues(alpha: 0.10)
+                ? AppColors.accent.withValues(alpha: 0.10)
                 : AppColors.card.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: d.highlight
-                  ? d.tint.withValues(alpha: 0.32)
+                  ? AppColors.accent.withValues(alpha: 0.32)
                   : AppColors.cardBorder,
             ),
           ),
           child: Row(
             children: [
-              // The breathing icon chip.
-              _BreathingIcon(
+              // The always-animating icon — the same accent for every tile.
+              _LiveIcon(
                 icon: d.icon,
-                tint: d.tint,
-                breath: widget.breath,
+                pulse: widget.pulse,
                 phase: widget.phase,
               ),
               const SizedBox(width: 14),
@@ -336,7 +336,8 @@ class _DestTileState extends State<_DestTile> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: count == 0 ? AppColors.inkFaint : d.tint,
+                  color:
+                      count == 0 ? AppColors.inkFaint : AppColors.accent,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
@@ -351,49 +352,107 @@ class _DestTileState extends State<_DestTile> {
   }
 }
 
-/// The icon chip with a soft accent glow that slowly breathes (swells and
-/// fades) — the source of the page's quiet, ambient life.
-class _BreathingIcon extends StatelessWidget {
-  const _BreathingIcon({
+/// The always-on animated icon chip — the whole point of the redesign: the
+/// Browse screen must NEVER feel stagnant. Every icon continuously:
+///   • gently bobs up and down,
+///   • emits a soft accent RING that expands and fades outward (a steady
+///     "pulse" that says "tap me — add something"),
+/// all in the single violet accent (no per-category colour). Each row's motion
+/// is phase-shifted so the pulses ripple down the list instead of firing in
+/// unison — the screen always has something moving somewhere.
+class _LiveIcon extends StatelessWidget {
+  const _LiveIcon({
     required this.icon,
-    required this.tint,
-    required this.breath,
+    required this.pulse,
     required this.phase,
   });
 
   final IconData icon;
-  final Color tint;
-  final AnimationController breath;
-  final double phase;
+  final AnimationController pulse; // continuous 0→1 loop
+  final double phase; // 0..1 offset so rows don't move in lockstep
+
+  static const _accent = AppColors.accent;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: breath,
+      animation: pulse,
       builder: (context, _) {
-        // A phase-shifted 0→1→0 breath. Kept shallow so it's felt, not watched.
-        final v = ((breath.value + phase) % 1.0);
-        final b = (0.5 - (v - 0.5).abs()) * 2; // triangle 0→1→0
-        final glow = 0.35 + 0.25 * b;
-        return Container(
+        // A single continuous 0→1 phase for this row.
+        final p = (pulse.value + phase) % 1.0;
+        // Expanding ring: grows 1.0→1.7 and fades as it goes.
+        final ringT = Curves.easeOut.transform(p);
+        final ringScale = 1.0 + 0.7 * ringT;
+        final ringOpacity = (1 - ringT) * 0.5;
+        // A gentle vertical bob on a full sine, so it never stalls.
+        final bob = -2.2 * _sin01(p);
+        // A soft glow that swells with the ring's start.
+        final glow = 0.3 + 0.3 * (1 - ringT);
+
+        return SizedBox(
           width: 48,
           height: 48,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: tint.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: tint.withValues(alpha: 0.32)),
-            boxShadow: [
-              BoxShadow(
-                color: tint.withValues(alpha: 0.28 * glow),
-                blurRadius: 16 * glow,
-                spreadRadius: 1,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // The expanding, fading pulse ring.
+              Opacity(
+                opacity: ringOpacity.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: ringScale,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _accent.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // The icon chip itself, gently bobbing.
+              Transform.translate(
+                offset: Offset(0, bob),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _accent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(14),
+                    border:
+                        Border.all(color: _accent.withValues(alpha: 0.34)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _accent.withValues(alpha: 0.30 * glow),
+                        blurRadius: 14 * glow,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: _accent, size: 22),
+                ),
               ),
             ],
           ),
-          child: Icon(icon, color: tint, size: 23),
         );
       },
     );
+  }
+
+  /// 0→1→0 over p∈[0,1] (a raised sine), for the gentle bob.
+  static double _sin01(double p) {
+    // sin(pi * p) → 0 at ends, 1 at middle.
+    final s = p <= 0 || p >= 1 ? 0.0 : _fastSin(3.14159265 * p);
+    return s;
+  }
+
+  static double _fastSin(double x) {
+    // Good-enough sine on [0, pi] via a parabola (Bhaskara) — no dart:math dep.
+    final t = x / 3.14159265; // 0..1
+    return 4 * t * (1 - t);
   }
 }

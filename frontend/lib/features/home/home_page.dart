@@ -209,12 +209,23 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Everything due TODAY, unfinished — the home bubbles. Soonest first.
+  /// Everything due TODAY, still ACTIVE (not done) — the home bubbles. Soonest
+  /// first.
   List<Task> _dueToday(List<Task> all) {
     final today = _dayOf(DateTime.now());
     return all
         .where((t) =>
             t.isScheduled && !t.done && _dayOf(t.dueAt!) == today)
+        .toList()
+      ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
+  }
+
+  /// Everything due TODAY the user has already marked DONE — shown in the
+  /// "Done today" section, each restorable (mark undone).
+  List<Task> _doneToday(List<Task> all) {
+    final today = _dayOf(DateTime.now());
+    return all
+        .where((t) => t.isScheduled && t.done && _dayOf(t.dueAt!) == today)
         .toList()
       ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
   }
@@ -259,10 +270,10 @@ class _HomePageState extends State<HomePage> {
         replayTick: _replay,
         greeting: _greeting(displayName),
         tasks: _dueToday(allTasks),
+        doneTasks: _doneToday(allTasks),
         lineFor: (t) => _aiLines[t.id],
         onOpen: _editTask,
-        onComplete: (t) => widget.store.toggleDone(t),
-        onUndo: (t) => widget.store.toggleDone(t),
+        onToggle: (t) => widget.store.toggleDone(t),
       ),
     ];
 

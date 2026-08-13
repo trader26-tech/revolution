@@ -23,10 +23,10 @@ class TodayBubbles extends StatefulWidget {
     required this.replayTick,
     required this.greeting,
     required this.tasks,
+    required this.doneTasks,
     required this.lineFor,
     required this.onOpen,
-    required this.onComplete,
-    required this.onUndo,
+    required this.onToggle,
   });
 
   /// Bumped by the parent whenever Home becomes visible again — a change here
@@ -40,17 +40,20 @@ class TodayBubbles extends StatefulWidget {
   /// The top line Revo says — "Good evening, Sanjeev".
   final String greeting;
 
-  /// Everything due today, unfinished — soonest first.
+  /// Everything due today, still ACTIVE (not done) — soonest first. These are
+  /// the reminders that get conjured word-by-word.
   final List<Task> tasks;
+
+  /// Everything due today the user has already marked DONE — shown in the
+  /// "Done today" section, each tappable to bring it back.
+  final List<Task> doneTasks;
 
   /// Tap a settled line → open its edit form.
   final ValueChanged<Task> onOpen;
 
-  /// Tick a line → mark it done. Called AFTER the pop-away animation.
-  final ValueChanged<Task> onComplete;
-
-  /// Undo a just-completed task (from the toast).
-  final ValueChanged<Task> onUndo;
+  /// Toggle a task's done state (done ↔ undone). Persists to Supabase; the
+  /// store rebuild then moves the task between the active and done groups.
+  final ValueChanged<Task> onToggle;
 
   @override
   State<TodayBubbles> createState() => _TodayBubblesState();
@@ -78,15 +81,16 @@ class _TodayBubblesState extends State<TodayBubbles>
   static const _itemGapMs = 260;
   static const _itemStrideMs = _itemRevealMs + _itemGapMs;
 
-  /// Reminders the user ticked away this session — removed with an exit anim.
-  final Set<String> _dismissed = {};
+  /// Whether the "Done today" section is expanded. Collapsed by default so
+  /// finished items don't compete with what's still to do.
+  bool _doneOpen = false;
 
-  List<Task> get _visible =>
-      widget.tasks.where((t) => !_dismissed.contains(t.id)).toList();
+  List<Task> get _active => widget.tasks;
+  List<Task> get _done => widget.doneTasks;
 
   int get _totalMs =>
       _firstItemMs +
-      (widget.tasks.isEmpty ? 0 : (widget.tasks.length - 1) * _itemStrideMs) +
+      (_active.isEmpty ? 0 : (_active.length - 1) * _itemStrideMs) +
       _itemRevealMs;
 
   double get _ms => _run.value * _totalMs;
@@ -107,7 +111,6 @@ class _TodayBubblesState extends State<TodayBubbles>
     super.didUpdateWidget(old);
     // Home became visible again → conjure it all over, from empty.
     if (widget.replayTick != old.replayTick) {
-      _dismissed.clear();
       _run.duration = Duration(milliseconds: _totalMs);
       _run.forward(from: 0);
     }
@@ -127,10 +130,14 @@ class _TodayBubblesState extends State<TodayBubbles>
   /// a full stride after the previous, so they never overlap.
   num _itemStart(int i) => _firstItemMs + i * _itemStrideMs;
 
-  void _dismiss(Task task) {
+  /// Tick an active reminder → mark it done. The store flips `done` + persists
+  /// to Supabase; on the rebuild the task moves out of [tasks] into [doneTasks]
+  /// and slides into the "Done today" section below. A toast offers a quick undo
+  /// for the fat-finger case, but it's no longer the ONLY way back — the Done
+  /// section is always there.
+  void _complete(Task task) {
     HapticFeedback.mediumImpact();
-    setState(() => _dismissed.add(task.id));
-    widget.onComplete(task);
+    widget.onToggle(task);
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
     messenger.showSnackBar(
@@ -166,12 +173,17 @@ class _TodayBubblesState extends State<TodayBubbles>
           textColor: AppColors.accent,
           onPressed: () {
             if (!mounted) return;
-            setState(() => _dismissed.remove(task.id));
-            widget.onUndo(task);
+            widget.onToggle(task); // flip back to active
           },
         ),
       ),
     );
+  }
+
+  /// Tap a done item's check → bring it back to active (mark undone). Persists.
+  void _restore(Task task) {
+    HapticFeedback.selectionClick();
+    widget.onToggle(task);
   }
 
   @override
@@ -179,7 +191,8 @@ class _TodayBubblesState extends State<TodayBubbles>
     return AnimatedBuilder(
       animation: _run,
       builder: (context, _) {
-        final visible = _visible;
+        final active = _active;
+        final done = _done;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -213,27 +226,224 @@ class _TodayBubblesState extends State<TodayBubbles>
             ),
             const SizedBox(height: 22),
 
-            // ── The reminders — conjured ONE AT A TIME, then a clean list ──
-            if (visible.isEmpty)
+            // ── Active reminders — conjured ONE AT A TIME ──
+            if (active.isEmpty)
               Opacity(
                 opacity: _win(_greetEndMs, _greetEndMs + 500),
-                child: const _AllClearLine(),
+                child: _AllClearLine(allDone: done.isNotEmpty),
               )
             else
-              for (var i = 0; i < visible.length; i++)
+              for (var i = 0; i < active.length; i++)
                 _ConjuredLine(
-                  key: ValueKey(visible[i].id),
-                  task: visible[i],
-                  sentence: sentenceFor(visible[i], widget.lineFor(visible[i])),
+                  key: ValueKey(active[i].id),
+                  task: active[i],
+                  sentence: sentenceFor(active[i], widget.lineFor(active[i])),
                   // This line's own 0→1 materialise window. Sequential: line i
                   // only starts once line i-1's window has closed.
                   progress: _win(_itemStart(i), _itemStart(i) + _itemRevealMs),
-                  onTap: () => widget.onOpen(visible[i]),
-                  onDone: () => _dismiss(visible[i]),
+                  onTap: () => widget.onOpen(active[i]),
+                  onDone: () => _complete(active[i]),
                 ),
+
+            // ── "Done today" — everything you've ticked, tap to bring back ──
+            if (done.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _DoneSection(
+                tasks: done,
+                open: _doneOpen,
+                onToggleOpen: () => setState(() => _doneOpen = !_doneOpen),
+                onRestore: _restore,
+                onOpen: widget.onOpen,
+              ),
+            ],
           ],
         );
       },
+    );
+  }
+}
+
+/// The "Done today" group — a tappable header with a count, and (when open) the
+/// finished reminders, each struck-through with a filled check you tap to bring
+/// it back to active. The list expands/collapses with a smooth size+fade so it
+/// never feels like content pops in.
+class _DoneSection extends StatelessWidget {
+  const _DoneSection({
+    required this.tasks,
+    required this.open,
+    required this.onToggleOpen,
+    required this.onRestore,
+    required this.onOpen,
+  });
+
+  final List<Task> tasks;
+  final bool open;
+  final VoidCallback onToggleOpen;
+  final ValueChanged<Task> onRestore;
+  final ValueChanged<Task> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header row — "Done today · N", with a rotating chevron.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onToggleOpen,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded,
+                        size: 18, color: AppColors.accent),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Done today',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${tasks.length}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    AnimatedRotation(
+                      turns: open ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 220),
+                      child: const Icon(Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.inkFaint),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        // The items — animated open/closed.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: AnimatedOpacity(
+            opacity: open ? 1 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: open
+                ? Column(
+                    children: [
+                      const SizedBox(height: 2),
+                      for (final t in tasks)
+                        _DoneLine(
+                          key: ValueKey('done-${t.id}'),
+                          task: t,
+                          onRestore: () => onRestore(t),
+                          onTap: () => onOpen(t),
+                        ),
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One finished reminder: its name struck through and dimmed, with a FILLED
+/// check on the right. Tapping the check restores it (marks undone); tapping the
+/// row opens it. Reads as clearly "handled" without shouting.
+class _DoneLine extends StatelessWidget {
+  const _DoneLine({
+    super.key,
+    required this.task,
+    required this.onRestore,
+    required this.onTap,
+  });
+
+  final Task task;
+  final VoidCallback onRestore;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = task.category.color;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 16, 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            child: Row(
+              children: [
+                Opacity(
+                  opacity: 0.5,
+                  child: _LineIcon(task: task, tint: tint),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    task.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkFaint,
+                      decoration: TextDecoration.lineThrough,
+                      decorationColor: AppColors.inkFaint,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Filled check — tap to restore (mark undone). Tooltip spells it
+                // out so the affordance is unmistakable.
+                Tooltip(
+                  message: 'Mark as not done',
+                  child: GestureDetector(
+                    onTap: onRestore,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: tint,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.check_rounded,
+                          size: 17, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -486,7 +696,11 @@ class _LineIcon extends StatelessWidget {
 /// The "nothing due" line — shown when today is clear (there may still be
 /// upcoming items below, so this isn't the whole-app empty state).
 class _AllClearLine extends StatelessWidget {
-  const _AllClearLine();
+  const _AllClearLine({this.allDone = false});
+
+  /// True when the list is empty because everything was TICKED (vs. nothing was
+  /// due at all) — so the message can celebrate rather than say "nothing here".
+  final bool allDone;
 
   @override
   Widget build(BuildContext context) {
@@ -506,10 +720,12 @@ class _AllClearLine extends StatelessWidget {
                 color: AppColors.accent, size: 21),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Nothing due today — enjoy the calm.',
-              style: TextStyle(
+              allDone
+                  ? 'All done for today — nicely handled.'
+                  : 'Nothing due today — enjoy the calm.',
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: AppColors.ink,

@@ -11,12 +11,14 @@ import '../../tasks/domain/task.dart';
 import 'widgets/add_scaffold.dart';
 
 /// The Policies form — a savings/endowment plan has TWO halves:
-///   • what you PAY   — a premium, monthly or yearly, until maturity, and
-///   • what you GET   — a return amount, at a maturity date, paid a certain way.
+///   • what you PAY   — a premium, on any cadence (every N months / years), and
+///   • what you GET   — a return, either a lump sum or amortized into a stream
+///     of equal payouts (a monthly pension / an annual payout).
 ///
-/// The form makes the trade legible: as you fill it, a live summary card shows
-/// what you'll have paid in by maturity and the net gain on top — so you see
-/// the whole deal at a glance, not just the numbers in isolation.
+/// The form is deliberately GRADUAL: it opens as just a name, and reveals the
+/// pay / get sections only as the earlier fields fill in — so it never reads as
+/// a wall of inputs. A single compact "deal" strip shows the net at a glance,
+/// instead of a large summary card.
 ///
 /// Like insurance it can attach the policy document, so it OWNS its save
 /// (create the task → upload the doc → pop true). Returns true if it created
@@ -38,10 +40,18 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
 
   final _name = TextEditingController();
   final _premium = TextEditingController();
-  final _return = TextEditingController();
 
-  /// Premium cadence — a savings plan is usually paid monthly or yearly.
-  RepeatCadence _cycle = RepeatCadence.yearly;
+  // Return side: for a lump sum we fill [_returnTotal]; for an amortized payout
+  // (pension / annual) we fill [_perPayout] and the payout count instead.
+  final _returnTotal = TextEditingController();
+  final _perPayout = TextEditingController();
+
+  /// Premium cadence: a unit (months / years) …
+  RepeatCadence _cycle = RepeatCadence.monthly;
+
+  /// … and an interval — "every N units". 1 = every month / year, 2 = every
+  /// two months, 3 (months) = quarterly, and so on. Max fidelity, no presets.
+  int _every = 1;
 
   /// When the policy matures — the day the return arrives / starts.
   DateTime _maturity = DateTime(DateTime.now().year + 10, DateTime.now().month,
@@ -49,11 +59,20 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
 
   PayoutMethod _payout = PayoutMethod.lumpSum;
 
+  /// For an amortized payout: how many installments there are.
+  int _payoutCount = 12;
+
   PlatformFile? _doc;
   bool _saving = false;
 
   bool get _isEdit => widget.editTask != null;
   bool get _valid => _name.text.trim().isNotEmpty;
+
+  bool get _isAmortized => _payout != PayoutMethod.lumpSum;
+
+  /// Progressive reveal — a section only appears once the prior one is started.
+  bool get _showPay => _name.text.trim().isNotEmpty;
+  bool get _showGet => _showPay && _premium.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -62,24 +81,32 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
     if (t != null) {
       _name.text = t.title;
       if (t.amount != null) _premium.text = _trim(t.amount!);
-      if (t.returnAmount != null) _return.text = _trim(t.returnAmount!);
       if (t.repeat == RepeatCadence.monthly ||
           t.repeat == RepeatCadence.yearly) {
         _cycle = t.repeat;
       }
+      if (t.repeatTimes > 1) _every = t.repeatTimes;
       if (t.maturityAt != null) _maturity = t.maturityAt!;
       if (t.payoutMethod != null) _payout = t.payoutMethod!;
+      if (t.payoutAmount != null) {
+        _perPayout.text = _trim(t.payoutAmount!);
+        if (t.payoutCount != null) _payoutCount = t.payoutCount!;
+      } else if (t.returnAmount != null) {
+        _returnTotal.text = _trim(t.returnAmount!);
+      }
     }
     _name.addListener(() => setState(() {}));
     _premium.addListener(() => setState(() {}));
-    _return.addListener(() => setState(() {}));
+    _returnTotal.addListener(() => setState(() {}));
+    _perPayout.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _name.dispose();
     _premium.dispose();
-    _return.dispose();
+    _returnTotal.dispose();
+    _perPayout.dispose();
     super.dispose();
   }
 
@@ -88,6 +115,17 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
 
   static String _trim(double v) =>
       v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  /// The total return, resolved from whichever side the user is filling:
+  /// per-payout × count for an amortized plan, else the lump-sum total.
+  double? get _resolvedReturn {
+    if (_isAmortized) {
+      final per = _num(_perPayout);
+      if (per == null) return null;
+      return per * _payoutCount;
+    }
+    return _num(_returnTotal);
+  }
 
   Future<void> _pickDocument() async {
     final result = await FilePicker.platform.pickFiles(
@@ -111,16 +149,19 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
     if (picked != null) setState(() => _maturity = picked);
   }
 
-  /// A live [Task] built from the current inputs — drives the summary preview
+  /// A live [Task] built from the current inputs — drives the compact deal strip
   /// (premiumPeriods / totalPaidIn / netGain all live on Task).
   Task get _preview => Task(
         id: 'preview',
         title: _name.text,
         amount: _num(_premium),
         repeat: _cycle,
-        returnAmount: _num(_return),
+        repeatTimes: _every,
+        returnAmount: _resolvedReturn,
         maturityAt: _maturity,
         payoutMethod: _payout,
+        payoutAmount: _isAmortized ? _num(_perPayout) : null,
+        payoutCount: _isAmortized ? _payoutCount : null,
       );
 
   Future<void> _save() async {
@@ -128,7 +169,9 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
     setState(() => _saving = true);
     try {
       final premium = _num(_premium);
-      final ret = _num(_return);
+      final ret = _resolvedReturn;
+      final perPayout = _isAmortized ? _num(_perPayout) : null;
+      final count = _isAmortized ? _payoutCount : null;
 
       if (_isEdit) {
         // Editing: patch the existing task in place.
@@ -137,11 +180,16 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
           amount: premium,
           clearAmount: premium == null,
           repeat: _cycle,
+          repeatTimes: _every,
           dueAt: _maturity, // the reminder fires as maturity approaches
           returnAmount: ret,
           clearReturnAmount: ret == null,
           maturityAt: _maturity,
           payoutMethod: _payout,
+          payoutAmount: perPayout,
+          clearPayoutAmount: perPayout == null,
+          payoutCount: count,
+          clearPayoutCount: count == null,
           category: TaskCategory.policies,
         );
         widget.store.update(updated);
@@ -154,12 +202,15 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
         _name.text.trim(),
         dueAt: _maturity,
         repeat: _cycle,
+        repeatTimes: _every,
         amount: premium,
         currency: 'INR',
         category: 'policies',
         returnAmount: ret,
         maturityAt: _maturity,
         payoutMethod: _payout,
+        payoutAmount: perPayout,
+        payoutCount: count,
       );
       final doc = _doc;
       if (doc != null && doc.bytes != null) {
@@ -191,7 +242,7 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
       onSave: _save,
       saveLabel: _saving ? 'Saving…' : (_isEdit ? 'Save' : 'Add'),
       children: [
-        // ── Name ──
+        // ── Name (always shown) ──
         const AddFieldLabel('POLICY NAME'),
         const SizedBox(height: 10),
         AddTextField(
@@ -200,80 +251,140 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
           accent: _accent,
           textCapitalization: TextCapitalization.sentences,
         ),
-        const SizedBox(height: 24),
 
-        // ── What you PAY ──
-        _SectionHeader(
-          icon: Icons.north_east_rounded,
-          label: 'What you pay',
-          accent: _accent,
+        // ── What you PAY (revealed once a name is typed) ──
+        _Reveal(
+          shown: _showPay,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 24),
+              _SectionHeader(
+                icon: Icons.north_east_rounded,
+                label: 'What you pay',
+                accent: _accent,
+              ),
+              const SizedBox(height: 12),
+              const AddFieldLabel('PREMIUM'),
+              const SizedBox(height: 10),
+              AddTextField(
+                controller: _premium,
+                hint: '25000',
+                accent: _accent,
+                prefix: '₹',
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
+              ),
+              const SizedBox(height: 14),
+              // "Every N months / years" — arbitrary cadence, max fidelity.
+              _CadencePicker(
+                every: _every,
+                unit: _cycle,
+                accent: _accent,
+                onEveryChanged: (n) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _every = n);
+                },
+                onUnitChanged: (u) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _cycle = u);
+                },
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        const AddFieldLabel('PREMIUM'),
-        const SizedBox(height: 10),
-        AddTextField(
-          controller: _premium,
-          hint: '25000',
-          accent: _accent,
-          prefix: '₹',
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-          ],
-        ),
-        const SizedBox(height: 14),
-        // Monthly vs yearly — the two cadences a plan is ever paid on.
-        _CadenceToggle(
-          value: _cycle,
-          accent: _accent,
-          onChanged: (c) {
-            HapticFeedback.selectionClick();
-            setState(() => _cycle = c);
-          },
-        ),
-        const SizedBox(height: 24),
 
-        // ── What you GET ──
-        _SectionHeader(
-          icon: Icons.south_west_rounded,
-          label: 'What you get back',
-          accent: _accent,
-        ),
-        const SizedBox(height: 12),
-        const AddFieldLabel('RETURN AMOUNT'),
-        const SizedBox(height: 10),
-        AddTextField(
-          controller: _return,
-          hint: '1000000',
-          accent: _accent,
-          prefix: '₹',
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-          ],
-        ),
-        const SizedBox(height: 22),
-        const AddFieldLabel('MATURITY DATE'),
-        const SizedBox(height: 10),
-        AddDateField(date: _maturity, accent: _accent, onTap: _pickMaturity),
-        const SizedBox(height: 22),
-        const AddFieldLabel('HOW YOU GET IT'),
-        const SizedBox(height: 10),
-        _PayoutChips(
-          value: _payout,
-          accent: _accent,
-          onChanged: (p) {
-            HapticFeedback.selectionClick();
-            setState(() => _payout = p);
-          },
-        ),
-        const SizedBox(height: 24),
+        // ── What you GET (revealed once a premium is typed) ──
+        _Reveal(
+          shown: _showGet,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 24),
+              _SectionHeader(
+                icon: Icons.south_west_rounded,
+                label: 'What you get back',
+                accent: _accent,
+              ),
+              const SizedBox(height: 12),
+              const AddFieldLabel('HOW IT PAYS OUT'),
+              const SizedBox(height: 10),
+              _PayoutChips(
+                value: _payout,
+                accent: _accent,
+                onChanged: (p) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _payout = p);
+                },
+              ),
+              const SizedBox(height: 20),
 
-        // ── The live deal summary ──
-        _DealSummary(task: _preview, cycle: _cycle, accent: _accent),
-        const SizedBox(height: 24),
+              // Lump sum → one total. Amortized → per-payout × count.
+              if (_isAmortized) ...[
+                AddFieldLabel(_payout == PayoutMethod.monthlyPension
+                    ? 'AMOUNT PER MONTH'
+                    : 'AMOUNT PER YEAR'),
+                const SizedBox(height: 10),
+                AddTextField(
+                  controller: _perPayout,
+                  hint: '5000',
+                  accent: _accent,
+                  prefix: '₹',
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                AddFieldLabel(_payout == PayoutMethod.monthlyPension
+                    ? 'FOR HOW MANY MONTHS'
+                    : 'FOR HOW MANY YEARS'),
+                const SizedBox(height: 10),
+                _CountStepper(
+                  value: _payoutCount,
+                  accent: _accent,
+                  suffix:
+                      _payout == PayoutMethod.monthlyPension ? 'months' : 'years',
+                  onChanged: (n) {
+                    HapticFeedback.selectionClick();
+                    setState(() => _payoutCount = n);
+                  },
+                ),
+              ] else ...[
+                const AddFieldLabel('RETURN AMOUNT'),
+                const SizedBox(height: 10),
+                AddTextField(
+                  controller: _returnTotal,
+                  hint: '1000000',
+                  accent: _accent,
+                  prefix: '₹',
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                  ],
+                ),
+              ],
 
-        // ── Optional document ──
+              const SizedBox(height: 22),
+              const AddFieldLabel('MATURITY DATE'),
+              const SizedBox(height: 10),
+              AddDateField(
+                  date: _maturity, accent: _accent, onTap: _pickMaturity),
+
+              const SizedBox(height: 20),
+              // The compact deal strip — net at a glance, not a giant card.
+              _DealStrip(task: _preview, cycle: _cycle, accent: _accent),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 24),
+        // ── Optional document (always available) ──
         const AddFieldLabel('POLICY DOCUMENT  (optional)'),
         const SizedBox(height: 10),
         _DocumentCard(
@@ -288,14 +399,37 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
   }
 }
 
-// ── The live "deal" card — the heart of this form ────────────────────────────
+// ── Progressive-reveal wrapper ───────────────────────────────────────────────
 
-/// Shows the trade at a glance: total you'll pay in by maturity, the return,
-/// and the net gain on top — computed live from the current inputs. Only the
-/// rows we can actually compute are shown, so a half-filled form still reads
-/// cleanly instead of showing "—" everywhere.
-class _DealSummary extends StatelessWidget {
-  const _DealSummary({
+/// Fades + slides a section into view once [shown] flips true. Keeps the form
+/// feeling light: fields appear as they become relevant instead of all at once.
+class _Reveal extends StatelessWidget {
+  const _Reveal({required this.shown, required this.child});
+  final bool shown;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 220),
+        opacity: shown ? 1 : 0,
+        child: shown ? child : const SizedBox(width: double.infinity),
+      ),
+    );
+  }
+}
+
+// ── The compact "deal" strip ─────────────────────────────────────────────────
+
+/// A single-line-ish strip showing the trade: total paid in vs. return, and the
+/// net gain. Far lighter than a full summary card — it stays quiet until the
+/// numbers exist, then shows only the rows we can actually compute.
+class _DealStrip extends StatelessWidget {
+  const _DealStrip({
     required this.task,
     required this.cycle,
     required this.accent,
@@ -306,11 +440,9 @@ class _DealSummary extends StatelessWidget {
   final Color accent;
 
   String _money(double v) {
-    // Compact Indian-style grouping without a locale dep: just group and prefix.
     final whole = v.round();
     final s = whole.abs().toString();
     final buf = StringBuffer();
-    // Last 3 digits, then groups of 2 (1,00,000 style).
     final rev = s.split('').reversed.toList();
     for (var i = 0; i < rev.length; i++) {
       if (i == 3 || (i > 3 && (i - 3) % 2 == 0)) buf.write(',');
@@ -322,37 +454,13 @@ class _DealSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final periods = task.premiumPeriods;
     final paid = task.totalPaidIn;
-    final gain = task.netGain;
     final ret = task.returnAmount;
+    final gain = task.netGain;
 
-    // Nothing to show yet — keep the form quiet until there's a real figure.
+    // Not enough yet — one quiet hint line.
     if (paid == null && ret == null) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.insights_rounded, size: 20, color: AppColors.inkFaint),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'Fill in the premium and return to see the whole deal.',
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.3,
-                  color: AppColors.inkSoft,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+      return _hint('Fill in the return to see the net of this deal.');
     }
 
     final gainPositive = (gain ?? 0) >= 0;
@@ -360,59 +468,38 @@ class _DealSummary extends StatelessWidget {
         gainPositive ? const Color(0xFF4ADE80) : const Color(0xFFF87171);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            accent.withValues(alpha: 0.16),
+            accent.withValues(alpha: 0.14),
             accent.withValues(alpha: 0.05),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accent.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.32)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.account_balance_rounded, size: 18, color: accent),
-              const SizedBox(width: 8),
-              Text(
-                'THE DEAL',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
-                  color: accent,
+              if (paid != null)
+                Expanded(
+                  child: _miniStat('You pay in', _money(paid), AppColors.ink),
                 ),
-              ),
+              if (ret != null)
+                Expanded(
+                  child: _miniStat('You get back', _money(ret), AppColors.ink),
+                ),
             ],
           ),
-          const SizedBox(height: 14),
-          if (paid != null)
-            _SummaryRow(
-              label: periods != null
-                  ? 'You pay in ($periods ${cycle == RepeatCadence.monthly ? "months" : "years"})'
-                  : 'You pay in',
-              value: _money(paid),
-              valueColor: AppColors.ink,
-            ),
-          if (ret != null) ...[
-            const SizedBox(height: 10),
-            _SummaryRow(
-              label: 'You get back',
-              value: _money(ret),
-              valueColor: AppColors.ink,
-            ),
-          ],
           if (gain != null) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Divider(height: 1, color: AppColors.hairline),
-            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: AppColors.hairline),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -422,14 +509,14 @@ class _DealSummary extends StatelessWidget {
                       gainPositive
                           ? Icons.trending_up_rounded
                           : Icons.trending_down_rounded,
-                      size: 18,
+                      size: 17,
                       color: gainColor,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       gainPositive ? 'Net gain' : 'Net cost',
                       style: const TextStyle(
-                        fontSize: 14.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppColors.ink,
                       ),
@@ -439,7 +526,7 @@ class _DealSummary extends StatelessWidget {
                 Text(
                   _money(gain.abs()),
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w900,
                     color: gainColor,
                     fontFeatures: const [FontFeature.tabularFigures()],
@@ -448,59 +535,61 @@ class _DealSummary extends StatelessWidget {
               ],
             ),
           ],
-          const SizedBox(height: 12),
-          Text(
-            task.payoutMethod?.blurb ?? '',
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.3,
-              color: AppColors.inkSoft,
-            ),
-          ),
         ],
       ),
     );
   }
-}
 
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    required this.valueColor,
-  });
-  final String label;
-  final String value;
-  final Color valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _miniStat(String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Flexible(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.inkSoft,
-            ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.inkSoft,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(height: 3),
         Text(
           value,
           style: TextStyle(
-            fontSize: 15.5,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: valueColor,
+            color: color,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _hint(String text) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.insights_rounded, size: 18, color: AppColors.inkFaint),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.3,
+                color: AppColors.inkSoft,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -546,52 +635,205 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ── Monthly / Yearly premium toggle ──────────────────────────────────────────
+// ── Premium cadence: "every [N] [months / years]" ────────────────────────────
 
-class _CadenceToggle extends StatelessWidget {
-  const _CadenceToggle({
+/// A stepper for the interval N plus a two-way unit toggle. Together they cover
+/// every real cadence — monthly, bi-monthly, quarterly (every 3 months),
+/// half-yearly (every 6 months), yearly, every 2 years — with no fixed presets.
+class _CadencePicker extends StatelessWidget {
+  const _CadencePicker({
+    required this.every,
+    required this.unit,
+    required this.accent,
+    required this.onEveryChanged,
+    required this.onUnitChanged,
+  });
+
+  final int every;
+  final RepeatCadence unit;
+  final Color accent;
+  final ValueChanged<int> onEveryChanged;
+  final ValueChanged<RepeatCadence> onUnitChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final unitWord = unit == RepeatCadence.monthly ? 'month' : 'year';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Every',
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkSoft,
+              ),
+            ),
+            const SizedBox(width: 12),
+            _Stepper(
+              value: every,
+              min: 1,
+              max: 24,
+              accent: accent,
+              onChanged: onEveryChanged,
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                every == 1 ? unitWord : '${unitWord}s',
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            for (final u in const [RepeatCadence.monthly, RepeatCadence.yearly])
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => onUnitChanged(u),
+                  child: Container(
+                    margin: EdgeInsets.only(
+                        right: u == RepeatCadence.monthly ? 10 : 0),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: u == unit
+                          ? accent
+                          : Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(
+                        color: u == unit ? accent : AppColors.cardBorder,
+                        width: u == unit ? 1.6 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      u == RepeatCadence.monthly ? 'Months' : 'Years',
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: u == unit ? Colors.white : AppColors.inkSoft,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ── A generic − N + stepper pill ─────────────────────────────────────────────
+
+class _Stepper extends StatelessWidget {
+  const _Stepper({
     required this.value,
+    required this.min,
+    required this.max,
     required this.accent,
     required this.onChanged,
   });
-  final RepeatCadence value;
+
+  final int value;
+  final int min;
+  final int max;
   final Color accent;
-  final ValueChanged<RepeatCadence> onChanged;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _btn(Icons.remove_rounded, value > min,
+              () => onChanged((value - 1).clamp(min, max))),
+          SizedBox(
+            width: 40,
+            child: Text(
+              '$value',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          _btn(Icons.add_rounded, value < max,
+              () => onChanged((value + 1).clamp(min, max))),
+        ],
+      ),
+    );
+  }
+
+  Widget _btn(IconData icon, bool enabled, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 40,
+        height: 44,
+        alignment: Alignment.center,
+        child: Icon(
+          icon,
+          size: 20,
+          color: enabled ? accent : AppColors.inkFaint,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Payout-count stepper with a unit suffix ("× 20 years") ───────────────────
+
+class _CountStepper extends StatelessWidget {
+  const _CountStepper({
+    required this.value,
+    required this.accent,
+    required this.suffix,
+    required this.onChanged,
+  });
+
+  final int value;
+  final Color accent;
+  final String suffix;
+  final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        for (final c in const [RepeatCadence.monthly, RepeatCadence.yearly])
-          Expanded(
-            child: GestureDetector(
-              onTap: () => onChanged(c),
-              child: Container(
-                margin: EdgeInsets.only(
-                    right: c == RepeatCadence.monthly ? 10 : 0),
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: c == value
-                      ? accent
-                      : Colors.white.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(
-                    color: c == value ? accent : AppColors.cardBorder,
-                    width: c == value ? 1.6 : 1,
-                  ),
-                ),
-                child: Text(
-                  c == RepeatCadence.monthly ? 'Per month' : 'Per year',
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    color: c == value ? Colors.white : AppColors.inkSoft,
-                  ),
-                ),
-              ),
-            ),
+        _Stepper(
+          value: value,
+          min: 1,
+          max: 600,
+          accent: accent,
+          onChanged: onChanged,
+        ),
+        const SizedBox(width: 12),
+        Text(
+          suffix,
+          style: const TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
           ),
+        ),
       ],
     );
   }

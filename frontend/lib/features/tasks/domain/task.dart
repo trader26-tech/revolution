@@ -326,6 +326,10 @@ class Task {
     DateTime? maturityAt,
     bool clearMaturityAt = false,
     PayoutMethod? payoutMethod,
+    double? payoutAmount,
+    bool clearPayoutAmount = false,
+    int? payoutCount,
+    bool clearPayoutCount = false,
   }) {
     return Task(
       id: id,
@@ -350,6 +354,9 @@ class Task {
           clearReturnAmount ? null : (returnAmount ?? this.returnAmount),
       maturityAt: clearMaturityAt ? null : (maturityAt ?? this.maturityAt),
       payoutMethod: payoutMethod ?? this.payoutMethod,
+      payoutAmount:
+          clearPayoutAmount ? null : (payoutAmount ?? this.payoutAmount),
+      payoutCount: clearPayoutCount ? null : (payoutCount ?? this.payoutCount),
     );
   }
 
@@ -381,6 +388,8 @@ class Task {
         if (returnAmount != null) 'return_amount': returnAmount,
         if (maturityAt != null) 'maturity_at': maturityAt!.toIso8601String(),
         if (payoutMethod != null) 'payout_method': payoutMethod!.name,
+        if (payoutAmount != null) 'payout_amount': payoutAmount,
+        if (payoutCount != null) 'payout_count': payoutCount,
       };
 
   factory Task.fromJson(Map<String, dynamic> j) => Task(
@@ -424,5 +433,7 @@ class Task {
                 (p) => p.name == j['payout_method'],
                 orElse: () => PayoutMethod.lumpSum,
               ),
+        payoutAmount: (j['payout_amount'] as num?)?.toDouble(),
+        payoutCount: (j['payout_count'] as num?)?.toInt(),
       );
 }

@@ -10,15 +10,12 @@ import '../../../onboarding/presentation/widgets/magic_text.dart'
 import '../../../tasks/domain/category_visuals.dart';
 import '../../../tasks/domain/task.dart';
 
-/// The Home hero: everything due TODAY, arriving as chat-style speech BUBBLES
-/// that materialise one after another — the same shimmer-and-waterfall
-/// choreography as onboarding pages 2 & 4. Revo greets from the top-left, his
-/// line resolves word by word, then each reminder pops in on its own beat.
-///
-/// Every bubble reads like Revo talking to you about that one thing: the name,
-/// a plain-English "when", and a derived nudge ("Is this AI copilot still worth
-/// it, or cancel?"). A tick on the right dismisses it — the bubble shrinks away
-/// and an "Done · Undo" toast lets you take it back.
+/// The Home hero: the screen starts EMPTY, then Revo conjures today's reminders
+/// ONE AT A TIME, in slow motion — each line materialises word by word (the
+/// onboarding shimmer), and the NEXT one only begins once the previous has
+/// fully settled. You watch each thing being "thought up", so it reads as real
+/// effort per item. When the sequence finishes it rests as a clean, usable list
+/// (each line tappable, with a tick to dismiss).
 class TodayBubbles extends StatefulWidget {
   const TodayBubbles({
     super.key,
@@ -35,10 +32,10 @@ class TodayBubbles extends StatefulWidget {
   /// Everything due today, unfinished — soonest first.
   final List<Task> tasks;
 
-  /// Tap a bubble → open its edit form.
+  /// Tap a settled line → open its edit form.
   final ValueChanged<Task> onOpen;
 
-  /// Tick a bubble → mark it done. Called AFTER the pop-away animation.
+  /// Tick a line → mark it done. Called AFTER the pop-away animation.
   final ValueChanged<Task> onComplete;
 
   /// Undo a just-completed task (from the toast).
@@ -50,88 +47,68 @@ class TodayBubbles extends StatefulWidget {
 
 class _TodayBubblesState extends State<TodayBubbles>
     with SingleTickerProviderStateMixin {
-  // Absolute-millisecond waterfall, mirroring the onboarding cascade:
-  //   0..500      Revo enters.  —— pause ——
-  //   700..1500   the greeting MATERIALISES word by word (shimmer).
-  //   1700        the sub-line fades in.
-  //   1900+       each bubble pops in, one [_beatGap] after the last.
-  late final AnimationController _intro;
+  // ONE controller drives the whole conjuring run in real milliseconds. Every
+  // stage owns an absolute [start,end) window; because each reminder's window
+  // begins only AFTER the previous reminder's window ends, the reveal is
+  // strictly sequential — never overlapping — so each line is clearly "thought
+  // up" on its own before the next begins.
+  late final AnimationController _run;
 
-  static const _revoMs = 500;
-  static const _greetStartMs = 700;
+  // Intro (Revo + greeting), then a beat, then the items — deliberately SLOW so
+  // the effort is visible.
+  static const _revoMs = 460;
+  static const _greetStartMs = 620;
   static const _greetEndMs = 1500;
-  static const _subMs = 1700;
-  static const _cascadeStartMs = 1900;
-  static const _beatGap = 220;
-  static const _beatWindow = 420;
+  static const _firstItemMs = 1850;
 
-  /// Tasks the user has ticked away this session — hidden with an exit
-  /// animation, kept out of the list so the cascade below reflows up.
+  /// How long ONE reminder takes to fully materialise, and the gap before the
+  /// next starts. Slow on purpose — this is the whole point of the effect.
+  static const _itemRevealMs = 900;
+  static const _itemGapMs = 260;
+  static const _itemStrideMs = _itemRevealMs + _itemGapMs;
+
+  /// Reminders the user ticked away this session — removed with an exit anim.
   final Set<String> _dismissed = {};
 
   List<Task> get _visible =>
       widget.tasks.where((t) => !_dismissed.contains(t.id)).toList();
 
   int get _totalMs =>
-      _cascadeStartMs +
-      ((widget.tasks.length - 1).clamp(0, 1 << 30)) * _beatGap +
-      _beatWindow;
+      _firstItemMs +
+      (widget.tasks.isEmpty ? 0 : (widget.tasks.length - 1) * _itemStrideMs) +
+      _itemRevealMs;
 
-  double get _ms => _intro.value * _totalMs;
+  double get _ms => _run.value * _totalMs;
 
   @override
   void initState() {
     super.initState();
-    _intro = AnimationController(vsync: this, duration: Duration.zero);
+    _run = AnimationController(vsync: this, duration: Duration.zero);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _intro.duration = Duration(milliseconds: _totalMs);
-      _intro.forward();
+      _run.duration = Duration(milliseconds: _totalMs);
+      _run.forward();
     });
   }
 
   @override
   void dispose() {
-    _intro.dispose();
+    _run.dispose();
     super.dispose();
   }
 
+  /// 0→1 progress across an absolute ms window.
   double _win(num startMs, num endMs) =>
       ((_ms - startMs) / (endMs - startMs)).clamp(0.0, 1.0);
 
-  Widget _reveal(num startMs, Widget child, {num window = _beatWindow}) {
-    if (_intro.isCompleted) return child;
-    final t = Curves.easeOutCubic.transform(_win(startMs, startMs + window));
-    return Opacity(
-      opacity: t,
-      child: Transform.translate(offset: Offset(0, 16 * (1 - t)), child: child),
-    );
-  }
-
-  /// A bubble's springy pop-in on its beat.
-  Widget _beatReveal(num startMs, Widget child) {
-    if (_intro.isCompleted) return child;
-    final raw = _win(startMs, startMs + _beatWindow);
-    final ease = Curves.easeOutCubic.transform(raw);
-    final spring = Curves.easeOutBack.transform(raw);
-    return Opacity(
-      opacity: ease,
-      child: Transform.translate(
-        offset: Offset(0, 18 * (1 - ease)),
-        child: Transform.scale(
-          scale: 0.86 + 0.14 * spring,
-          alignment: Alignment.centerLeft,
-          child: child,
-        ),
-      ),
-    );
-  }
+  /// The absolute ms at which reminder [i] STARTS materialising. Each one waits
+  /// a full stride after the previous, so they never overlap.
+  num _itemStart(int i) => _firstItemMs + i * _itemStrideMs;
 
   void _dismiss(Task task) {
     HapticFeedback.mediumImpact();
     setState(() => _dismissed.add(task.id));
     widget.onComplete(task);
-    // Show the undo toast; tapping Undo brings the bubble back.
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
     messenger.showSnackBar(
@@ -178,7 +155,7 @@ class _TodayBubblesState extends State<TodayBubbles>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _intro,
+      animation: _run,
       builder: (context, _) {
         final visible = _visible;
         return Column(
@@ -186,190 +163,193 @@ class _TodayBubblesState extends State<TodayBubbles>
           children: [
             // ── Revo + the greeting, materialising word by word ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(right: 8, top: 2),
+                    padding: const EdgeInsets.only(right: 10, top: 2),
                     child: RevoEntrance(
                       t: _win(0, _revoMs),
                       child: Transform.flip(
                         flipX: true,
-                        child: const AnimatedMascot(size: 54, glow: false),
+                        child: const AnimatedMascot(size: 52, glow: false),
                       ),
                     ),
                   ),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          MagicText(
-                            text: widget.greeting,
-                            progress: _win(_greetStartMs, _greetEndMs),
-                            style: const TextStyle(
-                              fontSize: 23,
-                              height: 1.15,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          _reveal(
-                            _subMs,
-                            Text(
-                              _subline(visible.length),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.inkSoft,
-                              ),
-                            ),
-                          ),
-                        ],
+                      padding: const EdgeInsets.only(top: 8),
+                      child: MagicText(
+                        text: widget.greeting,
+                        progress: _win(_greetStartMs, _greetEndMs),
+                        style: const TextStyle(
+                          fontSize: 23,
+                          height: 1.15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 22),
 
-            // ── The bubbles — one per task due today ──
+            // ── The reminders — conjured ONE AT A TIME, then a clean list ──
             if (visible.isEmpty)
-              _reveal(_subMs, const _AllDoneBubble())
+              Opacity(
+                opacity: _win(_greetEndMs, _greetEndMs + 500),
+                child: const _AllClearLine(),
+              )
             else
               for (var i = 0; i < visible.length; i++)
-                _beatReveal(
-                  _cascadeStartMs + i * _beatGap,
-                  _TaskBubble(
-                    key: ValueKey(visible[i].id),
-                    task: visible[i],
-                    onTap: () => widget.onOpen(visible[i]),
-                    onDone: () => _dismiss(visible[i]),
-                  ),
+                _ConjuredLine(
+                  key: ValueKey(visible[i].id),
+                  task: visible[i],
+                  // This line's own 0→1 materialise window. Sequential: line i
+                  // only starts once line i-1's window has closed.
+                  progress: _win(_itemStart(i), _itemStart(i) + _itemRevealMs),
+                  onTap: () => widget.onOpen(visible[i]),
+                  onDone: () => _dismiss(visible[i]),
                 ),
           ],
         );
       },
     );
   }
-
-  String _subline(int count) {
-    if (count == 0) return "You're all caught up for today.";
-    if (count == 1) return "One thing on your plate today.";
-    return "$count things on your plate today.";
-  }
 }
 
-/// One reminder, drawn as a speech bubble: a tail on the left (it's Revo
-/// talking), the brand logo, the name, a plain-English "when", a derived nudge,
-/// and a tick to dismiss it.
-class _TaskBubble extends StatelessWidget {
-  const _TaskBubble({
+/// One reminder as Revo conjures it: a leading icon and a tick fade in around a
+/// line of text that MATERIALISES word by word. No card chrome — it reads as
+/// Revo carefully putting the thought on screen, then settling into a plain,
+/// tappable list row.
+class _ConjuredLine extends StatelessWidget {
+  const _ConjuredLine({
     super.key,
     required this.task,
+    required this.progress,
     required this.onTap,
     required this.onDone,
   });
 
   final Task task;
+
+  /// 0→1 across THIS line's materialise window.
+  final double progress;
   final VoidCallback onTap;
   final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) {
     final tint = task.category.color;
+    // The icon and tick bloom slightly AHEAD of the words settling, so the line
+    // feels like it's being assembled: the vessel first, then the words fill in.
+    final chrome = Curves.easeOut.transform((progress / 0.5).clamp(0.0, 1.0));
+    final settled = progress >= 0.999;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // The little tail that makes it read as a chat bubble.
-          Padding(
-            padding: const EdgeInsets.only(top: 22),
-            child: CustomPaint(
-              size: const Size(9, 14),
-              painter: _TailPainter(color: AppColors.card),
-            ),
-          ),
-          Expanded(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(6),
-                      topRight: Radius.circular(20),
-                      bottomLeft: Radius.circular(20),
-                      bottomRight: Radius.circular(20),
-                    ),
-                    border: Border.all(color: AppColors.cardBorder),
+      padding: const EdgeInsets.fromLTRB(20, 0, 16, 20),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: settled ? onTap : null,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Leading icon — fades/scales in first.
+                Opacity(
+                  opacity: chrome,
+                  child: Transform.scale(
+                    scale: 0.6 + 0.4 * chrome,
+                    child: _LineIcon(task: task, tint: tint),
                   ),
-                  padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
-                  child: Row(
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _BubbleIcon(task: task, tint: tint),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
+                      const SizedBox(height: 2),
+                      // The name — conjured word by word.
+                      MagicText(
+                        text: task.title,
+                        progress: progress,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          height: 1.2,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      // The nudge + when — fades in as the words finish, so the
+                      // headline lands first and the detail follows.
+                      Opacity(
+                        opacity:
+                            Curves.easeOut.transform((progress - 0.55).clamp(0.0, 0.45) / 0.45),
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    task.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.ink,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                _WhenPill(task: task, tint: tint),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            // The derived nudge — Revo's take on this reminder.
                             Text(
-                              bubbleInsight(task),
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                height: 1.3,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.inkSoft,
+                              bubbleWhen(task),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: tint,
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6),
+                              child: Text('·',
+                                  style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.inkFaint)),
+                            ),
+                            Expanded(
+                              child: Text(
+                                bubbleInsight(task),
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.3,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.inkSoft,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      _TickButton(onDone: onDone, tint: tint),
                     ],
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                // The tick — appears only once the line has settled, so you
+                // can't dismiss a thing that's still being written.
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: AnimatedOpacity(
+                    opacity: settled ? 1 : 0,
+                    duration: const Duration(milliseconds: 220),
+                    child: _TickButton(onDone: onDone, tint: tint),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
 /// The dismiss tick — a round outlined check that fills with the category tint
-/// on press, then the parent animates the bubble away.
+/// on press, then the parent removes the line.
 class _TickButton extends StatefulWidget {
   const _TickButton({required this.onDone, required this.tint});
   final VoidCallback onDone;
@@ -387,7 +367,6 @@ class _TickButtonState extends State<_TickButton> {
     return GestureDetector(
       onTap: () {
         setState(() => _pressed = true);
-        // Let the fill flash before the bubble leaves.
         Future.delayed(const Duration(milliseconds: 140), widget.onDone);
       },
       behavior: HitTestBehavior.opaque,
@@ -414,38 +393,10 @@ class _TickButtonState extends State<_TickButton> {
   }
 }
 
-/// A compact "when" chip — "6 PM", "Today", "Now".
-class _WhenPill extends StatelessWidget {
-  const _WhenPill({required this.task, required this.tint});
-  final Task task;
-  final Color tint;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = bubbleWhen(task);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.2,
-          color: tint,
-        ),
-      ),
-    );
-  }
-}
-
 /// The leading icon — the real brand logo when the task carries one, else the
 /// category glyph on a tinted tile.
-class _BubbleIcon extends StatelessWidget {
-  const _BubbleIcon({required this.task, required this.tint});
+class _LineIcon extends StatelessWidget {
+  const _LineIcon({required this.task, required this.tint});
   final Task task;
   final Color tint;
 
@@ -454,12 +405,12 @@ class _BubbleIcon extends StatelessWidget {
     final hasBrand = (task.iconDomain ?? '').isNotEmpty;
     if (hasBrand) {
       return SizedBox(
-        width: 40,
-        height: 40,
+        width: 38,
+        height: 38,
         child: Center(
           child: BrandLogo(
             brand: Brand(name: task.title, domain: task.iconDomain!),
-            size: 34,
+            size: 32,
             bare: true,
             circular: true,
           ),
@@ -467,106 +418,61 @@ class _BubbleIcon extends StatelessWidget {
       );
     }
     return Container(
-      width: 40,
-      height: 40,
+      width: 38,
+      height: 38,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: tint.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(11),
       ),
-      child: Icon(task.category.icon, size: 21, color: tint),
+      child: Icon(task.category.icon, size: 20, color: tint),
     );
   }
 }
 
-/// The "all clear today" bubble — shown when nothing's due (but there are still
-/// upcoming items below, so the home isn't the empty state).
-class _AllDoneBubble extends StatelessWidget {
-  const _AllDoneBubble();
+/// The "nothing due" line — shown when today is clear (there may still be
+/// upcoming items below, so this isn't the whole-app empty state).
+class _AllClearLine extends StatelessWidget {
+  const _AllClearLine();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(6),
-            topRight: Radius.circular(20),
-            bottomLeft: Radius.circular(20),
-            bottomRight: Radius.circular(20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check_rounded,
+                color: AppColors.accent, size: 21),
           ),
-          border: Border.all(color: AppColors.cardBorder),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.14),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.check_rounded,
-                  color: AppColors.accent, size: 22),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'Nothing due today — enjoy the calm.',
-                style: TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.ink,
-                ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Text(
+              'Nothing due today — enjoy the calm.',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// The chat-bubble tail (a small triangle) pointing left toward Revo.
-class _TailPainter extends CustomPainter {
-  const _TailPainter({required this.color});
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final path = Path()
-      ..moveTo(size.width, 0)
-      ..lineTo(0, size.height * 0.5)
-      ..lineTo(size.width, size.height)
-      ..close();
-    canvas.drawPath(path, paint);
-    // Hairline edge to match the bubble border.
-    final stroke = Paint()
-      ..color = AppColors.cardBorder
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    canvas.drawPath(
-      Path()
-        ..moveTo(size.width, 0)
-        ..lineTo(0, size.height * 0.5)
-        ..lineTo(size.width, size.height),
-      stroke,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_TailPainter old) => old.color != color;
-}
-
 // ── Derived copy: the "when" and the nudge ───────────────────────────────────
 
-/// A short, human "when" for today's bubble pill. Everything here is due today,
-/// so this is about the TIME of day (or "Now" if it's already past).
+/// A short, human "when" for today's line. Everything here is due today, so
+/// this is about the TIME of day (or "Now" if it's already past).
 String bubbleWhen(Task task) {
   final due = task.dueAt;
   if (due == null) return 'Today';
@@ -576,16 +482,13 @@ String bubbleWhen(Task task) {
   if (due.isBefore(now)) return 'Now';
   final h = due.hour % 12 == 0 ? 12 : due.hour % 12;
   final ampm = due.hour < 12 ? 'AM' : 'PM';
-  final m = due.minute == 0
-      ? ''
-      : ':${due.minute.toString().padLeft(2, '0')}';
+  final m = due.minute == 0 ? '' : ':${due.minute.toString().padLeft(2, '0')}';
   return '$h$m $ampm';
 }
 
-/// Revo's one-line take on a reminder — a fuller, more conversational nudge than
-/// the little card punches, derived from the task's category + sub-category. For
-/// an AI subscription this reads "Is this AI copilot still worth it, or cancel?"
-/// — exactly the kind of decision the home bubble should prompt.
+/// Revo's one-line take on a reminder — derived from category + sub-category.
+/// For an AI subscription it reads "Is this AI copilot still worth it, or
+/// cancel?" — exactly the kind of decision the home line should prompt.
 String bubbleInsight(Task task) {
   final sub = (task.subCategory ?? '').toLowerCase();
   switch (task.category) {

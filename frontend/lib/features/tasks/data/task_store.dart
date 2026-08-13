@@ -172,6 +172,8 @@ class TaskStore extends ChangeNotifier {
     double? returnAmount,
     DateTime? maturityAt,
     PayoutMethod? payoutMethod,
+    double? payoutAmount,
+    int? payoutCount,
   }) async {
     final body = {
       'title': title.trim(),
@@ -189,6 +191,8 @@ class TaskStore extends ChangeNotifier {
       'return_amount': ?returnAmount,
       'maturity_at': ?maturityAt?.toIso8601String(),
       'payout_method': ?payoutMethod?.name,
+      'payout_amount': ?payoutAmount,
+      'payout_count': ?payoutCount,
     };
     final json = await _api.post('/tasks', body) as Map<String, dynamic>;
     // The server may not echo these back, so graft them on locally (they're
@@ -217,6 +221,8 @@ class TaskStore extends ChangeNotifier {
     created.returnAmount ??= returnAmount;
     created.maturityAt ??= maturityAt;
     created.payoutMethod ??= payoutMethod;
+    created.payoutAmount ??= payoutAmount;
+    created.payoutCount ??= payoutCount;
     _tasks.insert(0, created);
     notifyListeners();
     unawaited(_writeCache(_tasks));

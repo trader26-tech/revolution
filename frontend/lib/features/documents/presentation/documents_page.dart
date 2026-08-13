@@ -27,18 +27,34 @@ class DocumentsPage extends StatefulWidget {
   State<DocumentsPage> createState() => _DocumentsPageState();
 }
 
-class _DocumentsPageState extends State<DocumentsPage> {
+class _DocumentsPageState extends State<DocumentsPage>
+    with SingleTickerProviderStateMixin {
   DocumentsStore get store => widget.store;
 
   /// Which folders are expanded (by id). Persisted only for the session.
   final Set<String> _expanded = {};
 
+  /// Drives the smooth one-at-a-time entrance cascade of the rows — the same
+  /// motion Browse and the category pages use, so Documents feels part of the
+  /// family instead of a flat, static list.
+  late final AnimationController _intro;
+
   @override
   void initState() {
     super.initState();
+    _intro = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..forward();
     if (store.isInitialLoad) {
       WidgetsBinding.instance.addPostFrameCallback((_) => store.load());
     }
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
   }
 
   // ── Actions ─────────────────────────────────────────────────────────────
@@ -280,6 +296,21 @@ class _DocumentsPageState extends State<DocumentsPage> {
     final totalFiles = store.totalCount;
     final totalFolders = store.folderCount;
 
+    // Collect every tree row, then wrap each in the cascade so folders AND
+    // their documents flow in one at a time (the recursion makes threading an
+    // index inline awkward — building the flat list first keeps it clean).
+    final rows = <Widget>[
+      for (final f in rootFolders) ..._folderNode(f, depth: 0),
+      for (final d in rootItems)
+        _DocRow(
+          doc: d,
+          onOpen: () => _open(d),
+          onShare: () => _share(d),
+          onRename: () => _renameItem(d),
+          onDelete: () => _deleteItem(d),
+        ),
+    ];
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
       children: [
@@ -287,20 +318,9 @@ class _DocumentsPageState extends State<DocumentsPage> {
         // a count, and the orbit badge.
         _DocumentsHero(fileCount: totalFiles, folderCount: totalFolders),
         const SizedBox(height: 4),
-        // The tree — folders expand in place.
-        for (final f in rootFolders) ..._folderNode(f, depth: 0),
-        // Loose documents at the root (rare, but supported).
-        for (final d in rootItems)
-          Padding(
-            padding: const EdgeInsets.only(left: 0),
-            child: _DocRow(
-              doc: d,
-              onOpen: () => _open(d),
-              onShare: () => _share(d),
-              onRename: () => _renameItem(d),
-              onDelete: () => _deleteItem(d),
-            ),
-          ),
+        // The tree — folders expand in place, each row cascading smoothly in.
+        for (var i = 0; i < rows.length; i++)
+          _CascadeIn(intro: _intro, index: i, child: rows[i]),
         if (rootFolders.isEmpty && rootItems.isEmpty) ...[
           const SizedBox(height: 64),
           Center(
@@ -391,6 +411,48 @@ class _DocumentsPageState extends State<DocumentsPage> {
           ),
       ],
     ];
+  }
+}
+
+/// The entrance cascade for document/folder rows: each eases up, fades, and
+/// gently scales into place a beat after the one above — the same smooth motion
+/// Browse and the category pages use. Fixed per-row delay (capped) so long
+/// trees stay just as fluid as short ones.
+class _CascadeIn extends StatelessWidget {
+  const _CascadeIn({
+    required this.intro,
+    required this.index,
+    required this.child,
+  });
+
+  final Animation<double> intro;
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: intro,
+      builder: (context, child) {
+        const perRow = 0.055;
+        const maxStart = 0.7;
+        const window = 0.5;
+        final start = (index * perRow).clamp(0.0, maxStart);
+        final raw = ((intro.value - start) / window).clamp(0.0, 1.0);
+        final eased = Curves.easeOutQuart.transform(raw);
+        return Opacity(
+          opacity: eased,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - eased)),
+            child: Transform.scale(
+              scale: 0.97 + 0.03 * eased,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: child,
+    );
   }
 }
 
@@ -627,7 +689,7 @@ class _FolderRow extends StatelessWidget {
         color: expanded
             ? AppColors.accent.withValues(alpha: 0.08)
             : Colors.white.withValues(alpha: 0.035),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: expanded
               ? AppColors.accent.withValues(alpha: 0.32)
@@ -640,7 +702,7 @@ class _FolderRow extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 7, 4, 7),
+            padding: const EdgeInsets.fromLTRB(10, 11, 6, 11),
             child: Row(
               children: [
                 // Rotating caret — the expand/collapse cue (replaces the arrow).
@@ -648,15 +710,27 @@ class _FolderRow extends StatelessWidget {
                   duration: const Duration(milliseconds: 200),
                   turns: expanded ? 0.25 : 0.0,
                   child: const Icon(Icons.chevron_right_rounded,
-                      size: 19, color: AppColors.inkSoft),
+                      size: 20, color: AppColors.inkSoft),
                 ),
-                const SizedBox(width: 3),
-                Icon(
-                  expanded ? Icons.folder_open_rounded : Icons.folder_rounded,
-                  size: 21,
-                  color: AppColors.accent,
+                const SizedBox(width: 4),
+                // A proper accent icon chip — matches the category row icons.
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.3)),
+                  ),
+                  child: Icon(
+                    expanded ? Icons.folder_open_rounded : Icons.folder_rounded,
+                    size: 21,
+                    color: AppColors.accent,
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -666,13 +740,23 @@ class _FolderRow extends StatelessWidget {
                         folder.displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppText.body,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                          color: AppColors.ink,
+                        ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         parts.join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppText.caption,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.inkSoft,
+                        ),
                       ),
                     ],
                   ),
@@ -720,7 +804,7 @@ class _DocRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.glassBorder),
       ),
       clipBehavior: Clip.antiAlias,
@@ -729,21 +813,26 @@ class _DocRow extends StatelessWidget {
         child: InkWell(
           onTap: onOpen,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+            padding: const EdgeInsets.fromLTRB(10, 9, 6, 9),
             child: Row(
               children: [
                 // The actual document preview — image thumb / PDF first page.
-                DocThumbnail(doc: doc, size: 34),
-                const SizedBox(width: 10),
+                DocThumbnail(doc: doc, size: 42),
+                const SizedBox(width: 12),
                 // Just the document name — the thumbnail already shows the type.
-                // File names are REGULAR weight (folders are bold), so folders
+                // File names are a touch lighter than folders (bold) so folders
                 // vs files read apart at a glance. Wraps to a second line.
                 Expanded(
                   child: Text(
                     doc.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppText.bodyRegular,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                      color: AppColors.ink,
+                    ),
                   ),
                 ),
                 _RowIconButton(

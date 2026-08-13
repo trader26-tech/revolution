@@ -93,17 +93,16 @@ class _BrowsePageState extends State<BrowsePage>
       child: AnimatedBuilder(
         animation: Listenable.merge([widget.store, _documents]),
         builder: (context, _) {
-          // "General" leads (the open catch-all), then the tailored categories,
-          // then Documents. ONE colour throughout — differentiation is icon +
-          // label only, never hue.
+          // Documents leads, then the tailored categories, and General sits at
+          // the BOTTOM. ONE colour throughout — differentiation is icon + label
+          // only, never hue.
           final destinations = <_Dest>[
             _Dest(
-              icon: TaskCategory.other.icon,
-              label: 'General',
-              subtitle: 'Anything you want to remember — with a note.',
-              count: _countFor(TaskCategory.other),
-              onTap: () => _openCollection(TaskCategory.other),
-              highlight: true,
+              icon: Icons.folder_rounded,
+              label: 'Documents',
+              subtitle: 'Your files — policies, receipts, photos.',
+              count: _documents.totalCount,
+              onTap: _openDocuments,
             ),
             for (final c in kBrowseCategoriesNoGeneral)
               _Dest(
@@ -114,11 +113,12 @@ class _BrowsePageState extends State<BrowsePage>
                 onTap: () => _openCollection(c),
               ),
             _Dest(
-              icon: Icons.folder_rounded,
-              label: 'Documents',
-              subtitle: 'Your files — policies, receipts, photos.',
-              count: _documents.totalCount,
-              onTap: _openDocuments,
+              icon: TaskCategory.other.icon,
+              label: 'General',
+              subtitle: 'Anything you want to remember — with a note.',
+              count: _countFor(TaskCategory.other),
+              onTap: () => _openCollection(TaskCategory.other),
+              highlight: true,
             ),
           ];
 

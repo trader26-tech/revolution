@@ -421,7 +421,7 @@ class _Section {
 
 /// The grouped list — the orbit hero card up top, then time-window sections,
 /// each with a header and its rows. Reads as a clean "what's coming, and when".
-class _GroupedList extends StatelessWidget {
+class _GroupedList extends StatefulWidget {
   const _GroupedList({
     required this.sections,
     required this.hero,
@@ -447,7 +447,44 @@ class _GroupedList extends StatelessWidget {
   final bool isOccasions;
 
   @override
+  State<_GroupedList> createState() => _GroupedListState();
+}
+
+class _GroupedListState extends State<_GroupedList>
+    with SingleTickerProviderStateMixin {
+  /// Drives the one-at-a-time entrance cascade of the item rows — the same
+  /// tasteful motion the Browse tab uses, so opening any category feels
+  /// hand-assembled and considered.
+  late final AnimationController _intro;
+
+  @override
+  void initState() {
+    super.initState();
+    _intro = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Local aliases so the (moved) build body reads unchanged.
+    final sections = widget.sections;
+    final hero = widget.hero;
+    final icon = widget.icon;
+    final title = widget.title;
+    final subtitle = widget.subtitle;
+    final onTap = widget.onTap;
+    final onDelete = widget.onDelete;
+    final activeFilter = widget.activeFilter;
+    final onClearFilter = widget.onClearFilter;
+    final isOccasions = widget.isOccasions;
     final children = <Widget>[
       // Occasions get a count hero (no money) that toggles All → each type;
       // everything else gets the spend hero.
@@ -505,22 +542,32 @@ class _GroupedList extends StatelessWidget {
         ),
       ));
     }
+    // A running index across ALL rows so the cascade flows continuously down
+    // the whole list, not restarting per section. Cap the total used for
+    // spacing so a very long list still finishes its cascade promptly.
+    final totalRows = sections.fold<int>(0, (n, s) => n + s.items.length);
+    var rowIndex = 0;
     for (final s in sections) {
       children.add(_SectionHeader(label: s.label, count: s.items.length));
       for (final t in s.items) {
-        children.add(Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          // Swipe left to delete (with an Undo toast). Tap still edits.
-          child: Dismissible(
-            key: ValueKey('collection-row-${t.id}'),
-            direction: DismissDirection.endToStart,
-            background: _deleteBackground(),
-            onDismissed: (_) => onDelete(t),
-            child: _CollectionRow(
-              task: t,
-              accent: AppColors.accent,
-              onTap: () => onTap(t),
-              onDelete: () => onDelete(t),
+        children.add(_CascadeIn(
+          intro: _intro,
+          index: rowIndex++,
+          total: totalRows,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            // Swipe left to delete (with an Undo toast). Tap still edits.
+            child: Dismissible(
+              key: ValueKey('collection-row-${t.id}'),
+              direction: DismissDirection.endToStart,
+              background: _deleteBackground(),
+              onDismissed: (_) => onDelete(t),
+              child: _CollectionRow(
+                task: t,
+                accent: AppColors.accent,
+                onTap: () => onTap(t),
+                onDelete: () => onDelete(t),
+              ),
             ),
           ),
         ));
@@ -1056,6 +1103,44 @@ class _SectionHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The entrance cascade for collection rows: row [index] slides up + fades in a
+/// beat AFTER the row above it, so a category's items assemble one at a time —
+/// the same tasteful motion the Browse tab uses.
+class _CascadeIn extends StatelessWidget {
+  const _CascadeIn({
+    required this.intro,
+    required this.index,
+    required this.total,
+    required this.child,
+  });
+
+  final Animation<double> intro;
+  final int index;
+  final int total;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: intro,
+      builder: (context, child) {
+        final start = total <= 1 ? 0.0 : (index / total) * 0.72;
+        const window = 0.42;
+        final t = ((intro.value - start) / window).clamp(0.0, 1.0);
+        final eased = Curves.easeOutCubic.transform(t);
+        return Opacity(
+          opacity: eased,
+          child: Transform.translate(
+            offset: Offset(0, 22 * (1 - eased)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 }

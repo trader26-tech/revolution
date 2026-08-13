@@ -55,6 +55,11 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
   RepeatCadence _cycle = RepeatCadence.yearly;
   int _every = 1;
 
+  /// When the FIRST premium is due — the reminder starts here, then recurs on
+  /// the cadence. Defaults to today.
+  DateTime _start = DateTime(
+      DateTime.now().year, DateTime.now().month, DateTime.now().day);
+
   /// When the policy matures — the day the return arrives / starts.
   DateTime _maturity = DateTime(DateTime.now().year + 10, DateTime.now().month,
       DateTime.now().day);
@@ -86,6 +91,8 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
         _cycle = t.repeat;
       }
       if (t.repeatTimes > 1) _every = t.repeatTimes;
+      // The first-premium/reminder date is the task's dueAt.
+      if (t.dueAt != null) _start = t.dueAt!;
       if (t.maturityAt != null) _maturity = t.maturityAt!;
       if (t.payoutMethod != null) _payout = t.payoutMethod!;
       if (t.payoutAmount != null) {
@@ -140,6 +147,17 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
     if (result != null && result.files.isNotEmpty) {
       setState(() => _doc = result.files.first);
     }
+  }
+
+  Future<void> _pickStart() async {
+    final picked = await showOrbitDatePicker(
+      context,
+      initial: _start,
+      firstDate: DateTime(DateTime.now().year - 5),
+      lastDate: DateTime(DateTime.now().year + 60),
+      title: 'First premium date',
+    );
+    if (picked != null) setState(() => _start = picked);
   }
 
   Future<void> _pickMaturity() async {
@@ -233,7 +251,7 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
           currency: _currency,
           repeat: _cycle,
           repeatTimes: _every,
-          dueAt: _maturity, // the reminder fires as maturity approaches
+          dueAt: _start, // the reminder fires at the first premium, then recurs
           returnAmount: ret,
           clearReturnAmount: ret == null,
           maturityAt: _maturity,
@@ -251,7 +269,7 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
 
       final created = await widget.store.add(
         _name.text.trim(),
-        dueAt: _maturity,
+        dueAt: _start,
         repeat: _cycle,
         repeatTimes: _every,
         amount: premium,
@@ -327,6 +345,12 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
                     const SizedBox(height: 8),
                     OrbitGroupCard(
                       children: [
+                        OrbitNavRow(
+                          label: 'First premium',
+                          value: _dateLabel(_start),
+                          onTap: _pickStart,
+                        ),
+                        const OrbitRowDivider(),
                         OrbitNavRow(
                           label: 'Premium every',
                           value: frequencyLabel(_cycle, _every),

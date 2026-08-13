@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -89,7 +91,8 @@ class _BrowsePageState extends State<BrowsePage>
           // Build the destination list. "General" leads (the open catch-all),
           // then the tailored categories, then Documents.
           // ONE colour throughout — the violet accent. Every destination looks
-          // the same; the ONLY differentiation is the icon + label, never hue.
+          // the same; the ONLY differentiation is the icon, label, and each
+          // icon's OWN meaningful motion (never hue).
           final destinations = <_Dest>[
             _Dest(
               icon: TaskCategory.other.icon,
@@ -97,6 +100,7 @@ class _BrowsePageState extends State<BrowsePage>
               subtitle: 'Anything you want to remember — with a note.',
               count: _countFor(TaskCategory.other),
               onTap: () => _openCollection(TaskCategory.other),
+              motion: _Motion.twinkle, // sparkles gently twinkle
               highlight: true,
             ),
             for (final c in kBrowseCategoriesNoGeneral)
@@ -106,6 +110,7 @@ class _BrowsePageState extends State<BrowsePage>
                 subtitle: _subtitleFor(c),
                 count: _countFor(c),
                 onTap: () => _openCollection(c),
+                motion: _motionFor(c),
               ),
             _Dest(
               icon: Icons.folder_rounded,
@@ -113,6 +118,7 @@ class _BrowsePageState extends State<BrowsePage>
               subtitle: 'Your files — policies, receipts, photos.',
               count: _documents.totalCount,
               onTap: _openDocuments,
+              motion: _Motion.flip, // the folder peeks open
             ),
           ];
 
@@ -180,6 +186,28 @@ class _BrowsePageState extends State<BrowsePage>
         TaskCategory.bills => 'Recurring bills & payments.',
         TaskCategory.other => 'Anything else.',
       };
+
+  /// Each category's OWN motion — chosen to MEAN something about the category,
+  /// so the animation reads as purposeful, not decorative noise.
+  _Motion _motionFor(TaskCategory c) => switch (c) {
+        TaskCategory.subscription => _Motion.recur, // recurring cycle spin
+        TaskCategory.birthday => _Motion.celebrate, // a happy little wobble
+        TaskCategory.investment => _Motion.grow, // savings rise upward
+        TaskCategory.policies => _Motion.guard, // steady, solid breath
+        TaskCategory.insurance => _Motion.guard,
+        TaskCategory.bills => _Motion.recur,
+        TaskCategory.other => _Motion.twinkle,
+      };
+}
+
+/// The distinct, meaningful motions an icon can carry.
+enum _Motion {
+  twinkle,   // General — sparkle points flicker
+  recur,     // Subscriptions/Bills — a slow recurring rotation, like a cycle
+  celebrate, // Occasions — a gentle celebratory wobble
+  grow,      // SIPs — a repeated upward "growth" nudge
+  guard,     // Policies/Insurance — a calm, steady protective breath
+  flip,      // Documents — the folder peeks open and closes
 }
 
 /// A destination’s data. No colour here — every tile uses the one accent.
@@ -190,6 +218,7 @@ class _Dest {
     required this.subtitle,
     required this.count,
     required this.onTap,
+    required this.motion,
     this.highlight = false,
   });
   final IconData icon;
@@ -197,6 +226,9 @@ class _Dest {
   final String subtitle;
   final int count;
   final VoidCallback onTap;
+
+  /// This icon's own meaningful motion.
+  final _Motion motion;
 
   /// The lead "General" tile gets a touch more presence (a filled accent wash).
   final bool highlight;
@@ -293,9 +325,10 @@ class _DestTileState extends State<_DestTile> {
           ),
           child: Row(
             children: [
-              // The always-animating icon — the same accent for every tile.
+              // The icon, animated with its OWN meaningful motion.
               _LiveIcon(
                 icon: d.icon,
+                motion: d.motion,
                 pulse: widget.pulse,
                 phase: widget.phase,
               ),
@@ -352,22 +385,29 @@ class _DestTileState extends State<_DestTile> {
   }
 }
 
-/// The always-on animated icon chip — the whole point of the redesign: the
-/// Browse screen must NEVER feel stagnant. Every icon continuously:
-///   • gently bobs up and down,
-///   • emits a soft accent RING that expands and fades outward (a steady
-///     "pulse" that says "tap me — add something"),
-/// all in the single violet accent (no per-category colour). Each row's motion
-/// is phase-shifted so the pulses ripple down the list instead of firing in
-/// unison — the screen always has something moving somewhere.
+/// The animated icon chip. The chip itself is calm and static (a soft accent
+/// square) — the LIFE is in the GLYPH, which moves in a way that MEANS something
+/// about the category, so the motion reads as purposeful rather than a random
+/// effect stamped on everything:
+///   • twinkle  (General)     — a soft breathe + brighten, like an idea sparking
+///   • recur    (Subscriptions/Bills) — a slow full rotation, the recurring cycle
+///   • celebrate(Occasions)   — a happy little wobble + hop
+///   • grow     (SIPs)        — a repeated upward rise, savings growing
+///   • guard    (Policies)    — a calm, steady protective breath
+///   • flip     (Documents)   — the folder periodically peeks open (Y-flip)
+///
+/// All in the single violet accent; each row is phase-shifted so the screen
+/// always has gentle, coherent movement without ever feeling busy.
 class _LiveIcon extends StatelessWidget {
   const _LiveIcon({
     required this.icon,
+    required this.motion,
     required this.pulse,
     required this.phase,
   });
 
   final IconData icon;
+  final _Motion motion;
   final AnimationController pulse; // continuous 0→1 loop
   final double phase; // 0..1 offset so rows don't move in lockstep
 
@@ -375,84 +415,81 @@ class _LiveIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: pulse,
-      builder: (context, _) {
-        // A single continuous 0→1 phase for this row.
-        final p = (pulse.value + phase) % 1.0;
-        // Expanding ring: grows 1.0→1.7 and fades as it goes.
-        final ringT = Curves.easeOut.transform(p);
-        final ringScale = 1.0 + 0.7 * ringT;
-        final ringOpacity = (1 - ringT) * 0.5;
-        // A gentle vertical bob on a full sine, so it never stalls.
-        final bob = -2.2 * _sin01(p);
-        // A soft glow that swells with the ring's start.
-        final glow = 0.3 + 0.3 * (1 - ringT);
-
-        return SizedBox(
-          width: 48,
-          height: 48,
-          child: Stack(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: pulse,
+        builder: (context, _) {
+          final p = (pulse.value + phase) % 1.0; // this icon's own 0→1 loop
+          return Container(
+            width: 48,
+            height: 48,
             alignment: Alignment.center,
-            children: [
-              // The expanding, fading pulse ring.
-              Opacity(
-                opacity: ringOpacity.clamp(0.0, 1.0),
-                child: Transform.scale(
-                  scale: ringScale,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: _accent.withValues(alpha: 0.6),
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // The icon chip itself, gently bobbing.
-              Transform.translate(
-                offset: Offset(0, bob),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _accent.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(14),
-                    border:
-                        Border.all(color: _accent.withValues(alpha: 0.34)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _accent.withValues(alpha: 0.30 * glow),
-                        blurRadius: 14 * glow,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                  child: Icon(icon, color: _accent, size: 22),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+            decoration: BoxDecoration(
+              color: _accent.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _accent.withValues(alpha: 0.34)),
+            ),
+            child: _animatedGlyph(p),
+          );
+        },
+      ),
     );
   }
 
-  /// 0→1→0 over p∈[0,1] (a raised sine), for the gentle bob.
-  static double _sin01(double p) {
-    // sin(pi * p) → 0 at ends, 1 at middle.
-    final s = p <= 0 || p >= 1 ? 0.0 : _fastSin(3.14159265 * p);
-    return s;
+  /// The glyph with its category-specific transform applied at loop position [p].
+  Widget _animatedGlyph(double p) {
+    final glyph = Icon(icon, color: _accent, size: 22);
+    switch (motion) {
+      case _Motion.twinkle:
+        // Breathe brighter/bigger then settle — like a thought sparking.
+        final t = _wave(p); // 0→1→0
+        return Transform.scale(
+          scale: 0.94 + 0.12 * t,
+          child: Icon(icon, size: 22,
+              color: Color.lerp(_accent, Colors.white, 0.35 * t)),
+        );
+
+      case _Motion.recur:
+        // A slow, continuous full rotation — the recurring billing cycle.
+        return Transform.rotate(angle: p * 2 * math.pi, child: glyph);
+
+      case _Motion.celebrate:
+        // A happy wobble (rock left↔right) with a tiny hop at the peak.
+        final wobble = math.sin(p * 2 * math.pi) * 0.18; // radians
+        final hop = -2.5 * _wave(p);
+        return Transform.translate(
+          offset: Offset(0, hop),
+          child: Transform.rotate(angle: wobble, child: glyph),
+        );
+
+      case _Motion.grow:
+        // Rise up and fade back to the bottom, on repeat — savings growing.
+        final rise = -6 * p; // travels up across the loop
+        final fade = (1 - p).clamp(0.0, 1.0) * 0.5 + 0.5;
+        return Opacity(
+          opacity: fade,
+          child: Transform.translate(offset: Offset(0, rise), child: glyph),
+        );
+
+      case _Motion.guard:
+        // A calm, slow protective breath — solid and reassuring.
+        final t = _wave(p);
+        return Transform.scale(scale: 0.96 + 0.06 * t, child: glyph);
+
+      case _Motion.flip:
+        // The folder periodically peeks open — a Y-axis flip that eases back.
+        final open = _wave(p); // 0→1→0
+        final angle = open * 0.9; // up to ~50°
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.0015)
+            ..rotateX(angle),
+          child: glyph,
+        );
+    }
   }
 
-  static double _fastSin(double x) {
-    // Good-enough sine on [0, pi] via a parabola (Bhaskara) — no dart:math dep.
-    final t = x / 3.14159265; // 0..1
-    return 4 * t * (1 - t);
-  }
+  /// A smooth 0→1→0 over p∈[0,1] using a real sine (raised).
+  static double _wave(double p) => math.sin(p * math.pi);
 }

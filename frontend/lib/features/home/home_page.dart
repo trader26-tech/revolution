@@ -255,20 +255,17 @@ class _HomePageState extends State<HomePage> {
         ? AuthStore.instance.name!.trim()
         : ProfileStore.instance.name;
 
-    // The feed leads with the DATE this list is for — today — with an arrow to
-    // the right that opens the full upcoming list (the user chooses to look
-    // ahead). Then today's tasks as animated BUBBLES. Browse lives on the nav
-    // bar, and "up next" is now reached from the date header's arrow, not a
-    // strip in the feed.
+    // The feed reads top-to-bottom: the GREETING (Revo + "Good morning"), then
+    // the DATE this list is for — today — with a compact arrow to open the full
+    // upcoming list, then today's tasks as animated BUBBLES. The date header is
+    // handed to TodayBubbles as its `header` slot so it renders right BELOW the
+    // greeting (and fades in with it), keeping that one animated intro block.
+    // Browse lives on the nav bar; "up next" is reached from the header's arrow.
     final rows = <Widget>[
-      _DateHeader(day: DateTime.now(), onUpcoming: _openUpcoming),
-      const SizedBox(height: 4),
-      // The bubbles — today's reminders, materialising one by one, each with a
-      // derived nudge and a tick to dismiss. When today is clear, they show
-      // their own "enjoy the calm" line.
       TodayBubbles(
         replayTick: _replay,
         greeting: _greeting(displayName),
+        header: _DateHeader(day: DateTime.now(), onUpcoming: _openUpcoming),
         tasks: _dueToday(allTasks),
         doneTasks: _doneToday(allTasks),
         lineFor: (t) => _aiLines[t.id],

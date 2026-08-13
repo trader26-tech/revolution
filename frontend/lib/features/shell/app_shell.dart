@@ -59,7 +59,9 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      HomePage(store: _store),
+      // isActive flips true when Home is the visible tab, so its conjuring
+      // animation re-plays each time you return to it.
+      HomePage(store: _store, isActive: _tab == 0),
       BrowsePage(store: _store),
     ];
 

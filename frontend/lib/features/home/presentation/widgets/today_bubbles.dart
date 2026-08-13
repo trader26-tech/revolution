@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/mascot.dart';
 import '../../../brand/domain/brand.dart';
 import '../../../brand/presentation/brand_logo.dart';
+import '../../../details/domain/currency.dart' show currencyOf, formatAmount;
 import '../../../onboarding/presentation/widgets/magic_text.dart'
     show MagicText, RevoEntrance;
 import '../../../tasks/domain/category_visuals.dart';
@@ -19,12 +20,17 @@ import '../../../tasks/domain/task.dart';
 class TodayBubbles extends StatefulWidget {
   const TodayBubbles({
     super.key,
+    required this.replayTick,
     required this.greeting,
     required this.tasks,
     required this.onOpen,
     required this.onComplete,
     required this.onUndo,
   });
+
+  /// Bumped by the parent whenever Home becomes visible again — a change here
+  /// restarts the conjuring from empty, so returning to Home always re-plays it.
+  final int replayTick;
 
   /// The top line Revo says — "Good evening, Sanjeev".
   final String greeting;
@@ -89,6 +95,17 @@ class _TodayBubblesState extends State<TodayBubbles>
       _run.duration = Duration(milliseconds: _totalMs);
       _run.forward();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant TodayBubbles old) {
+    super.didUpdateWidget(old);
+    // Home became visible again → conjure it all over, from empty.
+    if (widget.replayTick != old.replayTick) {
+      _dismissed.clear();
+      _run.duration = Duration(milliseconds: _totalMs);
+      _run.forward(from: 0);
+    }
   }
 
   @override
@@ -287,42 +304,23 @@ class _ConjuredLine extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      // The nudge + when — fades in as the words finish, so the
-                      // headline lands first and the detail follows.
+                      // ONE tailored meta line — built from this item's real
+                      // name, sub-category and amount (e.g. "6 PM · ₹119 music",
+                      // "matures 2034 · ₹8,400"). Fades in as the words finish,
+                      // so the name lands first and its detail follows. Kept to
+                      // a single ellipsised line so the screen never fills up.
                       Opacity(
-                        opacity:
-                            Curves.easeOut.transform((progress - 0.55).clamp(0.0, 0.45) / 0.45),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              bubbleWhen(task),
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
-                                color: tint,
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6),
-                              child: Text('·',
-                                  style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.inkFaint)),
-                            ),
-                            Expanded(
-                              child: Text(
-                                bubbleInsight(task),
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  height: 1.3,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.inkSoft,
-                                ),
-                              ),
-                            ),
-                          ],
+                        opacity: Curves.easeOut
+                            .transform((progress - 0.55).clamp(0.0, 0.45) / 0.45),
+                        child: Text(
+                          bubbleMeta(task),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: tint.withValues(alpha: 0.95),
+                          ),
                         ),
                       ),
                     ],
@@ -469,16 +467,15 @@ class _AllClearLine extends StatelessWidget {
   }
 }
 
-// ── Derived copy: the "when" and the nudge ───────────────────────────────────
+// ── Derived copy: ONE tailored meta line per item ────────────────────────────
 
-/// A short, human "when" for today's line. Everything here is due today, so
-/// this is about the TIME of day (or "Now" if it's already past).
-String bubbleWhen(Task task) {
+/// The time of day the item is due — "6 PM" / "Now" / "" (blank if it's just a
+/// whole-day reminder with no set time, so we don't print a meaningless "12 AM").
+String _timePart(Task task) {
   final due = task.dueAt;
-  if (due == null) return 'Today';
+  if (due == null) return '';
+  if (due.hour == 0 && due.minute == 0) return '';
   final now = DateTime.now();
-  final atMidnight = due.hour == 0 && due.minute == 0;
-  if (atMidnight) return 'Today';
   if (due.isBefore(now)) return 'Now';
   final h = due.hour % 12 == 0 ? 12 : due.hour % 12;
   final ampm = due.hour < 12 ? 'AM' : 'PM';
@@ -486,36 +483,68 @@ String bubbleWhen(Task task) {
   return '$h$m $ampm';
 }
 
-/// Revo's one-line take on a reminder — derived from category + sub-category.
-/// For an AI subscription it reads "Is this AI copilot still worth it, or
-/// cancel?" — exactly the kind of decision the home line should prompt.
-String bubbleInsight(Task task) {
-  final sub = (task.subCategory ?? '').toLowerCase();
+/// The amount in the task's own currency — "₹119", "₹1,240". Empty if none.
+String _amountPart(Task task) {
+  final a = task.amount;
+  if (a == null) return '';
+  final cur = currencyOf(task.currency);
+  final body = a == a.roundToDouble()
+      ? formatAmount(a.round().toString(), cur.grouping)
+      : a.toStringAsFixed(2);
+  return '${cur.symbol}$body';
+}
+
+/// ONE short, TAILOR-MADE line for a reminder — assembled from this exact
+/// item's real facts (time, amount, sub-category, maturity), never a generic
+/// "still worth it?". Kept to at most a couple of dot-separated fragments so it
+/// fits on a single line under the name and the screen stays uncluttered.
+///
+/// Examples: "6 PM · ₹119 · music"  ·  "₹1,240 · due today"  ·  "matures 2034"
+String bubbleMeta(Task task) {
+  final parts = <String>[];
+  final time = _timePart(task);
+  final amount = _amountPart(task);
+  final sub = (task.subCategory ?? '').trim();
+
   switch (task.category) {
     case TaskCategory.subscription:
-      return switch (sub) {
-        'ai' => 'Is this AI copilot still worth it, or cancel?',
-        'entertainment' => 'Still watching enough to keep it?',
-        'music' => 'Still on repeat, or let it go?',
-        'cloud & tools' => 'Still using this enough to keep it?',
-        'learning' => 'Still learning from it, or pause it?',
-        'gaming' => 'Still playing, or cancel for now?',
-        'food & shopping' => 'Perks still paying for themselves?',
-        _ => 'Still worth keeping, or time to cancel?',
-      };
+      // Brand + price + what it's for — e.g. "₹119 · music".
+      if (amount.isNotEmpty) parts.add(amount);
+      if (sub.isNotEmpty) parts.add(sub.toLowerCase());
+      if (parts.isEmpty && time.isNotEmpty) parts.add(time);
     case TaskCategory.bills:
-      return 'Due today — pay it to avoid a late fee.';
+      if (amount.isNotEmpty) parts.add(amount);
+      parts.add('due today');
     case TaskCategory.insurance:
-      return 'Renews today — keep your cover unbroken.';
+      if (amount.isNotEmpty) parts.add(amount);
+      parts.add('renews today');
     case TaskCategory.investment:
-      return 'Invest today to keep compounding.';
+      if (amount.isNotEmpty) parts.add(amount);
+      if (sub.isNotEmpty) parts.add(sub.toLowerCase());
+      if (parts.isEmpty) parts.add('invest today');
     case TaskCategory.policies:
-      return task.hasReturn
-          ? 'Premium due — keep the return on track.'
-          : 'Premium due today.';
+      if (amount.isNotEmpty) parts.add('$amount premium');
+      if (task.hasReturn && task.maturityAt != null) {
+        parts.add('matures ${task.maturityAt!.year}');
+      }
+      if (parts.isEmpty) parts.add('premium due');
     case TaskCategory.birthday:
-      return 'A day worth remembering — reach out.';
+      // People, not money — keep it warm and specific.
+      if (time.isNotEmpty) parts.add(time);
+      parts.add('their day');
     case TaskCategory.other:
-      return 'On your list for today.';
+      if (time.isNotEmpty) parts.add(time);
+      if (parts.isEmpty) parts.add('today');
   }
+
+  // Lead with the time for money items too, when there's room — one fragment.
+  if (time.isNotEmpty &&
+      !parts.contains(time) &&
+      task.category != TaskCategory.birthday &&
+      task.category != TaskCategory.other) {
+    parts.insert(0, time);
+  }
+
+  // Never more than three fragments — keep it tight.
+  return parts.take(3).join('  ·  ');
 }

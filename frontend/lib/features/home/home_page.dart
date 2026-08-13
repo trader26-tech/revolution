@@ -21,9 +21,14 @@ import 'presentation/widgets/today_bubbles.dart';
 /// it's added instantly. Set the date/details later via the row's calendar
 /// button or by tapping the task. A glass top bar holds Settings + Add.
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.store});
+  const HomePage({super.key, required this.store, this.isActive = true});
 
   final TaskStore store;
+
+  /// True when Home is the visible tab. Each time it flips back to true, the
+  /// today conjuring animation re-plays — so returning to Home always greets
+  /// you with the bubbling reveal, not a static list.
+  final bool isActive;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -31,6 +36,19 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// Bumped every time Home becomes active again — a change to this value tells
+  /// TodayBubbles to restart its reveal from empty.
+  int _replay = 0;
+
+  @override
+  void didUpdateWidget(covariant HomePage old) {
+    super.didUpdateWidget(old);
+    // Became visible again (Browse → Home): replay the conjuring.
+    if (widget.isActive && !old.isActive) {
+      setState(() => _replay++);
+    }
+  }
 
   void _openSettings() {
     Navigator.of(context).push(
@@ -209,6 +227,7 @@ class _HomePageState extends State<HomePage> {
       // The bubbles — today's reminders, materialising one by one, each with a
       // derived nudge and a tick to dismiss.
       TodayBubbles(
+        replayTick: _replay,
         greeting: _greeting(displayName),
         tasks: _dueToday(allTasks),
         onOpen: _editTask,

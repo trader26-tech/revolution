@@ -32,8 +32,14 @@ class UpcomingPage extends StatefulWidget {
   State<UpcomingPage> createState() => _UpcomingPageState();
 }
 
-class _UpcomingPageState extends State<UpcomingPage> {
+class _UpcomingPageState extends State<UpcomingPage>
+    with SingleTickerProviderStateMixin {
   late DateTime _selected;
+
+  /// Drives the smooth one-at-a-time entrance cascade of the rows — replayed
+  /// whenever the selected day changes, so switching days feels alive, matching
+  /// Browse and the category pages.
+  late final AnimationController _intro;
 
   DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -41,6 +47,22 @@ class _UpcomingPageState extends State<UpcomingPage> {
   void initState() {
     super.initState();
     _selected = _day(widget.from ?? DateTime.now());
+    _intro = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
+  }
+
+  /// Change the day AND replay the row cascade from the top.
+  void _selectDay(DateTime d) {
+    setState(() => _selected = _day(d));
+    _intro.forward(from: 0);
   }
 
   /// Open a month/year/day picker so the user can jump anywhere — the calendar
@@ -67,7 +89,7 @@ class _UpcomingPageState extends State<UpcomingPage> {
       ),
     );
     if (picked != null && mounted) {
-      setState(() => _selected = _day(picked));
+      _selectDay(picked);
     }
   }
 
@@ -141,7 +163,7 @@ class _UpcomingPageState extends State<UpcomingPage> {
               WeekStripCalendar(
                 tasks: widget.tasks,
                 selected: _selected,
-                onSelect: (d) => setState(() => _selected = _day(d)),
+                onSelect: _selectDay,
                 daysBefore: 30,
                 daysAhead: 365,
               ),
@@ -164,11 +186,16 @@ class _UpcomingPageState extends State<UpcomingPage> {
                                 child: _DayHeader(
                                     day: day, now: now, count: items.length),
                               ),
-                              for (final t in items)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: _UpcomingRow(
-                                      task: t, onTap: () => widget.onTap(t)),
+                              for (var j = 0; j < items.length; j++)
+                                _CascadeIn(
+                                  intro: _intro,
+                                  index: j,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: _UpcomingRow(
+                                        task: items[j],
+                                        onTap: () => widget.onTap(items[j])),
+                                  ),
                                 ),
                             ],
                           );
@@ -180,6 +207,49 @@ class _UpcomingPageState extends State<UpcomingPage> {
         ),
       ),
       ),
+    );
+  }
+}
+
+/// The entrance cascade for upcoming rows: each springs up into place a distinct
+/// beat after the one above — the same lively motion Browse and the category
+/// pages use. Replays whenever the selected day changes.
+class _CascadeIn extends StatelessWidget {
+  const _CascadeIn({
+    required this.intro,
+    required this.index,
+    required this.child,
+  });
+
+  final Animation<double> intro;
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: intro,
+      builder: (context, child) {
+        const perRow = 0.11;
+        const maxStart = 0.6;
+        const window = 0.4;
+        final start = (index * perRow).clamp(0.0, maxStart);
+        final raw = ((intro.value - start) / window).clamp(0.0, 1.0);
+        final eased = Curves.easeOutBack.transform(raw);
+        final fade = Curves.easeOut.transform(raw);
+        return Opacity(
+          opacity: fade,
+          child: Transform.translate(
+            offset: Offset(14 * (1 - fade), 44 * (1 - eased)),
+            child: Transform.scale(
+              scale: 0.88 + 0.12 * eased,
+              alignment: Alignment.centerLeft,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: child,
     );
   }
 }

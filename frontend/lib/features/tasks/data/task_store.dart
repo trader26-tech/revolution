@@ -181,6 +181,7 @@ class TaskStore extends ChangeNotifier {
     String? source,
     String? imagePath,
     String? subCategory,
+    String? note,
     int? birthYear,
     int remindDaysBefore = 0,
     double? returnAmount,
@@ -202,6 +203,7 @@ class TaskStore extends ChangeNotifier {
       'category': ?category,
       'source': ?source,
       'sub_category': ?subCategory,
+      'note': ?note,
       'return_amount': ?returnAmount,
       'maturity_at': ?maturityAt?.toIso8601String(),
       'payout_method': ?payoutMethod?.name,
@@ -219,6 +221,10 @@ class TaskStore extends ChangeNotifier {
         subCategory != null &&
         subCategory.isNotEmpty) {
       created.subCategory = subCategory;
+    }
+    // Server may not echo the note back yet — keep the user's text locally.
+    if (created.note == null && note != null && note.isNotEmpty) {
+      created.note = note;
     }
     // Server may not persist these yet — keep the user's choice locally.
     if (created.repeatTimes == 1 && repeatTimes != 1) {

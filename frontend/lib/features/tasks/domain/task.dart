@@ -64,7 +64,7 @@ extension TaskCategoryInfo on TaskCategory {
         TaskCategory.investment => 'SIPs',
         TaskCategory.bills => 'Bills',
         TaskCategory.policies => 'Policies',
-        TaskCategory.other => 'Other',
+        TaskCategory.other => 'General',
       };
 
   /// Singular form for a card header count ("1 subscription").

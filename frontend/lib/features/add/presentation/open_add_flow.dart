@@ -5,6 +5,7 @@ import '../../tasks/domain/category_visuals.dart';
 import '../../tasks/domain/task.dart';
 import 'add_picker_page.dart';
 import 'birthday_form_page.dart';
+import 'general_form_page.dart';
 import 'insurance_form_page.dart';
 import 'policy_form_page.dart';
 import 'sip_form_page.dart';
@@ -117,9 +118,14 @@ Future<AddResult?> openCategoryForm(
           .push<bool>(_formRoute(PolicyFormPage(store: store)));
       return saved == true ? const AddResult(selfSaved: true) : null;
 
+    case TaskCategory.other:
+      // General: the open catch-all — title + date + freeform note.
+      final task = await Navigator.of(context)
+          .push<Task>(_formRoute(const GeneralFormPage()));
+      return task == null ? null : AddResult(task: task);
+
     case TaskCategory.subscription:
     case TaskCategory.bills:
-    case TaskCategory.other:
       final task = await Navigator.of(context).push<Task>(_formRoute(
         SubscriptionFormPage(
           title: category == TaskCategory.bills ? 'New bill' : 'New subscription',
@@ -178,6 +184,7 @@ Future<bool> persistAddResult(TaskStore store, AddResult? result) async {
     category: task.storedCategory?.name,
     imagePath: task.imagePath,
     subCategory: task.subCategory,
+    note: task.note,
     birthYear: task.birthYear,
     remindDaysBefore: task.remindDaysBefore,
   );
@@ -214,10 +221,12 @@ Future<bool> openEditForm(
       form = SipFormPage(editTask: task);
     case TaskCategory.birthday:
       form = BirthdayFormPage(editTask: task);
+    case TaskCategory.other:
+      // General reminders edit in their own title + date + note form.
+      form = GeneralFormPage(editTask: task);
     case TaskCategory.insurance:
     case TaskCategory.policies:
     case TaskCategory.bills:
-    case TaskCategory.other:
       form = null; // no tailored form → use the fallback sheet
   }
 

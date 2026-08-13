@@ -28,12 +28,24 @@ extension TaskCategoryVisuals on TaskCategory {
       };
 }
 
-/// The categories offered in the Home browse grid, in display order. "Other"
-/// is intentionally excluded from the grid (the "All" tile covers it).
+/// The categories offered as add/browse destinations, in display order.
+/// `other` is the "General" catch-all (a free-form reminder + note); it leads
+/// the Browse page's own list explicitly, so [kBrowseCategoriesNoGeneral]
+/// excludes it there to avoid showing it twice.
 const List<TaskCategory> kBrowseCategories = [
+  TaskCategory.other, // "General"
   TaskCategory.subscription,
   TaskCategory.birthday,
   TaskCategory.investment,
   TaskCategory.policies,
   // Insurance & Bills temporarily removed from browse — add back later.
+];
+
+/// The same list WITHOUT the General catch-all — for surfaces that render
+/// General separately (the Browse tab leads with it as a highlighted tile).
+const List<TaskCategory> kBrowseCategoriesNoGeneral = [
+  TaskCategory.subscription,
+  TaskCategory.birthday,
+  TaskCategory.investment,
+  TaskCategory.policies,
 ];

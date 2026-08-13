@@ -1312,124 +1312,124 @@ class _EmptyCollection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A calm, centred, self-contained empty state — no hand-drawn pointer arrow
+    // (it overlapped the text/icon and pointed imprecisely at the "+"). Instead,
+    // a clear icon + title + subtitle and a direct "Add" button the user taps
+    // right here. Tapping anywhere on the page still starts adding, too.
+    final article = _startsWithVowel(singular) ? 'an' : 'a';
     return GestureDetector(
-      // Tapping anywhere on the empty page also starts adding.
       onTap: onAdd,
       behavior: HitTestBehavior.opaque,
-      child: Stack(
-      children: [
-        // A curved arrow rising from the hint up to the top-right "+" button,
-        // so it's obvious WHERE to add the first item.
-        Positioned.fill(
-          child: CustomPaint(
-            painter: _AddArrowPainter(accent),
-          ),
-        ),
-        // The prompt, tucked up-right under the arrow's tail.
-        Align(
-          alignment: const Alignment(0.35, -0.42),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'Tap  +  to add',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: accent,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'your first $singular',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.inkSoft,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        // A calm centred icon so the page isn't bare.
-        Center(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 88,
-                height: 88,
+                width: 92,
+                height: 92,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.10),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      accent.withValues(alpha: 0.20),
+                      accent.withValues(alpha: 0.08),
+                    ],
+                  ),
                   shape: BoxShape.circle,
+                  border: Border.all(color: accent.withValues(alpha: 0.28)),
                 ),
-                child: Icon(icon, size: 38, color: accent),
+                child: Icon(icon, size: 40, color: accent),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               Text(
                 'No ${title.toLowerCase()} yet',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 19,
                   fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
                   color: AppColors.ink,
                 ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Add your first $singular and Revo will keep an eye on it.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.35,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // The direct call-to-action — no arrow needed.
+              _AddCta(
+                label: 'Add $article $singular',
+                accent: accent,
+                onTap: onAdd,
               ),
             ],
           ),
         ),
-      ],
       ),
     );
   }
+
+  static bool _startsWithVowel(String s) =>
+      s.isNotEmpty && 'aeiou'.contains(s[0].toLowerCase());
 }
 
-/// Draws a soft curved arrow that sweeps from the middle up toward the
-/// top-right corner (where the "+" button sits), ending in an arrowhead.
-class _AddArrowPainter extends CustomPainter {
-  const _AddArrowPainter(this.color);
-  final Color color;
+/// The accent-filled "Add …" button on an empty collection — a clear, tappable
+/// call-to-action that replaces the old arrow pointing at the top-bar "+".
+class _AddCta extends StatelessWidget {
+  const _AddCta({required this.label, required this.accent, required this.onTap});
+  final String label;
+  final Color accent;
+  final VoidCallback onTap;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.85)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-
-    // Start below-centre-right, curve up to just under the top-right "+".
-    final start = Offset(size.width * 0.62, size.height * 0.34);
-    final end = Offset(size.width * 0.90, size.height * 0.02);
-    final c1 = Offset(size.width * 0.92, size.height * 0.30);
-    final c2 = Offset(size.width * 0.98, size.height * 0.14);
-
-    final path = Path()
-      ..moveTo(start.dx, start.dy)
-      ..cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, end.dx, end.dy);
-    canvas.drawPath(path, paint);
-
-    // Arrowhead at the end, pointing up-right toward the "+".
-    const headLen = 15.0;
-    final dir = (end - c2);
-    final angle = dir.direction; // radians
-    const spread = 0.5;
-    final tip = end;
-    final wing1 = tip -
-        Offset.fromDirection(angle - spread, headLen);
-    final wing2 = tip -
-        Offset.fromDirection(angle + spread, headLen);
-    canvas.drawLine(tip, wing1, paint);
-    canvas.drawLine(tip, wing2, paint);
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+        decoration: BoxDecoration(
+          color: accent,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: accent.withValues(alpha: 0.4),
+              blurRadius: 20,
+              spreadRadius: -2,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.add_rounded, size: 20, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant _AddArrowPainter old) => old.color != color;
 }
 
 /// The filter sheet — "All" plus the categories present, as chips. Returns '' to

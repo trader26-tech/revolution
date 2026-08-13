@@ -8,9 +8,12 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../../../core/api/api_client.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../calendar/domain/occurrences.dart';
+import '../../details/domain/currency.dart';
 import '../../settings/data/profile_store.dart';
 import '../../tasks/domain/task.dart';
 import '../domain/daily_digest.dart';
+import '../domain/reminder_notice.dart';
 
 /// The outcome of [ReminderScheduler.sendTestNotification], so the settings UI
 /// can tell the user exactly what happened.
@@ -273,8 +276,12 @@ class ReminderScheduler {
     });
   }
 
-  /// Rebuild the whole horizon: cancel everything, then schedule one digest
-  /// per upcoming day that has something due.
+  /// Rebuild the whole horizon: cancel everything, then schedule ONE
+  /// notification PER REMINDER, each at its own due time. Recurring reminders
+  /// are expanded into their upcoming occurrences (auto-rolling), so a monthly
+  /// subscription keeps alerting without the user doing anything. A reminder
+  /// with no time fires at the user's default reminder time; one with no date
+  /// (an unscheduled General note) is simply skipped.
   Future<void> _sync() async {
     if (!_ready) return;
     final profile = ProfileStore.instance;
@@ -283,44 +290,133 @@ class ReminderScheduler {
     if (!profile.notifReminders) return;
 
     final now = tz.TZDateTime.now(tz.local);
-    for (var i = 0; i <= horizonDays; i++) {
-      final day = DateTime(now.year, now.month, now.day + i);
-      final digest = buildDailyDigest(_tasks, day);
-      if (digest == null) continue;
+    final today = DateTime(now.year, now.month, now.day);
+    final end = today.add(const Duration(days: horizonDays));
 
-      final fireAt = _fireTimeFor(day, profile);
-      if (!fireAt.isAfter(now)) continue; // today's slot already passed
+    // Every dated appearance of every active reminder in the window — one-offs
+    // once, recurring ones stepped forward. Sorted soonest-first.
+    final eligible =
+        _tasks.where((t) => t.reminderOn && !t.done).toList(growable: false);
+    final occurrences = expandOccurrences(eligible, from: today, to: end);
+
+    // Respect the platform pending-notification cap (iOS ~64). Take the soonest.
+    var scheduled = 0;
+    for (final occ in occurrences) {
+      if (scheduled >= _maxPending) break;
+
+      final fireAt = _fireTimeForTask(occ.task, occ.date, profile);
+      if (!fireAt.isAfter(now)) continue; // its moment has already passed
+
+      final recurring = occ.task.repeat != RepeatCadence.none;
+      final notice = ReminderNotice(
+        taskId: occ.task.id,
+        title: occ.task.title,
+        body: _bodyFor(occ.task),
+        fireAt: DateTime(fireAt.year, fireAt.month, fireAt.day, fireAt.hour,
+            fireAt.minute),
+        recurring: recurring,
+      );
 
       await _plugin.zonedSchedule(
-        id: _dayId(day),
-        title: digest.title,
-        body: digest.expandedBody,
+        id: _reminderId(occ.task.id, occ.date),
+        title: notice.title,
+        body: notice.body.isEmpty ? 'Reminder' : notice.body,
         scheduledDate: fireAt,
-        notificationDetails: _details(digest),
+        notificationDetails: _reminderDetails(notice),
         androidScheduleMode: _canExact
             ? AndroidScheduleMode.exactAllowWhileIdle
             : AndroidScheduleMode.inexactAllowWhileIdle,
-        payload: digest.toPayload(),
+        payload: notice.toPayload(),
       );
+      scheduled++;
     }
   }
 
-  /// The moment [day]'s digest fires: the user's chosen time, nudged out of
-  /// quiet hours when they overlap (a same-day nudge only — quiet windows
-  /// that wrap past midnight can't push a digest into the next day, because
-  /// that day has its own).
-  tz.TZDateTime _fireTimeFor(DateTime day, ProfileStore profile) {
-    var minutes = profile.digestTimeMin;
+  /// The moment reminder [task] should fire on [date]: the task's OWN time when
+  /// it has one, else the user's default reminder time — then nudged out of
+  /// quiet hours if it lands inside them.
+  tz.TZDateTime _fireTimeForTask(
+      Task task, DateTime date, ProfileStore profile) {
+    final due = task.dueAt;
+    final hasTime = due != null && !(due.hour == 0 && due.minute == 0);
+    var minutes =
+        hasTime ? due.hour * 60 + due.minute : profile.defaultReminderMin;
+
     if (profile.quietEnabled) {
       final start = profile.quietStartMin, end = profile.quietEndMin;
       final wraps = end <= start;
-      final inQuiet =
-          wraps ? (minutes >= start || minutes < end) : (minutes >= start && minutes < end);
+      final inQuiet = wraps
+          ? (minutes >= start || minutes < end)
+          : (minutes >= start && minutes < end);
       if (inQuiet && end > minutes) minutes = end;
     }
     return tz.TZDateTime(
-        tz.local, day.year, day.month, day.day, minutes ~/ 60, minutes % 60);
+        tz.local, date.year, date.month, date.day, minutes ~/ 60, minutes % 60);
   }
+
+  /// The supporting line under a reminder's name — its amount, else its note,
+  /// else a plain "Due today". Kept short; the title carries the name.
+  String _bodyFor(Task task) {
+    if (task.hasAmount) {
+      final cur = currencyOf(task.currency);
+      final a = task.amount!;
+      final body = a == a.roundToDouble()
+          ? a.round().toString()
+          : a.toStringAsFixed(2);
+      return '${cur.symbol}$body';
+    }
+    final note = (task.note ?? '').trim();
+    if (note.isNotEmpty) return note;
+    return 'Reminder';
+  }
+
+  /// A stable, collision-free notification id for a (task, date) pair. Hashes
+  /// the task id + the day so the same occurrence keeps the same id across
+  /// re-syncs (no duplicate alarms), and different occurrences never clash.
+  static int _reminderId(String taskId, DateTime date) {
+    final day = date.year * 10000 + date.month * 100 + date.day;
+    final h = Object.hash(taskId, day) & 0x3FFFFFFF; // keep positive, < 2^30
+    return h;
+  }
+
+  /// Per-reminder tray styling + the single-task "Mark done" action.
+  NotificationDetails _reminderDetails(ReminderNotice notice) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: _channelDescription,
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: 'ic_stat_notification',
+        color: AppColors.accentDeep,
+        actions: [
+          // Only a one-off can be completed from the tray — completing a
+          // recurring series from a single alert is never the intent.
+          if (!notice.recurring)
+            const AndroidNotificationAction(
+              actionMarkAllDone,
+              'Mark done',
+              showsUserInterface: false,
+            ),
+          const AndroidNotificationAction(
+            actionSnooze,
+            'Snooze 1 hr',
+            showsUserInterface: false,
+          ),
+        ],
+      ),
+      iOS: DarwinNotificationDetails(
+        categoryIdentifier: categoryId,
+        threadIdentifier: 'reminders',
+        interruptionLevel: InterruptionLevel.active,
+      ),
+    );
+  }
+
+  /// Cap on how many reminders we keep scheduled at once — stays under iOS's
+  /// 64-pending limit with headroom for the test + snoozed copies.
+  static const _maxPending = 56;
 
   NotificationDetails _details(DailyDigest digest) {
     return NotificationDetails(
@@ -376,8 +472,6 @@ class ReminderScheduler {
     return '${weekdays[d.weekday - 1]}, ${d.day} ${months[d.month - 1]}';
   }
 
-  static int _dayId(DateTime d) => d.year * 10000 + d.month * 100 + d.day;
-
   /// In-app (foreground) taps land here; route them through the same handler
   /// the background isolate uses.
   static void _onResponse(NotificationResponse response) {
@@ -387,34 +481,34 @@ class ReminderScheduler {
   /// Executes a tray action. Runs in whichever isolate received it, with no
   /// assumptions about app state — everything needed rides in the payload.
   static Future<void> handleAction(NotificationResponse response) async {
-    final digest = DailyDigest.fromPayload(response.payload);
-    if (digest == null) return;
+    final notice = ReminderNotice.fromPayload(response.payload);
+    if (notice == null) return;
 
     switch (response.actionId) {
       case actionMarkAllDone:
-        // The owner id persisted by the main app scopes the PATCHes to the
-        // signed-in account. Per-task so one failure can't block the rest.
+        // Mark THIS reminder's task done. The owner id persisted by the main
+        // app scopes the PATCH to the signed-in account. (Only shown for
+        // one-offs, so this never ends a recurring series.)
         await ApiClient.instance.init();
-        for (final id in digest.oneOffIds) {
-          try {
-            await ApiClient.instance.patch('/tasks/$id', {'done': true});
-          } catch (e) {
-            debugPrint('mark-done from notification failed for $id: $e');
-          }
+        try {
+          await ApiClient.instance
+              .patch('/tasks/${notice.taskId}', {'done': true});
+        } catch (e) {
+          debugPrint('mark-done from notification failed: $e');
         }
       case actionSnooze:
-        await _showSnoozed(digest);
+        await _showSnoozed(notice);
       default:
-        // Plain tap — the OS is already opening the app to today's list.
+        // Plain tap — the OS is already opening the app.
         break;
     }
   }
 
-  /// Re-schedules [digest] one hour from now. Runs in the background isolate,
+  /// Re-schedules a reminder one hour from now. Runs in the background isolate,
   /// where the plugin and timezones must be set up from scratch. tz.local may
   /// fall back to UTC here — harmless, because "now + 1h" is the same instant
   /// in any zone.
-  static Future<void> _showSnoozed(DailyDigest digest) async {
+  static Future<void> _showSnoozed(ReminderNotice notice) async {
     tzdata.initializeTimeZones();
     await _plugin.initialize(
       settings: InitializationSettings(
@@ -427,15 +521,21 @@ class ReminderScheduler {
         ),
       ),
     );
+    final at = tz.TZDateTime.now(tz.local).add(const Duration(hours: 1));
     await _plugin.zonedSchedule(
-      id: _snoozeIdBase + _dayId(digest.date),
-      title: digest.title,
-      body: digest.expandedBody,
-      scheduledDate:
-          tz.TZDateTime.now(tz.local).add(const Duration(hours: 1)),
-      notificationDetails: instance._details(digest),
+      id: _snoozeIdBase + (notice.taskId.hashCode & 0x7FFFF),
+      title: notice.title,
+      body: notice.body.isEmpty ? 'Reminder' : notice.body,
+      scheduledDate: at,
+      notificationDetails: instance._reminderDetails(notice),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      payload: digest.toPayload(),
+      payload: ReminderNotice(
+        taskId: notice.taskId,
+        title: notice.title,
+        body: notice.body,
+        fireAt: DateTime(at.year, at.month, at.day, at.hour, at.minute),
+        recurring: notice.recurring,
+      ).toPayload(),
     );
   }
 

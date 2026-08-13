@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,12 +12,12 @@ import 'presentation/collection_page.dart';
 /// The Browse tab — the launcher to every category's collection (General,
 /// Subscriptions, Occasions, SIPs, Policies…) and the local Documents library.
 ///
-/// Vibrancy comes ENTIRELY from MOTION — every tile shares the one violet
-/// accent (no per-category colour). Each destination fades and rises in on open,
-/// springs on press, and its icon ALWAYS animates: a soft accent ring pulses
-/// outward and the icon gently bobs, phase-shifted per row so motion ripples
-/// down the list and the screen never feels stagnant. "General" leads — the
-/// open, easy "just remember anything" entry with a note.
+/// The whole surface is ONE violet accent — no per-category colour, and no
+/// fussy per-icon motion. The life is a single, tasteful touch: when you land
+/// on the tab, the rows arrive ONE AT A TIME, each sliding up and fading in a
+/// beat after the one above it. That gentle cascade makes the screen feel
+/// hand-assembled and considered. "General" leads — the easy "just remember
+/// anything" entry with a note.
 class BrowsePage extends StatefulWidget {
   const BrowsePage({super.key, required this.store});
 
@@ -30,15 +28,11 @@ class BrowsePage extends StatefulWidget {
 }
 
 class _BrowsePageState extends State<BrowsePage>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   final _documents = DocumentsStore();
 
-  /// Drives the one-time entrance stagger for the destinations.
+  /// Drives the one-at-a-time entrance cascade of the rows.
   late final AnimationController _intro;
-
-  /// A continuous loop driving every icon's pulse ring + bob — so the Browse
-  /// screen always has motion and never feels stagnant.
-  late final AnimationController _pulse;
 
   @override
   void initState() {
@@ -46,20 +40,13 @@ class _BrowsePageState extends State<BrowsePage>
     _documents.load();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1100),
     )..forward();
-    // A continuous forward loop (NOT reversing) — each cycle sweeps a pulse
-    // ring outward and bobs the icon, so there is always motion on screen.
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2600),
-    )..repeat();
   }
 
   @override
   void dispose() {
     _intro.dispose();
-    _pulse.dispose();
     _documents.dispose();
     super.dispose();
   }
@@ -88,11 +75,9 @@ class _BrowsePageState extends State<BrowsePage>
       child: AnimatedBuilder(
         animation: Listenable.merge([widget.store, _documents]),
         builder: (context, _) {
-          // Build the destination list. "General" leads (the open catch-all),
-          // then the tailored categories, then Documents.
-          // ONE colour throughout — the violet accent. Every destination looks
-          // the same; the ONLY differentiation is the icon, label, and each
-          // icon's OWN meaningful motion (never hue).
+          // "General" leads (the open catch-all), then the tailored categories,
+          // then Documents. ONE colour throughout — differentiation is icon +
+          // label only, never hue.
           final destinations = <_Dest>[
             _Dest(
               icon: TaskCategory.other.icon,
@@ -100,7 +85,6 @@ class _BrowsePageState extends State<BrowsePage>
               subtitle: 'Anything you want to remember — with a note.',
               count: _countFor(TaskCategory.other),
               onTap: () => _openCollection(TaskCategory.other),
-              motion: _Motion.twinkle, // sparkles gently twinkle
               highlight: true,
             ),
             for (final c in kBrowseCategoriesNoGeneral)
@@ -110,7 +94,6 @@ class _BrowsePageState extends State<BrowsePage>
                 subtitle: _subtitleFor(c),
                 count: _countFor(c),
                 onTap: () => _openCollection(c),
-                motion: _motionFor(c),
               ),
             _Dest(
               icon: Icons.folder_rounded,
@@ -118,7 +101,6 @@ class _BrowsePageState extends State<BrowsePage>
               subtitle: 'Your files — policies, receipts, photos.',
               count: _documents.totalCount,
               onTap: _openDocuments,
-              motion: _Motion.flip, // the folder peeks open
             ),
           ];
 
@@ -128,18 +110,11 @@ class _BrowsePageState extends State<BrowsePage>
               _header(),
               const SizedBox(height: 10),
               for (var i = 0; i < destinations.length; i++)
-                _StaggerIn(
-                  // Each row starts a beat after the previous → a gentle cascade.
+                _CascadeIn(
                   intro: _intro,
                   index: i,
                   total: destinations.length,
-                  child: _DestTile(
-                    dest: destinations[i],
-                    pulse: _pulse,
-                    // Offset each row's pulse phase so the motion ripples down
-                    // the list instead of firing in unison.
-                    phase: i / destinations.length,
-                  ),
+                  child: _DestTile(dest: destinations[i]),
                 ),
             ],
           );
@@ -186,28 +161,6 @@ class _BrowsePageState extends State<BrowsePage>
         TaskCategory.bills => 'Recurring bills & payments.',
         TaskCategory.other => 'Anything else.',
       };
-
-  /// Each category's OWN motion — chosen to MEAN something about the category,
-  /// so the animation reads as purposeful, not decorative noise.
-  _Motion _motionFor(TaskCategory c) => switch (c) {
-        TaskCategory.subscription => _Motion.recur, // recurring cycle spin
-        TaskCategory.birthday => _Motion.celebrate, // a happy little wobble
-        TaskCategory.investment => _Motion.grow, // savings rise upward
-        TaskCategory.policies => _Motion.guard, // steady, solid breath
-        TaskCategory.insurance => _Motion.guard,
-        TaskCategory.bills => _Motion.recur,
-        TaskCategory.other => _Motion.twinkle,
-      };
-}
-
-/// The distinct, meaningful motions an icon can carry.
-enum _Motion {
-  twinkle,   // General — sparkle points flicker
-  recur,     // Subscriptions/Bills — a slow recurring rotation, like a cycle
-  celebrate, // Occasions — a gentle celebratory wobble
-  grow,      // SIPs — a repeated upward "growth" nudge
-  guard,     // Policies/Insurance — a calm, steady protective breath
-  flip,      // Documents — the folder peeks open and closes
 }
 
 /// A destination’s data. No colour here — every tile uses the one accent.
@@ -218,7 +171,6 @@ class _Dest {
     required this.subtitle,
     required this.count,
     required this.onTap,
-    required this.motion,
     this.highlight = false,
   });
   final IconData icon;
@@ -227,18 +179,16 @@ class _Dest {
   final int count;
   final VoidCallback onTap;
 
-  /// This icon's own meaningful motion.
-  final _Motion motion;
-
   /// The lead "General" tile gets a touch more presence (a filled accent wash).
   final bool highlight;
 }
 
-/// Wraps a child in a one-time staggered fade + rise, driven by the shared
-/// [intro] controller. Row [index] starts a fraction later than the one above,
-/// so the list assembles in a smooth cascade the first time you land on Browse.
-class _StaggerIn extends StatelessWidget {
-  const _StaggerIn({
+/// The entrance cascade: row [index] slides up + fades in a beat AFTER the row
+/// above it, so the list assembles one row at a time. Each row owns a
+/// sub-window of the shared [intro] timeline; the windows barely overlap, so
+/// the arrival reads as one-then-the-next rather than everything at once.
+class _CascadeIn extends StatelessWidget {
+  const _CascadeIn({
     required this.intro,
     required this.index,
     required this.total,
@@ -255,15 +205,17 @@ class _StaggerIn extends StatelessWidget {
     return AnimatedBuilder(
       animation: intro,
       builder: (context, child) {
-        // Each row owns a sub-window of the intro timeline; windows overlap so
-        // the cascade flows rather than stepping one-by-one.
-        final start = total <= 1 ? 0.0 : (index / total) * 0.6;
-        final t = ((intro.value - start) / 0.4).clamp(0.0, 1.0);
+        // Spread the row STARTS across most of the timeline so each clearly
+        // begins after the previous; give each a short arrival window.
+        final start = total <= 1 ? 0.0 : (index / total) * 0.72;
+        const window = 0.42;
+        final t = ((intro.value - start) / window).clamp(0.0, 1.0);
         final eased = Curves.easeOutCubic.transform(t);
         return Opacity(
           opacity: eased,
           child: Transform.translate(
-            offset: Offset(0, 18 * (1 - eased)),
+            // Slide up from a bit lower — a clear "arriving" motion.
+            offset: Offset(0, 26 * (1 - eased)),
             child: child,
           ),
         );
@@ -273,18 +225,11 @@ class _StaggerIn extends StatelessWidget {
   }
 }
 
-/// One destination row: an always-animating accent icon, the label + subtitle,
-/// a count, and a chevron. Springs on press.
+/// One destination row: a calm static accent icon, the label + subtitle, a
+/// count, and a chevron. Springs softly on press. No looping motion.
 class _DestTile extends StatefulWidget {
-  const _DestTile({
-    required this.dest,
-    required this.pulse,
-    required this.phase,
-  });
-
+  const _DestTile({required this.dest});
   final _Dest dest;
-  final AnimationController pulse;
-  final double phase;
 
   @override
   State<_DestTile> createState() => _DestTileState();
@@ -325,12 +270,18 @@ class _DestTileState extends State<_DestTile> {
           ),
           child: Row(
             children: [
-              // The icon, animated with its OWN meaningful motion.
-              _LiveIcon(
-                icon: d.icon,
-                motion: d.motion,
-                pulse: widget.pulse,
-                phase: widget.phase,
+              // A calm, static accent icon chip.
+              Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: AppColors.accent.withValues(alpha: 0.34)),
+                ),
+                child: Icon(d.icon, color: AppColors.accent, size: 22),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -369,8 +320,7 @@ class _DestTileState extends State<_DestTile> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color:
-                      count == 0 ? AppColors.inkFaint : AppColors.accent,
+                  color: count == 0 ? AppColors.inkFaint : AppColors.accent,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
@@ -383,113 +333,4 @@ class _DestTileState extends State<_DestTile> {
       ),
     );
   }
-}
-
-/// The animated icon chip. The chip itself is calm and static (a soft accent
-/// square) — the LIFE is in the GLYPH, which moves in a way that MEANS something
-/// about the category, so the motion reads as purposeful rather than a random
-/// effect stamped on everything:
-///   • twinkle  (General)     — a soft breathe + brighten, like an idea sparking
-///   • recur    (Subscriptions/Bills) — a slow full rotation, the recurring cycle
-///   • celebrate(Occasions)   — a happy little wobble + hop
-///   • grow     (SIPs)        — a repeated upward rise, savings growing
-///   • guard    (Policies)    — a calm, steady protective breath
-///   • flip     (Documents)   — the folder periodically peeks open (Y-flip)
-///
-/// All in the single violet accent; each row is phase-shifted so the screen
-/// always has gentle, coherent movement without ever feeling busy.
-class _LiveIcon extends StatelessWidget {
-  const _LiveIcon({
-    required this.icon,
-    required this.motion,
-    required this.pulse,
-    required this.phase,
-  });
-
-  final IconData icon;
-  final _Motion motion;
-  final AnimationController pulse; // continuous 0→1 loop
-  final double phase; // 0..1 offset so rows don't move in lockstep
-
-  static const _accent = AppColors.accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: pulse,
-        builder: (context, _) {
-          final p = (pulse.value + phase) % 1.0; // this icon's own 0→1 loop
-          return Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _accent.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _accent.withValues(alpha: 0.34)),
-            ),
-            child: _animatedGlyph(p),
-          );
-        },
-      ),
-    );
-  }
-
-  /// The glyph with its category-specific transform applied at loop position [p].
-  Widget _animatedGlyph(double p) {
-    final glyph = Icon(icon, color: _accent, size: 22);
-    switch (motion) {
-      case _Motion.twinkle:
-        // Breathe brighter/bigger then settle — like a thought sparking.
-        final t = _wave(p); // 0→1→0
-        return Transform.scale(
-          scale: 0.94 + 0.12 * t,
-          child: Icon(icon, size: 22,
-              color: Color.lerp(_accent, Colors.white, 0.35 * t)),
-        );
-
-      case _Motion.recur:
-        // A slow, continuous full rotation — the recurring billing cycle.
-        return Transform.rotate(angle: p * 2 * math.pi, child: glyph);
-
-      case _Motion.celebrate:
-        // A happy wobble (rock left↔right) with a tiny hop at the peak.
-        final wobble = math.sin(p * 2 * math.pi) * 0.18; // radians
-        final hop = -2.5 * _wave(p);
-        return Transform.translate(
-          offset: Offset(0, hop),
-          child: Transform.rotate(angle: wobble, child: glyph),
-        );
-
-      case _Motion.grow:
-        // Rise up and fade back to the bottom, on repeat — savings growing.
-        final rise = -6 * p; // travels up across the loop
-        final fade = (1 - p).clamp(0.0, 1.0) * 0.5 + 0.5;
-        return Opacity(
-          opacity: fade,
-          child: Transform.translate(offset: Offset(0, rise), child: glyph),
-        );
-
-      case _Motion.guard:
-        // A calm, slow protective breath — solid and reassuring.
-        final t = _wave(p);
-        return Transform.scale(scale: 0.96 + 0.06 * t, child: glyph);
-
-      case _Motion.flip:
-        // The folder periodically peeks open — a Y-axis flip that eases back.
-        final open = _wave(p); // 0→1→0
-        final angle = open * 0.9; // up to ~50°
-        return Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.0015)
-            ..rotateX(angle),
-          child: glyph,
-        );
-    }
-  }
-
-  /// A smooth 0→1→0 over p∈[0,1] using a real sine (raised).
-  static double _wave(double p) => math.sin(p * math.pi);
 }

@@ -573,26 +573,12 @@ class UpNextStrip extends StatelessWidget {
           ),
         ),
         if (shown.isEmpty)
-          // Quiet window — keep the section (and its label) so tapping a calm
-          // day still reads as a response, not a disappearance.
+          // Quiet window — a full, intentional empty-state card (not a thin
+          // dangling line), so a calm stretch reads as a finished, cared-for
+          // state rather than something missing.
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 2, 20, 6),
-            child: Row(
-              children: [
-                Icon(Icons.check_circle_outline_rounded,
-                    size: 18, color: AppColors.inkFaint.withValues(alpha: 0.8)),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Nothing in this window — you’re free.',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.inkSoft),
-                  ),
-                ),
-              ],
-            ),
+            child: _UpNextEmpty(windowLabel: windowLabel),
           )
         else
           SizedBox(
@@ -613,6 +599,101 @@ class UpNextStrip extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// The Up-Next EMPTY state — shown when nothing is scheduled in the window. A
+/// full, self-contained card that mirrors the polish of the populated cards: a
+/// soft violet gradient wash, a friendly accent chip, a confident headline and
+/// a calming subline. It reads as a deliberate "you're all caught up" moment,
+/// not a gap where content failed to load.
+class _UpNextEmpty extends StatelessWidget {
+  const _UpNextEmpty({required this.windowLabel});
+
+  /// The strip's window hint ("coming up" / "next 7 days" / "from Tue 11"),
+  /// woven into the subline so the copy fits what the user is actually looking
+  /// at instead of a generic phrase.
+  final String windowLabel;
+
+  String get _subline {
+    final w = windowLabel.trim().toLowerCase();
+    if (w.isEmpty || w == 'coming up' || w == 'next 7 days') {
+      return 'Nothing on the horizon for the next 7 days. Enjoy the calm.';
+    }
+    // Anchored windows read as "from Tue 11" — keep that phrasing natural.
+    return 'Nothing scheduled $w. Enjoy the calm.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.accent.withValues(alpha: 0.13),
+            AppColors.accent.withValues(alpha: 0.03),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          // A calm accent chip — "rest / you're free".
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.accent.withValues(alpha: 0.30),
+                  AppColors.accent.withValues(alpha: 0.14),
+                ],
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+            ),
+            child: const Icon(Icons.self_improvement_rounded,
+                size: 26, color: AppColors.ink),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "You're all caught up",
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _subline,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.3,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

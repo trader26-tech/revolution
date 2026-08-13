@@ -168,6 +168,7 @@ class Task {
     this.imagePath,
     this.storedCategory,
     this.subCategory,
+    this.note,
     this.birthYear,
     this.remindDaysBefore = 0,
     this.returnAmount,
@@ -225,6 +226,11 @@ class Task {
   /// "Entertainment" / "Music" / "AI" bucket (auto-filled from the app, or a
   /// custom label the user typed). Null = uncategorised → "Other".
   String? subCategory;
+
+  /// A freeform NOTE the user attaches to a reminder — the "why", context, or
+  /// anything worth remembering. Used most by the General category (a catch-all
+  /// reminder + note), but available to any task. Null = no note.
+  String? note;
 
   /// For a birthday/anniversary: the person's birth year, when known. Null =
   /// year unknown (we only track the day/month). Drives the "turns N" age.
@@ -318,6 +324,8 @@ class Task {
     bool clearImage = false,
     TaskCategory? category,
     String? subCategory,
+    String? note,
+    bool clearNote = false,
     int? birthYear,
     bool clearBirthYear = false,
     int? remindDaysBefore,
@@ -348,6 +356,7 @@ class Task {
       imagePath: clearImage ? null : (imagePath ?? this.imagePath),
       storedCategory: category ?? storedCategory,
       subCategory: subCategory ?? this.subCategory,
+      note: clearNote ? null : (note ?? this.note),
       birthYear: clearBirthYear ? null : (birthYear ?? this.birthYear),
       remindDaysBefore: remindDaysBefore ?? this.remindDaysBefore,
       returnAmount:
@@ -381,6 +390,7 @@ class Task {
         'image_path': imagePath,
         if (storedCategory != null) 'category': storedCategory!.name,
         if (subCategory != null) 'sub_category': subCategory,
+        if (note != null) 'note': note,
         if (birthYear != null) 'birth_year': birthYear,
         'remind_days_before': remindDaysBefore,
         // Policy "return" side — snake_case; the server roundtrips/ignores
@@ -421,6 +431,7 @@ class Task {
                 orElse: () => TaskCategory.other,
               ),
         subCategory: j['sub_category'] as String?,
+        note: j['note'] as String?,
         birthYear: (j['birth_year'] as num?)?.toInt(),
         remindDaysBefore: (j['remind_days_before'] as num?)?.toInt() ?? 0,
         returnAmount: (j['return_amount'] as num?)?.toDouble(),

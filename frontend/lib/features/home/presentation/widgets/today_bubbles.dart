@@ -90,10 +90,6 @@ class _TodayBubblesState extends State<TodayBubbles>
   static const _itemGapMs = 300;
   static const _itemStrideMs = _itemRevealMs + _itemGapMs;
 
-  /// Whether the "Done today" section is expanded. Collapsed by default so
-  /// finished items don't compete with what's still to do.
-  bool _doneOpen = false;
-
   List<Task> get _active => widget.tasks;
   List<Task> get _done => widget.doneTasks;
 
@@ -246,11 +242,14 @@ class _TodayBubblesState extends State<TodayBubbles>
             ] else
               const SizedBox(height: 22),
 
-            // ── Active reminders — conjured ONE AT A TIME ──
-            if (active.isEmpty)
+            // ── Today's reminders in ONE list. Active ones conjure word by
+            //    word; a completed one simply CROSSES OFF in place — no separate
+            //    "Done" bucket, no counts. Tap a crossed-off line to bring it
+            //    back. ──
+            if (active.isEmpty && done.isEmpty)
               Opacity(
                 opacity: _win(_greetEndMs, _greetEndMs + 500),
-                child: _AllClearLine(allDone: done.isNotEmpty),
+                child: const _AllClearLine(),
               )
             else
               for (var i = 0; i < active.length; i++)
@@ -265,17 +264,16 @@ class _TodayBubblesState extends State<TodayBubbles>
                   onDone: () => _complete(active[i]),
                 ),
 
-            // ── "Done today" — everything you've ticked, tap to bring back ──
-            if (done.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              _DoneSection(
-                tasks: done,
-                open: _doneOpen,
-                onToggleOpen: () => setState(() => _doneOpen = !_doneOpen),
-                onRestore: _restore,
-                onOpen: widget.onOpen,
+            // Completed items — crossed off, in place, below the active ones.
+            // No header, no count, no expand: just the struck-through lines.
+            for (final t in done)
+              _DoneLine(
+                key: ValueKey('done-${t.id}'),
+                task: t,
+                sentence: sentenceFor(t, widget.lineFor(t)),
+                onRestore: () => _restore(t),
+                onTap: () => widget.onOpen(t),
               ),
-            ],
           ],
         );
       },
@@ -283,123 +281,21 @@ class _TodayBubblesState extends State<TodayBubbles>
   }
 }
 
-/// The "Done today" group — a tappable header with a count, and (when open) the
-/// finished reminders, each struck-through with a filled check you tap to bring
-/// it back to active. The list expands/collapses with a smooth size+fade so it
-/// never feels like content pops in.
-class _DoneSection extends StatelessWidget {
-  const _DoneSection({
-    required this.tasks,
-    required this.open,
-    required this.onToggleOpen,
-    required this.onRestore,
-    required this.onOpen,
-  });
-
-  final List<Task> tasks;
-  final bool open;
-  final VoidCallback onToggleOpen;
-  final ValueChanged<Task> onRestore;
-  final ValueChanged<Task> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header row — "Done today · N", with a rotating chevron.
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onToggleOpen,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle_rounded,
-                        size: 18, color: AppColors.accent),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Done today',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.3,
-                        color: AppColors.inkSoft,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '${tasks.length}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.accent,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    AnimatedRotation(
-                      turns: open ? 0.5 : 0.0,
-                      duration: const Duration(milliseconds: 220),
-                      child: const Icon(Icons.keyboard_arrow_down_rounded,
-                          color: AppColors.inkFaint),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        // The items — animated open/closed.
-        AnimatedSize(
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topCenter,
-          child: AnimatedOpacity(
-            opacity: open ? 1 : 0,
-            duration: const Duration(milliseconds: 200),
-            child: open
-                ? Column(
-                    children: [
-                      const SizedBox(height: 2),
-                      for (final t in tasks)
-                        _DoneLine(
-                          key: ValueKey('done-${t.id}'),
-                          task: t,
-                          onRestore: () => onRestore(t),
-                          onTap: () => onOpen(t),
-                        ),
-                    ],
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// One finished reminder: its name struck through and dimmed, with a FILLED
-/// check on the right. Tapping the check restores it (marks undone); tapping the
-/// row opens it. Reads as clearly "handled" without shouting.
+/// A completed reminder, CROSSED OFF in place — the same line as when it was
+/// active (icon + its sentence), just struck through and dimmed, with a filled
+/// check on the right. No separate section, no header, no count. Tap the check
+/// to bring it back (mark undone); tap the row to open it.
 class _DoneLine extends StatelessWidget {
   const _DoneLine({
     super.key,
     required this.task,
+    required this.sentence,
     required this.onRestore,
     required this.onTap,
   });
+
+  /// The same unified sentence the line showed while active — now struck through.
+  final String sentence;
 
   final Task task;
   final VoidCallback onRestore;
@@ -407,57 +303,63 @@ class _DoneLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // One constant accent for the row chrome (the restore check) — no
-    // per-category colours on the home list.
-    const tint = AppColors.accent;
+    // Same geometry as an active line so a completed one just "crosses off" in
+    // place — the row doesn't jump or restyle beyond the strike + dim.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 16, 4),
+      padding: const EdgeInsets.fromLTRB(20, 0, 16, 20),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Opacity(
-                  opacity: 0.5,
-                  child: _LineIcon(task: task, tint: tint),
+                  opacity: 0.45,
+                  child: _LineIcon(task: task),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
-                    task.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.inkFaint,
-                      decoration: TextDecoration.lineThrough,
-                      decorationColor: AppColors.inkFaint,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    // The whole sentence, struck through + dimmed.
+                    child: Text(
+                      sentence,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        height: 1.32,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.inkFaint,
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: AppColors.inkFaint,
+                        decorationThickness: 2,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Filled check — tap to restore (mark undone). Tooltip spells it
-                // out so the affordance is unmistakable.
-                Tooltip(
-                  message: 'Mark as not done',
-                  child: GestureDetector(
-                    onTap: onRestore,
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: tint,
-                        shape: BoxShape.circle,
+                // Filled check — tap to bring it back (mark undone).
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Tooltip(
+                    message: 'Mark as not done',
+                    child: GestureDetector(
+                      onTap: onRestore,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: AppColors.accent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.check_rounded,
+                            size: 17, color: Colors.white),
                       ),
-                      child: const Icon(Icons.check_rounded,
-                          size: 17, color: Colors.white),
                     ),
                   ),
                 ),
@@ -915,11 +817,7 @@ class _LineIcon extends StatelessWidget {
 /// The "nothing due" line — shown when today is clear (there may still be
 /// upcoming items below, so this isn't the whole-app empty state).
 class _AllClearLine extends StatelessWidget {
-  const _AllClearLine({this.allDone = false});
-
-  /// True when the list is empty because everything was TICKED (vs. nothing was
-  /// due at all) — so the message can celebrate rather than say "nothing here".
-  final bool allDone;
+  const _AllClearLine();
 
   @override
   Widget build(BuildContext context) {
@@ -939,12 +837,10 @@ class _AllClearLine extends StatelessWidget {
                 color: AppColors.accent, size: 21),
           ),
           const SizedBox(width: 14),
-          Expanded(
+          const Expanded(
             child: Text(
-              allDone
-                  ? 'All done for today — nicely handled.'
-                  : 'Nothing due today — enjoy the calm.',
-              style: const TextStyle(
+              'Nothing due today — enjoy the calm.',
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: AppColors.ink,

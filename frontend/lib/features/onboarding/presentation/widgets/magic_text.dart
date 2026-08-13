@@ -44,12 +44,20 @@ class MagicText extends StatelessWidget {
     required this.text,
     required this.progress,
     required this.style,
+    this.reading = false,
   });
 
   final String text;
 
   final double progress;
   final TextStyle style;
+
+  /// "Reading" mode: words reveal strictly one-after-another in reading order
+  /// (left-to-right, top-to-bottom) with a tight window and a calm slide-in — so
+  /// the line reads as if it's being WRITTEN OUT as your eye moves across it,
+  /// not conjured in a scatter. Off (default) keeps the original dreamy,
+  /// overlapping shimmer used in onboarding.
+  final bool reading;
 
   @override
   Widget build(BuildContext context) {
@@ -58,13 +66,15 @@ class MagicText extends StatelessWidget {
     final lines = text.split(String.fromCharCode(10));
     final wordCount = lines.fold<int>(0, (n, l) => n + l.split(' ').length);
 
-    // Stagger the word STARTS evenly across [0 .. 1 - wordWindow] and give every
-    // word the same window, so the FIRST starts at 0 and the LAST finishes
-    // exactly at progress == 1. This guarantees every word — including the last
-    // — reaches local t == 1 and fully settles (no glow/haze left stuck on it).
-    // The window is wider than one slot so consecutive words overlap and the
-    // reveal flows like a cascade.
-    const wordWindow = 0.55; // each word's fade-in length, in timeline units
+    // Each word gets a START time and a WINDOW. The window is how long one word
+    // takes to arrive; the starts are staggered so the FIRST begins at 0 and the
+    // LAST finishes exactly at progress == 1.
+    //   • reading mode → a SHORT window (little overlap): word i is essentially
+    //     done before i+1 gets going, giving a clean left-to-right sweep.
+    //   • default      → a WIDE window (heavy overlap): the dreamy cascade.
+    final double wordWindow = reading
+        ? (wordCount > 1 ? (1.0 / wordCount) * 1.6 : 1.0)
+        : 0.55;
     final lastStart = wordCount > 1 ? (1 - wordWindow) : 0.0;
     final step = wordCount > 1 ? lastStart / (wordCount - 1) : 0.0;
     double localFor(int i) {
@@ -77,7 +87,8 @@ class MagicText extends StatelessWidget {
     for (final line in lines) {
       final children = <Widget>[
         for (final w in line.split(' '))
-          _MagicWord(word: w, t: localFor(wordIndex++), style: style),
+          _MagicWord(
+              word: w, t: localFor(wordIndex++), style: style, reading: reading),
       ];
       rows.add(
         Wrap(
@@ -106,14 +117,38 @@ class MagicText extends StatelessWidget {
 /// un-blurs from a haze, floats up, scales from small with a springy overshoot,
 /// and flashes a soft violet glow that fades as it settles.
 class _MagicWord extends StatelessWidget {
-  const _MagicWord({required this.word, required this.t, required this.style});
+  const _MagicWord({
+    required this.word,
+    required this.t,
+    required this.style,
+    this.reading = false,
+  });
 
   final String word;
   final double t;
   final TextStyle style;
+  final bool reading;
 
   @override
   Widget build(BuildContext context) {
+    if (reading) {
+      // Reading mode: a calm, crisp arrival — the word fades in while sliding a
+      // few px from the LEFT into place. No overshoot, no vertical float, no
+      // haze, no glow — so the eye reads a clean left-to-right fill, one word
+      // settling before the next starts.
+      final ease = Curves.easeOutCubic.transform(t);
+      return Opacity(
+        opacity: ease,
+        child: Transform.translate(
+          offset: Offset(-10 * (1 - ease), 0),
+          child: Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(word, style: style),
+          ),
+        ),
+      );
+    }
+
     final ease = Curves.easeOut.transform(t);
     final spring = Curves.elasticOut.transform(t);
 

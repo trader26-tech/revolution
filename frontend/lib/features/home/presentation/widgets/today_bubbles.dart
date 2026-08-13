@@ -594,11 +594,14 @@ class _ConjuredLine extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    // ONE unified sentence — conjured word by word. This is the
-                    // whole line; no separate title/meta.
+                    // ONE unified sentence — written out left-to-right in
+                    // reading order (reading mode), so it looks like it's being
+                    // typed as your eye moves across it, not conjured in a
+                    // scatter.
                     child: MagicText(
                       text: sentence,
                       progress: progress,
+                      reading: true,
                       style: const TextStyle(
                         fontSize: 16,
                         height: 1.32,

@@ -15,6 +15,7 @@ import '../tasks/presentation/task_details_sheet.dart';
 import 'presentation/collection_page.dart';
 import 'presentation/upcoming_page.dart';
 import 'presentation/widgets/home_dashboard.dart';
+import 'presentation/widgets/today_bubbles.dart';
 
 /// The Home screen.
 ///
@@ -176,11 +177,21 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// The "Up next" cards: scheduled, unfinished reminders in the 7-day window
-  /// from today, soonest first.
-  List<Task> _upNextFromToday(List<Task> all) {
-    final start = _dayOf(DateTime.now());
-    final end = start.add(const Duration(days: 8)); // exclusive (7 days)
+  /// Everything due TODAY, unfinished — the home bubbles. Soonest first.
+  List<Task> _dueToday(List<Task> all) {
+    final today = _dayOf(DateTime.now());
+    return all
+        .where((t) =>
+            t.isScheduled && !t.done && _dayOf(t.dueAt!) == today)
+        .toList()
+      ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
+  }
+
+  /// The "Up next" cards: scheduled, unfinished reminders in the NEXT-7-days
+  /// window — tomorrow onward, so today lives in the bubbles above, not twice.
+  List<Task> _upNextFromTomorrow(List<Task> all) {
+    final start = _dayOf(DateTime.now()).add(const Duration(days: 1));
+    final end = start.add(const Duration(days: 7)); // exclusive
     return all
         .where((t) =>
             t.isScheduled &&
@@ -189,6 +200,16 @@ class _HomePageState extends State<HomePage> {
             _dayOf(t.dueAt!).isBefore(end))
         .toList()
       ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
+  }
+
+  /// "Good morning, Sanjeev" — the line Revo says atop the bubbles.
+  String _greeting(String name) {
+    final h = DateTime.now().hour;
+    final part = h < 12
+        ? 'Good morning'
+        : (h < 17 ? 'Good afternoon' : 'Good evening');
+    final first = name.trim().isEmpty ? '' : name.trim().split(' ').first;
+    return first.isEmpty ? part : '$part, $first';
   }
 
   Widget _buildList() {
@@ -206,33 +227,28 @@ class _HomePageState extends State<HomePage> {
         ? AuthStore.instance.name!.trim()
         : ProfileStore.instance.name;
 
-    // Greeting → Up Next (from today) → the Browse grid, which is the easy-access
-    // launcher to every product (no calendar, no raw task dump).
-    final today = _dayOf(DateTime.now());
+    // Today's tasks arrive as animated BUBBLES (the hero) → Up Next for the
+    // days AFTER today. Browse now lives on the nav bar, not in this feed.
+    final tomorrow = _dayOf(DateTime.now()).add(const Duration(days: 1));
     final rows = <Widget>[
-      // Greeting — Revo says "Good <time>, <name>" + "Welcome to Revolution".
-      GreetingRevo(name: displayName, tasks: allTasks),
-      const SizedBox(height: 2),
-      // Up Next — the next 7 days from today, day by day. The arrow opens the
-      // full vertical upcoming list.
+      // The bubbles — today's reminders, materialising one by one, each with a
+      // derived nudge and a tick to dismiss.
+      TodayBubbles(
+        greeting: _greeting(displayName),
+        tasks: _dueToday(allTasks),
+        onOpen: _editTask,
+        onComplete: (t) => widget.store.toggleDone(t),
+        onUndo: (t) => widget.store.toggleDone(t),
+      ),
+      const SizedBox(height: 8),
+      // Up Next — tomorrow through the next 7 days, day by day. The arrow opens
+      // the full vertical upcoming list.
       UpNextStrip(
-        items: _upNextFromToday(allTasks),
-        anchor: today,
-        windowLabel: 'next 7 days',
+        items: _upNextFromTomorrow(allTasks),
+        anchor: tomorrow,
+        windowLabel: 'coming up',
         onTap: _editTask,
         onSeeAll: _openUpcoming,
-      ),
-      // Browse — the launcher to every category's collection page. Documents
-      // now leads this list (first row) instead of a separate strip above.
-      AnimatedBuilder(
-        animation: _documents,
-        builder: (context, _) => BrowseGrid(
-          tasks: allTasks,
-          onOpenCategory: _openCollection,
-          onOpenAll: () => _openCollection(null),
-          onOpenDocuments: _openDocuments,
-          documentCount: _documents.totalCount,
-        ),
       ),
     ];
 

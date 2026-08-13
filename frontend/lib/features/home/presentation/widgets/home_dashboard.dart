@@ -2157,6 +2157,7 @@ class BrowseGrid extends StatelessWidget {
     required this.onOpenAll,
     required this.onOpenDocuments,
     this.documentCount = 0,
+    this.showHeader = true,
   });
 
   final List<Task> tasks;
@@ -2172,6 +2173,10 @@ class BrowseGrid extends StatelessWidget {
   final VoidCallback onOpenDocuments;
   final int documentCount;
 
+  /// Whether to draw the little "Browse · your orbit" header. Hidden when the
+  /// grid is a full nav page that already carries its own big title.
+  final bool showHeader;
+
   int _countFor(TaskCategory c) => tasks.where((t) => t.category == c).length;
 
   @override
@@ -2184,31 +2189,32 @@ class BrowseGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 6),
-          child: Row(
-            children: [
-              const Text(
-                'Browse',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
-                  color: AppColors.ink,
+        if (showHeader)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 6),
+            child: Row(
+              children: [
+                const Text(
+                  'Browse',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    color: AppColors.ink,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'your orbit',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.inkFaint.withValues(alpha: 0.9),
+                const SizedBox(width: 8),
+                Text(
+                  'your orbit',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.inkFaint.withValues(alpha: 0.9),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         // A plain list — clean rows split by hairlines, no boxes.
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -516,34 +518,11 @@ class _Greeting extends StatelessWidget {
             color: AppColors.inkSoft,
           ),
         ),
-        // ── Tier 2: the name — big, gradient-filled, the hero (reveals after) ──
+        // ── Tier 2: the name — big, gradient-filled, the hero (reveals after),
+        //    with a personal ✦ sparkle beside it and a celebratory landing. ──
         if (hasName) ...[
           const SizedBox(height: 2),
-          ShaderMask(
-            // Paint the materialising name with a violet→light sweep. The mask
-            // recolours whatever MagicText draws, so the word-by-word shimmer
-            // still plays underneath.
-            shaderCallback: (rect) => const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFEDE7FF), // near-white lavender
-                AppColors.accent, // vivid violet
-              ],
-            ).createShader(rect),
-            blendMode: BlendMode.srcIn,
-            child: MagicText(
-              text: name,
-              progress: nameProgress,
-              style: const TextStyle(
-                fontSize: 34,
-                height: 1.05,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.6,
-                color: Colors.white, // recoloured by the ShaderMask
-              ),
-            ),
-          ),
+          _NameHero(name: name, progress: nameProgress),
         ],
       ],
     );
@@ -554,6 +533,200 @@ class _Greeting extends StatelessWidget {
   /// the back, giving a strict salutation-then-name reading order.
   static double _seg(double progress, double start, double end) =>
       ((progress - start) / (end - start)).clamp(0.0, 1.0);
+}
+
+/// The user's NAME as the hero of the greeting: the gradient-filled, word-by-word
+/// shimmering name, given a celebratory LANDING — it scales up with a springy
+/// pop and blooms a soft violet glow as it settles — plus a personal ✦ sparkle
+/// beside it that draws in on arrival and then gently, perpetually pulses. The
+/// sparkle is what makes the name read as *yours*, not just text.
+class _NameHero extends StatefulWidget {
+  const _NameHero({required this.name, required this.progress});
+
+  final String name;
+
+  /// 0→1 across the NAME's slice of the greeting timeline (from _seg). Drives the
+  /// shimmer + the landing pop/glow.
+  final double progress;
+
+  @override
+  State<_NameHero> createState() => _NameHeroState();
+}
+
+class _NameHeroState extends State<_NameHero>
+    with SingleTickerProviderStateMixin {
+  // A slow, perpetual loop that gives the settled sparkle its gentle life.
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.progress;
+    // Landing pop: a springy scale that overshoots ~1.05 then settles to 1.0 as
+    // the name finishes arriving. easeOutBack gives the tasteful overshoot.
+    final pop = 0.86 + 0.14 * Curves.easeOutBack.transform(p);
+    // Glow blooms mid-arrival then fades to nothing once settled — a soft violet
+    // halo behind the name, so it lands like it matters.
+    final bloom = p >= 0.999 ? 0.0 : math.sin(p.clamp(0.0, 1.0) * math.pi);
+
+    return Transform.scale(
+      scale: pop,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Flexible(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.45 * bloom),
+                    blurRadius: 26 * bloom,
+                    spreadRadius: 1 * bloom,
+                  ),
+                ],
+              ),
+              child: ShaderMask(
+                // Paint the materialising name with a violet→light sweep. The
+                // mask recolours whatever MagicText draws, so the word-by-word
+                // shimmer still plays underneath.
+                shaderCallback: (rect) => const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFEDE7FF), // near-white lavender
+                    AppColors.accent, // vivid violet
+                  ],
+                ).createShader(rect),
+                blendMode: BlendMode.srcIn,
+                child: MagicText(
+                  text: widget.name,
+                  progress: widget.progress,
+                  style: const TextStyle(
+                    fontSize: 34,
+                    height: 1.05,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.6,
+                    color: Colors.white, // recoloured by the ShaderMask
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // The personal ✦ sparkle — draws in as the name lands, then pulses.
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: AnimatedBuilder(
+              animation: _pulse,
+              builder: (context, _) => _Sparkle(
+                arrive: Curves.easeOutBack
+                    .transform(((p - 0.5) / 0.5).clamp(0.0, 1.0)),
+                pulse: _pulse.value,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A small four-point spark that scales/rotates IN as the name arrives, then
+/// once settled breathes with a gentle scale + glow pulse. Pure paint — no
+/// glyph font dependency, so it always renders crisp.
+class _Sparkle extends StatelessWidget {
+  const _Sparkle({required this.arrive, required this.pulse});
+
+  /// 0→1 entrance as the name lands.
+  final double arrive;
+
+  /// 0→1 perpetual loop for the settled breathing.
+  final double pulse;
+
+  @override
+  Widget build(BuildContext context) {
+    // Entrance scale/spin, then a subtle settled breath (±8% scale, glow waxes
+    // and wanes) once arrived.
+    final breath = 0.5 - 0.5 * math.cos(pulse * 2 * math.pi); // 0..1..0
+    final scale = arrive * (1.0 + 0.08 * breath);
+    final spin = (1 - arrive) * 0.5; // a half-turn as it draws in
+    final glow = (0.35 + 0.65 * breath) * arrive;
+    return Opacity(
+      opacity: arrive,
+      child: Transform.rotate(
+        angle: spin * math.pi,
+        child: Transform.scale(
+          scale: scale,
+          child: CustomPaint(
+            size: const Size(18, 18),
+            painter: _SparklePainter(glow: glow),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SparklePainter extends CustomPainter {
+  const _SparklePainter({required this.glow});
+  final double glow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2;
+    // A four-point star: two crossed "diamonds" pinched at the centre.
+    Path star(double scale) {
+      final rr = r * scale;
+      final w = rr * 0.30; // waist
+      return Path()
+        ..moveTo(c.dx, c.dy - rr)
+        ..quadraticBezierTo(c.dx + w, c.dy - w, c.dx + rr, c.dy)
+        ..quadraticBezierTo(c.dx + w, c.dy + w, c.dx, c.dy + rr)
+        ..quadraticBezierTo(c.dx - w, c.dy + w, c.dx - rr, c.dy)
+        ..quadraticBezierTo(c.dx - w, c.dy - w, c.dx, c.dy - rr)
+        ..close();
+    }
+
+    // Soft glow underlay.
+    if (glow > 0.01) {
+      canvas.drawPath(
+        star(1.15),
+        Paint()
+          ..color = AppColors.accent.withValues(alpha: 0.45 * glow)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * glow),
+      );
+    }
+    // The bright spark, in the app accent → light gradient for a jewel feel.
+    canvas.drawPath(
+      star(1.0),
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFFEDE7FF), AppColors.accent],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(Rect.fromCircle(center: c, radius: r)),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SparklePainter old) => old.glow != glow;
 }
 
 /// One reminder as Revo conjures it: a leading icon and a tick bloom in around

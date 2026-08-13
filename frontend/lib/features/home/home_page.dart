@@ -5,8 +5,6 @@ import '../../core/widgets/glass.dart';
 import '../add/presentation/added_success.dart';
 import '../add/presentation/open_add_flow.dart';
 import '../auth/data/auth_store.dart';
-import '../documents/data/documents_store.dart';
-import '../documents/presentation/documents_page.dart';
 import '../settings/data/profile_store.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
@@ -34,32 +32,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  // The LOCAL documents library — files kept on-device, opened from the
-  // quick-access button above Browse. Loaded once so the button can show a count.
-  final _documents = DocumentsStore();
-
-  @override
-  void initState() {
-    super.initState();
-    _documents.load();
-  }
-
-  @override
-  void dispose() {
-    _documents.dispose();
-    super.dispose();
-  }
-
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SettingsPage()),
-    );
-  }
-
-  /// Open the local Documents library (a pushed full screen).
-  void _openDocuments() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => DocumentsPage(store: _documents)),
     );
   }
 

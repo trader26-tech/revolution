@@ -104,13 +104,19 @@ class _HomePageState extends State<HomePage> {
     if (result == null || !mounted) return;
     final willAdd = result.task != null || result.selfSaved;
     if (!willAdd) return;
-    // CRITICAL ordering: the frame the form closes, show the celebration FIRST
-    // (it's cheap + opaque + instant, so it covers the screen immediately and
-    // Home is never painted), THEN place the destination page underneath it,
-    // THEN persist (async; it notifies listeners → a Home rebuild, now hidden
-    // behind the celebration). Nothing awaited runs before the cover is up.
-    final celebration = showAddedSuccess(context, label: addedLabel(category));
+    // CRITICAL ordering — the celebration must be the TOPMOST route so it plays
+    // the instant the form closes, then reveals the destination underneath when
+    // it dismisses. Home, the collection page, and the success page all share
+    // ONE navigator, so the LAST push wins the top:
+    //   1. push the collection page (instant, no anim) — it sits UNDER,
+    //   2. push the success celebration ON TOP (opaque + instant) — so it's
+    //      what the user sees immediately, no flash of the collection first,
+    //   3. persist (async) behind the cover — its listener rebuild is hidden,
+    //   4. await the celebration; when it auto-dismisses it pops back to the
+    //      collection page, already in place underneath.
     _openCollection(category, instant: true);
+    if (!mounted) return;
+    final celebration = showAddedSuccess(context, label: addedLabel(category));
     await persistAddResult(widget.store, result);
     await celebration;
   }

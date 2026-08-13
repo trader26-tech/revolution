@@ -104,24 +104,45 @@ class _TodayBubblesState extends State<TodayBubbles>
 
   double get _ms => _run.value * _totalMs;
 
+  /// How many active tasks the current run was choreographed for. On a cold
+  /// launch the store loads tasks ASYNChronously, so the first build often has an
+  /// EMPTY list — if the controller ran against that, the real tasks would arrive
+  /// with it already finished and the reveal would look rushed/broken. So the
+  /// first time the list goes from empty → populated we RE-choreograph and replay
+  /// from the top, matching the actual list. (Tab-return replays via replayTick;
+  /// ticking/deleting — a populated list SHRINKING — never replays.)
+  int _runCount = -1;
+
+  void _startRun() {
+    _runCount = widget.tasks.length;
+    _run.duration = Duration(milliseconds: _totalMs);
+    _run.forward(from: 0);
+  }
+
   @override
   void initState() {
     super.initState();
     _run = AnimationController(vsync: this, duration: Duration.zero);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _run.duration = Duration(milliseconds: _totalMs);
-      _run.forward();
+      setState(_startRun); // choreograph for whatever's loaded on this frame
     });
   }
 
   @override
   void didUpdateWidget(covariant TodayBubbles old) {
     super.didUpdateWidget(old);
-    // Home became visible again → conjure it all over, from empty.
+    // Home became visible again (tab return) → conjure it all over, from empty.
     if (widget.replayTick != old.replayTick) {
-      _run.duration = Duration(milliseconds: _totalMs);
-      _run.forward(from: 0);
+      _startRun();
+      return;
+    }
+    // Cold-launch case: the run was choreographed for an EMPTY list, then the
+    // async store load delivered the first tasks. Re-run once for the real list
+    // so nothing is left half/instantly-revealed. Only fires on empty → non-empty
+    // (a growth), so ticking/deleting (a shrink) never replays.
+    if (_runCount == 0 && widget.tasks.isNotEmpty) {
+      _startRun();
     }
   }
 

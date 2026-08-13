@@ -69,11 +69,12 @@ class MagicText extends StatelessWidget {
     // Each word gets a START time and a WINDOW. The window is how long one word
     // takes to arrive; the starts are staggered so the FIRST begins at 0 and the
     // LAST finishes exactly at progress == 1.
-    //   • reading mode → a SHORT window (little overlap): word i is essentially
-    //     done before i+1 gets going, giving a clean left-to-right sweep.
+    //   • reading mode → a MODERATE window with light overlap: each word's
+    //     shimmer gets room to bloom and settle, and consecutive words overlap
+    //     just enough to flow left-to-right in reading order (not snap in).
     //   • default      → a WIDE window (heavy overlap): the dreamy cascade.
     final double wordWindow = reading
-        ? (wordCount > 1 ? (1.0 / wordCount) * 1.6 : 1.0)
+        ? (wordCount > 1 ? (1.0 / wordCount) * 2.4 : 1.0)
         : 0.55;
     final lastStart = wordCount > 1 ? (1 - wordWindow) : 0.0;
     final step = wordCount > 1 ? lastStart / (wordCount - 1) : 0.0;
@@ -127,28 +128,15 @@ class _MagicWord extends StatelessWidget {
   final String word;
   final double t;
   final TextStyle style;
+
+  /// Kept for API symmetry, but the per-word VISUAL is identical in both modes —
+  /// the shimmer (glow, haze-resolve, float, springy settle) always plays. What
+  /// "reading" changes lives in [MagicText]: a tighter, non-overlapping window
+  /// so the SAME shimmer sweeps left-to-right, word by word, in reading order.
   final bool reading;
 
   @override
   Widget build(BuildContext context) {
-    if (reading) {
-      // Reading mode: a calm, crisp arrival — the word fades in while sliding a
-      // few px from the LEFT into place. No overshoot, no vertical float, no
-      // haze, no glow — so the eye reads a clean left-to-right fill, one word
-      // settling before the next starts.
-      final ease = Curves.easeOutCubic.transform(t);
-      return Opacity(
-        opacity: ease,
-        child: Transform.translate(
-          offset: Offset(-10 * (1 - ease), 0),
-          child: Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Text(word, style: style),
-          ),
-        ),
-      );
-    }
-
     final ease = Curves.easeOut.transform(t);
     final spring = Curves.elasticOut.transform(t);
 

@@ -563,14 +563,17 @@ class _Sparkle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Entrance scale/spin, then a subtle settled breath (±8% scale, glow waxes
-    // and wanes) once arrived.
+    // [arrive] rides an easeOutBack curve upstream, so it can overshoot OUTSIDE
+    // 0..1 (that's what gives the pop). Opacity + colour alpha must stay in
+    // range, so clamp a dedicated fade value; the springy [arrive] still drives
+    // the scale for the bouncy landing.
+    final fade = arrive.clamp(0.0, 1.0);
     final breath = 0.5 - 0.5 * math.cos(pulse * 2 * math.pi); // 0..1..0
-    final scale = arrive * (1.0 + 0.08 * breath);
-    final spin = (1 - arrive) * 0.5; // a half-turn as it draws in
-    final glow = (0.35 + 0.65 * breath) * arrive;
+    final scale = (arrive * (1.0 + 0.08 * breath)).clamp(0.0, 2.0);
+    final spin = (1 - fade) * 0.5; // a half-turn as it draws in
+    final glow = ((0.35 + 0.65 * breath) * fade).clamp(0.0, 1.0);
     return Opacity(
-      opacity: arrive,
+      opacity: fade,
       child: Transform.rotate(
         angle: spin * math.pi,
         child: Transform.scale(

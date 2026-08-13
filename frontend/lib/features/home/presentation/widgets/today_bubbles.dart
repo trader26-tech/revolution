@@ -27,7 +27,13 @@ class TodayBubbles extends StatefulWidget {
     required this.lineFor,
     required this.onOpen,
     required this.onToggle,
+    this.header,
   });
+
+  /// An optional block rendered full-width BELOW the Revo+greeting row and above
+  /// the reminders — used for the date header, so the top-to-bottom order reads
+  /// Greeting → header → bubbles. Fades in with the greeting.
+  final Widget? header;
 
   /// Bumped by the parent whenever Home becomes visible again — a change here
   /// restarts the conjuring from empty, so returning to Home always re-plays it.

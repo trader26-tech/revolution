@@ -134,6 +134,59 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Delete a reminder (from the home line's long-press menu). Removes it on the
+  /// server + locally, and offers a quick Undo that re-creates it.
+  Future<void> _deleteTask(Task task) async {
+    try {
+      await widget.store.remove(task);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't delete — try again.")),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.card,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.cardBorder),
+        ),
+        duration: const Duration(seconds: 4),
+        content: Row(
+          children: [
+            const Icon(Icons.delete_outline_rounded,
+                color: Color(0xFFFF6B6B), size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Deleted — ${task.title}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.ink,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'Undo',
+          textColor: AppColors.accent,
+          onPressed: () => widget.store.restore(task),
+        ),
+      ),
+    );
+  }
+
   /// Open the full-screen vertical list of all upcoming reminders (from today
   /// onward, grouped day by day), reached from the "Up next" arrow.
   void _openUpcoming() {
@@ -271,6 +324,7 @@ class _HomePageState extends State<HomePage> {
         lineFor: (t) => _aiLines[t.id],
         onOpen: _editTask,
         onToggle: (t) => widget.store.toggleDone(t),
+        onDelete: _deleteTask,
       ),
     ];
 

@@ -29,6 +29,7 @@ class TodayBubbles extends StatefulWidget {
     required this.lineFor,
     required this.onOpen,
     required this.onToggle,
+    required this.onDelete,
     this.header,
   });
 
@@ -62,6 +63,9 @@ class TodayBubbles extends StatefulWidget {
   /// Toggle a task's done state (done ↔ undone). Persists to Supabase; the
   /// store rebuild then moves the task between the active and done groups.
   final ValueChanged<Task> onToggle;
+
+  /// Delete a task (from a line's long-press menu). Persists + offers undo.
+  final ValueChanged<Task> onDelete;
 
   @override
   State<TodayBubbles> createState() => _TodayBubblesState();
@@ -191,6 +195,24 @@ class _TodayBubblesState extends State<TodayBubbles>
     widget.onToggle(task);
   }
 
+  /// Long-press a line → a small action sheet with Edit + Delete. Keeps tap =
+  /// edit intact while giving a clear, discoverable way to remove one item.
+  Future<void> _showActions(Task task) async {
+    HapticFeedback.mediumImpact();
+    final action = await showModalBottomSheet<_LineAction>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LineActionSheet(title: task.title),
+    );
+    if (action == null || !mounted) return;
+    switch (action) {
+      case _LineAction.edit:
+        widget.onOpen(task);
+      case _LineAction.delete:
+        widget.onDelete(task);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -261,6 +283,7 @@ class _TodayBubblesState extends State<TodayBubbles>
                   // only starts once line i-1's window has closed.
                   progress: _win(_itemStart(i), _itemStart(i) + _itemRevealMs),
                   onTap: () => widget.onOpen(active[i]),
+                  onLongPress: () => _showActions(active[i]),
                   onDone: () => _complete(active[i]),
                 ),
 
@@ -273,6 +296,7 @@ class _TodayBubblesState extends State<TodayBubbles>
                 sentence: sentenceFor(t, widget.lineFor(t)),
                 onRestore: () => _restore(t),
                 onTap: () => widget.onOpen(t),
+                onLongPress: () => _showActions(t),
               ),
           ],
         );
@@ -292,6 +316,7 @@ class _DoneLine extends StatelessWidget {
     required this.sentence,
     required this.onRestore,
     required this.onTap,
+    required this.onLongPress,
   });
 
   /// The same unified sentence the line showed while active — now struck through.
@@ -300,6 +325,7 @@ class _DoneLine extends StatelessWidget {
   final Task task;
   final VoidCallback onRestore;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -311,6 +337,7 @@ class _DoneLine extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
@@ -646,6 +673,7 @@ class _ConjuredLine extends StatelessWidget {
     required this.sentence,
     required this.progress,
     required this.onTap,
+    required this.onLongPress,
     required this.onDone,
   });
 
@@ -657,6 +685,7 @@ class _ConjuredLine extends StatelessWidget {
   /// 0→1 across THIS line's materialise window.
   final double progress;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
   final VoidCallback onDone;
 
   @override
@@ -673,6 +702,7 @@ class _ConjuredLine extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: settled ? onTap : null,
+          onLongPress: settled ? onLongPress : null,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
@@ -851,6 +881,110 @@ class _AllClearLine extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Long-press action sheet (Edit / Delete) ──────────────────────────────────
+
+enum _LineAction { edit, delete }
+
+/// A small bottom sheet shown on long-press of a reminder line: the item's name,
+/// then Edit and a destructive Delete. Frosted card styling to match the app.
+class _LineActionSheet extends StatelessWidget {
+  const _LineActionSheet({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.cardBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+            _ActionRow(
+              icon: Icons.edit_outlined,
+              label: 'Edit',
+              color: AppColors.ink,
+              onTap: () => Navigator.pop(context, _LineAction.edit),
+            ),
+            const Divider(height: 1, color: AppColors.hairline, indent: 20, endIndent: 20),
+            _ActionRow(
+              icon: Icons.delete_outline_rounded,
+              label: 'Delete',
+              color: const Color(0xFFFF6B6B),
+              onTap: () => Navigator.pop(context, _LineAction.delete),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: color),
+            const SizedBox(width: 14),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -6,6 +6,9 @@ import '../../core/widgets/glass.dart';
 import '../add/presentation/added_success.dart';
 import '../add/presentation/open_add_flow.dart';
 import '../auth/data/auth_store.dart';
+import '../documents/data/documents_store.dart';
+import '../documents/presentation/add_document_sheet.dart';
+import '../documents/presentation/documents_page.dart';
 import '../settings/data/profile_store.dart';
 import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
@@ -48,10 +51,21 @@ class _HomePageState extends State<HomePage> {
   /// TodayBubbles uses its local sentence fallback.
   Map<String, String> _aiLines = {};
 
+  /// The local documents library — loaded lazily so "Add a document" from the
+  /// top "+" can add a file, and so tapping through opens the same library.
+  final _documents = DocumentsStore();
+
   @override
   void initState() {
     super.initState();
     _fetchLines();
+    _documents.load();
+  }
+
+  @override
+  void dispose() {
+    _documents.dispose();
+    super.dispose();
   }
 
   @override
@@ -98,8 +112,17 @@ class _HomePageState extends State<HomePage> {
   /// the celebration ends and dismisses, the subscriptions/SIP/occasions page is
   /// revealed directly underneath.
   Future<void> _startAdd() async {
-    final category = await showAddBrowseSheet(context);
-    if (category == null || !mounted) return;
+    final choice = await showAddBrowseSheet(context);
+    if (choice == null || !mounted) return;
+
+    // Document short-circuit — happens BEFORE the category add flow, so the
+    // category branch below (and its celebration ordering) is untouched.
+    if (choice.isDocument) {
+      await _addDocumentFromHome();
+      return;
+    }
+
+    final category = choice.category!;
     final result = await openCategoryForm(context, widget.store, category);
     if (result == null || !mounted) return;
     final willAdd = result.task != null || result.selfSaved;
@@ -119,6 +142,55 @@ class _HomePageState extends State<HomePage> {
     final celebration = showAddedSuccess(context, label: addedLabel(category));
     await persistAddResult(widget.store, result);
     await celebration;
+  }
+
+  /// Add a document straight from the top "+" — opens the same add-document
+  /// sheet the Documents library uses, adding into the library root. On success
+  /// a toast confirms, with a shortcut to open Documents and see it.
+  Future<void> _addDocumentFromHome() async {
+    final added = await showAddDocumentSheet(context, store: _documents);
+    if (added == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.card,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.cardBorder),
+        ),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded,
+                color: AppColors.accent, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Added — ${added.name}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.ink,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'View',
+          textColor: AppColors.accent,
+          onPressed: () {
+            if (!mounted) return;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => DocumentsPage(store: _documents),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   /// Tapping a card opens its RICH edit form (routed by category), where every

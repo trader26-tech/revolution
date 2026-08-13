@@ -2437,8 +2437,20 @@ class _BrowseDivider extends StatelessWidget {
 /// Opens the add-browse bottom sheet: a slide-up list of the categories you can
 /// add to (Subscription, Occasion, SIP…). Returns the chosen category, or null
 /// if dismissed. The caller then opens that category's tailored add form.
-Future<TaskCategory?> showAddBrowseSheet(BuildContext context) {
-  return showModalBottomSheet<TaskCategory>(
+/// What the "+" sheet resolved to: either a category to add a reminder in, or
+/// the Document choice (add a file to the local library). Exactly one is set.
+class AddChoice {
+  const AddChoice.category(this.category) : isDocument = false;
+  const AddChoice.document()
+      : category = null,
+        isDocument = true;
+
+  final TaskCategory? category;
+  final bool isDocument;
+}
+
+Future<AddChoice?> showAddBrowseSheet(BuildContext context) {
+  return showModalBottomSheet<AddChoice>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
@@ -2500,8 +2512,16 @@ class _AddBrowseSheet extends StatelessWidget {
               for (final c in kBrowseCategories)
                 _AddChoiceRow(
                   category: c,
-                  onTap: () => Navigator.of(context).pop(c),
+                  onTap: () => Navigator.of(context).pop(AddChoice.category(c)),
                 ),
+              // Add a document straight from here — no need to open Documents
+              // first. Same row styling, a folder glyph and its own hint.
+              _AddChoiceRow.custom(
+                icon: Icons.description_rounded,
+                label: 'Document',
+                hint: 'Add a file to your documents',
+                onTap: () => Navigator.of(context).pop(const AddChoice.document()),
+              ),
             ],
           ),
         ),
@@ -2510,13 +2530,28 @@ class _AddBrowseSheet extends StatelessWidget {
   }
 }
 
-/// One category to add — accent icon orb, name, "Add a …" hint, chevron.
+/// One choice to add — accent icon orb, name, "Add a …" hint, chevron. Usually
+/// a category; the [.custom] form powers the extra "Document" row with its own
+/// icon + label, keeping identical styling.
 class _AddChoiceRow extends StatelessWidget {
-  const _AddChoiceRow({required this.category, required this.onTap});
-  final TaskCategory category;
-  final VoidCallback onTap;
+  _AddChoiceRow({required TaskCategory category, required this.onTap})
+      : _icon = category.icon,
+        _label = category.label,
+        _hint = 'Add a ${category.singular}';
 
-  String get _hint => 'Add a ${category.singular}';
+  const _AddChoiceRow.custom({
+    required IconData icon,
+    required String label,
+    required String hint,
+    required this.onTap,
+  })  : _icon = icon,
+        _label = label,
+        _hint = hint;
+
+  final IconData _icon;
+  final String _label;
+  final String _hint;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2550,7 +2585,7 @@ class _AddChoiceRow extends StatelessWidget {
                 border:
                     Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
               ),
-              child: Icon(category.icon, color: AppColors.accent, size: 20),
+              child: Icon(_icon, color: AppColors.accent, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -2558,7 +2593,7 @@ class _AddChoiceRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    category.label,
+                    _label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

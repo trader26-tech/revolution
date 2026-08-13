@@ -487,14 +487,24 @@ class _Greeting extends StatelessWidget {
         hasName ? greeting.substring(0, comma).trim() : greeting.trim();
     final name = hasName ? greeting.substring(comma + 1).trim() : '';
 
+    // Read the greeting IN ORDER while KEEPING the bubbly shimmer (glow, haze,
+    // float) on every word: the salutation ("Good morning,") materialises first
+    // across the FRONT of the window, THEN the name ("Ranjeev") across the BACK
+    // — with a slight overlap so it flows. Default (shimmer) MagicText already
+    // starts its words left-to-right; sequencing the two TIERS this way is what
+    // makes the whole line land as "Good morning," → "Ranjeev" in order, instead
+    // of the name flashing in alongside the salutation.
+    final salProgress = _seg(progress, 0.0, 0.58);
+    final nameProgress = _seg(progress, 0.42, 1.0);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ── Tier 1: the quiet salutation ──
+        // ── Tier 1: the quiet salutation (reveals first) ──
         MagicText(
           text: hasName ? '$salutation,' : salutation,
-          progress: progress,
+          progress: hasName ? salProgress : progress,
           style: TextStyle(
             fontSize: hasName ? 16 : 30,
             height: 1.1,
@@ -503,7 +513,7 @@ class _Greeting extends StatelessWidget {
             color: AppColors.inkSoft,
           ),
         ),
-        // ── Tier 2: the name — big, gradient-filled, the hero ──
+        // ── Tier 2: the name — big, gradient-filled, the hero (reveals after) ──
         if (hasName) ...[
           const SizedBox(height: 2),
           ShaderMask(
@@ -521,7 +531,7 @@ class _Greeting extends StatelessWidget {
             blendMode: BlendMode.srcIn,
             child: MagicText(
               text: name,
-              progress: progress,
+              progress: nameProgress,
               style: const TextStyle(
                 fontSize: 34,
                 height: 1.05,
@@ -535,6 +545,12 @@ class _Greeting extends StatelessWidget {
       ],
     );
   }
+
+  /// Remap the overall [progress] onto a sub-window [start, end], clamped to
+  /// 0..1 — so one tier can run over the front of the timeline and the next over
+  /// the back, giving a strict salutation-then-name reading order.
+  static double _seg(double progress, double start, double end) =>
+      ((progress - start) / (end - start)).clamp(0.0, 1.0);
 }
 
 /// One reminder as Revo conjures it: a leading icon and a tick bloom in around

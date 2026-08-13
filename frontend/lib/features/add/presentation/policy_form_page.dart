@@ -15,10 +15,11 @@ import 'widgets/add_scaffold.dart';
 ///   • what you GET   — a return, either a lump sum or amortized into a stream
 ///     of equal payouts (a monthly pension / an annual payout).
 ///
-/// The form is deliberately GRADUAL: it opens as just a name, and reveals the
-/// pay / get sections only as the earlier fields fill in — so it never reads as
-/// a wall of inputs. A single compact "deal" strip shows the net at a glance,
-/// instead of a large summary card.
+/// Every field is present from the start — name, the "what you pay" section,
+/// and the "what you get back" section — laid out in the same clean, uniform
+/// style as the other add forms (no yellow, no fields appearing as you type). A
+/// single compact "deal" strip shows the net at a glance, and stays quiet until
+/// there are numbers to show.
 ///
 /// Like insurance it can attach the policy document, so it OWNS its save
 /// (create the task → upload the doc → pop true). Returns true if it created
@@ -36,7 +37,10 @@ class PolicyFormPage extends StatefulWidget {
 }
 
 class _PolicyFormPageState extends State<PolicyFormPage> {
-  static final _accent = TaskCategory.policies.color;
+  // The app's violet accent — consistent with the other add forms, and no
+  // yellow. (The category's gold tint is only used on the browse/collection
+  // surfaces, not inside this form.)
+  static const _accent = AppColors.accent;
 
   final _name = TextEditingController();
   final _premium = TextEditingController();
@@ -69,10 +73,6 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
   bool get _valid => _name.text.trim().isNotEmpty;
 
   bool get _isAmortized => _payout != PayoutMethod.lumpSum;
-
-  /// Progressive reveal — a section only appears once the prior one is started.
-  bool get _showPay => _name.text.trim().isNotEmpty;
-  bool get _showGet => _showPay && _premium.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -252,136 +252,132 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
           textCapitalization: TextCapitalization.sentences,
         ),
 
-        // ── What you PAY (revealed once a name is typed) ──
-        _Reveal(
-          shown: _showPay,
+        // ── What you PAY (always shown) ──
+        const SizedBox(height: 24),
+        _SectionHeader(
+          icon: Icons.north_east_rounded,
+          label: 'What you pay',
+          accent: _accent,
+        ),
+        const SizedBox(height: 12),
+        const AddFieldLabel('PREMIUM'),
+        const SizedBox(height: 10),
+        AddTextField(
+          controller: _premium,
+          hint: '25000',
+          accent: _accent,
+          prefix: '₹',
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+          ],
+        ),
+        const SizedBox(height: 14),
+        // "Every N months / years" — arbitrary cadence, max fidelity.
+        _CadencePicker(
+          every: _every,
+          unit: _cycle,
+          accent: _accent,
+          onEveryChanged: (n) {
+            HapticFeedback.selectionClick();
+            setState(() => _every = n);
+          },
+          onUnitChanged: (u) {
+            HapticFeedback.selectionClick();
+            setState(() => _cycle = u);
+          },
+        ),
+
+        // ── What you GET (always shown) ──
+        const SizedBox(height: 24),
+        _SectionHeader(
+          icon: Icons.south_west_rounded,
+          label: 'What you get back',
+          accent: _accent,
+        ),
+        const SizedBox(height: 12),
+        const AddFieldLabel('HOW IT PAYS OUT'),
+        const SizedBox(height: 10),
+        _PayoutChips(
+          value: _payout,
+          accent: _accent,
+          onChanged: (p) {
+            HapticFeedback.selectionClick();
+            setState(() => _payout = p);
+          },
+        ),
+        const SizedBox(height: 20),
+
+        // Lump sum → one total. Amortized → per-payout × count. This swaps the
+        // return field(s) to match the chosen payout — a smooth crossfade, not a
+        // section appearing from nothing.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
           child: Column(
+            key: ValueKey(_isAmortized),
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 24),
-              _SectionHeader(
-                icon: Icons.north_east_rounded,
-                label: 'What you pay',
-                accent: _accent,
-              ),
-              const SizedBox(height: 12),
-              const AddFieldLabel('PREMIUM'),
-              const SizedBox(height: 10),
-              AddTextField(
-                controller: _premium,
-                hint: '25000',
-                accent: _accent,
-                prefix: '₹',
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                ],
-              ),
-              const SizedBox(height: 14),
-              // "Every N months / years" — arbitrary cadence, max fidelity.
-              _CadencePicker(
-                every: _every,
-                unit: _cycle,
-                accent: _accent,
-                onEveryChanged: (n) {
-                  HapticFeedback.selectionClick();
-                  setState(() => _every = n);
-                },
-                onUnitChanged: (u) {
-                  HapticFeedback.selectionClick();
-                  setState(() => _cycle = u);
-                },
-              ),
-            ],
+            children: _isAmortized
+                ? [
+                    AddFieldLabel(_payout == PayoutMethod.monthlyPension
+                        ? 'AMOUNT PER MONTH'
+                        : 'AMOUNT PER YEAR'),
+                    const SizedBox(height: 10),
+                    AddTextField(
+                      controller: _perPayout,
+                      hint: '5000',
+                      accent: _accent,
+                      prefix: '₹',
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    AddFieldLabel(_payout == PayoutMethod.monthlyPension
+                        ? 'FOR HOW MANY MONTHS'
+                        : 'FOR HOW MANY YEARS'),
+                    const SizedBox(height: 10),
+                    _CountStepper(
+                      value: _payoutCount,
+                      accent: _accent,
+                      suffix: _payout == PayoutMethod.monthlyPension
+                          ? 'months'
+                          : 'years',
+                      onChanged: (n) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _payoutCount = n);
+                      },
+                    ),
+                  ]
+                : [
+                    const AddFieldLabel('RETURN AMOUNT'),
+                    const SizedBox(height: 10),
+                    AddTextField(
+                      controller: _returnTotal,
+                      hint: '1000000',
+                      accent: _accent,
+                      prefix: '₹',
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
+                    ),
+                  ],
           ),
         ),
 
-        // ── What you GET (revealed once a premium is typed) ──
-        _Reveal(
-          shown: _showGet,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 24),
-              _SectionHeader(
-                icon: Icons.south_west_rounded,
-                label: 'What you get back',
-                accent: _accent,
-              ),
-              const SizedBox(height: 12),
-              const AddFieldLabel('HOW IT PAYS OUT'),
-              const SizedBox(height: 10),
-              _PayoutChips(
-                value: _payout,
-                accent: _accent,
-                onChanged: (p) {
-                  HapticFeedback.selectionClick();
-                  setState(() => _payout = p);
-                },
-              ),
-              const SizedBox(height: 20),
+        const SizedBox(height: 22),
+        const AddFieldLabel('MATURITY DATE'),
+        const SizedBox(height: 10),
+        AddDateField(date: _maturity, accent: _accent, onTap: _pickMaturity),
 
-              // Lump sum → one total. Amortized → per-payout × count.
-              if (_isAmortized) ...[
-                AddFieldLabel(_payout == PayoutMethod.monthlyPension
-                    ? 'AMOUNT PER MONTH'
-                    : 'AMOUNT PER YEAR'),
-                const SizedBox(height: 10),
-                AddTextField(
-                  controller: _perPayout,
-                  hint: '5000',
-                  accent: _accent,
-                  prefix: '₹',
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                AddFieldLabel(_payout == PayoutMethod.monthlyPension
-                    ? 'FOR HOW MANY MONTHS'
-                    : 'FOR HOW MANY YEARS'),
-                const SizedBox(height: 10),
-                _CountStepper(
-                  value: _payoutCount,
-                  accent: _accent,
-                  suffix:
-                      _payout == PayoutMethod.monthlyPension ? 'months' : 'years',
-                  onChanged: (n) {
-                    HapticFeedback.selectionClick();
-                    setState(() => _payoutCount = n);
-                  },
-                ),
-              ] else ...[
-                const AddFieldLabel('RETURN AMOUNT'),
-                const SizedBox(height: 10),
-                AddTextField(
-                  controller: _returnTotal,
-                  hint: '1000000',
-                  accent: _accent,
-                  prefix: '₹',
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                  ],
-                ),
-              ],
-
-              const SizedBox(height: 22),
-              const AddFieldLabel('MATURITY DATE'),
-              const SizedBox(height: 10),
-              AddDateField(
-                  date: _maturity, accent: _accent, onTap: _pickMaturity),
-
-              const SizedBox(height: 20),
-              // The compact deal strip — net at a glance, not a giant card.
-              _DealStrip(task: _preview, cycle: _cycle, accent: _accent),
-            ],
-          ),
-        ),
+        const SizedBox(height: 20),
+        // The compact deal strip — net at a glance, not a giant card.
+        _DealStrip(task: _preview, cycle: _cycle, accent: _accent),
 
         const SizedBox(height: 24),
         // ── Optional document (always available) ──
@@ -395,30 +391,6 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
           onClear: () => setState(() => _doc = null),
         ),
       ],
-    );
-  }
-}
-
-// ── Progressive-reveal wrapper ───────────────────────────────────────────────
-
-/// Fades + slides a section into view once [shown] flips true. Keeps the form
-/// feeling light: fields appear as they become relevant instead of all at once.
-class _Reveal extends StatelessWidget {
-  const _Reveal({required this.shown, required this.child});
-  final bool shown;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 220),
-        opacity: shown ? 1 : 0,
-        child: shown ? child : const SizedBox(width: double.infinity),
-      ),
     );
   }
 }

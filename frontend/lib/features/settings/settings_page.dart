@@ -8,6 +8,8 @@ import '../auth/data/auth_store.dart';
 import '../auth/domain/country_code.dart';
 import '../onboarding/data/onboarding_store.dart';
 import '../reminders/data/reminder_scheduler.dart';
+import '../reminders/presentation/reminders_page.dart';
+import '../tasks/data/task_store.dart';
 import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
 import 'data/profile_store.dart';
@@ -19,7 +21,12 @@ import 'presentation/widgets/settings_widgets.dart';
 /// Only the essentials: your name, reminder alerts, an opt-in reminder call a
 /// week before, and sign out. No avatar/logo, no version, no clutter.
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({super.key, this.store});
+
+  /// The task store — used by the "Reminders" screen to list what's scheduled.
+  /// Optional so existing call sites keep compiling; the Reminders row only
+  /// appears when it's provided.
+  final TaskStore? store;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -132,15 +139,23 @@ class _SettingsPageState extends State<SettingsPage> {
     return t.format(context);
   }
 
-  Future<void> _pickDigestTime() async {
+  Future<void> _pickDefaultReminderTime() async {
     final current = TimeOfDay(
-      hour: _profile.digestTimeMin ~/ 60,
-      minute: _profile.digestTimeMin % 60,
+      hour: _profile.defaultReminderMin ~/ 60,
+      minute: _profile.defaultReminderMin % 60,
     );
     final picked = await showTimePicker(context: context, initialTime: current);
     if (picked == null) return;
-    await _profile.setDigestTime(picked.hour * 60 + picked.minute);
-    if (mounted) _toast('Daily summary at ${picked.format(context)}');
+    await _profile.setDefaultReminderTime(picked.hour * 60 + picked.minute);
+    if (mounted) _toast('Default reminder time set to ${picked.format(context)}');
+  }
+
+  void _openReminders() {
+    final store = widget.store;
+    if (store == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => RemindersPage(store: store)),
+    );
   }
 
   /// Ask the OS for notification permission, then reflect the new state.
@@ -282,20 +297,29 @@ class _SettingsPageState extends State<SettingsPage> {
               SettingsSwitchTile(
                 icon: Icons.notifications_active_outlined,
                 title: 'Reminder alerts',
-                subtitle: 'One summary of your day, every morning',
+                subtitle: 'Get notified for each reminder at its time',
                 value: _profile.notifReminders,
                 onChanged: (v) => _profile.setNotifReminders(v),
               ),
               if (_profile.notifReminders)
                 SettingsTile(
                   icon: Icons.schedule_rounded,
-                  title: 'Daily summary time',
-                  value: _formatMinutes(_profile.digestTimeMin),
-                  onTap: _pickDigestTime,
+                  title: 'Default reminder time',
+                  subtitle: 'Used when a reminder has no time of its own',
+                  value: _formatMinutes(_profile.defaultReminderMin),
+                  onTap: _pickDefaultReminderTime,
+                ),
+              // The refer-back list of everything scheduled + recently sent.
+              if (widget.store != null)
+                SettingsTile(
+                  icon: Icons.event_note_rounded,
+                  title: 'Your reminders',
+                  subtitle: 'See what’s scheduled and what was sent',
+                  onTap: _openReminders,
                 ),
               // Notification check — a right-aligned button that ALLOWS
-              // notifications when they're off, or fires TODAY's digest as a
-              // test when they're on, so the user can verify delivery.
+              // notifications when they're off, or fires a test when they're on,
+              // so the user can verify delivery.
               SettingsTile(
                 icon: _notifAllowed == false
                     ? Icons.notifications_off_outlined
@@ -304,8 +328,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     ? 'Notifications are off'
                     : 'Test notification',
                 subtitle: _notifAllowed == false
-                    ? 'Allow to receive your daily reminders'
-                    : 'See today’s reminder right now',
+                    ? 'Allow to receive your reminders'
+                    : 'Send one to this device right now',
                 showChevron: false,
                 trailing: _NotifButton(
                   allowed: _notifAllowed,

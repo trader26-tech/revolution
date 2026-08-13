@@ -85,7 +85,7 @@ class _HomePageState extends State<HomePage> {
 
   void _openSettings() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SettingsPage()),
+      MaterialPageRoute(builder: (_) => SettingsPage(store: widget.store)),
     );
   }
 

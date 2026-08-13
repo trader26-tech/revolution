@@ -45,8 +45,14 @@ nohup bash -c "
   export PATH=\"\$HOME/.gem/ruby/2.6.0/bin:\$PATH\"
   cd '$FRONTEND' || exit 1
   echo \"[\$(date)] building + installing to $device\" >> '$LOG'
-  flutter build apk --debug >> '$LOG' 2>&1 && \
-  flutter install -d '$device' --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk >> '$LOG' 2>&1
+  if flutter build apk --debug >> '$LOG' 2>&1; then
+    # Install via the safe installer, which auto-recovers from a signature/
+    # version conflict (the 'App not installed as package conflicts with an
+    # existing package' error) by uninstalling the old copy and installing
+    # clean — so a debug build never gets stuck behind a differently-signed
+    # (e.g. release, or another machine's) install.
+    scripts/install-safe.sh -s '$device' >> '$LOG' 2>&1
+  fi
   echo \"[\$(date)] done (exit \$?)\" >> '$LOG'
 " >/dev/null 2>&1 &
 

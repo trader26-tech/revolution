@@ -432,8 +432,8 @@ class _DateHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // ── The upcoming button — a labelled arrow the user taps to look
-          //    ahead. Discoverable (has a word), not just a bare glyph. ──
+          // ── A compact circular arrow — tap to look ahead. No label; the user
+          //    learns what it does by tapping. Minimal, not a wide pill. ──
           _UpcomingButton(onTap: onUpcoming),
         ],
       ),
@@ -441,7 +441,9 @@ class _DateHeader extends StatelessWidget {
   }
 }
 
-/// A small glass pill — "Upcoming →" — that opens the full upcoming list.
+/// A small round glass button — just a forward arrow — that opens the full
+/// upcoming list. Deliberately label-free and compact so it reads as a quiet
+/// affordance next to the date, not a heavy call-to-action.
 class _UpcomingButton extends StatelessWidget {
   const _UpcomingButton({required this.onTap});
   final VoidCallback onTap;
@@ -453,23 +455,14 @@ class _UpcomingButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: GlassPanel(
         borderRadius: 999,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 9, 10, 9),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Upcoming',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.inkSoft,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(Icons.arrow_forward_rounded,
-                  size: 17, color: AppColors.accent),
-            ],
+        child: Container(
+          width: 42,
+          height: 42,
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.arrow_forward_rounded,
+            size: 20,
+            color: AppColors.accent,
           ),
         ),
       ),

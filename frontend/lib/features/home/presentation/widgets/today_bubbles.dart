@@ -82,9 +82,10 @@ class _TodayBubblesState extends State<TodayBubbles>
   static const _firstItemMs = 1850;
 
   /// How long ONE reminder takes to fully materialise, and the gap before the
-  /// next starts. Slow on purpose — this is the whole point of the effect.
-  static const _itemRevealMs = 900;
-  static const _itemGapMs = 260;
+  /// next starts. Slow on purpose — the shimmer should visibly sweep across the
+  /// line word by word, not flash past. This paces that reading sweep.
+  static const _itemRevealMs = 1500;
+  static const _itemGapMs = 300;
   static const _itemStrideMs = _itemRevealMs + _itemGapMs;
 
   /// Whether the "Done today" section is expanded. Collapsed by default so

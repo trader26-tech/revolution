@@ -50,6 +50,10 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     });
     _refreshNotifStatus();
+    // Whether a Groq key is already set (for the AI row's "Connected" state).
+    _profile.loadGroqStatus().then((_) {
+      if (mounted) setState(() {});
+    });
     // Re-check when returning from system settings.
     _lifecycleHook = _LifecycleHook(_refreshNotifStatus);
     WidgetsBinding.instance.addObserver(_lifecycleHook);
@@ -84,6 +88,20 @@ class _SettingsPageState extends State<SettingsPage> {
       await _profile.setName(name);
       _toast('Name saved');
     }
+  }
+
+  Future<void> _editGroqKey() async {
+    final key = await showGroqKeySheet(
+      context,
+      connected: _profile.groqConnected,
+    );
+    if (key == null) return; // cancelled
+    final ok = await _profile.setGroqKey(key);
+    if (!mounted) return;
+    _toast(ok
+        ? (key.trim().isEmpty ? 'Key removed' : 'Groq connected')
+        : "Couldn't save key");
+    if (mounted) setState(() {});
   }
 
   Future<void> _signOut() async {
@@ -320,6 +338,25 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: "We'll call you one week before",
                 value: _profile.callReminder,
                 onChanged: (v) => _profile.setCallReminder(v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+
+          // --- AI ---
+          SettingsSection(
+            title: 'AI',
+            footnote:
+                'Your key powers the catchy one-liners on Home. It’s stored on '
+                'our server (not on this phone) and used once a day to write '
+                'them. Reminder titles are sent to Groq to generate the lines. '
+                'Leave it empty and Home uses its own built-in wording.',
+            children: [
+              SettingsTile(
+                icon: Icons.auto_awesome_outlined,
+                title: 'Groq API key',
+                value: _profile.groqConnected ? 'Connected' : 'Add key',
+                onTap: _editGroqKey,
               ),
             ],
           ),

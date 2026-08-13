@@ -20,6 +20,9 @@ router = APIRouter(prefix="/prefs", tags=["prefs"])
 class PrefsUpdate(BaseModel):
     call_reminder: Optional[bool] = None
     name: Optional[str] = None
+    # The user's Groq API key (for the AI daily lines). Send "" to clear it,
+    # null/omit to leave it unchanged. Stored on the users row; never returned.
+    groq_api_key: Optional[str] = None
     # Accepted for backward compatibility but IGNORED — the phone is identity
     # and is only ever set through /claim.
     phone: Optional[str] = None
@@ -29,11 +32,21 @@ class PrefsUpdate(BaseModel):
 async def update_prefs(
     payload: PrefsUpdate, user_id: str = Depends(current_user_id)
 ) -> dict:
-    return users_svc.update_prefs(
+    users_svc.update_prefs(
         user_id,
         call_reminder=payload.call_reminder,
         display_name=payload.name,
+        groq_api_key=payload.groq_api_key,
     )
+    # Never echo the key back — just whether one is now set.
+    return {"groq_connected": users_svc.has_groq_key(user_id)}
+
+
+@router.get("")
+async def get_prefs(user_id: str = Depends(current_user_id)) -> dict:
+    """Non-secret prefs the app can display — notably whether a Groq key is set
+    (so Settings can show 'Connected' without ever seeing the raw key)."""
+    return {"groq_connected": users_svc.has_groq_key(user_id)}
 
 
 @router.get("/weekly-digest")

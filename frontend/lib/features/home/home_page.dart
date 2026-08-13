@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api/api_client.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../add/presentation/added_success.dart';
@@ -41,12 +42,44 @@ class _HomePageState extends State<HomePage> {
   /// TodayBubbles to restart its reveal from empty.
   int _replay = 0;
 
+  /// The AI (Groq) one-liners for today, keyed by task id — fetched from the
+  /// backend, which generates them once a day and caches them. Empty until the
+  /// fetch returns (and stays empty when there's no Groq key), in which case
+  /// TodayBubbles uses its local sentence fallback.
+  Map<String, String> _aiLines = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLines();
+  }
+
   @override
   void didUpdateWidget(covariant HomePage old) {
     super.didUpdateWidget(old);
-    // Became visible again (Browse → Home): replay the conjuring.
+    // Became visible again (Browse → Home): replay the conjuring + refresh the
+    // AI lines (cheap: the backend serves today's from cache after the first).
     if (widget.isActive && !old.isActive) {
       setState(() => _replay++);
+      _fetchLines();
+    }
+  }
+
+  /// Pull today's AI lines. Best-effort — a failure just leaves the local
+  /// fallback sentences in place.
+  Future<void> _fetchLines() async {
+    try {
+      final res = await ApiClient.instance.get('/tasks/lines');
+      final lines = (res is Map ? res['lines'] : null);
+      if (lines is Map) {
+        final next = <String, String>{};
+        lines.forEach((k, v) {
+          if (v is String && v.trim().isNotEmpty) next['$k'] = v;
+        });
+        if (mounted) setState(() => _aiLines = next);
+      }
+    } catch (_) {
+      // Non-fatal — keep whatever we have (fallback sentences render fine).
     }
   }
 
@@ -230,6 +263,7 @@ class _HomePageState extends State<HomePage> {
         replayTick: _replay,
         greeting: _greeting(displayName),
         tasks: _dueToday(allTasks),
+        lineFor: (t) => _aiLines[t.id],
         onOpen: _editTask,
         onComplete: (t) => widget.store.toggleDone(t),
         onUndo: (t) => widget.store.toggleDone(t),

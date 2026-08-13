@@ -93,6 +93,7 @@ def update_prefs(
     *,
     call_reminder: Optional[bool] = None,
     display_name: Optional[str] = None,
+    groq_api_key: Optional[str] = None,
 ) -> dict[str, Any]:
     """Update the user's preference fields (prefs live ON the users row).
 
@@ -106,7 +107,25 @@ def update_prefs(
     trimmed = (display_name or "").strip()
     if trimmed:
         patch["display_name"] = trimmed
+    # The Groq key: a non-None value updates it; an empty string CLEARS it
+    # (the user removing their key). None = leave unchanged.
+    if groq_api_key is not None:
+        patch["groq_api_key"] = groq_api_key.strip() or None
     res = (
         get_supabase().table(_USERS).update(patch).eq("id", user_id).execute()
     )
     return res.data[0] if res.data else patch
+
+
+def has_groq_key(user_id: str) -> bool:
+    """Whether the user has a Groq key set — for GET /prefs, so the app can show
+    'connected' without ever receiving the raw key."""
+    row = (
+        get_supabase()
+        .table(_USERS)
+        .select("groq_api_key")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    ).data
+    return bool(row and (row[0].get("groq_api_key") or "").strip())

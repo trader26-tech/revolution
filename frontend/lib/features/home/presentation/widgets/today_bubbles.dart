@@ -23,6 +23,7 @@ class TodayBubbles extends StatefulWidget {
     required this.replayTick,
     required this.greeting,
     required this.tasks,
+    required this.lineFor,
     required this.onOpen,
     required this.onComplete,
     required this.onUndo,
@@ -31,6 +32,10 @@ class TodayBubbles extends StatefulWidget {
   /// Bumped by the parent whenever Home becomes visible again — a change here
   /// restarts the conjuring from empty, so returning to Home always re-plays it.
   final int replayTick;
+
+  /// The catchy one-liner for a task — the AI (Groq) line when the backend has
+  /// generated one for today, else null so we fall back to a local sentence.
+  final String? Function(Task) lineFor;
 
   /// The top line Revo says — "Good evening, Sanjeev".
   final String greeting;
@@ -219,6 +224,7 @@ class _TodayBubblesState extends State<TodayBubbles>
                 _ConjuredLine(
                   key: ValueKey(visible[i].id),
                   task: visible[i],
+                  sentence: sentenceFor(visible[i], widget.lineFor(visible[i])),
                   // This line's own 0→1 materialise window. Sequential: line i
                   // only starts once line i-1's window has closed.
                   progress: _win(_itemStart(i), _itemStart(i) + _itemRevealMs),
@@ -304,20 +310,25 @@ class _Greeting extends StatelessWidget {
   }
 }
 
-/// One reminder as Revo conjures it: a leading icon and a tick fade in around a
-/// line of text that MATERIALISES word by word. No card chrome — it reads as
-/// Revo carefully putting the thought on screen, then settling into a plain,
+/// One reminder as Revo conjures it: a leading icon and a tick bloom in around
+/// ONE unified sentence that MATERIALISES word by word. No name/subtitle split,
+/// no chips — a single natural line ("Netflix's ₹649 slips out at 6pm — still
+/// worth the binge?") that Revo appears to be thinking up. Settles into a plain,
 /// tappable list row.
 class _ConjuredLine extends StatelessWidget {
   const _ConjuredLine({
     super.key,
     required this.task,
+    required this.sentence,
     required this.progress,
     required this.onTap,
     required this.onDone,
   });
 
   final Task task;
+
+  /// The single unified sentence to conjure (AI line or local fallback).
+  final String sentence;
 
   /// 0→1 across THIS line's materialise window.
   final double progress;
@@ -329,7 +340,7 @@ class _ConjuredLine extends StatelessWidget {
     final tint = task.category.color;
     // The icon and tick bloom slightly AHEAD of the words settling, so the line
     // feels like it's being assembled: the vessel first, then the words fill in.
-    final chrome = Curves.easeOut.transform((progress / 0.5).clamp(0.0, 1.0));
+    final chrome = Curves.easeOut.transform((progress / 0.45).clamp(0.0, 1.0));
     final settled = progress >= 0.999;
 
     return Padding(
@@ -354,49 +365,27 @@ class _ConjuredLine extends StatelessWidget {
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 2),
-                      // The name — conjured word by word.
-                      MagicText(
-                        text: task.title,
-                        progress: progress,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          height: 1.2,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
-                        ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    // ONE unified sentence — conjured word by word. This is the
+                    // whole line; no separate title/meta.
+                    child: MagicText(
+                      text: sentence,
+                      progress: progress,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        height: 1.32,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.ink,
                       ),
-                      const SizedBox(height: 3),
-                      // ONE tailored meta line — built from this item's real
-                      // name, sub-category and amount (e.g. "6 PM · ₹119 music",
-                      // "matures 2034 · ₹8,400"). Fades in as the words finish,
-                      // so the name lands first and its detail follows. Kept to
-                      // a single ellipsised line so the screen never fills up.
-                      Opacity(
-                        opacity: Curves.easeOut
-                            .transform((progress - 0.55).clamp(0.0, 0.45) / 0.45),
-                        child: Text(
-                          bubbleMeta(task),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: tint.withValues(alpha: 0.95),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 // The tick — appears only once the line has settled, so you
                 // can't dismiss a thing that's still being written.
                 Padding(
-                  padding: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.only(top: 6),
                   child: AnimatedOpacity(
                     opacity: settled ? 1 : 0,
                     duration: const Duration(milliseconds: 220),
@@ -560,57 +549,53 @@ String _amountPart(Task task) {
   return '${cur.symbol}$body';
 }
 
-/// ONE short, TAILOR-MADE line for a reminder — assembled from this exact
-/// item's real facts (time, amount, sub-category, maturity), never a generic
-/// "still worth it?". Kept to at most a couple of dot-separated fragments so it
-/// fits on a single line under the name and the screen stays uncluttered.
-///
-/// Examples: "6 PM · ₹119 · music"  ·  "₹1,240 · due today"  ·  "matures 2034"
-String bubbleMeta(Task task) {
-  final parts = <String>[];
+/// The ONE unified sentence to conjure for a reminder. Prefers the AI (Groq)
+/// line the backend generated for today; when there's none (no key, offline,
+/// or not generated yet) it falls back to a locally-built natural sentence that
+/// still reads as one line, so the feed always looks intentional.
+String sentenceFor(Task task, String? aiLine) {
+  final ai = aiLine?.trim();
+  if (ai != null && ai.isNotEmpty) return ai;
+  return _localSentence(task);
+}
+
+/// A single, natural, TAILOR-MADE sentence woven from the item's real facts —
+/// name, amount, time — never a generic "still worth it?". This is the offline
+/// fallback for [sentenceFor].
+String _localSentence(Task task) {
+  final name = task.title.trim().isEmpty ? 'This' : task.title.trim();
   final time = _timePart(task);
   final amount = _amountPart(task);
-  final sub = (task.subCategory ?? '').trim();
+  final at = time.isEmpty ? '' : ' at $time';
 
   switch (task.category) {
     case TaskCategory.subscription:
-      // Brand + price + what it's for — e.g. "₹119 · music".
-      if (amount.isNotEmpty) parts.add(amount);
-      if (sub.isNotEmpty) parts.add(sub.toLowerCase());
-      if (parts.isEmpty && time.isNotEmpty) parts.add(time);
-    case TaskCategory.bills:
-      if (amount.isNotEmpty) parts.add(amount);
-      parts.add('due today');
-    case TaskCategory.insurance:
-      if (amount.isNotEmpty) parts.add(amount);
-      parts.add('renews today');
-    case TaskCategory.investment:
-      if (amount.isNotEmpty) parts.add(amount);
-      if (sub.isNotEmpty) parts.add(sub.toLowerCase());
-      if (parts.isEmpty) parts.add('invest today');
-    case TaskCategory.policies:
-      if (amount.isNotEmpty) parts.add('$amount premium');
-      if (task.hasReturn && task.maturityAt != null) {
-        parts.add('matures ${task.maturityAt!.year}');
+      if (amount.isNotEmpty) {
+        return '$name renews for $amount$at — keep it, or cancel today?';
       }
-      if (parts.isEmpty) parts.add('premium due');
+      return '$name renews today — keep it, or cancel?';
+    case TaskCategory.bills:
+      return amount.isNotEmpty
+          ? 'Pay $name\'s $amount$at before it\'s late.'
+          : 'Pay $name today before it\'s late.';
+    case TaskCategory.insurance:
+      return amount.isNotEmpty
+          ? '$name renews for $amount today — stay covered.'
+          : '$name renews today — stay covered.';
+    case TaskCategory.investment:
+      return amount.isNotEmpty
+          ? 'Put $amount into $name today and keep compounding.'
+          : 'Invest in $name today and keep compounding.';
+    case TaskCategory.policies:
+      if (amount.isNotEmpty && task.hasReturn && task.maturityAt != null) {
+        return '$name\'s $amount premium is due — it matures ${task.maturityAt!.year}.';
+      }
+      return amount.isNotEmpty
+          ? '$name\'s $amount premium is due today.'
+          : '$name\'s premium is due today.';
     case TaskCategory.birthday:
-      // People, not money — keep it warm and specific.
-      if (time.isNotEmpty) parts.add(time);
-      parts.add('their day');
+      return 'It\'s $name today — send a little love.';
     case TaskCategory.other:
-      if (time.isNotEmpty) parts.add(time);
-      if (parts.isEmpty) parts.add('today');
+      return time.isEmpty ? '$name is on today.' : '$name$at today.';
   }
-
-  // Lead with the time for money items too, when there's room — one fragment.
-  if (time.isNotEmpty &&
-      !parts.contains(time) &&
-      task.category != TaskCategory.birthday &&
-      task.category != TaskCategory.other) {
-    parts.insert(0, time);
-  }
-
-  // Never more than three fragments — keep it tight.
-  return parts.take(3).join('  ·  ');
 }

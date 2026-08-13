@@ -230,7 +230,18 @@ class _TodayBubblesState extends State<TodayBubbles>
                 ],
               ),
             ),
-            const SizedBox(height: 22),
+
+            // ── Optional header (e.g. the date) — full-width below the greeting,
+            //    fading in with it, then a beat before the reminders. ──
+            if (widget.header != null) ...[
+              const SizedBox(height: 14),
+              Opacity(
+                opacity: Curves.easeOut.transform(_win(_greetStartMs, _greetEndMs)),
+                child: widget.header!,
+              ),
+              const SizedBox(height: 14),
+            ] else
+              const SizedBox(height: 22),
 
             // ── Active reminders — conjured ONE AT A TIME ──
             if (active.isEmpty)

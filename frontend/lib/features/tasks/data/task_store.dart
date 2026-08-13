@@ -26,6 +26,21 @@ class TaskStore extends ChangeNotifier {
 
   List<Task> get tasks => List.unmodifiable(_tasks);
 
+  /// Drop any tasks that share an id, keeping the FIRST occurrence (so order is
+  /// preserved). Server responses, an overlapping cache+network load, or the
+  /// multi-device sync can occasionally deliver the same task twice; two Tasks
+  /// with one id would collide on their `ValueKey(id)` in the Home list and
+  /// throw "Duplicate keys found" (a red screen). Deduping at ingestion keeps
+  /// the UI safe regardless of the upstream cause.
+  static List<Task> _dedupeById(Iterable<Task> tasks) {
+    final seen = <String>{};
+    final out = <Task>[];
+    for (final t in tasks) {
+      if (seen.add(t.id)) out.add(t);
+    }
+    return out;
+  }
+
   /// Every change flows through notifyListeners, so this one override keeps
   /// the scheduled daily notifications in lockstep with the task list —
   /// add/edit/toggle/delete included. The scheduler debounces, so bursts (and
@@ -85,8 +100,8 @@ class TaskStore extends ChangeNotifier {
     _error = null;
     try {
       final data = await _api.get('/tasks') as List;
-      final fresh =
-          data.map((e) => Task.fromJson(e as Map<String, dynamic>)).toList();
+      final fresh = _dedupeById(
+          data.map((e) => Task.fromJson(e as Map<String, dynamic>)));
       _tasks
         ..clear()
         ..addAll(fresh);
@@ -109,9 +124,8 @@ class TaskStore extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_cacheKey);
       if (raw == null || raw.isEmpty) return false;
-      final list = (jsonDecode(raw) as List)
-          .map((e) => Task.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final list = _dedupeById((jsonDecode(raw) as List)
+          .map((e) => Task.fromJson(e as Map<String, dynamic>)));
       if (list.isEmpty) return false;
       _tasks
         ..clear()

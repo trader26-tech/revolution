@@ -237,6 +237,10 @@ class TaskStore extends ChangeNotifier {
     created.payoutMethod ??= payoutMethod;
     created.payoutAmount ??= payoutAmount;
     created.payoutCount ??= payoutCount;
+    // Guard against a double-insert (e.g. the server already echoed this id via
+    // a concurrent refresh) — one id must map to one row, or the Home list's
+    // ValueKey(id) collides.
+    _tasks.removeWhere((t) => t.id == created.id);
     _tasks.insert(0, created);
     notifyListeners();
     unawaited(_writeCache(_tasks));

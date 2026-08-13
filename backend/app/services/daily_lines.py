@@ -48,10 +48,13 @@ def _groq_key() -> Optional[str]:
 
 def _tasks_due_today(user_id: str, d: date) -> list[dict[str, Any]]:
     start, end = _day_bounds(d)
+    # NB: the live tasks table has no sub_category column (the app keeps that
+    # locally), so we don't select it — _fmt_task_for_prompt already treats it
+    # as optional. `notes` gives the model a little extra colour when present.
     return (
         get_supabase()
         .table(_TASKS)
-        .select("id, title, category, sub_category, amount, currency, due_at")
+        .select("id, title, category, amount, currency, due_at, notes")
         .eq("user_id", user_id)
         .eq("archived", False)
         .eq("done", False)
@@ -89,6 +92,9 @@ def _fmt_task_for_prompt(t: dict[str, Any]) -> str:
     due = t.get("due_at")
     if due:
         bits.append(f"due={due}")
+    notes = (t.get("notes") or "").strip()
+    if notes:
+        bits.append(f"notes={notes}")
     return " | ".join(bits)
 
 

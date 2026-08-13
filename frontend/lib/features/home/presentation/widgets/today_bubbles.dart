@@ -405,7 +405,9 @@ class _DoneLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tint = task.category.color;
+    // One constant accent for the row chrome (the restore check) — no
+    // per-category colours on the home list.
+    const tint = AppColors.accent;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 16, 4),
       child: Material(
@@ -694,11 +696,18 @@ class _TickButtonState extends State<_TickButton> {
 }
 
 /// The leading icon — the real brand logo when the task carries one, else the
-/// category glyph on a tinted tile.
+/// category glyph on a tile. The FALLBACK glyph uses ONE constant colour (the
+/// app accent) for every category — no green-for-investment / red-for-bills
+/// rainbow — so the icon column reads calm and uniform. (The [tint] is still
+/// used elsewhere on the row, e.g. the tick; the fallback icon deliberately
+/// ignores it.)
 class _LineIcon extends StatelessWidget {
-  const _LineIcon({required this.task, required this.tint});
+  const _LineIcon({required this.task, this.tint});
   final Task task;
-  final Color tint;
+  final Color? tint;
+
+  /// The single, constant colour for every fallback category glyph.
+  static const _iconColor = AppColors.accent;
 
   @override
   Widget build(BuildContext context) {
@@ -722,10 +731,10 @@ class _LineIcon extends StatelessWidget {
       height: 38,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.16),
+        color: _iconColor.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(11),
       ),
-      child: Icon(task.category.icon, size: 20, color: tint),
+      child: Icon(task.category.icon, size: 20, color: _iconColor),
     );
   }
 }

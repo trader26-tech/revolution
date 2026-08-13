@@ -196,16 +196,10 @@ class _TodayBubblesState extends State<TodayBubbles>
                   ),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: MagicText(
-                        text: widget.greeting,
+                      padding: const EdgeInsets.only(top: 6),
+                      child: _Greeting(
+                        greeting: widget.greeting,
                         progress: _win(_greetStartMs, _greetEndMs),
-                        style: const TextStyle(
-                          fontSize: 23,
-                          height: 1.15,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
-                        ),
                       ),
                     ),
                   ),
@@ -234,6 +228,78 @@ class _TodayBubblesState extends State<TodayBubbles>
           ],
         );
       },
+    );
+  }
+}
+
+/// The two-tier greeting Revo says: a small, muted salutation ("Good evening,")
+/// leading into the user's name — LARGE and painted with a violet→light
+/// gradient so it reads as the hero of the screen, not an ordinary line. Both
+/// tiers shimmer in word-by-word from the SAME [progress], so they materialise
+/// together in sync with Revo's entrance.
+class _Greeting extends StatelessWidget {
+  const _Greeting({required this.greeting, required this.progress});
+
+  /// The full line, e.g. "Good evening, Ranjeev". Split at the comma into the
+  /// salutation and the name; if there's no comma (name unknown) we show just
+  /// the salutation, styled as the hero.
+  final String greeting;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final comma = greeting.indexOf(',');
+    final hasName = comma >= 0 && comma < greeting.length - 1;
+    final salutation =
+        hasName ? greeting.substring(0, comma).trim() : greeting.trim();
+    final name = hasName ? greeting.substring(comma + 1).trim() : '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ── Tier 1: the quiet salutation ──
+        MagicText(
+          text: hasName ? '$salutation,' : salutation,
+          progress: progress,
+          style: TextStyle(
+            fontSize: hasName ? 16 : 30,
+            height: 1.1,
+            fontWeight: hasName ? FontWeight.w600 : FontWeight.w800,
+            letterSpacing: 0.2,
+            color: AppColors.inkSoft,
+          ),
+        ),
+        // ── Tier 2: the name — big, gradient-filled, the hero ──
+        if (hasName) ...[
+          const SizedBox(height: 2),
+          ShaderMask(
+            // Paint the materialising name with a violet→light sweep. The mask
+            // recolours whatever MagicText draws, so the word-by-word shimmer
+            // still plays underneath.
+            shaderCallback: (rect) => const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFEDE7FF), // near-white lavender
+                AppColors.accent, // vivid violet
+              ],
+            ).createShader(rect),
+            blendMode: BlendMode.srcIn,
+            child: MagicText(
+              text: name,
+              progress: progress,
+              style: const TextStyle(
+                fontSize: 34,
+                height: 1.05,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.6,
+                color: Colors.white, // recoloured by the ShaderMask
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

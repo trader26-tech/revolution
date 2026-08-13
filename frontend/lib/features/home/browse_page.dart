@@ -19,9 +19,14 @@ import 'presentation/collection_page.dart';
 /// hand-assembled and considered. "General" leads — the easy "just remember
 /// anything" entry with a note.
 class BrowsePage extends StatefulWidget {
-  const BrowsePage({super.key, required this.store});
+  const BrowsePage({super.key, required this.store, this.isActive = true});
 
   final TaskStore store;
+
+  /// True when Browse is the visible tab. Each time it flips back to true, the
+  /// row-entrance cascade re-plays — so switching to Browse always greets you
+  /// with the rows arriving one at a time, not a static list.
+  final bool isActive;
 
   @override
   State<BrowsePage> createState() => _BrowsePageState();
@@ -41,7 +46,20 @@ class _BrowsePageState extends State<BrowsePage>
     _intro = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
-    )..forward();
+    );
+    // Play on first mount only if Browse is the visible tab; otherwise wait
+    // until it becomes active (didUpdateWidget) so the cascade isn't "used up"
+    // invisibly while Home is showing.
+    if (widget.isActive) _intro.forward(from: 0);
+  }
+
+  @override
+  void didUpdateWidget(covariant BrowsePage old) {
+    super.didUpdateWidget(old);
+    // Switched TO Browse → replay the row cascade from the top.
+    if (widget.isActive && !old.isActive) {
+      _intro.forward(from: 0);
+    }
   }
 
   @override

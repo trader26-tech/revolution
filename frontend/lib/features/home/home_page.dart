@@ -13,7 +13,7 @@ import '../tasks/domain/task.dart';
 import '../tasks/presentation/task_details_sheet.dart';
 import 'presentation/collection_page.dart';
 import 'presentation/upcoming_page.dart';
-import 'presentation/widgets/home_dashboard.dart';
+import 'presentation/widgets/home_dashboard.dart' show showAddBrowseSheet;
 import 'presentation/widgets/today_bubbles.dart';
 
 /// The Home screen.
@@ -219,21 +219,6 @@ class _HomePageState extends State<HomePage> {
       ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
   }
 
-  /// The "Up next" cards: scheduled, unfinished reminders in the NEXT-7-days
-  /// window — tomorrow onward, so today lives in the bubbles above, not twice.
-  List<Task> _upNextFromTomorrow(List<Task> all) {
-    final start = _dayOf(DateTime.now()).add(const Duration(days: 1));
-    final end = start.add(const Duration(days: 7)); // exclusive
-    return all
-        .where((t) =>
-            t.isScheduled &&
-            !t.done &&
-            !_dayOf(t.dueAt!).isBefore(start) &&
-            _dayOf(t.dueAt!).isBefore(end))
-        .toList()
-      ..sort((a, b) => a.dueAt!.compareTo(b.dueAt!));
-  }
-
   /// "Good morning, Sanjeev" — the line Revo says atop the bubbles.
   String _greeting(String name) {
     final h = DateTime.now().hour;
@@ -259,12 +244,17 @@ class _HomePageState extends State<HomePage> {
         ? AuthStore.instance.name!.trim()
         : ProfileStore.instance.name;
 
-    // Today's tasks arrive as animated BUBBLES (the hero) → Up Next for the
-    // days AFTER today. Browse now lives on the nav bar, not in this feed.
-    final tomorrow = _dayOf(DateTime.now()).add(const Duration(days: 1));
+    // The feed leads with the DATE this list is for — today — with an arrow to
+    // the right that opens the full upcoming list (the user chooses to look
+    // ahead). Then today's tasks as animated BUBBLES. Browse lives on the nav
+    // bar, and "up next" is now reached from the date header's arrow, not a
+    // strip in the feed.
     final rows = <Widget>[
+      _DateHeader(day: DateTime.now(), onUpcoming: _openUpcoming),
+      const SizedBox(height: 4),
       // The bubbles — today's reminders, materialising one by one, each with a
-      // derived nudge and a tick to dismiss.
+      // derived nudge and a tick to dismiss. When today is clear, they show
+      // their own "enjoy the calm" line.
       TodayBubbles(
         replayTick: _replay,
         greeting: _greeting(displayName),
@@ -273,16 +263,6 @@ class _HomePageState extends State<HomePage> {
         onOpen: _editTask,
         onComplete: (t) => widget.store.toggleDone(t),
         onUndo: (t) => widget.store.toggleDone(t),
-      ),
-      const SizedBox(height: 8),
-      // Up Next — tomorrow through the next 7 days, day by day. The arrow opens
-      // the full vertical upcoming list.
-      UpNextStrip(
-        items: _upNextFromTomorrow(allTasks),
-        anchor: tomorrow,
-        windowLabel: 'coming up',
-        onTap: _editTask,
-        onSeeAll: _openUpcoming,
       ),
     ];
 
@@ -375,6 +355,111 @@ class _EmptyContent extends StatelessWidget {
               style: TextStyle(color: AppColors.inkSoft),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The date header that leads the Home feed — it tells the user, up front and
+/// unmistakably, WHAT DAY this list of reminders is for. A small accent kicker
+/// ("TODAY") sits over the full date ("Thursday, 14 August"); on the right, a
+/// labelled arrow button opens the full upcoming list, so looking ahead is the
+/// user's choice, not clutter in the feed.
+class _DateHeader extends StatelessWidget {
+  const _DateHeader({required this.day, required this.onUpcoming});
+
+  final DateTime day;
+  final VoidCallback onUpcoming;
+
+  static const _weekdays = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+  ];
+  static const _months = [
+    'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+    'September', 'October', 'November', 'December'
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final weekday = _weekdays[day.weekday - 1];
+    final fullDate = '$weekday, ${day.day} ${_months[day.month - 1]}';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 16, 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ── The date, two-tier ──
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'TODAY',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.5,
+                    color: AppColors.accent,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  fullDate,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // ── The upcoming button — a labelled arrow the user taps to look
+          //    ahead. Discoverable (has a word), not just a bare glyph. ──
+          _UpcomingButton(onTap: onUpcoming),
+        ],
+      ),
+    );
+  }
+}
+
+/// A small glass pill — "Upcoming →" — that opens the full upcoming list.
+class _UpcomingButton extends StatelessWidget {
+  const _UpcomingButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: GlassPanel(
+        borderRadius: 999,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 9, 10, 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Upcoming',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.inkSoft,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.arrow_forward_rounded,
+                  size: 17, color: AppColors.accent),
+            ],
+          ),
         ),
       ),
     );

@@ -173,6 +173,8 @@ class Task {
     this.returnAmount,
     this.maturityAt,
     this.payoutMethod,
+    this.payoutAmount,
+    this.payoutCount,
   });
 
   final String id;
@@ -245,20 +247,30 @@ class Task {
   /// How the return is paid out (lump sum / monthly pension / annual payout).
   PayoutMethod? payoutMethod;
 
+  /// For an AMORTIZED return (monthly pension / annual payout): the amount of a
+  /// SINGLE installment, and how many installments there are. The total
+  /// [returnAmount] is then payoutAmount × payoutCount. Both null for a lump
+  /// sum (where [returnAmount] is the whole figure directly).
+  double? payoutAmount;
+  int? payoutCount;
+
   bool get isScheduled => dueAt != null;
   bool get hasReturn => returnAmount != null && returnAmount! > 0;
 
   /// How many premium payments land between now and maturity, given the premium
-  /// cadence. Best-effort — null if we can't compute it (no maturity/cadence).
+  /// cadence AND its interval ([repeatTimes] = "every N months/years"). So a
+  /// yearly premium paid "every 2 years" halves the count. Best-effort — null
+  /// if we can't compute it (no maturity/cadence).
   int? get premiumPeriods {
     final m = maturityAt;
     if (m == null) return null;
     final months =
         (m.year - DateTime.now().year) * 12 + (m.month - DateTime.now().month);
     if (months <= 0) return null;
+    final every = repeatTimes < 1 ? 1 : repeatTimes;
     return switch (repeat) {
-      RepeatCadence.monthly => months,
-      RepeatCadence.yearly => (months / 12).ceil(),
+      RepeatCadence.monthly => (months / every).ceil(),
+      RepeatCadence.yearly => (months / (12 * every)).ceil(),
       _ => null,
     };
   }

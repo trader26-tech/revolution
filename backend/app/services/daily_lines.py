@@ -89,9 +89,8 @@ def _fmt_task_for_prompt(t: dict[str, Any]) -> str:
     if amt is not None:
         cur = t.get("currency") or "INR"
         bits.append(f"amount={cur} {amt}")
-    due = t.get("due_at")
-    if due:
-        bits.append(f"due={due}")
+    # NB: we deliberately do NOT pass the due time — the lines should never
+    # mention a clock time ("at 12:14 AM"); everything here is simply "today".
     notes = (t.get("notes") or "").strip()
     if notes:
         bits.append(f"notes={notes}")
@@ -103,16 +102,30 @@ def _build_prompt(tasks: list[dict[str, Any]]) -> list[dict[str, str]]:
         f"{i + 1}. {_fmt_task_for_prompt(t)}" for i, t in enumerate(tasks)
     )
     system = (
-        "You write ONE short, catchy, human sentence for each of the user's "
-        "reminders due today. Each line must feel tailor-made for THAT item: "
-        "weave in its real name, amount and time naturally. Keep it under ~12 "
-        "words, warm and a little witty, never generic ('still worth it?'). For "
-        "a subscription, nudge a keep-or-cancel decision. For a bill, nudge "
-        "paying on time. For a birthday, be warm. Return STRICT JSON: an array "
-        'of objects like {"n": 1, "line": "..."} — one per reminder, in order. '
-        "No markdown, no extra text."
+        "You are Revo, a witty, warm friend who reminds the user about their "
+        "day — like a person texting them, NOT an app. For EACH item, write ONE "
+        "short line (max ~16 words) that opens with a genuinely interesting, "
+        "true tidbit or playful observation about the thing itself, then glides "
+        "into the nudge. Example for 'Claude': \"Claude can hold a whole book "
+        "in mind at once — your subscription's up today, keep it?\". Make it "
+        "feel like a human conversing, curious and specific to THAT item.\n"
+        "Rules:\n"
+        "- NEVER mention a clock time (no '6pm', 'at midnight', 'AM'). Say "
+        "'today' at most.\n"
+        "- Weave in the real name; use the amount only if it fits naturally.\n"
+        "- Subscriptions: end on a keep-or-cancel nudge. Bills: nudge paying. "
+        "Birthdays: be warm, maybe a fun fact about the day/person's name. "
+        "Investments/policies: encouraging.\n"
+        "- If you don't know a real fact, use a light, clever observation "
+        "instead — never invent fake statistics.\n"
+        "- No emojis, no markdown.\n"
+        'Return STRICT JSON: {"lines": [{"n": 1, "line": "..."}, ...]} — one '
+        "per reminder, in order, nothing else."
     )
-    user = f"Reminders due today:\n{numbered}\n\nReturn the JSON array now."
+    user = (
+        f"Reminders due today:\n{numbered}\n\n"
+        "Write the conversational line for each. Return the JSON now."
+    )
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": user},

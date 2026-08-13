@@ -738,21 +738,7 @@ class _AllClearLine extends StatelessWidget {
   }
 }
 
-// ── Derived copy: ONE tailored meta line per item ────────────────────────────
-
-/// The time of day the item is due — "6 PM" / "Now" / "" (blank if it's just a
-/// whole-day reminder with no set time, so we don't print a meaningless "12 AM").
-String _timePart(Task task) {
-  final due = task.dueAt;
-  if (due == null) return '';
-  if (due.hour == 0 && due.minute == 0) return '';
-  final now = DateTime.now();
-  if (due.isBefore(now)) return 'Now';
-  final h = due.hour % 12 == 0 ? 12 : due.hour % 12;
-  final ampm = due.hour < 12 ? 'AM' : 'PM';
-  final m = due.minute == 0 ? '' : ':${due.minute.toString().padLeft(2, '0')}';
-  return '$h$m $ampm';
-}
+// ── Derived copy: ONE conversational sentence per item ───────────────────────
 
 /// The amount in the task's own currency — "₹119", "₹1,240". Empty if none.
 String _amountPart(Task task) {
@@ -775,24 +761,21 @@ String sentenceFor(Task task, String? aiLine) {
   return _localSentence(task);
 }
 
-/// A single, natural, TAILOR-MADE sentence woven from the item's real facts —
-/// name, amount, time — never a generic "still worth it?". This is the offline
-/// fallback for [sentenceFor].
+/// A single, natural, TAILOR-MADE sentence woven from the item's name + amount
+/// — never a generic "still worth it?", and deliberately WITHOUT any clock time
+/// ("today" at most). This is the offline fallback for [sentenceFor].
 String _localSentence(Task task) {
   final name = task.title.trim().isEmpty ? 'This' : task.title.trim();
-  final time = _timePart(task);
   final amount = _amountPart(task);
-  final at = time.isEmpty ? '' : ' at $time';
 
   switch (task.category) {
     case TaskCategory.subscription:
-      if (amount.isNotEmpty) {
-        return '$name renews for $amount$at — keep it, or cancel today?';
-      }
-      return '$name renews today — keep it, or cancel?';
+      return amount.isNotEmpty
+          ? '$name renews for $amount today — keep it, or cancel?'
+          : '$name renews today — keep it, or cancel?';
     case TaskCategory.bills:
       return amount.isNotEmpty
-          ? 'Pay $name\'s $amount$at before it\'s late.'
+          ? 'Pay $name\'s $amount today before it\'s late.'
           : 'Pay $name today before it\'s late.';
     case TaskCategory.insurance:
       return amount.isNotEmpty
@@ -812,6 +795,6 @@ String _localSentence(Task task) {
     case TaskCategory.birthday:
       return 'It\'s $name today — send a little love.';
     case TaskCategory.other:
-      return time.isEmpty ? '$name is on today.' : '$name$at today.';
+      return '$name is on today.';
   }
 }

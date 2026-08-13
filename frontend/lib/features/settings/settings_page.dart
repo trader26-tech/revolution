@@ -172,7 +172,17 @@ class _SettingsPageState extends State<SettingsPage> {
   /// happened. If permission got granted during send, reflect it.
   Future<void> _sendTestNotification() async {
     setState(() => _testingNotif = true);
-    final result = await ReminderScheduler.instance.sendTestNotification();
+    // Final backstop: the scheduler is already fully time-boxed, but never let
+    // the spinner outlive a reasonable wait even if something upstream stalls.
+    TestNotifResult result;
+    try {
+      result = await ReminderScheduler.instance
+          .sendTestNotification()
+          .timeout(const Duration(seconds: 75),
+              onTimeout: () => TestNotifResult.failed);
+    } catch (_) {
+      result = TestNotifResult.failed;
+    }
     if (!mounted) return;
     setState(() => _testingNotif = false);
     switch (result) {

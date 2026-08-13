@@ -92,11 +92,23 @@ class ReminderScheduler {
 
   /// Initialize the plugin + timezone database. Call once at startup, before
   /// any store starts notifying. No-op on web/desktop.
+  ///
+  /// Hardened so nothing here can hang the caller: the timezone lookup is
+  /// time-boxed (a slow/failed native call falls back to UTC instead of
+  /// blocking), and on Android we explicitly create the notification CHANNEL —
+  /// several OEMs (Samsung/Xiaomi/…) silently drop notifications posted to a
+  /// channel that was never created.
   Future<void> init() async {
     if (!_supported || _ready) return;
 
-    tzdata.initializeTimeZones();
-    await _setLocalTimezone();
+    try {
+      tzdata.initializeTimeZones();
+      // Never let a stuck platform timezone call hang startup / the test button.
+      await _setLocalTimezone().timeout(const Duration(seconds: 3),
+          onTimeout: () {});
+    } catch (_) {
+      // UTC default stands — a wrong offset is far better than a hang.
+    }
 
     await _plugin.initialize(
       settings: InitializationSettings(
@@ -127,6 +139,25 @@ class ReminderScheduler {
       onDidReceiveNotificationResponse: _onResponse,
       onDidReceiveBackgroundNotificationResponse: reminderActionBackground,
     );
+
+    // Create the Android channel up front so the very first notification (incl.
+    // the test) is guaranteed a home. Idempotent — safe to call every launch.
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        final android = _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        await android?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _channelId,
+            _channelName,
+            description: _channelDescription,
+            importance: Importance.high,
+          ),
+        );
+      } catch (_) {
+        // Non-fatal — show() would still lazily create it.
+      }
+    }
 
     _ready = true;
 
@@ -159,16 +190,30 @@ class ReminderScheduler {
   /// settings button show the right state ("Allow" vs "Send a test").
   Future<bool> notificationsAllowed() async {
     if (!_supported) return false;
-    if (!_ready) await init();
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      final android = _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
-      return await android?.areNotificationsEnabled() ?? false;
+    if (!_ready) {
+      try {
+        await init().timeout(const Duration(seconds: 8));
+      } catch (_) {}
+      if (!_ready) return false;
     }
-    final ios = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
-    final s = await ios?.checkPermissions();
-    return s?.isEnabled ?? false;
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final android = _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        return await android
+                ?.areNotificationsEnabled()
+                .timeout(const Duration(seconds: 3), onTimeout: () => false) ??
+            false;
+      }
+      final ios = _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      final s = await ios
+          ?.checkPermissions()
+          .timeout(const Duration(seconds: 3), onTimeout: () => null);
+      return s?.isEnabled ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Request notification permission (prompts the OS dialog). Returns whether
@@ -183,11 +228,21 @@ class ReminderScheduler {
   Future<TestNotifResult> sendTestNotification() async {
     if (!_supported) return TestNotifResult.unsupported;
     if (!_ready) {
-      await init();
-      if (!_ready) return TestNotifResult.unsupported;
+      // Time-box init so a stuck native call can't leave the button spinning.
+      try {
+        await init().timeout(const Duration(seconds: 8));
+      } catch (_) {
+        // ignore — we check _ready below
+      }
+      if (!_ready) return TestNotifResult.failed;
     }
 
-    final granted = await _ensureGranted();
+    bool granted;
+    try {
+      granted = await _ensureGranted();
+    } catch (_) {
+      return TestNotifResult.failed;
+    }
     if (!granted) return TestNotifResult.denied;
 
     // Build TODAY's digest from the real tasks. If nothing's due today, show a
@@ -237,22 +292,43 @@ class ReminderScheduler {
   }
 
   /// Ask for (and report) notification permission. True if we can post.
+  ///
+  /// Every native call is time-boxed so the button can NEVER spin forever: if
+  /// the OS is slow or an OEM stalls, we resolve to a definite true/false and
+  /// let the user retry, instead of hanging. On Android 13+ we always ATTEMPT
+  /// the request when not already enabled, so the system dialog actually shows.
   Future<bool> _ensureGranted() async {
     if (defaultTargetPlatform == TargetPlatform.android) {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
-      final enabled = await android?.areNotificationsEnabled() ?? false;
-      if (enabled) return true;
-      return await android?.requestNotificationsPermission() ?? false;
+      if (android == null) return false;
+
+      final enabled = await android
+          .areNotificationsEnabled()
+          .timeout(const Duration(seconds: 3), onTimeout: () => false);
+      if (enabled == true) return true;
+
+      // Show the system permission dialog (Android 13+). On <13 this resolves
+      // true immediately (no runtime permission). Time-boxed so a dialog the
+      // user never answers doesn't leave the button spinning — they can tap
+      // again once they've decided.
+      final granted = await android
+          .requestNotificationsPermission()
+          .timeout(const Duration(seconds: 60), onTimeout: () => null);
+      if (granted != null) return granted;
+
+      // Timed out waiting on the dialog — re-check the actual state.
+      return await android
+          .areNotificationsEnabled()
+          .timeout(const Duration(seconds: 2), onTimeout: () => false) ??
+          false;
     }
     final ios = _plugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
-    return await ios?.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        ) ??
-        false;
+    final r = await ios
+        ?.requestPermissions(alert: true, badge: true, sound: true)
+        .timeout(const Duration(seconds: 60), onTimeout: () => false);
+    return r ?? false;
   }
 
   /// A fixed id for the test notification (well clear of day/snooze ids).

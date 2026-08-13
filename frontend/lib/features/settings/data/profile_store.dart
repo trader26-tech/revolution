@@ -48,11 +48,6 @@ class ProfileStore extends ChangeNotifier {
   int _quietEndMin = 7 * 60; //  7:00 AM
   bool _weekStartMon = true;
 
-  /// Whether a Groq API key is set on the server (drives the AI daily lines).
-  /// We never hold the raw key on-device — only this connected flag, fetched
-  /// from GET /prefs.
-  bool _groqConnected = false;
-
   // --- getters ---
   String get name => _name;
   bool get hasName => _name.trim().isNotEmpty;
@@ -67,7 +62,6 @@ class ProfileStore extends ChangeNotifier {
   int get quietStartMin => _quietStartMin;
   int get quietEndMin => _quietEndMin;
   bool get weekStartMon => _weekStartMon;
-  bool get groqConnected => _groqConnected;
 
   /// Load persisted preferences. Call once at startup.
   Future<void> load() async {
@@ -142,38 +136,6 @@ class ProfileStore extends ChangeNotifier {
       });
     } catch (_) {
       // Non-fatal — retried next time it changes.
-    }
-  }
-
-  /// Fetch whether a Groq key is set (GET /prefs). Best-effort — leaves the
-  /// current flag untouched on error (offline, etc.).
-  Future<void> loadGroqStatus() async {
-    try {
-      final res = await ApiClient.instance.get('/prefs');
-      if (res is Map && res['groq_connected'] is bool) {
-        _groqConnected = res['groq_connected'] as bool;
-        notifyListeners();
-      }
-    } catch (_) {
-      // Non-fatal.
-    }
-  }
-
-  /// Save (or clear, with an empty string) the user's Groq API key on the
-  /// server. The key is sent once and NOT stored on-device; the server keeps it
-  /// and returns only whether it's now connected. Returns true on success.
-  Future<bool> setGroqKey(String key) async {
-    try {
-      final res = await ApiClient.instance.put('/prefs', {
-        'phone': AuthStore.instance.phone,
-        'groq_api_key': key.trim(),
-      });
-      _groqConnected =
-          (res is Map && res['groq_connected'] == true) ? true : key.trim().isNotEmpty;
-      notifyListeners();
-      return true;
-    } catch (_) {
-      return false;
     }
   }
 

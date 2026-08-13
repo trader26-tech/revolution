@@ -7,15 +7,10 @@
 -- model on every open. The first request of the day generates + caches; every
 -- later read that day just returns the cached rows.
 --
--- The user's Groq API key lives on the users row (added below); if it's unset
--- the app falls back to a locally-built sentence and this table stays empty.
+-- The Groq API key is an APP-WIDE backend env var (GROQ_API_KEY), never stored
+-- per-user in the DB. If it's unset the app falls back to a locally-built
+-- sentence and this table stays empty.
 -- ─────────────────────────────────────────────────────────────────────────────
-
--- The Groq API key the backend uses to generate this user's lines. Nullable —
--- no key → no generation → local fallback in the app. Stored on the users row
--- so it's shared across the user's devices (entered once in Settings).
-alter table public.users
-    add column if not exists groq_api_key text;
 
 -- One cached sentence per (user, task, day). Regenerated daily.
 create table if not exists public.daily_task_lines (

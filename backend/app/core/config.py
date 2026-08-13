@@ -35,5 +35,13 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_whatsapp_from: str = ""
 
+    # --- Groq (AI daily one-liners for the Home feed) ----------------------
+    # One app-wide key, kept in the backend env only — never in the DB or sent
+    # to the client. Unset → no AI lines, the app uses its local fallback.
+    #   groq_api_key  — from console.groq.com (starts "gsk_")
+    #   groq_model    — override the default model if desired
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.1-8b-instant"
+
 
 settings = Settings()

@@ -23,15 +23,13 @@ from typing import Any, Optional
 
 import httpx
 
+from app.core.config import settings
 from app.core.supabase import get_supabase
 
-_USERS = "users"
 _TASKS = "tasks"
 _LINES = "daily_task_lines"
 
 _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-# A fast, inexpensive Groq-hosted model — good enough for a one-line quip.
-_GROQ_MODEL = "llama-3.1-8b-instant"
 
 
 def _today() -> date:
@@ -42,18 +40,9 @@ def _day_bounds(d: date) -> tuple[str, str]:
     return f"{d.isoformat()}T00:00:00", f"{d.isoformat()}T23:59:59"
 
 
-def get_groq_key(user_id: str) -> Optional[str]:
-    row = (
-        get_supabase()
-        .table(_USERS)
-        .select("groq_api_key")
-        .eq("id", user_id)
-        .limit(1)
-        .execute()
-    ).data
-    if not row:
-        return None
-    key = (row[0].get("groq_api_key") or "").strip()
+def _groq_key() -> Optional[str]:
+    """The app-wide Groq key from the backend env (never per-user / DB)."""
+    key = (settings.groq_api_key or "").strip()
     return key or None
 
 
@@ -131,7 +120,7 @@ def _call_groq(api_key: str, tasks: list[dict[str, Any]]) -> dict[str, str]:
         _GROQ_URL,
         headers={"Authorization": f"Bearer {api_key}"},
         json={
-            "model": _GROQ_MODEL,
+            "model": settings.groq_model,
             "messages": _build_prompt(tasks),
             "temperature": 0.8,
             "max_tokens": 600,
@@ -182,8 +171,8 @@ def get_lines_for_today(user_id: str) -> dict[str, str]:
     """{task_id: catchy_line} for the caller's tasks due today.
 
     Generates + caches on the first call of the day; reads cache thereafter.
-    Returns {} (→ app uses its local fallback) when there's no Groq key, no
-    tasks, or Groq errors out.
+    Returns {} (→ app uses its local fallback) when Groq isn't configured, no
+    tasks are due, or Groq errors out.
     """
     d = _today()
 
@@ -197,7 +186,7 @@ def get_lines_for_today(user_id: str) -> dict[str, str]:
     if not missing:
         return cached
 
-    api_key = get_groq_key(user_id)
+    api_key = _groq_key()
     if not api_key:
         return cached  # may be partial/empty; app fills the rest locally
 

@@ -45,7 +45,7 @@ class _BrowsePageState extends State<BrowsePage>
     _documents.load();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: const Duration(milliseconds: 1600),
     );
     // Play on first mount only if Browse is the visible tab; otherwise wait
     // until it becomes active (didUpdateWidget) so the cascade isn't "used up"
@@ -223,18 +223,24 @@ class _CascadeIn extends StatelessWidget {
     return AnimatedBuilder(
       animation: intro,
       builder: (context, child) {
-        // Spread the row STARTS across most of the timeline so each clearly
-        // begins after the previous; give each a short arrival window.
-        final start = total <= 1 ? 0.0 : (index / total) * 0.72;
-        const window = 0.42;
-        final t = ((intro.value - start) / window).clamp(0.0, 1.0);
-        final eased = Curves.easeOutCubic.transform(t);
+        // A CLEARLY-STAGGERED wave: each row starts a distinct beat after the
+        // one above, then springs up into place — you SEE them arrive one by one.
+        const perRow = 0.11;
+        const maxStart = 0.6;
+        const window = 0.4;
+        final start = (index * perRow).clamp(0.0, maxStart);
+        final raw = ((intro.value - start) / window).clamp(0.0, 1.0);
+        final eased = Curves.easeOutBack.transform(raw);
+        final fade = Curves.easeOut.transform(raw);
         return Opacity(
-          opacity: eased,
+          opacity: fade,
           child: Transform.translate(
-            // Slide up from a bit lower — a clear "arriving" motion.
-            offset: Offset(0, 26 * (1 - eased)),
-            child: child,
+            offset: Offset(14 * (1 - fade), 44 * (1 - eased)),
+            child: Transform.scale(
+              scale: 0.88 + 0.12 * eased,
+              alignment: Alignment.centerLeft,
+              child: child,
+            ),
           ),
         );
       },

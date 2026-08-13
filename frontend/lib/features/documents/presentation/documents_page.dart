@@ -44,7 +44,7 @@ class _DocumentsPageState extends State<DocumentsPage>
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1600),
     )..forward();
     if (store.isInitialLoad) {
       WidgetsBinding.instance.addPostFrameCallback((_) => store.load());
@@ -434,18 +434,20 @@ class _CascadeIn extends StatelessWidget {
     return AnimatedBuilder(
       animation: intro,
       builder: (context, child) {
-        const perRow = 0.055;
-        const maxStart = 0.7;
-        const window = 0.5;
+        const perRow = 0.11;
+        const maxStart = 0.6;
+        const window = 0.4;
         final start = (index * perRow).clamp(0.0, maxStart);
         final raw = ((intro.value - start) / window).clamp(0.0, 1.0);
-        final eased = Curves.easeOutQuart.transform(raw);
+        final eased = Curves.easeOutBack.transform(raw);
+        final fade = Curves.easeOut.transform(raw);
         return Opacity(
-          opacity: eased,
+          opacity: fade,
           child: Transform.translate(
-            offset: Offset(0, 20 * (1 - eased)),
+            offset: Offset(14 * (1 - fade), 44 * (1 - eased)),
             child: Transform.scale(
-              scale: 0.97 + 0.03 * eased,
+              scale: 0.88 + 0.12 * eased,
+              alignment: Alignment.centerLeft,
               child: child,
             ),
           ),

@@ -462,7 +462,7 @@ class _GroupedListState extends State<_GroupedList>
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1600),
     )..forward();
   }
 
@@ -1132,23 +1132,25 @@ class _CascadeIn extends StatelessWidget {
     return AnimatedBuilder(
       animation: intro,
       builder: (context, child) {
-        // Each row starts [perRow] after the previous, up to a cap so the whole
-        // cascade still finishes within the controller's run. The arrival
-        // window is wide and overlaps the next row's start → a flowing wave.
-        const perRow = 0.055; // fraction of the timeline between row starts
-        const maxStart = 0.7; // never start a row later than this
-        const window = 0.5; // each row's own arrival length (overlaps neighbours)
+        // A CLEARLY-STAGGERED wave: each row starts a distinct beat after the
+        // one above (perRow gap > its own window's tail), so you actually SEE
+        // them arrive one-by-one rather than all fading up together.
+        const perRow = 0.11; // gap between row starts — big enough to read
+        const maxStart = 0.6; // last rows still fully settle within the run
+        const window = 0.4; // each row's own arrival length (maxStart+window≤1)
         final start = (index * perRow).clamp(0.0, maxStart);
         final raw = ((intro.value - start) / window).clamp(0.0, 1.0);
-        // easeOutQuart — a soft, premium settle (fast in, long gentle finish).
-        final eased = Curves.easeOutQuart.transform(raw);
+        // A springy settle with a gentle overshoot — makes each arrival pop.
+        final eased = Curves.easeOutBack.transform(raw);
+        final fade = Curves.easeOut.transform(raw);
         return Opacity(
-          opacity: eased,
+          opacity: fade,
           child: Transform.translate(
-            offset: Offset(0, 20 * (1 - eased)),
+            // A bigger slide up + a touch in from the left — noticeably alive.
+            offset: Offset(14 * (1 - fade), 44 * (1 - eased)),
             child: Transform.scale(
-              // Grow subtly into place — reads far smoother than a pure slide.
-              scale: 0.97 + 0.03 * eased,
+              scale: 0.88 + 0.12 * eased,
+              alignment: Alignment.centerLeft,
               child: child,
             ),
           ),

@@ -462,7 +462,7 @@ class _GroupedListState extends State<_GroupedList>
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: const Duration(milliseconds: 1400),
     )..forward();
   }
 
@@ -1107,9 +1107,13 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// The entrance cascade for collection rows: row [index] slides up + fades in a
-/// beat AFTER the row above it, so a category's items assemble one at a time —
-/// the same tasteful motion the Browse tab uses.
+/// The entrance cascade for collection rows: each row eases up, fades, and
+/// gently scales into place a beat AFTER the one above it, so a category's items
+/// assemble one at a time — smooth and considered, not snappy.
+///
+/// The stagger is a FIXED per-row delay (capped), not `index/total`, so every
+/// row gets the same generous arrival window whether the list has 3 items or
+/// 30 — long lists stay just as fluid instead of snapping past.
 class _CascadeIn extends StatelessWidget {
   const _CascadeIn({
     required this.intro,
@@ -1128,15 +1132,25 @@ class _CascadeIn extends StatelessWidget {
     return AnimatedBuilder(
       animation: intro,
       builder: (context, child) {
-        final start = total <= 1 ? 0.0 : (index / total) * 0.72;
-        const window = 0.42;
-        final t = ((intro.value - start) / window).clamp(0.0, 1.0);
-        final eased = Curves.easeOutCubic.transform(t);
+        // Each row starts [perRow] after the previous, up to a cap so the whole
+        // cascade still finishes within the controller's run. The arrival
+        // window is wide and overlaps the next row's start → a flowing wave.
+        const perRow = 0.055; // fraction of the timeline between row starts
+        const maxStart = 0.7; // never start a row later than this
+        const window = 0.5; // each row's own arrival length (overlaps neighbours)
+        final start = (index * perRow).clamp(0.0, maxStart);
+        final raw = ((intro.value - start) / window).clamp(0.0, 1.0);
+        // easeOutQuart — a soft, premium settle (fast in, long gentle finish).
+        final eased = Curves.easeOutQuart.transform(raw);
         return Opacity(
           opacity: eased,
           child: Transform.translate(
-            offset: Offset(0, 22 * (1 - eased)),
-            child: child,
+            offset: Offset(0, 20 * (1 - eased)),
+            child: Transform.scale(
+              // Grow subtly into place — reads far smoother than a pure slide.
+              scale: 0.97 + 0.03 * eased,
+              child: child,
+            ),
           ),
         );
       },

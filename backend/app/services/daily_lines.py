@@ -78,22 +78,22 @@ def _cached_lines(user_id: str, d: date) -> dict[str, str]:
 
 
 def _fmt_task_for_prompt(t: dict[str, Any]) -> str:
-    bits = [t.get("title") or "reminder"]
+    """Only the facts the USER actually filled in — nothing invented. The model
+    gets exactly these to build one clean reminder from."""
+    bits = [f'name="{(t.get("title") or "reminder").strip()}"']
     cat = t.get("category")
     if cat and cat != "other":
-        bits.append(f"category={cat}")
-    sub = t.get("sub_category")
-    if sub:
-        bits.append(f"kind={sub}")
+        bits.append(f"type={cat}")
     amt = t.get("amount")
     if amt is not None:
         cur = t.get("currency") or "INR"
-        bits.append(f"amount={cur} {amt}")
-    # NB: we deliberately do NOT pass the due time — the lines should never
-    # mention a clock time ("at 12:14 AM"); everything here is simply "today".
+        # Trim a trailing .0 so it reads "649", not "649.0".
+        amt_str = str(int(amt)) if float(amt).is_integer() else str(amt)
+        bits.append(f"amount={cur} {amt_str}")
     notes = (t.get("notes") or "").strip()
     if notes:
-        bits.append(f"notes={notes}")
+        bits.append(f'note="{notes}"')
+    # Deliberately NO clock time — reminders say "today" at most.
     return " | ".join(bits)
 
 
@@ -102,25 +102,34 @@ def _build_prompt(tasks: list[dict[str, Any]]) -> list[dict[str, str]]:
         f"{i + 1}. {_fmt_task_for_prompt(t)}" for i, t in enumerate(tasks)
     )
     system = (
-        "You are Revo, a witty, warm friend who reminds the user about their "
-        "day — like a person texting them, NOT an app. For EACH item, write ONE "
-        "short line (max ~16 words) that opens with a genuinely interesting, "
-        "true tidbit or playful observation about the thing itself, then glides "
-        "into the nudge. Example for 'Claude': \"Claude can hold a whole book "
-        "in mind at once — your subscription's up today, keep it?\". Make it "
-        "feel like a human conversing, curious and specific to THAT item.\n"
-        "Rules:\n"
-        "- NEVER mention a clock time (no '6pm', 'at midnight', 'AM'). Say "
-        "'today' at most.\n"
-        "- Weave in the real name; use the amount only if it fits naturally.\n"
-        "- Subscriptions: end on a keep-or-cancel nudge. Bills: nudge paying. "
-        "Birthdays: be warm, maybe a fun fact about the day/person's name. "
-        "Investments/policies: encouraging.\n"
-        "- If you don't know a real fact, use a light, clever observation "
-        "instead — never invent fake statistics.\n"
-        "- No emojis, no markdown.\n"
+        "You turn a reminder's details into ONE short, clear reminder line. "
+        "The line must be immediately understandable — the user should know "
+        "exactly what to do at a glance. Sweet, to the point, and lightly witty "
+        "or thought-provoking — never confusing, never rambling, never a random "
+        "'fun fact'.\n"
+        "\n"
+        "Hard rules:\n"
+        "- ONE sentence, MAX 12 words. Shorter is better.\n"
+        "- Use ONLY the details given (name, type, amount, note). Invent "
+        "nothing — no fake facts, no made-up numbers, no details not provided.\n"
+        "- The reminder's NAME must appear, and it must be obvious what the "
+        "action is.\n"
+        "- Never mention a clock time; 'today' is the most you may say.\n"
+        "- No emojis, no markdown, no quotes around the line.\n"
+        "\n"
+        "Tone by type (keep it subtle — one light touch, not a joke):\n"
+        "- subscription: a gentle keep-or-cancel nudge — 'Netflix renews today "
+        "— still worth ₹649?'\n"
+        "- bills: nudge paying on time — 'Pay the ₹1,240 electricity bill "
+        "before it bites.'\n"
+        "- policies/investment: encouraging — 'HDFC premium's due — future you "
+        "says thanks.'\n"
+        "- birthday/occasion: warm — 'It's Mom's birthday — make her smile "
+        "today.'\n"
+        "- other: just clear and friendly, using the note if present.\n"
+        "\n"
         'Return STRICT JSON: {"lines": [{"n": 1, "line": "..."}, ...]} — one '
-        "per reminder, in order, nothing else."
+        "per reminder, in the same order, and nothing else."
     )
     user = (
         f"Reminders due today:\n{numbered}\n\n"
@@ -141,8 +150,10 @@ def _call_groq(api_key: str, tasks: list[dict[str, Any]]) -> dict[str, str]:
         json={
             "model": settings.groq_model,
             "messages": _build_prompt(tasks),
-            "temperature": 0.8,
-            "max_tokens": 600,
+            # Lower temperature → tight, on-point lines instead of rambling,
+            # over-creative "fun facts". Enough warmth for a light touch.
+            "temperature": 0.5,
+            "max_tokens": 400,
             "response_format": {"type": "json_object"},
         },
         timeout=25.0,

@@ -73,9 +73,15 @@ def _system_prompt(today: date) -> str:
         "is null.\n"
         'For a QUERY, return a "range" describing the time window asked about: '
         'one of "today", "tomorrow", "week" (this/next 7 days), "month", '
-        '"overdue", "all" (default "all"); and a "target" with key words if the '
-        'question is about a specific reminder/category (e.g. "subscriptions", '
-        '"rent"), else null.\n'
+        '"overdue", "all" (default "all"). If the question is scoped to a '
+        "CATEGORY (e.g. \"what subscriptions…\", \"which bills…\", \"my "
+        "medicines\"), set \"category\" to that category ("
+        "subscriptions→subscription, bills→bills, medicines→medicine, "
+        "SIPs/investments→investment, policies→policies, insurance→insurance, "
+        "birthdays/occasions→birthday) AND set \"target\" to that same word. If "
+        "the question is about ONE specific named reminder (e.g. \"when is my "
+        "rent due\"), set \"target\" to its key words and leave category as "
+        '"other". If it\'s about everything, category="other" and target=null.\n'
         "For update, put the NEW values in the normal fields below (e.g. the new "
         "amount in \"amount\", the new date in \"date\").\n"
         "\n"

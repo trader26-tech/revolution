@@ -346,9 +346,9 @@ class _RevoText extends StatelessWidget {
               progress: shimmer,
               reading: true,
               style: const TextStyle(
-                fontSize: 15,
-                height: 1.34,
-                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                height: 1.32,
+                fontWeight: FontWeight.w700,
                 color: AppColors.ink,
               ),
             ),
@@ -473,8 +473,8 @@ class _ProposalLine extends StatelessWidget {
             progress: shimmer,
             reading: true,
             style: const TextStyle(
-                fontSize: 15,
-                height: 1.34,
+                fontSize: 16,
+                height: 1.32,
                 fontWeight: FontWeight.w700,
                 color: AppColors.ink),
           ),
@@ -621,8 +621,8 @@ class _ActionLine extends StatelessWidget {
             progress: shimmer,
             reading: true,
             style: const TextStyle(
-                fontSize: 15,
-                height: 1.34,
+                fontSize: 16,
+                height: 1.32,
                 fontWeight: FontWeight.w700,
                 color: AppColors.ink),
           ),
@@ -676,8 +676,8 @@ class _PickerLine extends StatelessWidget {
             progress: shimmer,
             reading: true,
             style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
                 color: AppColors.ink),
           ),
           if (reveal > 0.01)
@@ -729,9 +729,9 @@ class _AnswerLine extends StatelessWidget {
             progress: shimmer,
             reading: true,
             style: const TextStyle(
-                fontSize: 15,
-                height: 1.3,
-                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                height: 1.32,
+                fontWeight: FontWeight.w700,
                 color: AppColors.ink),
           ),
           if (reveal > 0.01)

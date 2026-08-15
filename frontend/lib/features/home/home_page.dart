@@ -459,15 +459,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
 
     var items = widget.store.tasks.where((t) => !t.done && inRange(t)).toList();
-    // Optional target filter (e.g. "subscriptions", "rent").
+
+    // CATEGORY scope — "what subscriptions…", "which bills…". The parser sets a
+    // concrete category (not "other") when the question names one; filter to it.
+    final cat = TaskCategory.values.firstWhere(
+      (c) => c.name == draft.category,
+      orElse: () => TaskCategory.other,
+    );
+    final catNamed = draft.category != 'other' && draft.category.isNotEmpty;
+    if (catNamed) {
+      items = items.where((t) => t.category == cat).toList();
+    }
+
+    // Otherwise, an optional NAME target ("when is my rent due").
     final target = (draft.target ?? '').trim();
-    if (target.isNotEmpty) {
+    if (!catNamed && target.isNotEmpty) {
       final matched = _matchTasks(target).toSet();
-      final byCat = items.where((t) =>
-          t.category.label.toLowerCase().contains(target.toLowerCase()));
-      items = items
-          .where((t) => matched.contains(t) || byCat.contains(t))
-          .toList();
+      items = items.where(matched.contains).toList();
     }
     items.sort((a, b) {
       final ad = a.dueAt, bd = b.dueAt;
@@ -485,19 +493,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       CommandRange.overdue => 'overdue',
       CommandRange.all => 'coming up',
     };
+    // The noun: the category name when scoped ("subscription"/"bill"), else the
+    // generic "thing".
+    String noun(int n) {
+      if (catNamed) {
+        return n == 1 ? cat.singular : cat.label.toLowerCase();
+      }
+      return n == 1 ? 'thing' : 'things';
+    }
+
     final String header;
     if (items.isEmpty) {
-      header = draft.range == CommandRange.today
-          ? 'Nothing due today — you\'re clear.'
-          : 'Nothing $rangeWord — you\'re all clear.';
+      final what = catNamed ? cat.label.toLowerCase() : 'nothing';
+      header = catNamed
+          ? 'No $what $rangeWord — you\'re all clear.'
+          : (draft.range == CommandRange.today
+              ? 'Nothing due today — you\'re clear.'
+              : 'Nothing $rangeWord — you\'re all clear.');
     } else {
       final n = items.length;
-      // Total spend if amounts exist.
       final total = items
           .where((t) => t.amount != null)
           .fold<double>(0, (s, t) => s + t.amount!);
       final money = total > 0 ? ' · ₹${total.round()}' : '';
-      header = 'You have $n ${n == 1 ? 'thing' : 'things'} $rangeWord$money.';
+      header = 'You have $n ${noun(n)} $rangeWord$money.';
     }
     return (header, items);
   }

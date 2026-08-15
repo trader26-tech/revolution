@@ -403,24 +403,103 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     if (!mounted) return;
     setState(() {
       _chat.removeWhere((m) => m.kind == ChatKind.thinking);
-      // Route by intent: add → a create card; complete/delete/update → resolve
-      // the target reminder and show an action card (or a picker if ambiguous).
-      if (draft!.intent == CommandIntent.add) {
-        _chat.add(ChatMsg.card(draft));
-      } else {
-        final matches = _matchTasks(draft.target ?? draft.title);
-        if (matches.isEmpty) {
-          _chat.add(ChatMsg.done(
-              'Couldn\'t find a reminder matching “${draft.target ?? draft.title}”.'));
-        } else if (matches.length == 1) {
-          _chat.add(ChatMsg.action(draft, matches.first));
-        } else {
-          _chat.add(ChatMsg.picker(draft, matches.take(5).toList()));
-        }
+      // Route by intent.
+      switch (draft!.intent) {
+        case CommandIntent.query:
+          final (header, items) = _answerQuery(draft);
+          _chat.add(ChatMsg.answer(header, items));
+        case CommandIntent.add:
+          _chat.add(ChatMsg.proposal(draft));
+        case CommandIntent.complete:
+        case CommandIntent.delete:
+        case CommandIntent.update:
+          final matches = _matchTasks(draft.target ?? draft.title);
+          if (matches.isEmpty) {
+            _chat.add(ChatMsg.done(
+                'I couldn\'t find a reminder matching “${draft.target ?? draft.title}”.'));
+          } else if (matches.length == 1) {
+            _chat.add(ChatMsg.action(draft, matches.first));
+          } else {
+            _chat.add(ChatMsg.picker(draft, matches.take(5).toList()));
+          }
       }
       _commandBusy = false;
     });
     _shimmer.forward(from: 0);
+  }
+
+  /// Answer a QUERY: filter the user's reminders by the asked range (+ optional
+  /// target), and return a header line + the matching tasks (soonest first).
+  (String, List<Task>) _answerQuery(CommandDraft draft) {
+    final now = DateTime.now();
+    final today = _dayOf(now);
+    bool inRange(Task t) {
+      final due = t.dueAt;
+      switch (draft.range) {
+        case CommandRange.today:
+          return due != null && _dayOf(due) == today;
+        case CommandRange.tomorrow:
+          return due != null &&
+              _dayOf(due) == today.add(const Duration(days: 1));
+        case CommandRange.week:
+          if (due == null) return false;
+          final d = _dayOf(due);
+          return !d.isBefore(today) &&
+              d.isBefore(today.add(const Duration(days: 8)));
+        case CommandRange.month:
+          if (due == null) return false;
+          final d = _dayOf(due);
+          return !d.isBefore(today) &&
+              d.isBefore(today.add(const Duration(days: 31)));
+        case CommandRange.overdue:
+          return due != null && _dayOf(due).isBefore(today) && !t.done;
+        case CommandRange.all:
+          return true;
+      }
+    }
+
+    var items = widget.store.tasks.where((t) => !t.done && inRange(t)).toList();
+    // Optional target filter (e.g. "subscriptions", "rent").
+    final target = (draft.target ?? '').trim();
+    if (target.isNotEmpty) {
+      final matched = _matchTasks(target).toSet();
+      final byCat = items.where((t) =>
+          t.category.label.toLowerCase().contains(target.toLowerCase()));
+      items = items
+          .where((t) => matched.contains(t) || byCat.contains(t))
+          .toList();
+    }
+    items.sort((a, b) {
+      final ad = a.dueAt, bd = b.dueAt;
+      if (ad == null && bd == null) return 0;
+      if (ad == null) return 1;
+      if (bd == null) return -1;
+      return ad.compareTo(bd);
+    });
+
+    final rangeWord = switch (draft.range) {
+      CommandRange.today => 'today',
+      CommandRange.tomorrow => 'tomorrow',
+      CommandRange.week => 'this week',
+      CommandRange.month => 'this month',
+      CommandRange.overdue => 'overdue',
+      CommandRange.all => 'coming up',
+    };
+    final String header;
+    if (items.isEmpty) {
+      header = draft.range == CommandRange.today
+          ? 'Nothing due today — you\'re clear.'
+          : 'Nothing $rangeWord — you\'re all clear.';
+    } else {
+      final n = items.length;
+      // Total spend if amounts exist.
+      final total = items
+          .where((t) => t.amount != null)
+          .fold<double>(0, (s, t) => s + t.amount!);
+      final money = total > 0 ? ' · ₹${total.round()}' : '';
+      header = 'You have $n ${n == 1 ? 'thing' : 'things'} $rangeWord$money.';
+    }
+    return (header, items);
   }
 
   /// Fuzzy-match the user's tasks against a target phrase — case-insensitive
@@ -458,6 +537,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     try {
       final String done;
       switch (draft.intent) {
+        case CommandIntent.query:
+          // Queries are answered inline, never confirmed — nothing to do.
+          setState(() => _commandBusy = false);
+          return;
         case CommandIntent.add:
           await widget.store.add(
             draft.title,

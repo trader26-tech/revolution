@@ -1067,6 +1067,8 @@ String _localSentence(Task task) {
           : '$name\'s premium is due today.';
     case TaskCategory.birthday:
       return 'It\'s $name today — send a little love.';
+    case TaskCategory.medicine:
+      return 'Time for your $name — stay on track.';
     case TaskCategory.other:
       return '$name is on today.';
   }

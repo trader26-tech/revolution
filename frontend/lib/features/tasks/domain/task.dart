@@ -53,6 +53,7 @@ enum TaskCategory {
   investment,
   bills,
   policies,
+  medicine,
   other
 }
 
@@ -64,6 +65,7 @@ extension TaskCategoryInfo on TaskCategory {
         TaskCategory.investment => 'SIPs',
         TaskCategory.bills => 'Bills',
         TaskCategory.policies => 'Policies',
+        TaskCategory.medicine => 'Medicines',
         TaskCategory.other => 'General',
       };
 
@@ -75,6 +77,7 @@ extension TaskCategoryInfo on TaskCategory {
         TaskCategory.investment => 'SIP',
         TaskCategory.bills => 'bill',
         TaskCategory.policies => 'policy',
+        TaskCategory.medicine => 'medicine',
         TaskCategory.other => 'reminder',
       };
 }
@@ -169,6 +172,8 @@ class Task {
     this.storedCategory,
     this.subCategory,
     this.note,
+    this.doseTimes = const [],
+    this.courseDays,
     this.birthYear,
     this.remindDaysBefore = 0,
     this.returnAmount,
@@ -231,6 +236,18 @@ class Task {
   /// anything worth remembering. Used most by the General category (a catch-all
   /// reminder + note), but available to any task. Null = no note.
   String? note;
+
+  // ── Medicines: the dosing schedule ───────────────────────────────────────
+  // A medicine is taken at one or more TIMES OF DAY, on certain WEEKDAYS (via
+  // [repeatDays]; empty = every day), for a COURSE of a given number of days.
+
+  /// The times of day a dose is taken, as "HH:mm" 24-hour strings (e.g.
+  /// ["08:00", "14:00", "20:00"]). Empty for non-medicine tasks.
+  List<String> doseTimes;
+
+  /// How many days the medicine course runs (from the start date). Null = open-
+  /// ended / ongoing.
+  int? courseDays;
 
   /// For a birthday/anniversary: the person's birth year, when known. Null =
   /// year unknown (we only track the day/month). Drives the "turns N" age.
@@ -326,6 +343,9 @@ class Task {
     String? subCategory,
     String? note,
     bool clearNote = false,
+    List<String>? doseTimes,
+    int? courseDays,
+    bool clearCourseDays = false,
     int? birthYear,
     bool clearBirthYear = false,
     int? remindDaysBefore,
@@ -357,6 +377,8 @@ class Task {
       storedCategory: category ?? storedCategory,
       subCategory: subCategory ?? this.subCategory,
       note: clearNote ? null : (note ?? this.note),
+      doseTimes: doseTimes ?? this.doseTimes,
+      courseDays: clearCourseDays ? null : (courseDays ?? this.courseDays),
       birthYear: clearBirthYear ? null : (birthYear ?? this.birthYear),
       remindDaysBefore: remindDaysBefore ?? this.remindDaysBefore,
       returnAmount:
@@ -391,6 +413,8 @@ class Task {
         if (storedCategory != null) 'category': storedCategory!.name,
         if (subCategory != null) 'sub_category': subCategory,
         if (note != null) 'note': note,
+        if (doseTimes.isNotEmpty) 'dose_times': doseTimes,
+        if (courseDays != null) 'course_days': courseDays,
         if (birthYear != null) 'birth_year': birthYear,
         'remind_days_before': remindDaysBefore,
         // Policy "return" side — snake_case; the server roundtrips/ignores
@@ -432,6 +456,11 @@ class Task {
               ),
         subCategory: j['sub_category'] as String?,
         note: j['note'] as String?,
+        doseTimes: (j['dose_times'] as List?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const [],
+        courseDays: (j['course_days'] as num?)?.toInt(),
         birthYear: (j['birth_year'] as num?)?.toInt(),
         remindDaysBefore: (j['remind_days_before'] as num?)?.toInt() ?? 0,
         returnAmount: (j['return_amount'] as num?)?.toDouble(),

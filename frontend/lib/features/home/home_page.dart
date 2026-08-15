@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_theme.dart';
@@ -16,6 +17,7 @@ import '../tasks/domain/task.dart';
 import '../tasks/presentation/task_details_sheet.dart';
 import 'presentation/collection_page.dart';
 import 'presentation/upcoming_page.dart';
+import 'presentation/widgets/command_box.dart';
 import 'presentation/widgets/home_dashboard.dart' show showAddBrowseSheet;
 import 'presentation/widgets/today_bubbles.dart';
 
@@ -328,10 +330,30 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        // (No floating + button — adding is started from the top-right "+".
-        // The inline quick-add row confirms on the keyboard's "done".)
+        // The COMMAND BOX — the primary way to add a reminder. Pinned to the
+        // bottom, always open, and it rides above the keyboard on its own.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: SafeArea(
+            top: false,
+            child: CommandBox(
+              store: widget.store,
+              onAdded: _onCommandAdded,
+            ),
+          ),
+        ),
       ],
     );
+  }
+
+  /// After the command box adds a reminder — refresh the AI lines and (if it's
+  /// a today item) let the bubbles re-play so the new one conjures in.
+  void _onCommandAdded() {
+    HapticFeedback.mediumImpact();
+    _fetchLines();
+    setState(() => _replay++);
   }
 
   /// Everything due TODAY, still ACTIVE (not done) — the home bubbles. Soonest

@@ -27,6 +27,10 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _tab = 0;
 
+  /// Whether the bottom nav is revealed. Hidden by default so the Home command
+  /// box owns the bottom of the screen; a small handle reveals it on demand.
+  bool _navOpen = false;
+
   // One shared task store so Home and Browse stay in sync.
   final _store = TaskStore();
 
@@ -69,19 +73,134 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       extendBody: true, // let the background flow under the floating nav
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.bgTop, AppColors.bg],
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AppColors.bgTop, AppColors.bg],
+              ),
+            ),
+            child: IndexedStack(index: _tab, children: pages),
+          ),
+          // A tap-catcher behind the revealed nav so tapping away closes it.
+          if (_navOpen)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => setState(() => _navOpen = false),
+                behavior: HitTestBehavior.opaque,
+              ),
+            ),
+          // The nav lives at the bottom: a slim handle when closed, the full
+          // Home·Browse pill when open. On Home the command box sits above it,
+          // so the handle reveal keeps the box clear.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _NavDock(
+              open: _navOpen,
+              index: _tab,
+              onToggle: () => setState(() => _navOpen = !_navOpen),
+              onChanged: (i) => setState(() {
+                _tab = i;
+                _navOpen = false;
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The bottom nav dock. Collapsed → a small centered handle pill you tap to
+/// reveal the destinations. Expanded → the frosted Home·Browse nav. Kept OUT of
+/// the way by default so the Home command box is the star.
+class _NavDock extends StatelessWidget {
+  const _NavDock({
+    required this.open,
+    required this.index,
+    required this.onToggle,
+    required this.onChanged,
+  });
+
+  final bool open;
+  final int index;
+  final VoidCallback onToggle;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 240),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, anim) => FadeTransition(
+          opacity: anim,
+          child: SizeTransition(
+            sizeFactor: anim,
+            child: child,
           ),
         ),
-        child: IndexedStack(index: _tab, children: pages),
+        child: open
+            ? _GlassNav(
+                key: const ValueKey('nav-open'),
+                index: index,
+                onChanged: onChanged,
+              )
+            : Align(
+                key: const ValueKey('nav-handle'),
+                alignment: Alignment.bottomCenter,
+                child: _NavHandle(onTap: onToggle),
+              ),
       ),
-      bottomNavigationBar: _GlassNav(
-        index: _tab,
-        onChanged: (i) => setState(() => _tab = i),
+    );
+  }
+}
+
+/// The small pill you tap to reveal the nav — deliberately quiet so it never
+/// competes with the command box, but always there.
+class _NavHandle extends StatelessWidget {
+  const _NavHandle({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: GlassPanel(
+          borderRadius: 999,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.grid_view_rounded,
+                    size: 15, color: AppColors.inkSoft),
+                const SizedBox(width: 7),
+                Text(
+                  'Menu',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.keyboard_arrow_up_rounded,
+                    size: 16, color: AppColors.inkFaint),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -89,7 +208,8 @@ class _AppShellState extends State<AppShell> {
 
 /// A floating frosted-glass pill with exactly two destinations: Home and Browse.
 class _GlassNav extends StatelessWidget {
-  const _GlassNav({required this.index, required this.onChanged});
+  const _GlassNav(
+      {super.key, required this.index, required this.onChanged});
 
   final int index;
   final ValueChanged<int> onChanged;

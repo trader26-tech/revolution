@@ -18,6 +18,7 @@ import '../tasks/presentation/task_details_sheet.dart';
 import 'presentation/collection_page.dart';
 import 'presentation/upcoming_page.dart';
 import 'presentation/widgets/command_box.dart';
+import 'presentation/widgets/command_chat.dart';
 import 'presentation/widgets/home_dashboard.dart' show showAddBrowseSheet;
 import 'presentation/widgets/today_bubbles.dart';
 
@@ -27,7 +28,13 @@ import 'presentation/widgets/today_bubbles.dart';
 /// it's added instantly. Set the date/details later via the row's calendar
 /// button or by tapping the task. A glass top bar holds Settings + Add.
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.store, this.isActive = true});
+  const HomePage({
+    super.key,
+    required this.store,
+    this.isActive = true,
+    this.navOpen = false,
+    this.onToggleNav,
+  });
 
   final TaskStore store;
 
@@ -36,11 +43,18 @@ class HomePage extends StatefulWidget {
   /// you with the bubbling reveal, not a static list.
   final bool isActive;
 
+  /// Whether the nav is currently open — when true, Home hides its bottom input
+  /// line so the nav and the input interchange on one line.
+  final bool navOpen;
+
+  /// Toggle the nav (from the Menu button in the input line).
+  final VoidCallback? onToggleNav;
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
 
   /// Bumped every time Home becomes active again — a change to this value tells
@@ -57,16 +71,28 @@ class _HomePageState extends State<HomePage> {
   /// top "+" can add a file, and so tapping through opens the same library.
   final _documents = DocumentsStore();
 
+  // ── The command CHAT, rendered in the feed (not a floating box) ──
+  final List<ChatMsg> _chat = [];
+  bool _commandBusy = false; // a parse/add is in flight
+
+  /// Drives the shimmer reveal of Revo's most-recent card reply.
+  late final AnimationController _shimmer;
+
   @override
   void initState() {
     super.initState();
     _fetchLines();
     _documents.load();
+    _shimmer = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
   }
 
   @override
   void dispose() {
     _documents.dispose();
+    _shimmer.dispose();
     super.dispose();
   }
 
@@ -330,30 +356,133 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
-        // The COMMAND BOX — the primary way to add a reminder. Pinned to the
-        // bottom, always open, and it rides above the keyboard on its own.
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: SafeArea(
-            top: false,
-            child: CommandBox(
-              store: widget.store,
-              onAdded: _onCommandAdded,
+        // The COMMAND INPUT — pinned to the bottom, always open. Hidden while
+        // the nav is open, so the input line and the Home·Browse nav interchange
+        // on that one line (the Menu button on the left opens the nav).
+        if (!widget.navOpen)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: CommandBox(
+                busy: _commandBusy,
+                onSend: _sendCommand,
+                onMenu: () => widget.onToggleNav?.call(),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
 
-  /// After the command box adds a reminder — refresh the AI lines and (if it's
-  /// a today item) let the bubbles re-play so the new one conjures in.
-  void _onCommandAdded() {
+  // ── The command chat: parse on Enter, confirm to create ──────────────────
+
+  /// The user pressed Enter — append their message + Revo's thinking, parse it,
+  /// then reply with the card (its summary shimmering in).
+  Future<void> _sendCommand(String text) async {
+    setState(() {
+      _chat.add(ChatMsg.user(text));
+      _chat.add(ChatMsg.thinking());
+      _commandBusy = true;
+    });
+
+    CommandDraft? draft;
+    try {
+      final res = await ApiClient.instance.post('/tasks/parse', {'text': text});
+      if (res is Map && res['ok'] == true && res['draft'] is Map) {
+        draft =
+            CommandDraft.fromJson((res['draft'] as Map).cast<String, dynamic>());
+      }
+    } catch (_) {
+      // fall through to raw fallback
+    }
+    draft ??= CommandDraft.raw(text);
+
+    if (!mounted) return;
+    setState(() {
+      _chat.removeWhere((m) => m.kind == ChatKind.thinking);
+      _chat.add(ChatMsg.card(draft!));
+      _commandBusy = false;
+    });
+    // Play the shimmer reveal on the new card.
+    _shimmer.forward(from: 0);
+  }
+
+  /// Confirm a card → create the reminder, then Revo confirms in-thread.
+  Future<void> _confirmCommand(ChatMsg msg) async {
+    final draft = msg.draft;
+    if (draft == null || _commandBusy) return;
+    setState(() => _commandBusy = true);
     HapticFeedback.mediumImpact();
-    _fetchLines();
-    setState(() => _replay++);
+    try {
+      await widget.store.add(
+        draft.title,
+        dueAt: draft.dueAt,
+        repeat: draft.repeat,
+        amount: draft.amount,
+        currency: draft.currency ?? 'INR',
+        category: draft.category,
+        note: draft.note,
+        doseTimes: draft.doseTimes,
+        courseDays: draft.courseDays,
+        repeatDays: draft.repeatDays,
+      );
+      if (!mounted) return;
+      setState(() {
+        msg.confirmed = true;
+        _chat.add(ChatMsg.done('Added “${draft.title}”'));
+        _commandBusy = false;
+      });
+      _fetchLines();
+      setState(() => _replay++);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _commandBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't add — try again.")),
+      );
+    }
+  }
+
+  void _dismissCommand(ChatMsg msg) {
+    setState(() => _chat.remove(msg));
+  }
+
+  /// The chat messages as feed rows. The LAST message animates its shimmer via
+  /// [_shimmer]; every earlier one is fully settled (shimmer = 1). A small top
+  /// gap separates the thread from the bubbles above.
+  List<Widget> _buildChat() {
+    if (_chat.isEmpty) return const [];
+    final rows = <Widget>[const SizedBox(height: 8)];
+    for (var i = 0; i < _chat.length; i++) {
+      final msg = _chat[i];
+      final isLast = i == _chat.length - 1;
+      final row = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: isLast
+            ? AnimatedBuilder(
+                animation: _shimmer,
+                builder: (context, _) => CommandMessage(
+                  msg: msg,
+                  shimmer: _shimmer.value,
+                  busy: _commandBusy,
+                  onConfirm: () => _confirmCommand(msg),
+                  onDismiss: () => _dismissCommand(msg),
+                ),
+              )
+            : CommandMessage(
+                msg: msg,
+                shimmer: 1,
+                busy: _commandBusy,
+                onConfirm: () => _confirmCommand(msg),
+                onDismiss: () => _dismissCommand(msg),
+              ),
+      );
+      rows.add(row);
+    }
+    return rows;
   }
 
   /// Everything due TODAY, still ACTIVE (not done) — the home bubbles. Soonest
@@ -420,6 +549,9 @@ class _HomePageState extends State<HomePage> {
         onToggle: (t) => widget.store.toggleDone(t),
         onDelete: _deleteTask,
       ),
+      // The command CHAT — attached to the page, below the bubbles. Revo's most
+      // recent card reply shimmers in via _shimmer; older ones stay settled.
+      ..._buildChat(),
     ];
 
     // Cap text scale across the whole home feed so large system fonts can never

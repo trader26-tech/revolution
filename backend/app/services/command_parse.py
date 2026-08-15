@@ -51,9 +51,29 @@ def _system_prompt(today: date) -> str:
         f"never output a date before {today.isoformat()}, and use the year "
         f"{today.year} (or later) — never a past year.\n"
         "\n"
+        "FIRST decide the INTENT — what the user wants to DO:\n"
+        '  "add"      — create a new reminder (the default).\n'
+        '  "complete" — mark an existing reminder done ("mark netflix done", '
+        '"I paid the rent", "finished my meds").\n'
+        '  "delete"   — remove an existing reminder ("delete gym", "cancel '
+        'netflix", "cancel my spotify", "remove electricity", "drop the gym '
+        "reminder\"). Treat \"cancel <thing>\" / \"stop <thing>\" as delete.\n"
+        '  "update"   — change an existing reminder ("change netflix to 799", '
+        '"move dentist to Friday", "rename gym to yoga").\n'
+        "For complete/delete/update, ALSO return a \"target\" — a few key words "
+        "naming the EXISTING reminder the user means (usually its name, e.g. "
+        '"netflix", "electricity bill"). Do NOT invent an id. For "add", target '
+        "is null.\n"
+        "For update, put the NEW values in the normal fields below (e.g. the new "
+        "amount in \"amount\", the new date in \"date\").\n"
+        "\n"
         "Return STRICT JSON with these fields (omit a field or use null when the "
         "user didn't specify it — do NOT guess):\n"
-        '  "title":     short name of the thing (string, required)\n'
+        '  "intent":    one of add | complete | delete | update\n'
+        '  "target":    key words naming the existing reminder (for '
+        "complete/delete/update), else null\n"
+        '  "title":     short name of the thing (string; for add it\'s required, '
+        "for update it's the new name if renaming, else null)\n"
         '  "category":  one of ' + ", ".join(_CATEGORIES) + " (best fit; "
         '"other" if unclear)\n'
         '  "amount":    number only, no currency symbol (e.g. 649) or null\n'
@@ -82,11 +102,12 @@ def _system_prompt(today: date) -> str:
         "year' → yearly; 'every week' → weekly; 'every day' → daily; a one-off "
         "→ none.\n"
         "Also return a short human \"summary\" (≤10 words) describing what you "
-        "understood, e.g. \"Netflix subscription, ₹649 every month\".\n"
+        "understood — for add: \"Netflix subscription, ₹649 every month\"; for "
+        "delete: \"Delete Netflix\"; for complete: \"Mark rent as paid\"; for "
+        "update: \"Change Netflix to ₹799\".\n"
         "\n"
-        'Output EXACTLY: {"title":...,"category":...,"amount":...,"currency":'
-        '...,"date":...,"time":...,"repeat":...,"note":...,"summary":...} and '
-        "nothing else."
+        "Return a single JSON object with intent, target, and the fields above. "
+        "Nothing else."
     )
 
 
@@ -98,8 +119,18 @@ def _nullish(v: Any) -> bool:
     )
 
 
+_INTENTS = {"add", "complete", "delete", "update"}
+
+
 def _clean(parsed: dict[str, Any], today: Optional[date] = None) -> dict[str, Any]:
     """Coerce the model's JSON into safe, app-valid fields."""
+    intent = str(parsed.get("intent") or "add").strip().lower()
+    if intent not in _INTENTS:
+        intent = "add"
+
+    target = parsed.get("target")
+    target = None if _nullish(target) else str(target).strip()
+
     title = str(parsed.get("title") or "").strip()
 
     category = str(parsed.get("category") or "other").strip().lower()
@@ -193,6 +224,8 @@ def _clean(parsed: dict[str, Any], today: Optional[date] = None) -> dict[str, An
         repeat_days.sort()
 
     return {
+        "intent": intent,
+        "target": target,
         "title": title,
         "category": category,
         "amount": amount,
@@ -256,6 +289,8 @@ def parse_command(text: str, *, today: Optional[date] = None) -> dict[str, Any]:
         }
 
     draft = _clean(parsed, today=today)
-    if not draft["title"]:
+    # For an ADD with no title, fall back to the raw text. For other intents a
+    # missing title is fine (the target names the existing reminder).
+    if draft["intent"] == "add" and not draft["title"]:
         draft["title"] = text
     return {"ok": True, "draft": draft, "llm": True}

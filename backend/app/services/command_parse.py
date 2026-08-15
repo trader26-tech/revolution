@@ -67,6 +67,9 @@ def _system_prompt(today: date) -> str:
         'night" → ["08:00","20:00"], "after lunch" → ["14:00"]); else [].\n'
         '  "course_days": for a MEDICINE taken for a fixed number of days (e.g. '
         '"for 5 days" → 5); else null.\n'
+        '  "repeat_days": specific weekdays as ints (1=Mon … 7=Sun) when named '
+        '(e.g. "every Mon/Wed/Fri" → [1,3,5], "on weekends" → [6,7]); else [] '
+        "(meaning every day / not day-specific).\n"
         "\n"
         "Category hints: streaming/apps/memberships → subscription; a person's "
         "birthday/anniversary → birthday; electricity/rent/phone/emi → bills; "
@@ -174,6 +177,21 @@ def _clean(parsed: dict[str, Any], today: Optional[date] = None) -> dict[str, An
         except (TypeError, ValueError):
             course_days = None
 
+    # Specific weekdays (1=Mon..7=Sun). Deduped, sorted, in range.
+    repeat_days: list[int] = []
+    raw_days = parsed.get("repeat_days")
+    if isinstance(raw_days, list):
+        seen = set()
+        for x in raw_days:
+            try:
+                n = int(x)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= n <= 7 and n not in seen:
+                seen.add(n)
+                repeat_days.append(n)
+        repeat_days.sort()
+
     return {
         "title": title,
         "category": category,
@@ -184,6 +202,7 @@ def _clean(parsed: dict[str, Any], today: Optional[date] = None) -> dict[str, An
         "note": note,
         "dose_times": dose_times,
         "course_days": course_days,
+        "repeat_days": repeat_days,
         "summary": summary,
     }
 

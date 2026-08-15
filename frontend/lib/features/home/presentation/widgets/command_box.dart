@@ -105,6 +105,7 @@ class _CommandBoxState extends State<CommandBox> {
         note: draft.note,
         doseTimes: draft.doseTimes,
         courseDays: draft.courseDays,
+        repeatDays: draft.repeatDays,
       );
       if (!mounted) return;
       setState(() {
@@ -722,6 +723,7 @@ class _Draft {
     this.note,
     this.doseTimes = const [],
     this.courseDays,
+    this.repeatDays = const [],
   });
 
   final String title;
@@ -733,6 +735,7 @@ class _Draft {
   final String? note;
   final List<String> doseTimes;
   final int? courseDays;
+  final List<int> repeatDays;
 
   factory _Draft.raw(String text) => _Draft(title: text, category: 'other');
 
@@ -752,6 +755,10 @@ class _Draft {
       note: j['note'] as String?,
       doseTimes: (j['dose_times'] as List?)?.cast<String>() ?? const [],
       courseDays: (j['course_days'] as num?)?.toInt(),
+      repeatDays: (j['repeat_days'] as List?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          const [],
     );
   }
 

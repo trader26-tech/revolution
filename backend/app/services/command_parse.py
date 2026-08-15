@@ -44,9 +44,11 @@ def _system_prompt(today: date) -> str:
     return (
         "You convert ONE natural-language reminder into structured JSON. Extract "
         "only what the user actually said — never invent details.\n"
-        f"Today's date is {today.isoformat()} ({today.strftime('%A')}). Resolve "
-        "relative dates ('tomorrow', 'next Friday', 'in 3 days', 'on the 15th') "
-        "against it.\n"
+        f"Today's date is {today.isoformat()} ({today.strftime('%A')}), year "
+        f"{today.year}. Resolve relative dates ('tomorrow', 'next Friday', 'in "
+        "3 days', 'on the 15th') against it. A reminder is ALWAYS in the future: "
+        f"never output a date before {today.isoformat()}, and use the year "
+        f"{today.year} (or later) — never a past year.\n"
         "\n"
         "Return STRICT JSON with these fields (omit a field or use null when the "
         "user didn't specify it — do NOT guess):\n"
@@ -76,7 +78,15 @@ def _system_prompt(today: date) -> str:
     )
 
 
-def _clean(parsed: dict[str, Any]) -> dict[str, Any]:
+def _nullish(v: Any) -> bool:
+    """The model sometimes emits the STRING 'null'/'none'/'NULL' instead of a
+    real null — treat those as absent."""
+    return v is None or (
+        isinstance(v, str) and v.strip().lower() in {"", "null", "none", "n/a"}
+    )
+
+
+def _clean(parsed: dict[str, Any], today: Optional[date] = None) -> dict[str, Any]:
     """Coerce the model's JSON into safe, app-valid fields."""
     title = str(parsed.get("title") or "").strip()
 
@@ -89,31 +99,49 @@ def _clean(parsed: dict[str, Any]) -> dict[str, Any]:
         repeat = "none"
 
     amount = parsed.get("amount")
-    try:
-        amount = float(amount) if amount is not None else None
-    except (TypeError, ValueError):
+    if _nullish(amount):
         amount = None
+    else:
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            amount = None
 
     currency = parsed.get("currency")
-    currency = str(currency).strip().upper() if currency else None
+    currency = None if _nullish(currency) else str(currency).strip().upper()
 
     # Combine date + optional time into an ISO datetime the app can use as dueAt.
     due_at = None
     d = parsed.get("date")
-    if d:
-        t = parsed.get("time") or "00:00"
+    if not _nullish(d):
+        t = parsed.get("time")
+        t = "00:00" if _nullish(t) else str(t).strip()
         try:
-            # Validate by parsing; keep as ISO string.
-            dt = datetime.fromisoformat(f"{d}T{t}:00" if len(t) == 5 else f"{d}T{t}")
-            due_at = dt.isoformat()
+            dt = datetime.fromisoformat(
+                f"{d}T{t}:00" if len(t) == 5 else f"{d}T{t}")
         except (TypeError, ValueError):
             try:
-                due_at = datetime.fromisoformat(f"{d}T00:00:00").isoformat()
+                dt = datetime.fromisoformat(f"{d}T00:00:00")
             except (TypeError, ValueError):
-                due_at = None
+                dt = None
+        if dt is not None:
+            # Guard against year hallucinations: the model occasionally emits a
+            # PAST year for a "next Friday"-style date. If the day is clearly in
+            # the past, roll it forward to this year (or next, if that's still
+            # past) — a reminder is always for the future.
+            ref = today or datetime.utcnow().date()
+            if dt.date() < ref:
+                try:
+                    bumped = dt.replace(year=ref.year)
+                    if bumped.date() < ref:
+                        bumped = dt.replace(year=ref.year + 1)
+                    dt = bumped
+                except ValueError:
+                    pass  # e.g. Feb 29 — leave as-is
+            due_at = dt.isoformat()
 
     note = parsed.get("note")
-    note = str(note).strip() if note else None
+    note = None if _nullish(note) else str(note).strip()
     summary = str(parsed.get("summary") or "").strip()
 
     return {
@@ -176,7 +204,7 @@ def parse_command(text: str, *, today: Optional[date] = None) -> dict[str, Any]:
             "llm": False,
         }
 
-    draft = _clean(parsed)
+    draft = _clean(parsed, today=today)
     if not draft["title"]:
         draft["title"] = text
     return {"ok": True, "draft": draft, "llm": True}

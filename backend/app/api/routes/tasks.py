@@ -2,8 +2,11 @@
 uuid), so each account only touches its own tasks."""
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
+from pydantic import BaseModel
+
 from app.api.deps import current_user_id
 from app.schemas.task import Task, TaskCreate, TaskUpdate
+from app.services import command_parse as parse_svc
 from app.services import daily_lines as lines_svc
 from app.services import tasks as svc
 
@@ -32,6 +35,20 @@ async def today_lines(user_id: str = Depends(current_user_id)) -> dict:
     app then renders its own local sentence. Declared BEFORE /{task_id} so
     "lines" isn't parsed as a task id."""
     return {"lines": lines_svc.get_lines_for_today(user_id)}
+
+
+class ParseRequest(BaseModel):
+    text: str
+
+
+@router.post("/parse")
+async def parse_command(
+    payload: ParseRequest, user_id: str = Depends(current_user_id)
+) -> dict:
+    """Turn a natural-language reminder ("Netflix 649 every month") into a
+    structured DRAFT the app confirms before creating. Does NOT create anything.
+    Declared before /{task_id} so "parse" isn't parsed as a task id."""
+    return parse_svc.parse_command(payload.text)
 
 
 @router.post("", response_model=Task, status_code=201)

@@ -403,36 +403,98 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     if (!mounted) return;
     setState(() {
       _chat.removeWhere((m) => m.kind == ChatKind.thinking);
-      _chat.add(ChatMsg.card(draft!));
+      // Route by intent: add → a create card; complete/delete/update → resolve
+      // the target reminder and show an action card (or a picker if ambiguous).
+      if (draft!.intent == CommandIntent.add) {
+        _chat.add(ChatMsg.card(draft));
+      } else {
+        final matches = _matchTasks(draft.target ?? draft.title);
+        if (matches.isEmpty) {
+          _chat.add(ChatMsg.done(
+              'Couldn\'t find a reminder matching “${draft.target ?? draft.title}”.'));
+        } else if (matches.length == 1) {
+          _chat.add(ChatMsg.action(draft, matches.first));
+        } else {
+          _chat.add(ChatMsg.picker(draft, matches.take(5).toList()));
+        }
+      }
       _commandBusy = false;
     });
-    // Play the shimmer reveal on the new card.
     _shimmer.forward(from: 0);
   }
 
-  /// Confirm a card → create the reminder, then Revo confirms in-thread.
+  /// Fuzzy-match the user's tasks against a target phrase — case-insensitive
+  /// substring / word overlap, best first. Only active (non-archived) tasks.
+  List<Task> _matchTasks(String query) {
+    final q = query.toLowerCase().trim();
+    if (q.isEmpty) return const [];
+    final qWords = q.split(RegExp(r'\s+')).where((w) => w.length > 1).toSet();
+    final scored = <(Task, int)>[];
+    for (final t in widget.store.tasks) {
+      final title = t.title.toLowerCase();
+      var score = 0;
+      if (title == q) {
+        score = 100;
+      } else if (title.contains(q) || q.contains(title)) {
+        score = 60;
+      } else {
+        // Word overlap.
+        final tWords = title.split(RegExp(r'\s+')).toSet();
+        final overlap = qWords.where(tWords.contains).length;
+        if (overlap > 0) score = 20 * overlap;
+      }
+      if (score > 0) scored.add((t, score));
+    }
+    scored.sort((a, b) => b.$2.compareTo(a.$2));
+    return scored.map((e) => e.$1).toList();
+  }
+
+  /// Confirm a card/action → run the intended operation, then Revo confirms.
   Future<void> _confirmCommand(ChatMsg msg) async {
     final draft = msg.draft;
     if (draft == null || _commandBusy) return;
     setState(() => _commandBusy = true);
     HapticFeedback.mediumImpact();
     try {
-      await widget.store.add(
-        draft.title,
-        dueAt: draft.dueAt,
-        repeat: draft.repeat,
-        amount: draft.amount,
-        currency: draft.currency ?? 'INR',
-        category: draft.category,
-        note: draft.note,
-        doseTimes: draft.doseTimes,
-        courseDays: draft.courseDays,
-        repeatDays: draft.repeatDays,
-      );
+      final String done;
+      switch (draft.intent) {
+        case CommandIntent.add:
+          await widget.store.add(
+            draft.title,
+            dueAt: draft.dueAt,
+            repeat: draft.repeat,
+            amount: draft.amount,
+            currency: draft.currency ?? 'INR',
+            category: draft.category,
+            note: draft.note,
+            doseTimes: draft.doseTimes,
+            courseDays: draft.courseDays,
+            repeatDays: draft.repeatDays,
+          );
+          done = 'Added “${draft.title}”';
+        case CommandIntent.complete:
+          final t = msg.task!;
+          if (!t.done) await widget.store.toggleDone(t);
+          done = 'Marked “${t.title}” done';
+        case CommandIntent.delete:
+          final t = msg.task!;
+          await widget.store.remove(t);
+          done = 'Deleted “${t.title}”';
+        case CommandIntent.update:
+          final t = msg.task!;
+          await widget.store.update(t.copyWith(
+            title: draft.title.isNotEmpty ? draft.title : null,
+            amount: draft.amount,
+            dueAt: draft.dueAt,
+            repeat: draft.repeat != RepeatCadence.none ? draft.repeat : null,
+            note: draft.note,
+          ));
+          done = 'Updated “${t.title}”';
+      }
       if (!mounted) return;
       setState(() {
         msg.confirmed = true;
-        _chat.add(ChatMsg.done('Added “${draft.title}”'));
+        _chat.add(ChatMsg.done(done));
         _commandBusy = false;
       });
       _fetchLines();
@@ -441,9 +503,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       if (!mounted) return;
       setState(() => _commandBusy = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't add — try again.")),
+        const SnackBar(content: Text("Couldn't do that — try again.")),
       );
     }
+  }
+
+  /// The user picked a candidate from an ambiguous match → replace the picker
+  /// with a concrete action card for that task.
+  void _pickCandidate(ChatMsg picker, Task task) {
+    final i = _chat.indexOf(picker);
+    if (i == -1) return;
+    setState(() => _chat[i] = ChatMsg.action(picker.draft!, task));
+    _shimmer.forward(from: 0);
   }
 
   void _dismissCommand(ChatMsg msg) {
@@ -470,6 +541,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   busy: _commandBusy,
                   onConfirm: () => _confirmCommand(msg),
                   onDismiss: () => _dismissCommand(msg),
+                  onPick: (t) => _pickCandidate(msg, t),
                 ),
               )
             : CommandMessage(
@@ -478,6 +550,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 busy: _commandBusy,
                 onConfirm: () => _confirmCommand(msg),
                 onDismiss: () => _dismissCommand(msg),
+                onPick: (t) => _pickCandidate(msg, t),
               ),
       );
       rows.add(row);

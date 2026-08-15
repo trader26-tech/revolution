@@ -12,37 +12,66 @@ import '../../../tasks/domain/task.dart';
 /// attach to the page and scroll with it. The input bar itself lives separately
 /// (command_input.dart), pinned at the bottom.
 
-enum ChatKind { user, thinking, card, done }
+enum ChatKind { user, thinking, card, action, picker, done }
 
 /// One message in the command chat.
 class ChatMsg {
   ChatMsg.user(this.text)
       : kind = ChatKind.user,
-        draft = null;
+        draft = null,
+        task = null,
+        candidates = const [];
   ChatMsg.thinking()
       : kind = ChatKind.thinking,
         text = '',
-        draft = null;
+        draft = null,
+        task = null,
+        candidates = const [];
   ChatMsg.card(this.draft)
       : kind = ChatKind.card,
-        text = '';
+        text = '',
+        task = null,
+        candidates = const [];
+  /// A complete/delete/update action on a resolved existing [task].
+  ChatMsg.action(this.draft, this.task)
+      : kind = ChatKind.action,
+        text = '',
+        candidates = const [];
+  /// Ambiguous match — pick which reminder from [candidates].
+  ChatMsg.picker(this.draft, this.candidates)
+      : kind = ChatKind.picker,
+        text = '',
+        task = null;
   ChatMsg.done(this.text)
       : kind = ChatKind.done,
-        draft = null;
+        draft = null,
+        task = null,
+        candidates = const [];
 
   final ChatKind kind;
   final String text;
   final CommandDraft? draft;
 
-  /// Once added, the card locks (no more Add/dismiss).
+  /// The resolved existing task for an action message.
+  final Task? task;
+
+  /// Candidate tasks for a picker message.
+  final List<Task> candidates;
+
+  /// Once acted on, the card locks (no more confirm/dismiss).
   bool confirmed = false;
 }
 
 /// The parsed reminder draft, mapped onto the app's types.
+/// What the user wants to DO with a command.
+enum CommandIntent { add, complete, delete, update }
+
 class CommandDraft {
   CommandDraft({
     required this.title,
     required this.category,
+    this.intent = CommandIntent.add,
+    this.target,
     this.amount,
     this.currency,
     this.dueAt,
@@ -53,6 +82,12 @@ class CommandDraft {
     this.repeatDays = const [],
     this.summary = '',
   });
+
+  /// add | complete | delete | update.
+  final CommandIntent intent;
+
+  /// For non-add: key words naming the existing reminder to act on.
+  final String? target;
 
   final String title;
   final String category;
@@ -73,6 +108,13 @@ class CommandDraft {
 
   factory CommandDraft.fromJson(Map<String, dynamic> j) {
     return CommandDraft(
+      intent: switch ((j['intent'] as String? ?? 'add').trim()) {
+        'complete' => CommandIntent.complete,
+        'delete' => CommandIntent.delete,
+        'update' => CommandIntent.update,
+        _ => CommandIntent.add,
+      },
+      target: (j['target'] as String?)?.trim(),
       title: (j['title'] as String? ?? '').trim(),
       category: (j['category'] as String? ?? 'other').trim(),
       amount: (j['amount'] as num?)?.toDouble(),
@@ -111,6 +153,7 @@ class CommandMessage extends StatelessWidget {
     required this.busy,
     required this.onConfirm,
     required this.onDismiss,
+    required this.onPick,
   });
 
   final ChatMsg msg;
@@ -118,6 +161,9 @@ class CommandMessage extends StatelessWidget {
   final bool busy;
   final VoidCallback onConfirm;
   final VoidCallback onDismiss;
+
+  /// Pick a specific task from a picker message.
+  final ValueChanged<Task> onPick;
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +181,24 @@ class CommandMessage extends StatelessWidget {
           busy: busy,
           shimmer: shimmer,
           onConfirm: onConfirm,
+          onDismiss: onDismiss,
+        );
+      case ChatKind.action:
+        return _ActionCard(
+          draft: msg.draft!,
+          task: msg.task!,
+          confirmed: msg.confirmed,
+          busy: busy,
+          shimmer: shimmer,
+          onConfirm: onConfirm,
+          onDismiss: onDismiss,
+        );
+      case ChatKind.picker:
+        return _PickerCard(
+          draft: msg.draft!,
+          candidates: msg.candidates,
+          shimmer: shimmer,
+          onPick: onPick,
           onDismiss: onDismiss,
         );
     }
@@ -508,5 +572,290 @@ class _ReplyCard extends StatelessWidget {
     final ampm = d.hour < 12 ? 'AM' : 'PM';
     final m = d.minute == 0 ? '' : ':${d.minute.toString().padLeft(2, '0')}';
     return '$base · $h$m $ampm';
+  }
+}
+
+/// A complete / delete / update action on a resolved existing task — always
+/// confirmed. The summary shimmers in; the target reminder is named clearly, and
+/// the confirm button's colour/label matches the action (red for delete).
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
+    required this.draft,
+    required this.task,
+    required this.confirmed,
+    required this.busy,
+    required this.shimmer,
+    required this.onConfirm,
+    required this.onDismiss,
+  });
+
+  final CommandDraft draft;
+  final Task task;
+  final bool confirmed;
+  final bool busy;
+  final double shimmer;
+  final VoidCallback onConfirm;
+  final VoidCallback onDismiss;
+
+  bool get _destructive => draft.intent == CommandIntent.delete;
+
+  @override
+  Widget build(BuildContext context) {
+    final reveal =
+        Curves.easeOut.transform(((shimmer - 0.55) / 0.45).clamp(0.0, 1.0));
+    final actionColor =
+        _destructive ? const Color(0xFFFF6B6B) : AppColors.accent;
+    final label = switch (draft.intent) {
+      CommandIntent.delete => 'Delete',
+      CommandIntent.complete => 'Mark done',
+      CommandIntent.update => 'Save change',
+      CommandIntent.add => 'Add',
+    };
+    final icon = switch (draft.intent) {
+      CommandIntent.delete => Icons.delete_outline_rounded,
+      CommandIntent.complete => Icons.check_circle_outline_rounded,
+      CommandIntent.update => Icons.edit_outlined,
+      CommandIntent.add => Icons.add_rounded,
+    };
+    final line = draft.summary.isNotEmpty ? draft.summary : label;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 4, 32, 8),
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              actionColor.withValues(alpha: confirmed ? 0.05 : 0.13),
+              AppColors.card,
+            ],
+          ),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(6),
+            bottomRight: Radius.circular(18),
+          ),
+          border: Border.all(
+            color: confirmed
+                ? AppColors.cardBorder
+                : actionColor.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Opacity(
+          opacity: confirmed ? 0.6 : 1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: actionColor.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Icon(icon, size: 20, color: actionColor),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: MagicText(
+                        text: line,
+                        progress: shimmer,
+                        reading: true,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          height: 1.3,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (reveal > 0.01)
+                Opacity(
+                  opacity: reveal,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      // The exact target reminder, so it's unmistakable.
+                      _TaskChip(task: task),
+                      if (!confirmed) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 42,
+                                child: FilledButton.icon(
+                                  onPressed: busy ? null : onConfirm,
+                                  icon: Icon(icon, size: 18),
+                                  label: Text(label,
+                                      style: const TextStyle(
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.w800)),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: actionColor,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(13),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              height: 42,
+                              width: 42,
+                              child: OutlinedButton(
+                                onPressed: busy ? null : onDismiss,
+                                style: OutlinedButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  side: const BorderSide(
+                                      color: AppColors.cardBorder),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(13),
+                                  ),
+                                ),
+                                child: const Icon(Icons.close_rounded,
+                                    size: 18, color: AppColors.inkSoft),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Which one?" — the ambiguous-match picker. Lists the candidate reminders as
+/// tappable rows; picking one produces the confirm action card.
+class _PickerCard extends StatelessWidget {
+  const _PickerCard({
+    required this.draft,
+    required this.candidates,
+    required this.shimmer,
+    required this.onPick,
+    required this.onDismiss,
+  });
+
+  final CommandDraft draft;
+  final List<Task> candidates;
+  final double shimmer;
+  final ValueChanged<Task> onPick;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 4, 32, 8),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(6),
+            bottomRight: Radius.circular(18),
+          ),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MagicText(
+              text: 'Which one?',
+              progress: shimmer,
+              reading: true,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final t in candidates)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: GestureDetector(
+                  onTap: () => onPick(t),
+                  behavior: HitTestBehavior.opaque,
+                  child: _TaskChip(task: t, tappable: true),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A compact row naming a resolved reminder — icon, title, a short meta line.
+class _TaskChip extends StatelessWidget {
+  const _TaskChip({required this.task, this.tappable = false});
+  final Task task;
+  final bool tappable;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(task.category.icon, size: 16, color: AppColors.accent),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              task.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
+          if (tappable)
+            const Icon(Icons.chevron_right_rounded,
+                size: 18, color: AppColors.inkFaint),
+        ],
+      ),
+    );
   }
 }

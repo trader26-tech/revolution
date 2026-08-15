@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,18 +8,17 @@ import '../../../tasks/data/task_store.dart';
 import '../../../tasks/domain/category_visuals.dart';
 import '../../../tasks/domain/task.dart';
 
-/// The Home COMMAND BOX — the primary way to add a reminder. The user types in
-/// plain English ("Netflix 649 every month", "call mom on her birthday next
-/// Tuesday"); the backend LLM parses it into a structured draft; a confirmation
-/// card slides up right above the field showing what was understood; pressing
-/// Enter / Add creates it. Always open, pinned above the keyboard.
+/// The Home COMMAND BOX — a CHAT you add reminders through. You type in plain
+/// English and press Enter; your message appears as a bubble, Revo "thinks",
+/// then replies with the parsed reminder as a card. Tap Add (or Enter) to
+/// create it, and Revo confirms. The card only appears AFTER you send — never
+/// live while typing.
 class CommandBox extends StatefulWidget {
   const CommandBox({super.key, required this.store, required this.onAdded});
 
   final TaskStore store;
 
-  /// Fired after a reminder is successfully created, so Home can refresh /
-  /// celebrate.
+  /// Fired after a reminder is successfully created, so Home can refresh.
   final VoidCallback onAdded;
 
   @override
@@ -31,69 +28,71 @@ class CommandBox extends StatefulWidget {
 class _CommandBoxState extends State<CommandBox> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
+  final _scroll = ScrollController();
 
-  Timer? _debounce;
-  bool _parsing = false;
-  bool _saving = false;
+  /// The conversation, oldest first.
+  final List<_Msg> _messages = [];
 
-  /// The current parsed draft (null until the user has typed enough + it parsed).
-  _Draft? _draft;
-
-  /// The text the current [_draft] was parsed from — so we don't re-show a stale
-  /// card after the user keeps typing.
-  String _draftFor = '';
+  bool _busy = false; // parsing or saving in flight
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _controller.dispose();
     _focus.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
-  void _onChanged(String value) {
-    final text = value.trim();
-    _debounce?.cancel();
-    if (text.length < 3) {
-      setState(() {
-        _draft = null;
-        _parsing = false;
-      });
-      return;
-    }
-    // Debounce so we parse when the user pauses, not on every keystroke.
-    setState(() => _parsing = true);
-    _debounce = Timer(const Duration(milliseconds: 550), () => _parse(text));
-  }
-
-  Future<void> _parse(String text) async {
-    try {
-      final res = await ApiClient.instance.post('/tasks/parse', {'text': text});
-      if (!mounted) return;
-      if (res is Map && res['ok'] == true && res['draft'] is Map) {
-        setState(() {
-          _draft = _Draft.fromJson((res['draft'] as Map).cast<String, dynamic>());
-          _draftFor = text;
-          _parsing = false;
-        });
-        return;
+  void _scrollToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOut,
+        );
       }
-    } catch (_) {
-      // fall through to the local fallback
-    }
-    if (!mounted) return;
-    // Offline / no parse — still let them add the raw text as a plain reminder.
-    setState(() {
-      _draft = _Draft.raw(text);
-      _draftFor = text;
-      _parsing = false;
     });
   }
 
-  Future<void> _confirm() async {
-    final draft = _draft;
-    if (draft == null || _saving) return;
-    setState(() => _saving = true);
+  /// Enter pressed → send the typed message and ask Revo to parse it.
+  Future<void> _send() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _busy) return;
+    HapticFeedback.selectionClick();
+    _controller.clear();
+    setState(() {
+      _messages.add(_Msg.user(text));
+      _messages.add(_Msg.thinking());
+      _busy = true;
+    });
+    _scrollToEnd();
+
+    _Draft? draft;
+    try {
+      final res = await ApiClient.instance.post('/tasks/parse', {'text': text});
+      if (res is Map && res['ok'] == true && res['draft'] is Map) {
+        draft = _Draft.fromJson((res['draft'] as Map).cast<String, dynamic>());
+      }
+    } catch (_) {
+      // fall through
+    }
+    draft ??= _Draft.raw(text); // offline / no parse → raw text as a reminder
+
+    if (!mounted) return;
+    setState(() {
+      _messages.removeWhere((m) => m.kind == _Kind.thinking);
+      _messages.add(_Msg.card(draft!));
+      _busy = false;
+    });
+    _scrollToEnd();
+  }
+
+  /// Confirm a card → create the reminder, then Revo confirms.
+  Future<void> _confirm(_Msg msg) async {
+    final draft = msg.draft;
+    if (draft == null || _busy) return;
+    setState(() => _busy = true);
     HapticFeedback.mediumImpact();
     try {
       await widget.store.add(
@@ -108,59 +107,99 @@ class _CommandBoxState extends State<CommandBox> {
         courseDays: draft.courseDays,
       );
       if (!mounted) return;
-      _controller.clear();
       setState(() {
-        _draft = null;
-        _saving = false;
-        _draftFor = '';
+        msg.confirmed = true; // lock the card
+        _messages.add(_Msg.done('Added “${draft.title}”'));
+        _busy = false;
       });
-      _focus.unfocus();
+      _scrollToEnd();
       widget.onAdded();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _saving = false);
+      setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Couldn't add — try again.")),
       );
     }
   }
 
-  void _dismissDraft() {
-    setState(() {
-      _draft = null;
-      _draftFor = '';
-    });
+  void _dismissCard(_Msg msg) {
+    setState(() => _messages.remove(msg));
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final draft = _draft;
-    // Only show the card if it still matches what's typed (avoids a stale card).
-    final showCard = draft != null && _controller.text.trim() == _draftFor;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── The confirmation card, sliding up above the field ──
-          AnimatedSize(
-            duration: const Duration(milliseconds: 240),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.bottomCenter,
-            child: showCard
-                ? _ConfirmCard(
-                    draft: draft,
-                    saving: _saving,
-                    onConfirm: _confirm,
-                    onDismiss: _dismissDraft,
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-          // ── The always-open text field ──
-          // Extra bottom margin leaves room for the shell's small "Menu" handle
-          // that sits at the very bottom-center, so they never overlap.
+          // ── The chat thread (only present once there's a conversation) ──
+          if (_messages.isNotEmpty)
+            Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.42,
+              ),
+              margin: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+              padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
+              decoration: BoxDecoration(
+                color: AppColors.bg.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // A tiny header with a "clear" so the thread never traps you.
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 2, 8, 4),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.auto_awesome_rounded,
+                            size: 14, color: AppColors.accent),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Revora',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.inkSoft,
+                          ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () => setState(_messages.clear),
+                          behavior: HitTestBehavior.opaque,
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.close_rounded,
+                                size: 16, color: AppColors.inkFaint),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView.builder(
+                      controller: _scroll,
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, i) => _MessageRow(
+                        msg: _messages[i],
+                        busy: _busy,
+                        onConfirm: () => _confirm(_messages[i]),
+                        onDismiss: () => _dismissCard(_messages[i]),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // ── The always-open input. Enter sends. ──
           Container(
             margin: const EdgeInsets.fromLTRB(14, 6, 14, 44),
             decoration: BoxDecoration(
@@ -184,19 +223,15 @@ class _CommandBoxState extends State<CommandBox> {
               children: [
                 const SizedBox(width: 14),
                 Icon(Icons.auto_awesome_rounded,
-                    size: 20,
-                    color: AppColors.accent.withValues(alpha: 0.9)),
+                    size: 20, color: AppColors.accent.withValues(alpha: 0.9)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _controller,
                     focusNode: _focus,
-                    onChanged: _onChanged,
                     onTap: () => setState(() {}),
-                    onSubmitted: (_) {
-                      if (_draft != null) _confirm();
-                    },
-                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _send(),
+                    textInputAction: TextInputAction.send,
                     textCapitalization: TextCapitalization.sentences,
                     style: const TextStyle(
                       color: AppColors.ink,
@@ -212,12 +247,7 @@ class _CommandBoxState extends State<CommandBox> {
                     ),
                   ),
                 ),
-                _TrailingButton(
-                  parsing: _parsing,
-                  ready: showCard,
-                  saving: _saving,
-                  onTap: showCard ? _confirm : null,
-                ),
+                _SendButton(busy: _busy, onTap: _send),
                 const SizedBox(width: 6),
               ],
             ),
@@ -228,23 +258,15 @@ class _CommandBoxState extends State<CommandBox> {
   }
 }
 
-/// The trailing control in the field: a spinner while parsing, an accent "add"
-/// arrow when a draft is ready, else a soft idle glyph.
-class _TrailingButton extends StatelessWidget {
-  const _TrailingButton({
-    required this.parsing,
-    required this.ready,
-    required this.saving,
-    required this.onTap,
-  });
-  final bool parsing;
-  final bool ready;
-  final bool saving;
-  final VoidCallback? onTap;
+/// The send control — a spinner while busy, else an accent send arrow.
+class _SendButton extends StatelessWidget {
+  const _SendButton({required this.busy, required this.onTap});
+  final bool busy;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    if (saving || parsing) {
+    if (busy) {
       return const Padding(
         padding: EdgeInsets.all(10),
         child: SizedBox(
@@ -258,166 +280,371 @@ class _TrailingButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+      child: Container(
         margin: const EdgeInsets.all(6),
         width: 38,
         height: 38,
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: ready ? AppColors.accent : Colors.transparent,
+        decoration: const BoxDecoration(
+          color: AppColors.accent,
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          Icons.arrow_upward_rounded,
-          size: 20,
-          color: ready ? Colors.white : AppColors.inkFaint,
+        child: const Icon(Icons.arrow_upward_rounded,
+            size: 20, color: Colors.white),
+      ),
+    );
+  }
+}
+
+// ── Messages ─────────────────────────────────────────────────────────────────
+
+enum _Kind { user, thinking, card, done }
+
+class _Msg {
+  _Msg.user(this.text)
+      : kind = _Kind.user,
+        draft = null;
+  _Msg.thinking()
+      : kind = _Kind.thinking,
+        text = '',
+        draft = null;
+  _Msg.card(this.draft)
+      : kind = _Kind.card,
+        text = '';
+  _Msg.done(this.text)
+      : kind = _Kind.done,
+        draft = null;
+
+  final _Kind kind;
+  final String text;
+  final _Draft? draft;
+
+  /// Once added, the card locks (no more Add/dismiss).
+  bool confirmed = false;
+}
+
+class _MessageRow extends StatelessWidget {
+  const _MessageRow({
+    required this.msg,
+    required this.busy,
+    required this.onConfirm,
+    required this.onDismiss,
+  });
+
+  final _Msg msg;
+  final bool busy;
+  final VoidCallback onConfirm;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (msg.kind) {
+      case _Kind.user:
+        return _UserBubble(text: msg.text);
+      case _Kind.thinking:
+        return const _ThinkingBubble();
+      case _Kind.done:
+        return _DoneBubble(text: msg.text);
+      case _Kind.card:
+        return _ReplyCard(
+          draft: msg.draft!,
+          confirmed: msg.confirmed,
+          busy: busy,
+          onConfirm: onConfirm,
+          onDismiss: onDismiss,
+        );
+    }
+  }
+}
+
+/// The user's own message — an accent bubble on the RIGHT.
+class _UserBubble extends StatelessWidget {
+  const _UserBubble({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(40, 4, 4, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.accent,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(18),
+            bottomRight: Radius.circular(6),
+          ),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
   }
 }
 
-/// The inline confirmation card: "Here's what I understood" — the parsed
-/// reminder as clean chips, with Add + dismiss. Feels like a reply.
-class _ConfirmCard extends StatelessWidget {
-  const _ConfirmCard({
+/// Revo's "typing…" indicator — three pulsing dots on the LEFT.
+class _ThinkingBubble extends StatefulWidget {
+  const _ThinkingBubble();
+  @override
+  State<_ThinkingBubble> createState() => _ThinkingBubbleState();
+}
+
+class _ThinkingBubbleState extends State<_ThinkingBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(4, 4, 40, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(6),
+            bottomRight: Radius.circular(18),
+          ),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(3, (i) {
+                final t = ((_c.value + i * 0.2) % 1.0);
+                final o = 0.35 + 0.65 * (1 - (2 * t - 1).abs());
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2.5),
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: o),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                );
+              }),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// A small "✓ Added" confirmation from Revo.
+class _DoneBubble extends StatelessWidget {
+  const _DoneBubble({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(4, 4, 40, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.accent.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle_rounded,
+                size: 16, color: AppColors.accent),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Revo's reply: the parsed reminder as a card, with Add + dismiss. Locks once
+/// confirmed.
+class _ReplyCard extends StatelessWidget {
+  const _ReplyCard({
     required this.draft,
-    required this.saving,
+    required this.confirmed,
+    required this.busy,
     required this.onConfirm,
     required this.onDismiss,
   });
 
   final _Draft draft;
-  final bool saving;
+  final bool confirmed;
+  final bool busy;
   final VoidCallback onConfirm;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final cat = draft.categoryEnum;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.accent.withValues(alpha: 0.14),
-            AppColors.card,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.auto_awesome_rounded,
-                  size: 15, color: AppColors.accent),
-              const SizedBox(width: 6),
-              Text(
-                "HERE'S WHAT I GOT",
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
-                  color: AppColors.accent.withValues(alpha: 0.9),
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: onDismiss,
-                behavior: HitTestBehavior.opaque,
-                child: const Icon(Icons.close_rounded,
-                    size: 18, color: AppColors.inkFaint),
-              ),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(4, 4, 24, 6),
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.accent.withValues(alpha: confirmed ? 0.06 : 0.14),
+              AppColors.card,
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
+            bottomLeft: Radius.circular(6),
+            bottomRight: Radius.circular(18),
+          ),
+          border: Border.all(
+            color: confirmed
+                ? AppColors.cardBorder
+                : AppColors.accent.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Opacity(
+          opacity: confirmed ? 0.6 : 1,
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(cat.icon, size: 21, color: AppColors.accent),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Icon(cat.icon, size: 20, color: AppColors.accent),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          draft.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            _chip(cat.label),
+                            if (draft.amount != null) _chip(_money(draft)),
+                            if (draft.doseTimes.isNotEmpty)
+                              _chip(_doseLabel(draft.doseTimes))
+                            else if (draft.repeat != RepeatCadence.none)
+                              _chip(frequencyLabel(draft.repeat, 1)),
+                            if (draft.courseDays != null)
+                              _chip('${draft.courseDays} days'),
+                            if (draft.dueAt != null)
+                              _chip(_dateLabel(draft.dueAt!)),
+                            if ((draft.note ?? '').isNotEmpty)
+                              _chip('“${draft.note}”', muted: true),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              if (!confirmed) ...[
+                const SizedBox(height: 12),
+                Row(
                   children: [
-                    Text(
-                      draft.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
+                    Expanded(
+                      child: SizedBox(
+                        height: 42,
+                        child: FilledButton(
+                          onPressed: busy ? null : onConfirm,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                          ),
+                          child: const Text('Add reminder',
+                              style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w800)),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        _chip(cat.label),
-                        if (draft.amount != null)
-                          _chip(_money(draft)),
-                        if (draft.doseTimes.isNotEmpty)
-                          _chip(_doseLabel(draft.doseTimes))
-                        else if (draft.repeat != RepeatCadence.none)
-                          _chip(frequencyLabel(draft.repeat, 1)),
-                        if (draft.courseDays != null)
-                          _chip('${draft.courseDays} days'),
-                        if (draft.dueAt != null) _chip(_dateLabel(draft.dueAt!)),
-                        if ((draft.note ?? '').isNotEmpty)
-                          _chip('“${draft.note}”', muted: true),
-                      ],
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      height: 42,
+                      width: 42,
+                      child: OutlinedButton(
+                        onPressed: busy ? null : onDismiss,
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          side: const BorderSide(color: AppColors.cardBorder),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            size: 18, color: AppColors.inkSoft),
+                      ),
                     ),
                   ],
                 ),
-              ),
+              ],
             ],
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: FilledButton(
-              onPressed: saving ? null : onConfirm,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2.2, color: Colors.white),
-                    )
-                  : const Text(
-                      'Add reminder',
-                      style:
-                          TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                    ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -454,8 +681,6 @@ class _ConfirmCard extends StatelessWidget {
     return '${cur.symbol}$body';
   }
 
-  /// "2× daily" for a couple of doses, else the count — the times themselves are
-  /// captured on the task; the chip just conveys the cadence at a glance.
   static String _doseLabel(List<String> times) {
     final n = times.length;
     return n == 1 ? 'Once daily' : '$n× daily';
@@ -509,8 +734,7 @@ class _Draft {
   final List<String> doseTimes;
   final int? courseDays;
 
-  factory _Draft.raw(String text) =>
-      _Draft(title: text, category: 'other');
+  factory _Draft.raw(String text) => _Draft(title: text, category: 'other');
 
   factory _Draft.fromJson(Map<String, dynamic> j) {
     return _Draft(

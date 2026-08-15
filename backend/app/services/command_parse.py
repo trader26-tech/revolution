@@ -52,7 +52,12 @@ def _system_prompt(today: date) -> str:
         f"{today.year} (or later) — never a past year.\n"
         "\n"
         "FIRST decide the INTENT — what the user wants to DO:\n"
-        '  "add"      — create a new reminder (the default).\n'
+        '  "query"    — the user is ASKING a question about their existing '
+        'reminders, NOT creating one ("what do I have this week?", "what\'s due '
+        'today?", "how much am I spending on subscriptions?", "when is my rent '
+        "due?\", \"show my medicines\"). If it's a question, it's a query.\n"
+        '  "add"      — create a NEW reminder (a statement of a thing to '
+        'remember, e.g. "Netflix 649 monthly", "dentist tomorrow 4pm").\n'
         '  "complete" — mark an existing reminder done ("mark netflix done", '
         '"I paid the rent", "finished my meds").\n'
         '  "delete"   — remove an existing reminder ("delete gym", "cancel '
@@ -60,10 +65,17 @@ def _system_prompt(today: date) -> str:
         "reminder\"). Treat \"cancel <thing>\" / \"stop <thing>\" as delete.\n"
         '  "update"   — change an existing reminder ("change netflix to 799", '
         '"move dentist to Friday", "rename gym to yoga").\n'
+        "A QUESTION is never an add. If unsure whether it's a question, prefer "
+        "query.\n"
         "For complete/delete/update, ALSO return a \"target\" — a few key words "
         "naming the EXISTING reminder the user means (usually its name, e.g. "
         '"netflix", "electricity bill"). Do NOT invent an id. For "add", target '
         "is null.\n"
+        'For a QUERY, return a "range" describing the time window asked about: '
+        'one of "today", "tomorrow", "week" (this/next 7 days), "month", '
+        '"overdue", "all" (default "all"); and a "target" with key words if the '
+        'question is about a specific reminder/category (e.g. "subscriptions", '
+        '"rent"), else null.\n'
         "For update, put the NEW values in the normal fields below (e.g. the new "
         "amount in \"amount\", the new date in \"date\").\n"
         "\n"
@@ -119,7 +131,8 @@ def _nullish(v: Any) -> bool:
     )
 
 
-_INTENTS = {"add", "complete", "delete", "update"}
+_INTENTS = {"query", "add", "complete", "delete", "update"}
+_RANGES = {"today", "tomorrow", "week", "month", "overdue", "all"}
 
 
 def _clean(parsed: dict[str, Any], today: Optional[date] = None) -> dict[str, Any]:
@@ -130,6 +143,10 @@ def _clean(parsed: dict[str, Any], today: Optional[date] = None) -> dict[str, An
 
     target = parsed.get("target")
     target = None if _nullish(target) else str(target).strip()
+
+    range_ = str(parsed.get("range") or "all").strip().lower()
+    if range_ not in _RANGES:
+        range_ = "all"
 
     title = str(parsed.get("title") or "").strip()
 
@@ -226,6 +243,7 @@ def _clean(parsed: dict[str, Any], today: Optional[date] = None) -> dict[str, An
     return {
         "intent": intent,
         "target": target,
+        "range": range_,
         "title": title,
         "category": category,
         "amount": amount,

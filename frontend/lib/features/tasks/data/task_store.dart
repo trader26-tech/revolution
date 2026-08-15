@@ -182,6 +182,8 @@ class TaskStore extends ChangeNotifier {
     String? imagePath,
     String? subCategory,
     String? note,
+    List<String> doseTimes = const [],
+    int? courseDays,
     int? birthYear,
     int remindDaysBefore = 0,
     double? returnAmount,
@@ -204,6 +206,8 @@ class TaskStore extends ChangeNotifier {
       'source': ?source,
       'sub_category': ?subCategory,
       'note': ?note,
+      if (doseTimes.isNotEmpty) 'dose_times': doseTimes,
+      'course_days': ?courseDays,
       'return_amount': ?returnAmount,
       'maturity_at': ?maturityAt?.toIso8601String(),
       'payout_method': ?payoutMethod?.name,
@@ -226,6 +230,11 @@ class TaskStore extends ChangeNotifier {
     if (created.note == null && note != null && note.isNotEmpty) {
       created.note = note;
     }
+    // Medicine schedule — server may not echo these; keep the user's choice.
+    if (created.doseTimes.isEmpty && doseTimes.isNotEmpty) {
+      created.doseTimes = doseTimes;
+    }
+    created.courseDays ??= courseDays;
     // Server may not persist these yet — keep the user's choice locally.
     if (created.repeatTimes == 1 && repeatTimes != 1) {
       created.repeatTimes = repeatTimes;

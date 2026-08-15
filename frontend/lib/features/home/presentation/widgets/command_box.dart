@@ -104,6 +104,8 @@ class _CommandBoxState extends State<CommandBox> {
         currency: draft.currency ?? 'INR',
         category: draft.category,
         note: draft.note,
+        doseTimes: draft.doseTimes,
+        courseDays: draft.courseDays,
       );
       if (!mounted) return;
       _controller.clear();
@@ -372,8 +374,12 @@ class _ConfirmCard extends StatelessWidget {
                         _chip(cat.label),
                         if (draft.amount != null)
                           _chip(_money(draft)),
-                        if (draft.repeat != RepeatCadence.none)
+                        if (draft.doseTimes.isNotEmpty)
+                          _chip(_doseLabel(draft.doseTimes))
+                        else if (draft.repeat != RepeatCadence.none)
                           _chip(frequencyLabel(draft.repeat, 1)),
+                        if (draft.courseDays != null)
+                          _chip('${draft.courseDays} days'),
                         if (draft.dueAt != null) _chip(_dateLabel(draft.dueAt!)),
                         if ((draft.note ?? '').isNotEmpty)
                           _chip('“${draft.note}”', muted: true),
@@ -448,6 +454,13 @@ class _ConfirmCard extends StatelessWidget {
     return '${cur.symbol}$body';
   }
 
+  /// "2× daily" for a couple of doses, else the count — the times themselves are
+  /// captured on the task; the chip just conveys the cadence at a glance.
+  static String _doseLabel(List<String> times) {
+    final n = times.length;
+    return n == 1 ? 'Once daily' : '$n× daily';
+  }
+
   static String _dateLabel(DateTime d) {
     const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
       'Oct', 'Nov', 'Dec'];
@@ -482,6 +495,8 @@ class _Draft {
     this.dueAt,
     this.repeat = RepeatCadence.none,
     this.note,
+    this.doseTimes = const [],
+    this.courseDays,
   });
 
   final String title;
@@ -491,6 +506,8 @@ class _Draft {
   final DateTime? dueAt;
   final RepeatCadence repeat;
   final String? note;
+  final List<String> doseTimes;
+  final int? courseDays;
 
   factory _Draft.raw(String text) =>
       _Draft(title: text, category: 'other');
@@ -509,6 +526,8 @@ class _Draft {
         orElse: () => RepeatCadence.none,
       ),
       note: j['note'] as String?,
+      doseTimes: (j['dose_times'] as List?)?.cast<String>() ?? const [],
+      courseDays: (j['course_days'] as num?)?.toInt(),
     );
   }
 

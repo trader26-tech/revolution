@@ -175,6 +175,7 @@ class _BrowsePageState extends State<BrowsePage>
         TaskCategory.birthday => 'Birthdays & the dates that matter.',
         TaskCategory.investment => 'SIPs and recurring investments.',
         TaskCategory.policies => 'Savings & endowment plans.',
+        TaskCategory.medicine => 'Medicines, doses & timings.',
         TaskCategory.insurance => 'Renewals and cover.',
         TaskCategory.bills => 'Recurring bills & payments.',
         TaskCategory.other => 'Anything else.',

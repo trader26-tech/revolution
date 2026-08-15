@@ -29,6 +29,7 @@ _CATEGORIES = [
     "investment",
     "bills",
     "policies",
+    "medicine",
     "other",
 ]
 # Must match the app's RepeatCadence names.
@@ -61,11 +62,19 @@ def _system_prompt(today: date) -> str:
         '  "time":      "HH:MM" 24h ONLY if a clock time is stated, else null\n'
         '  "repeat":    one of ' + ", ".join(_REPEATS) + ' (default "none")\n'
         '  "note":      any extra detail worth keeping, else null\n'
+        '  "dose_times": for a MEDICINE, the clock times of day it is taken as '
+        '"HH:MM" 24h (e.g. "twice a day" → ["09:00","21:00"], "morning and '
+        'night" → ["08:00","20:00"], "after lunch" → ["14:00"]); else [].\n'
+        '  "course_days": for a MEDICINE taken for a fixed number of days (e.g. '
+        '"for 5 days" → 5); else null.\n'
         "\n"
         "Category hints: streaming/apps/memberships → subscription; a person's "
         "birthday/anniversary → birthday; electricity/rent/phone/emi → bills; "
         "SIP/mutual fund/stocks → investment; LIC/endowment/premium → policies; "
-        "car/health/term cover → insurance; anything else → other.\n"
+        "car/health/term cover → insurance; a PILL/tablet/syrup/medicine/dose "
+        "to take → medicine; anything else → other.\n"
+        "For medicine, set repeat=daily and fill dose_times + course_days when "
+        "stated; the medicine's name is the title.\n"
         "Repeat hints: 'every month'/'monthly' → monthly; 'yearly'/'every "
         "year' → yearly; 'every week' → weekly; 'every day' → daily; a one-off "
         "→ none.\n"
@@ -144,6 +153,27 @@ def _clean(parsed: dict[str, Any], today: Optional[date] = None) -> dict[str, An
     note = None if _nullish(note) else str(note).strip()
     summary = str(parsed.get("summary") or "").strip()
 
+    # Medicine specifics (only meaningful for the medicine category).
+    dose_times: list[str] = []
+    raw_doses = parsed.get("dose_times")
+    if isinstance(raw_doses, list):
+        for t in raw_doses:
+            s = str(t).strip()
+            # Keep only well-formed HH:MM.
+            if len(s) == 5 and s[2] == ":" and s[:2].isdigit() and s[3:].isdigit():
+                dose_times.append(s)
+
+    course_days = parsed.get("course_days")
+    if _nullish(course_days):
+        course_days = None
+    else:
+        try:
+            course_days = int(course_days)
+            if course_days <= 0:
+                course_days = None
+        except (TypeError, ValueError):
+            course_days = None
+
     return {
         "title": title,
         "category": category,
@@ -152,6 +182,8 @@ def _clean(parsed: dict[str, Any], today: Optional[date] = None) -> dict[str, An
         "due_at": due_at,
         "repeat": repeat,
         "note": note,
+        "dose_times": dose_times,
+        "course_days": course_days,
         "summary": summary,
     }
 

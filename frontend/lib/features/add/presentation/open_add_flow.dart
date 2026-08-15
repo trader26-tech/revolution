@@ -6,6 +6,7 @@ import '../../tasks/domain/task.dart';
 import 'add_picker_page.dart';
 import 'birthday_form_page.dart';
 import 'general_form_page.dart';
+import 'medicine_form_page.dart';
 import 'insurance_form_page.dart';
 import 'policy_form_page.dart';
 import 'sip_form_page.dart';
@@ -124,6 +125,12 @@ Future<AddResult?> openCategoryForm(
           .push<Task>(_formRoute(const GeneralFormPage()));
       return task == null ? null : AddResult(task: task);
 
+    case TaskCategory.medicine:
+      // Medicines: name + dose times + days + course length.
+      final task = await Navigator.of(context)
+          .push<Task>(_formRoute(const MedicineFormPage()));
+      return task == null ? null : AddResult(task: task);
+
     case TaskCategory.subscription:
     case TaskCategory.bills:
       final task = await Navigator.of(context).push<Task>(_formRoute(
@@ -185,6 +192,8 @@ Future<bool> persistAddResult(TaskStore store, AddResult? result) async {
     imagePath: task.imagePath,
     subCategory: task.subCategory,
     note: task.note,
+    doseTimes: task.doseTimes,
+    courseDays: task.courseDays,
     birthYear: task.birthYear,
     remindDaysBefore: task.remindDaysBefore,
   );
@@ -224,6 +233,9 @@ Future<bool> openEditForm(
     case TaskCategory.other:
       // General reminders edit in their own title + date + note form.
       form = GeneralFormPage(editTask: task);
+    case TaskCategory.medicine:
+      // Medicines edit in their own dose-schedule form.
+      form = MedicineFormPage(editTask: task);
     case TaskCategory.insurance:
     case TaskCategory.policies:
     case TaskCategory.bills:

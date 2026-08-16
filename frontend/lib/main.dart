@@ -58,7 +58,7 @@ class RevolutionApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Revora',
+      title: 'Remora',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       // ONE global type-density knob: everything renders a touch smaller and

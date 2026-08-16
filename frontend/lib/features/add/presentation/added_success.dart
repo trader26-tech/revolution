@@ -24,7 +24,7 @@ String addedLabel(TaskCategory category) {
 Future<void> showAddedSuccess(
   BuildContext context, {
   required String label, // e.g. "Subscription added"
-  String subtitle = 'Revo’s keeping an eye on it.',
+  String subtitle = 'Remo’s keeping an eye on it.',
 }) {
   return Navigator.of(context, rootNavigator: true).push<void>(
     PageRouteBuilder<void>(

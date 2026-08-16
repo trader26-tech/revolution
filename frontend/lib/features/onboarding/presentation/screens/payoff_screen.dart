@@ -13,7 +13,7 @@ import '../../../../core/widgets/mascot.dart';
 ///      already…" — the number climbing live while Revo watches it stack up.
 ///      "already" is deliberate: it implies the count is only going to grow.
 ///   3. A beat. Then, inside the SAME bubble, the turn fades in: "But don't
-///      worry — Revo's got you." and Revo does a happy double-hop, gaze
+///      worry — Remo's got you." and Revo does a happy double-hop, gaze
 ///      dropping from the number to YOU.
 ///   4. The story rests. Then, in the quiet aftermath, one muted closing line
 ///      fades in — a pause — and only then does the "Get started" CTA arrive,
@@ -248,7 +248,7 @@ class _PayoffScreenState extends State<PayoffScreen>
             style: TextStyle(color: ink),
           ),
           TextSpan(
-            text: "Revo's got you.",
+            text: "Remo's got you.",
             style: TextStyle(fontWeight: FontWeight.w900, color: accent),
           ),
         ],
@@ -335,7 +335,7 @@ class _PayoffScreenState extends State<PayoffScreen>
       Text.rich(
         const TextSpan(
           children: [
-            TextSpan(text: 'Revora remembers '),
+            TextSpan(text: 'Remora remembers '),
             TextSpan(
               text: 'every single one.',
               style: TextStyle(

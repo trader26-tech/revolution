@@ -151,7 +151,7 @@ class UpdateService {
       // Save to a private temp file we can hand to the installer. A stable name
       // (overwritten each time) so repeated updates don't pile up files.
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/revora-update.apk');
+      final file = File('${dir.path}/remora-update.apk');
       await file.writeAsBytes(bytes, flush: true);
 
       // Hand the APK to the OS. open_filex opens it with the package installer,

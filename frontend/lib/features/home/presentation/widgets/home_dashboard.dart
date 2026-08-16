@@ -1932,7 +1932,7 @@ class _WelcomeEmptyState extends State<WelcomeEmpty>
             ),
             const SizedBox(height: 6),
             Text(
-              'Welcome to Revora — I’ll remember\nthe things you shouldn’t have to.',
+              'Welcome to Remora — I’ll remember\nthe things you shouldn’t have to.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -2492,7 +2492,7 @@ class _AddBrowseSheet extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Add to Revora',
+                'Add to Remora',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,

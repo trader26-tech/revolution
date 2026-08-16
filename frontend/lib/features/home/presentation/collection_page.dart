@@ -1724,7 +1724,7 @@ class _EmptyCollection extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Add your first $singular and Revo will keep an eye on it.',
+                'Add your first $singular and Remo will keep an eye on it.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14,

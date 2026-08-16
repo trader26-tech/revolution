@@ -156,7 +156,7 @@ class _Header extends StatelessWidget {
           ),
           const Expanded(
             child: Text(
-              'Add to Revora',
+              'Add to Remora',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,

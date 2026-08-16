@@ -170,20 +170,20 @@ class _RevoHeroState extends State<RevoHero>
         final n = dueTodayCount(widget.tasks);
         return (
           n == 1 ? '1 due today!' : '$n due today!',
-          'Revo\'s on high alert — let\'s knock these out.',
+          'Remo\'s on high alert — let\'s knock these out.',
           const Color(0xFFFFC66B), // warm amber
         );
       case RevoMood.sad:
         final n = overdueCount(widget.tasks);
         return (
           n == 1 ? '1 slipped by' : '$n slipped by',
-          'Revo\'s a little down — tap to catch up.',
+          'Remo\'s a little down — tap to catch up.',
           const Color(0xFFA5B4FC), // periwinkle
         );
       case RevoMood.happy:
         return (
           'All clear',
-          'Nothing due — Revo\'s happy and relaxed.',
+          'Nothing due — Remo\'s happy and relaxed.',
           AppColors.accent,
         );
     }

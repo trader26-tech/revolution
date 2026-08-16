@@ -608,9 +608,9 @@ class _NavButton extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
-          height: 44,
+          height: 52,
           padding:
-              EdgeInsets.symmetric(horizontal: selected ? 16 : 12),
+              EdgeInsets.symmetric(horizontal: selected ? 20 : 14),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected
@@ -637,7 +637,7 @@ class _NavButton extends StatelessWidget {
               children: [
                 Icon(
                   selected ? item.active : item.icon,
-                  size: 22,
+                  size: 24,
                   color: selected ? AppColors.accent : AppColors.inkFaint,
                 ),
                 if (selected) ...[
@@ -647,7 +647,7 @@ class _NavButton extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.accent,
                       fontWeight: FontWeight.w800,
-                      fontSize: 14,
+                      fontSize: 15.5,
                     ),
                   ),
                 ],

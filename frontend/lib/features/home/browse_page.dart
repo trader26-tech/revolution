@@ -100,7 +100,6 @@ class _BrowsePageState extends State<BrowsePage>
             _Dest(
               icon: Icons.folder_rounded,
               label: 'Documents',
-              subtitle: 'Your files — policies, receipts, photos.',
               count: _documents.totalCount,
               onTap: _openDocuments,
             ),
@@ -108,14 +107,12 @@ class _BrowsePageState extends State<BrowsePage>
               _Dest(
                 icon: c.icon,
                 label: c.label,
-                subtitle: _subtitleFor(c),
                 count: _countFor(c),
                 onTap: () => _openCollection(c),
               ),
             _Dest(
               icon: TaskCategory.other.icon,
               label: 'General',
-              subtitle: 'Anything you want to remember — with a note.',
               count: _countFor(TaskCategory.other),
               onTap: () => _openCollection(TaskCategory.other),
               highlight: true,
@@ -144,42 +141,18 @@ class _BrowsePageState extends State<BrowsePage>
   Widget _header() {
     return const Padding(
       padding: EdgeInsets.fromLTRB(22, 4, 22, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Browse',
-            style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.6,
-              color: AppColors.ink,
-            ),
-          ),
-          SizedBox(height: 2),
-          Text(
-            'Everything you track — tap in, or add something new.',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.inkSoft,
-            ),
-          ),
-        ],
+      child: Text(
+        'Browse',
+        style: TextStyle(
+          fontSize: 30,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.6,
+          color: AppColors.ink,
+        ),
       ),
     );
   }
 
-  String _subtitleFor(TaskCategory c) => switch (c) {
-        TaskCategory.subscription => 'Netflix, Spotify, and the rest.',
-        TaskCategory.birthday => 'Birthdays & the dates that matter.',
-        TaskCategory.investment => 'SIPs and recurring investments.',
-        TaskCategory.policies => 'Savings & endowment plans.',
-        TaskCategory.medicine => 'Medicines, doses & timings.',
-        TaskCategory.insurance => 'Renewals and cover.',
-        TaskCategory.bills => 'Recurring bills & payments.',
-        TaskCategory.other => 'Anything else.',
-      };
 }
 
 /// A destination’s data. No colour here — every tile uses the one accent.
@@ -187,14 +160,12 @@ class _Dest {
   const _Dest({
     required this.icon,
     required this.label,
-    required this.subtitle,
     required this.count,
     required this.onTap,
     this.highlight = false,
   });
   final IconData icon;
   final String label;
-  final String subtitle;
   final int count;
   final VoidCallback onTap;
 
@@ -310,33 +281,17 @@ class _DestTileState extends State<_DestTile> {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      d.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      d.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.inkSoft,
-                      ),
-                    ),
-                  ],
+                // Just the heading — no subtitle, for a clean, consistent list.
+                child: Text(
+                  d.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                    color: AppColors.ink,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),

@@ -6,8 +6,8 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../../add/domain/subscription_categories.dart';
+import '../../add/presentation/added_success.dart';
 import '../../add/presentation/open_add_flow.dart';
-import 'command_chat_launcher.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
 import '../../details/domain/currency.dart';
@@ -259,26 +259,19 @@ class _CollectionPageState extends State<CollectionPage> {
     return amount * perMonth / n;
   }
 
-  /// Adding is now CHAT-driven: open the ★ command chat pre-scoped to this
-  /// category, so Revo asks the category's questions field-by-field and the user
-  /// answers conversationally — no traditional form. The chat owns the confirm
-  /// card + save. For the "All" view (no single category) the chat opens unseeded
-  /// so the user picks a category in-chat.
-  ///
-  /// The chat is an overlay that lives in the SHELL. This collection page is a
-  /// route pushed ON TOP of the shell, so we must pop back to the shell FIRST —
-  /// otherwise the overlay opens hidden behind this page and the "+" looks dead.
-  /// Popping first, THEN opening on the next frame, makes the chat actually show.
-  void _add(BuildContext context) {
-    // Capture the root (shell) context BEFORE popping — this page's own context
-    // becomes defunct once we pop it off.
-    final rootContext = Navigator.of(context).context;
-    final cat = category;
-    Navigator.of(context).popUntil((r) => r.isFirst);
-    // Open on the next frame, once the shell is the visible top route.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      openCommandChatFor(rootContext, seedCategory: cat);
-    });
+  /// The "+" opens this category's tailored ADD FORM — the regular, hand-crafted
+  /// add UI (not a chat). On save it plays the celebration, then persists.
+  Future<void> _add(BuildContext context) async {
+    final cat = category ?? TaskCategory.other;
+    final result = await openCategoryForm(context, store, cat);
+    if (result == null || !context.mounted) return;
+    final willAdd = result.task != null || result.selfSaved;
+    if (!willAdd) return;
+    // Show the celebration FIRST (instant + opaque), so the moment the form
+    // closes it covers this page — no flash. Persist AFTER, behind the cover.
+    final celebration = showAddedSuccess(context, label: addedLabel(cat));
+    await persistAddResult(store, result);
+    await celebration;
   }
 
   Future<void> _edit(BuildContext context, Task task) async {

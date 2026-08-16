@@ -9,7 +9,7 @@ import '../../../onboarding/presentation/widgets/magic_text.dart'
     show MagicText;
 import '../../../tasks/domain/category_visuals.dart';
 import '../../../tasks/domain/task.dart';
-import 'profile_avatar.dart';
+import '../../../lock/presentation/lock_avatar_ring.dart';
 
 /// The Home hero: the screen starts EMPTY, then Revo conjures today's reminders
 /// ONE AT A TIME, in slow motion — each line materialises word by word (the
@@ -415,10 +415,12 @@ class _Greeting extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // The user's PHOTO — tap to add/change. Fades in with the greeting.
+        // The user's PHOTO — tap to add/change. When App Lock is on, a countdown
+        // ring wraps the avatar with the remaining time below it. Fades in with
+        // the greeting.
         Opacity(
           opacity: Curves.easeOut.transform((p / 0.5).clamp(0.0, 1.0)),
-          child: const ProfileAvatar(size: 44),
+          child: const LockAvatarRing(avatarSize: 44),
         ),
         const SizedBox(width: 12),
         // Keep the whole line on ONE line: FittedBox gives the text unbounded

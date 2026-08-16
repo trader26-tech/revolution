@@ -14,7 +14,6 @@ import '../settings/settings_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart';
 import '../tasks/presentation/task_details_sheet.dart';
-import '../lock/presentation/lock_timer_pill.dart';
 import 'presentation/collection_page.dart';
 import 'presentation/upcoming_page.dart';
 import 'presentation/widgets/home_dashboard.dart' show showAddBrowseSheet;
@@ -471,10 +470,8 @@ class _TopBar extends StatelessWidget {
             onTap: onSettings,
           ),
           const Spacer(),
-          // The App Lock countdown — the draining ring + "M:SS". Renders nothing
-          // when the lock is off or no session is live. Tap to change auto-lock.
-          const LockTimerPill(),
-          const SizedBox(width: 10),
+          // (The App Lock countdown now wraps the profile avatar in the greeting
+          // below — see LockAvatarRing — so no separate pill lives up here.)
           // Add button, right corner — accent-filled with a purple glow so it
           // reads as the app's one special action.
           GlassIconButton(

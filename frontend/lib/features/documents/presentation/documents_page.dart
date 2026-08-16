@@ -19,7 +19,12 @@ import 'widgets/morph_icon_button.dart';
 /// and documents — no page pushes. Create folders from the "New folder" tile,
 /// add a document / sub-folder from each folder's own "+". Nothing is uploaded.
 class DocumentsPage extends StatefulWidget {
-  const DocumentsPage({super.key, required this.store, this.embedded = false});
+  const DocumentsPage({
+    super.key,
+    required this.store,
+    this.embedded = false,
+    this.isActive = true,
+  });
 
   final DocumentsStore store;
 
@@ -27,6 +32,12 @@ class DocumentsPage extends StatefulWidget {
   /// rather than a pushed route. Embedded → no back arrow (a tab has nothing to
   /// pop to); the nav bar keeps only the "new folder" action.
   final bool embedded;
+
+  /// True when Documents is the VISIBLE tab. Each time it flips back to true, the
+  /// row-entrance cascade re-plays — so arriving at Documents (from Home or any
+  /// other tab) always greets you with the rows arriving one at a time, not a
+  /// static list. For a pushed route this stays true, so it animates on open.
+  final bool isActive;
 
   @override
   State<DocumentsPage> createState() => _DocumentsPageState();
@@ -50,9 +61,23 @@ class _DocumentsPageState extends State<DocumentsPage>
     _intro = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1600),
-    )..forward();
+    );
+    // Play on first mount only if Documents is the visible tab; otherwise wait
+    // until it becomes active (didUpdateWidget) so the cascade isn't "used up"
+    // invisibly while another tab is showing.
+    if (widget.isActive) _intro.forward(from: 0);
     if (store.isInitialLoad) {
       WidgetsBinding.instance.addPostFrameCallback((_) => store.load());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant DocumentsPage old) {
+    super.didUpdateWidget(old);
+    // Switched TO Documents (from Home/Browse) → replay the cascade from the top,
+    // so entering the page always feels like the rows are being conjured in.
+    if (widget.isActive && !old.isActive) {
+      _intro.forward(from: 0);
     }
   }
 
@@ -563,14 +588,22 @@ class _FolderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A plain LINE row — no box, no subtitle. Just a caret, the folder glyph,
-    // and the name, with a subtle press highlight. Tapping expands in place.
+    // A meaningful count under the name — the AGGREGATE of everything inside
+    // (itemCount = items anywhere under this folder), plus the direct subfolder
+    // count when it has any. So a folder tells you at a glance how much it holds.
+    final parts = <String>[
+      '$itemCount item${itemCount == 1 ? '' : 's'}',
+      if (subfolderCount > 0)
+        '$subfolderCount folder${subfolderCount == 1 ? '' : 's'}',
+    ];
+    // A plain LINE row — no box. Caret, folder glyph, name + count, and ONE menu
+    // button on the right holding every action (add inside, rename, delete).
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 14, 6, 14),
+          padding: const EdgeInsets.fromLTRB(10, 12, 6, 12),
           child: Row(
             children: [
               // Rotating caret — the expand/collapse cue.
@@ -589,26 +622,41 @@ class _FolderRow extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: Text(
-                  folder.displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                    color: AppColors.ink,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      folder.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      parts.join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              _RowIconButton(
-                icon: Icons.add_rounded,
-                color: AppColors.accent,
-                tooltip: 'Add inside',
-                onTap: onAddInside,
-              ),
+              // ONE button — the whole action set lives here. "Add inside" leads
+              // (it's the primary action), then rename/delete.
               _RowMenu(
                 items: [
+                  _MenuAction('add', Icons.add_rounded, 'Add inside', onAddInside,
+                      accent: true),
                   _MenuAction('rename', Icons.edit_outlined, 'Rename', onRename),
                   _MenuAction('delete', Icons.delete_outline_rounded, 'Delete',
                       onDelete, danger: true),
@@ -667,15 +715,11 @@ class _DocRow extends StatelessWidget {
                   ),
                 ),
               ),
-              _RowIconButton(
-                icon: Icons.ios_share_rounded,
-                color: AppColors.inkSoft,
-                tooltip: 'Share',
-                onTap: onShare,
-              ),
+              // ONE button — Open · Share · Rename · Delete all live here.
               _RowMenu(
                 items: [
                   _MenuAction('open', Icons.open_in_new_rounded, 'Open', onOpen),
+                  _MenuAction('share', Icons.ios_share_rounded, 'Share', onShare),
                   _MenuAction('rename', Icons.edit_outlined, 'Rename', onRename),
                   _MenuAction('delete', Icons.delete_outline_rounded, 'Delete',
                       onDelete, danger: true),
@@ -693,41 +737,21 @@ class _DocRow extends StatelessWidget {
 
 class _MenuAction {
   const _MenuAction(this.value, this.icon, this.label, this.onTap,
-      {this.danger = false});
+      {this.danger = false, this.accent = false});
   final String value;
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool danger;
+
+  /// The primary action (e.g. "Add inside") — tinted accent so it reads as the
+  /// lead option in the single menu.
+  final bool accent;
 }
 
-/// A compact row action — a small, tight tap target (no 48px IconButton bulk).
-class _RowIconButton extends StatelessWidget {
-  const _RowIconButton({
-    required this.icon,
-    required this.color,
-    required this.onTap,
-    this.tooltip,
-  });
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  final String? tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    final w = InkResponse(
-      onTap: onTap,
-      radius: 20,
-      child: Padding(
-        padding: const EdgeInsets.all(7),
-        child: Icon(icon, size: 18, color: color),
-      ),
-    );
-    return tooltip == null ? w : Tooltip(message: tooltip!, child: w);
-  }
-}
-
+/// The ONE action button per row — a single ⋯ that opens a menu holding every
+/// action for that item (add / open / share / rename / delete), so each row has
+/// exactly one control instead of a cluster of icon buttons.
 class _RowMenu extends StatelessWidget {
   const _RowMenu({required this.items});
   final List<_MenuAction> items;
@@ -735,17 +759,25 @@ class _RowMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert_rounded, size: 18),
+      icon: const Icon(Icons.more_horiz_rounded, size: 22),
       color: AppColors.card,
-      padding: const EdgeInsets.all(6),
-      splashRadius: 20,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: AppColors.cardBorder),
+      ),
+      padding: const EdgeInsets.all(8),
+      splashRadius: 22,
       onSelected: (v) => items.firstWhere((a) => a.value == v).onTap(),
       itemBuilder: (_) => [
         for (final a in items)
           PopupMenuItem(
             value: a.value,
-            height: 44,
-            child: _MenuRow(icon: a.icon, label: a.label, danger: a.danger),
+            height: 46,
+            child: _MenuRow(
+                icon: a.icon,
+                label: a.label,
+                danger: a.danger,
+                accent: a.accent),
           ),
       ],
     );
@@ -753,19 +785,30 @@ class _RowMenu extends StatelessWidget {
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.icon, required this.label, this.danger = false});
+  const _MenuRow({
+    required this.icon,
+    required this.label,
+    this.danger = false,
+    this.accent = false,
+  });
   final IconData icon;
   final String label;
   final bool danger;
+  final bool accent;
 
   @override
   Widget build(BuildContext context) {
-    final c = danger ? const Color(0xFFFF6B6B) : AppColors.ink;
+    final c = danger
+        ? const Color(0xFFFF6B6B)
+        : (accent ? AppColors.accent : AppColors.ink);
     return Row(
       children: [
         Icon(icon, size: 18, color: c),
         const SizedBox(width: 12),
-        Text(label, style: TextStyle(color: c, fontWeight: FontWeight.w600)),
+        Text(label,
+            style: TextStyle(
+                color: c,
+                fontWeight: accent ? FontWeight.w700 : FontWeight.w600)),
       ],
     );
   }

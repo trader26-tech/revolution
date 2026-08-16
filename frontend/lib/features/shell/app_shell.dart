@@ -170,8 +170,9 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
       HomePage(key: _homeKey, store: _store, isActive: _tab == 0),
       BrowsePage(store: _store, isActive: _tab == 1),
       // Documents is now a top-level tab (moved out of Browse). Embedded mode
-      // drops its back arrow — a tab has nothing to pop to.
-      DocumentsPage(store: _documents, embedded: true),
+      // drops its back arrow — a tab has nothing to pop to. isActive drives its
+      // entrance cascade to replay each time you switch to it.
+      DocumentsPage(store: _documents, embedded: true, isActive: _tab == 2),
     ];
 
     // The overlay must clear the bottom bar: bar height + its bottom padding +

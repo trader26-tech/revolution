@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
@@ -84,22 +83,18 @@ class ReminderScheduler {
   Timer? _debounce;
   bool _canExact = false;
 
-  /// The app logo, decoded once from the asset and reused as the LARGE ICON on
-  /// every Android notification (the big branded image in the expanded tray).
-  /// Null until [init] loads it (or if the asset is missing) — in which case the
-  /// notification just shows without a large icon, never breaks.
-  static const _largeIconAsset = 'assets/images/app_logo.png';
-  AndroidBitmap<Object>? _largeIcon;
-
-  Future<void> _loadLargeIcon() async {
-    if (_largeIcon != null) return;
-    try {
-      final data = await rootBundle.load(_largeIconAsset);
-      _largeIcon = ByteArrayAndroidBitmap(data.buffer.asUint8List());
-    } catch (_) {
-      // Asset missing/unreadable → no large icon (notification still posts fine).
-    }
-  }
+  /// The app logo as the LARGE ICON (the branded image in the expanded tray).
+  ///
+  /// CRITICAL: this MUST be a drawable RESOURCE reference, not an embedded
+  /// bitmap. flutter_local_notifications persists every SCHEDULED notification to
+  /// disk as JSON, and a ByteArrayAndroidBitmap base64-encodes the whole bitmap
+  /// into that JSON. With ~56 pending digests each carrying a decoded 1024×1024
+  /// PNG, the serialized blob grew to ~52 MB and OOM-crashed the app. A
+  /// DrawableResourceAndroidBitmap serializes as just the resource NAME (a few
+  /// bytes), so it's safe on scheduled notifications — and Android loads the
+  /// launcher icon by name at post time.
+  static const AndroidBitmap<Object> _largeIcon =
+      DrawableResourceAndroidBitmap('@mipmap/ic_launcher');
 
   // defaultTargetPlatform (not dart:io Platform) so this file also compiles
   // for the web preview build, where the scheduler simply no-ops.
@@ -176,10 +171,6 @@ class ReminderScheduler {
         // Non-fatal — show() would still lazily create it.
       }
     }
-
-    // Decode the app logo once for use as the notification large icon (branding
-    // in the expanded tray). Best-effort — never blocks readiness.
-    await _loadLargeIcon();
 
     _ready = true;
 
@@ -622,9 +613,6 @@ class ReminderScheduler {
         ),
       ),
     );
-    // Background isolate: instance.init() never ran here, so load the large icon
-    // so the snoozed re-post is branded too (best-effort).
-    await instance._loadLargeIcon();
     final at = tz.TZDateTime.now(tz.local).add(const Duration(hours: 1));
     await _plugin.zonedSchedule(
       id: _snoozeIdBase + (notice.taskId.hashCode & 0x7FFFF),

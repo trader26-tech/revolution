@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../lock/presentation/lock_timer_pill.dart' show showAutoLockSheet;
 import '../../../settings/data/profile_store.dart';
 
 /// The user's PROFILE PHOTO, shown as a round avatar beside the home greeting.
@@ -21,35 +22,47 @@ class ProfileAvatar extends StatelessWidget {
 
   Future<void> _pick(BuildContext context) async {
     final store = ProfileStore.instance;
-    // If a photo already exists, offer change/remove; otherwise pick straight.
-    if (store.hasAvatar) {
-      final action = await showModalBottomSheet<String>(
-        context: context,
-        backgroundColor: AppColors.card,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-        ),
-        builder: (ctx) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              _sheetTile(ctx, Icons.photo_camera_rounded, 'Change photo',
-                  'change'),
+    // Always show the menu: photo actions (add / change + remove) PLUS the
+    // auto-lock timer control, so the timer is reachable from the avatar again.
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            _sheetTile(
+                ctx,
+                Icons.photo_camera_rounded,
+                store.hasAvatar ? 'Change photo' : 'Add photo',
+                'change'),
+            if (store.hasAvatar)
               _sheetTile(ctx, Icons.delete_outline_rounded, 'Remove photo',
                   'remove', danger: true),
-              const SizedBox(height: 8),
-            ],
-          ),
+            // The auto-lock timer control — set how long the app stays unlocked.
+            _sheetTile(ctx, Icons.lock_clock_rounded, 'Auto-lock timer', 'timer'),
+            const SizedBox(height: 8),
+          ],
         ),
-      );
-      if (action == 'remove') {
-        HapticFeedback.selectionClick();
-        await store.setAvatarFromPath(null);
-        return;
-      }
-      if (action != 'change') return;
+      ),
+    );
+
+    if (!context.mounted) return;
+    if (action == 'timer') {
+      HapticFeedback.selectionClick();
+      showAutoLockSheet(context);
+      return;
     }
+    if (action == 'remove') {
+      HapticFeedback.selectionClick();
+      await store.setAvatarFromPath(null);
+      return;
+    }
+    if (action != 'change') return;
 
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,

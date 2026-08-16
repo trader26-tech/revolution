@@ -478,26 +478,26 @@ class _CategoryStep extends StatelessWidget {
           progress: 1,
           reading: true,
           style: TextStyle(
-              fontSize: 16,
-              height: 1.32,
-              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              height: 1.25,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
               color: AppColors.ink),
         ),
         if (reveal > 0.01)
           Opacity(
             opacity: reveal,
             child: Padding(
-              padding: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.only(top: 14),
               child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 10,
+                runSpacing: 10,
                 children: [
                   for (final c in kCreateCategories)
                     _Chip(
                       icon: c.icon,
                       label: c.singular[0].toUpperCase() +
                           c.singular.substring(1),
-                      tint: c.color,
                       onTap: () => onPick(c),
                     ),
                 ],
@@ -627,7 +627,7 @@ class _FieldStepState extends State<_FieldStep> {
         Row(
           children: [
             Icon(widget.flow.category!.icon,
-                size: 15, color: widget.flow.category!.color),
+                size: 15, color: AppColors.accent),
             const SizedBox(width: 6),
             Text(step,
                 style: const TextStyle(
@@ -637,15 +637,16 @@ class _FieldStepState extends State<_FieldStep> {
                     color: AppColors.inkFaint)),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         MagicText(
           text: f.prompt,
           progress: 1,
           reading: true,
           style: const TextStyle(
-              fontSize: 16,
-              height: 1.32,
-              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              height: 1.25,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
               color: AppColors.ink),
         ),
         if (reveal > 0.01)
@@ -1041,8 +1042,8 @@ class ComingSoonLine extends StatelessWidget {
 
 // ── Small shared pieces ──────────────────────────────────────────────────────
 
-/// A pill chip — the flow's one tappable primitive. [filled] = accent solid,
-/// [tint] = a coloured outline (category), [muted] = quiet (Skip).
+/// A pill chip — the flow's one tappable primitive, ONE accent colour for all.
+/// [filled] = accent solid (primary), [muted] = quiet (Skip).
 class _Chip extends StatelessWidget {
   const _Chip({
     required this.label,
@@ -1050,7 +1051,6 @@ class _Chip extends StatelessWidget {
     this.icon,
     this.filled = false,
     this.muted = false,
-    this.tint,
   });
 
   final String label;
@@ -1058,10 +1058,11 @@ class _Chip extends StatelessWidget {
   final IconData? icon;
   final bool filled;
   final bool muted;
-  final Color? tint;
 
   @override
   Widget build(BuildContext context) {
+    // Single accent colour for every chip (no per-category tints) + a FIXED
+    // height, so they all read as one consistent set — same size, same format.
     final Color bg;
     final Color fg;
     final Color border;
@@ -1074,15 +1075,16 @@ class _Chip extends StatelessWidget {
       fg = AppColors.inkFaint;
       border = AppColors.cardBorder;
     } else {
-      bg = (tint ?? AppColors.accent).withValues(alpha: 0.10);
-      fg = tint ?? AppColors.ink;
-      border = (tint ?? AppColors.accent).withValues(alpha: 0.35);
+      bg = AppColors.accent.withValues(alpha: 0.12);
+      fg = AppColors.ink;
+      border = AppColors.accent.withValues(alpha: 0.35);
     }
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(999),
@@ -1092,12 +1094,14 @@ class _Chip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 15, color: fg),
-              const SizedBox(width: 6),
+              Icon(icon, size: 18, color: fg == AppColors.ink
+                  ? AppColors.accent
+                  : fg),
+              const SizedBox(width: 8),
             ],
             Text(label,
                 style: TextStyle(
-                    color: fg, fontSize: 13.5, fontWeight: FontWeight.w800)),
+                    color: fg, fontSize: 15, fontWeight: FontWeight.w700)),
           ],
         ),
       ),

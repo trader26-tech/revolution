@@ -375,7 +375,7 @@ class HomePageState extends State<HomePage> {
         ? 'Good morning'
         : (h < 17 ? 'Good afternoon' : 'Good evening');
     final first = name.trim().isEmpty ? '' : name.trim().split(' ').first;
-    return first.isEmpty ? part : '$part, $first';
+    return first.isEmpty ? part : '$part, $first!';
   }
 
   Widget _buildList() {

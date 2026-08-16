@@ -237,12 +237,10 @@ class _BottomBar extends StatelessWidget {
 
   static const _h = 60.0; // bar height
   static const _gap = 12.0; // gap between the two elements
-  // Resting width of the nav pill so it HUGS the Home·Browse buttons instead of
-  // stretching across the bar. Sized for the widest resting state (Home selected
-  // → "Home" pill + a plain Browse icon) plus the pill's own side padding.
-  // Bumped from 184 to fit the larger selected pill (52px tall, 20px pad,
-  // 24px icon, 15.5 label) without the FittedBox scaling it down.
-  static const _navNatural = 200.0;
+  // The MINIMUM resting width for the nav pill — the real resting width is
+  // proportional (~62% of the bar, see build) so the pill fills the left and the
+  // Home·Browse buttons breathe; this floor keeps it usable on very narrow bars.
+  static const _navNatural = 196.0;
 
   @override
   Widget build(BuildContext context) {
@@ -340,30 +338,27 @@ class _NavHalf extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // The pill's Home·Browse row — hugged to the LEFT with a little inset,
-            // min-width buttons, kept from overflowing by a FittedBox scaleDown
-            // while the pill is mid-shrink.
+            // The pill's Home·Browse row — the two buttons DISTRIBUTED across the
+            // FULL pill width (spaceEvenly) so the wider resting pill reads as a
+            // balanced bar, not a left-hugged cluster with empty space. It fills
+            // the pill (Positioned.fill), and the pill's ClipRRect keeps it tidy
+            // while it narrows on morph (the contents fade out by t=0.35 anyway).
             if (navOpacity > 0.01)
-              Align(
-                alignment: Alignment.centerLeft,
+              Positioned.fill(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Opacity(
                     opacity: navOpacity,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (var i = 0; i < 2; i++)
-                            _NavButton(
-                              item: _kNavItems[i],
-                              selected: i == index,
-                              onTap: () => onChanged(i),
-                            ),
-                        ],
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        for (var i = 0; i < 2; i++)
+                          _NavButton(
+                            item: _kNavItems[i],
+                            selected: i == index,
+                            onTap: () => onChanged(i),
+                          ),
+                      ],
                     ),
                   ),
                 ),

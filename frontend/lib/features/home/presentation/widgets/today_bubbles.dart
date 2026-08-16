@@ -452,16 +452,23 @@ class _GreetingState extends State<_Greeting>
           child: const ProfileAvatar(size: 46),
         ),
         const SizedBox(width: 14),
+        // Keep the whole "Good evening, Rajeev!" on ONE line: FittedBox gives the
+        // text unbounded width (so MagicText's word wrap never triggers) and
+        // scales it down to fit if the name is long — never a second line.
         Flexible(
-          child: MagicText(
-            text: widget.greeting,
-            progress: p,
-            style: const TextStyle(
-              fontSize: 24,
-              height: 1.15,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
-              color: AppColors.ink,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: MagicText(
+              text: widget.greeting,
+              progress: p,
+              style: const TextStyle(
+                fontSize: 24,
+                height: 1.15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+                color: AppColors.ink,
+              ),
             ),
           ),
         ),

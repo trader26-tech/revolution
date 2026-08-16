@@ -254,15 +254,27 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
                   offset: Offset(0, (1 - t) * 10),
                   child: SafeArea(
                     bottom: false,
+                    // Reserve BOTH the bar space and the live keyboard inset, so
+                    // the list always sizes to the visible area. Without the
+                    // keyboard term the content height jumped as the keyboard
+                    // animated away on close — a few-pixel RenderFlex overflow /
+                    // "pixel mismatch" during the return to Home. ClipRect makes
+                    // any remaining transient frame clip cleanly instead of
+                    // painting the overflow stripes.
                     child: Padding(
-                      padding: EdgeInsets.only(bottom: widget.barSpace),
-                      child: AnimatedBuilder(
-                        animation: _c,
-                        builder: (context, _) => Column(
-                          children: [
-                            const SizedBox(height: 12),
-                            Expanded(child: _buildList()),
-                          ],
+                      padding: EdgeInsets.only(
+                        bottom: widget.barSpace +
+                            MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: ClipRect(
+                        child: AnimatedBuilder(
+                          animation: _c,
+                          builder: (context, _) => Column(
+                            children: [
+                              const SizedBox(height: 12),
+                              Expanded(child: _buildList()),
+                            ],
+                          ),
                         ),
                       ),
                     ),

@@ -9,7 +9,6 @@ import '../auth/domain/country_code.dart';
 import '../documents/data/documents_store.dart';
 import '../onboarding/data/onboarding_store.dart';
 import '../reminders/data/reminder_scheduler.dart';
-import '../reminders/presentation/reminders_page.dart';
 import '../tasks/data/task_store.dart';
 import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
@@ -191,14 +190,6 @@ class _SettingsPageState extends State<SettingsPage> {
     if (picked == null) return;
     await _profile.setDefaultReminderTime(picked.hour * 60 + picked.minute);
     if (mounted) _toast('Default reminder time set to ${picked.format(context)}');
-  }
-
-  void _openReminders() {
-    final store = widget.store;
-    if (store == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => RemindersPage(store: store)),
-    );
   }
 
   /// Ask the OS for notification permission, then reflect the new state.
@@ -391,7 +382,7 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               SettingsSwitchTile(
                 icon: Icons.notifications_active_outlined,
-                title: 'Reminder alerts',
+                title: 'Notifications',
                 info: 'Get notified for each reminder at its time.',
                 value: _profile.notifReminders,
                 onChanged: (v) => _profile.setNotifReminders(v),
@@ -403,14 +394,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   info: 'Used when a reminder has no time of its own.',
                   value: _formatMinutes(_profile.defaultReminderMin),
                   onTap: _pickDefaultReminderTime,
-                ),
-              // The refer-back list of everything scheduled + recently sent.
-              if (widget.store != null)
-                SettingsTile(
-                  icon: Icons.event_note_rounded,
-                  title: 'Your reminders',
-                  info: 'See what’s scheduled and what was sent.',
-                  onTap: _openReminders,
                 ),
               // Notification check — a right-aligned button that ALLOWS
               // notifications when they're off, or fires a test when they're on,

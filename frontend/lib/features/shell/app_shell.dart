@@ -64,9 +64,11 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     super.initState();
     _morph = AnimationController(
       vsync: this,
-      // Fast + smooth: snaps open, quick close.
-      duration: const Duration(milliseconds: 260),
-      reverseDuration: const Duration(milliseconds: 200),
+      // Snappy + smooth: quick to snap open, quicker to close. The keyboard is
+      // held back until this finishes (see _RightHalf), so the search UI lands
+      // first and the keyboard rises after — never both at once.
+      duration: const Duration(milliseconds: 190),
+      reverseDuration: const Duration(milliseconds: 150),
     );
     _chat = CommandChatController(_store);
     // Let any page open the chat (optionally pre-scoped to a category) without a
@@ -430,14 +432,20 @@ class _RightHalfState extends State<_RightHalf> {
   @override
   void didUpdateWidget(_RightHalf old) {
     super.didUpdateWidget(old);
-    // The ★ is now a SEARCH — auto-focus the field as it opens so the keyboard is
-    // already up and the user can type immediately. Drop focus (dismiss keyboard)
-    // as the bar closes.
-    if (widget.t > 0.6 && old.t <= 0.6 && !_focus.hasFocus) {
+    // The ★ is now a SEARCH. Let the open animation FINISH first, THEN raise the
+    // keyboard — so the search field visibly lands, and only after that does the
+    // keyboard slide up. (Focusing mid-morph made the keyboard shove in while the
+    // bar was still morphing, which felt jumpy.) We fire when the morph has all
+    // but completed (t≈1), one frame later, so the two motions are sequential.
+    final justOpened = widget.t > 0.985 && old.t <= 0.985;
+    if (justOpened && !_focus.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.t > 0.6) _focus.requestFocus();
+        if (mounted && widget.t > 0.985) _focus.requestFocus();
       });
-    } else if (widget.t < 0.3 && _focus.hasFocus) {
+    } else if (widget.t < 0.5 && _focus.hasFocus) {
+      // Closing: drop focus EARLY (as soon as the bar starts collapsing) so the
+      // keyboard is already gone before the pill narrows — this is what removes
+      // the pixel jump / overflow when returning to Home.
       _focus.unfocus();
     }
   }

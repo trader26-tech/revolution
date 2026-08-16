@@ -421,60 +421,52 @@ class _Greeting extends StatelessWidget {
         hasName ? greeting.substring(0, comma).trim() : greeting.trim();
     final name = hasName ? greeting.substring(comma + 1).trim() : '';
 
-    // Read the greeting IN ORDER while KEEPING the bubbly shimmer (glow, haze,
-    // float) on every word: the salutation ("Good morning,") materialises first
-    // across the FRONT of the window, THEN the name ("Ranjeev") across the BACK
-    // — with a slight overlap so it flows. Default (shimmer) MagicText already
-    // starts its words left-to-right; sequencing the two TIERS this way is what
-    // makes the whole line land as "Good morning," → "Ranjeev" in order, instead
-    // of the name flashing in alongside the salutation.
-    final salProgress = _seg(progress, 0.0, 0.58);
-    final nameProgress = _seg(progress, 0.42, 1.0);
-
     if (!hasName) {
-      // No name → the salutation itself is the hero, on its own single line.
+      // No name → just the salutation, one line.
       return MagicText(
         text: salutation,
         progress: progress,
         style: const TextStyle(
-          fontSize: 28,
-          height: 1.1,
+          fontSize: 24,
+          height: 1.15,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.2,
+          letterSpacing: -0.2,
           color: AppColors.ink,
         ),
       );
     }
 
-    // ONE LINE: "Good afternoon," then the gradient name, flowing together on a
-    // single baseline (a Wrap so a long name gracefully falls to a second row
-    // instead of overflowing, but normally it reads as one line).
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 8,
-      runSpacing: 2,
-      children: [
-        MagicText(
-          text: '$salutation,',
-          progress: salProgress,
-          style: const TextStyle(
-            fontSize: 26,
-            height: 1.1,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.1,
-            color: AppColors.inkSoft,
-          ),
+    // ONE cohesive line, ONE size, ONE flowing phrase: "Good afternoon, Ranjeev".
+    // The whole thing shimmers in together as a single MagicText; a gradient
+    // ShaderMask sweeps violet→light across the LINE so the name (at the end,
+    // where the gradient is strongest) reads as the accented part — without
+    // being a mismatched second block, a second colour jump, or a second line.
+    return ShaderMask(
+      shaderCallback: (rect) => const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          AppColors.ink, // salutation reads as calm ink…
+          AppColors.ink,
+          Color(0xFFC9BBFF), // …easing into lavender…
+          AppColors.accent, // …to violet on the name at the end.
+        ],
+        stops: [0.0, 0.45, 0.72, 1.0],
+      ).createShader(rect),
+      blendMode: BlendMode.srcIn,
+      child: MagicText(
+        text: '$salutation, $name',
+        progress: progress,
+        style: const TextStyle(
+          fontSize: 24,
+          height: 1.15,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
+          color: Colors.white, // recoloured by the ShaderMask
         ),
-        _NameHero(name: name, progress: nameProgress),
-      ],
+      ),
     );
   }
-
-  /// Remap the overall [progress] onto a sub-window [start, end], clamped to
-  /// 0..1 — so one tier can run over the front of the timeline and the next over
-  /// the back, giving a strict salutation-then-name reading order.
-  static double _seg(double progress, double start, double end) =>
-      ((progress - start) / (end - start)).clamp(0.0, 1.0);
 }
 
 /// The user's NAME as the hero of the greeting: the gradient-filled, word-by-word

@@ -281,10 +281,11 @@ class MenuLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Start the rows only AFTER the greeting hero has mostly landed (shimmer>0.5),
+    // then run them one-after-another so Create → Read → Update → Delete each
+    // arrives in turn.
     final reveal =
-        Curves.easeOut.transform(((shimmer - 0.3) / 0.7).clamp(0.0, 1.0));
-    // The four CRUD actions as clean tappable LIST ROWS (not chips), each
-    // revealing in sequence.
+        Curves.easeOut.transform(((shimmer - 0.5) / 0.5).clamp(0.0, 1.0));
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
       child: Column(
@@ -294,7 +295,7 @@ class MenuLine extends StatelessWidget {
             if (idx > 0)
               Opacity(
                 opacity: Curves.easeOut
-                    .transform(((reveal - idx * 0.1) / 0.4).clamp(0.0, 1.0)),
+                    .transform(((reveal - idx * 0.18) / 0.3).clamp(0.0, 1.0)),
                 child: Divider(
                   height: 1,
                   thickness: 1,
@@ -316,9 +317,10 @@ class MenuLine extends StatelessWidget {
     );
   }
 
-  /// Slides + fades each row up in sequence off [reveal].
+  /// Slides + fades each row up ONE AFTER ANOTHER off [reveal] — each row waits
+  /// for the previous to arrive before starting (a clear sequential cascade).
   Widget _staggered(double reveal, int i, Widget child) {
-    const step = 0.1;
+    const step = 0.18; // bigger gap → clearly one-by-one
     final start = i * step;
     final local = ((reveal - start) / (1 - start)).clamp(0.0, 1.0);
     final eased = Curves.easeOutCubic.transform(local);

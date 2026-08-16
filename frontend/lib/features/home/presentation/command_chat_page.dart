@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -55,7 +57,9 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
     super.initState();
     _shimmer = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      // Long enough for the two-tier greeting to land AND the four CRUD rows to
+      // cascade in one after another without feeling rushed.
+      duration: const Duration(milliseconds: 1900),
     );
     _breath = AnimationController(
       vsync: this,
@@ -292,29 +296,80 @@ class _HeroGreeting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final slide = Curves.easeOut.transform(entrance.clamp(0.0, 1.0));
-    // Clean: just the greeting, conjuring in — no mascot.
+    // Two tiers, matching the HOME greeting: a quiet lead line, then a BIG
+    // gradient-filled hero line (violet→lavender ShaderMask) with a soft glow —
+    // the same premium "name" treatment as "Good evening, Rajeev".
+    final tier1 = _seg(progress, 0.0, 0.55);
+    final tier2 = _seg(progress, 0.4, 1.0);
+    final bloom = tier2 >= 0.999 ? 0.0 : math.sin(tier2.clamp(0.0, 1.0) * math.pi);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 22, 18),
+      padding: const EdgeInsets.fromLTRB(20, 10, 22, 18),
       child: Opacity(
         opacity: slide,
         child: Transform.translate(
           offset: Offset(0, (1 - slide) * 12),
-          child: MagicText(
-            text: 'What do you\nwant to do today?',
-            progress: progress,
-            reading: true,
-            style: const TextStyle(
-              color: AppColors.ink,
-              fontSize: 26,
-              height: 1.18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Tier 1 — the quiet lead ("What do you want to do")
+              MagicText(
+                text: 'What do you want to do',
+                progress: tier1,
+                reading: true,
+                style: const TextStyle(
+                  color: AppColors.inkSoft,
+                  fontSize: 20,
+                  height: 1.15,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              // Tier 2 — the big gradient HERO word ("today?"), glowing in.
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.accent.withValues(alpha: 0.45 * bloom),
+                      blurRadius: 26 * bloom,
+                      spreadRadius: 1 * bloom,
+                    ),
+                  ],
+                ),
+                child: ShaderMask(
+                  shaderCallback: (rect) => const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFEDE7FF), // near-white lavender
+                      AppColors.accent, // vivid violet
+                    ],
+                  ).createShader(rect),
+                  blendMode: BlendMode.srcIn,
+                  child: MagicText(
+                    text: 'today?',
+                    progress: tier2,
+                    style: const TextStyle(
+                      fontSize: 40,
+                      height: 1.05,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.8,
+                      color: Colors.white, // recoloured by the ShaderMask
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  /// Remap [p] onto a sub-window [start,end], clamped 0..1.
+  double _seg(double p, double start, double end) =>
+      ((p - start) / (end - start)).clamp(0.0, 1.0);
 }
 
 /// The living violet AURORA behind the chat — two soft radial blooms (one rising

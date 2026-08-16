@@ -221,20 +221,23 @@ class _BottomBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, c) {
           final total = c.maxWidth;
-          // NAV STATE (t=0): the left pill HUGS its Home·Browse buttons (natural
-          // width, pinned left) with the ★ circle right beside it — the whole bar
-          // stays compact on the left, not stretched across the full width.
-          // COMMAND STATE (t=1): the field expands to fill, the nav shrinks to a
-          // dot. We interpolate the LEFT width from its compact natural size to a
-          // small dot, and derive the right as the exact remainder so nothing
-          // overflows at any t.
+          // NAV STATE (t=0): a compact cluster pinned LEFT — the nav pill HUGS its
+          // Home·Browse buttons and the ★ sits right beside it as a clean CIRCLE
+          // (width == height). The rest of the bar is empty.
+          // COMMAND STATE (t=1): the ★ grows into the full-width command field and
+          // the nav collapses to a dot. We interpolate both widths from their
+          // compact resting sizes to their expanded sizes; the exact remainder
+          // becomes a trailing spacer so nothing overflows at any t.
           //
-          // `_navNatural` is the pill's resting content width (2 buttons + its own
-          // side padding). At t=0 the left pill is exactly that; as t→1 it
-          // collapses to a dot (_h) and the right half takes everything else.
+          // Left: natural pill width (t=0) → dot (t=1).
           final leftW = (_navNatural + (_h - _navNatural) * t)
               .clamp(_h, total - _gap - _h);
-          final rightW = total - _gap - leftW; // exact remainder
+          // Right: a circle (_h, t=0) → everything left over (t=1).
+          final rightMax = total - _gap - leftW; // fills the remainder when open
+          final rightW = (_h + (rightMax - _h) * t).clamp(_h, rightMax);
+          // Whatever's still unused sits as an empty spacer on the far right, so
+          // the pill+★ cluster stays hugged to the left in nav state.
+          final trailing = (total - leftW - _gap - rightW).clamp(0.0, total);
 
           return SizedBox(
             height: _h,
@@ -260,6 +263,7 @@ class _BottomBar extends StatelessWidget {
                     onSend: onSend,
                   ),
                 ),
+                if (trailing > 0.01) SizedBox(width: trailing),
               ],
             ),
           );

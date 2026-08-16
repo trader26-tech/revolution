@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
+import '../../../core/widgets/mascot.dart';
 import '../../onboarding/presentation/widgets/magic_text.dart' show MagicText;
 import '../../update_flow/presentation/update_flow_sheet.dart';
 import 'widgets/command_chat.dart';
@@ -286,10 +287,13 @@ class _HeroGreeting extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The rainbow character — a soft multi-colour orb that gently breathes,
-          // in place of the old "Revo" text mark.
-          _RainbowAvatar(progress: progress),
-          const SizedBox(height: 16),
+          // The Revo character (the circle-with-triangle mascot) — the same one
+          // that used to sit by the home greeting. It now lives here, greeting
+          // you when the ★ command chat opens.
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: AnimatedMascot(size: 56, glow: true),
+          ),
           MagicText(
             text: 'What do you want\nto do today?',
             progress: progress,
@@ -308,74 +312,8 @@ class _HeroGreeting extends StatelessWidget {
   }
 }
 
-/// The RAINBOW character — a rounded gradient orb (violet→pink→amber→cyan) with
-/// a soft glow and a bright inner highlight, standing in for an assistant
-/// avatar. Scales in with the greeting's [progress].
-class _RainbowAvatar extends StatelessWidget {
-  const _RainbowAvatar({required this.progress});
-  final double progress;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Curves.easeOutBack.transform(progress.clamp(0.0, 1.0));
-    return Transform.scale(
-      scale: 0.6 + 0.4 * t,
-      child: Container(
-        width: 52,
-        height: 52,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: const SweepGradient(
-            colors: [
-              Color(0xFF7C5CFC), // violet
-              Color(0xFFFF6BD6), // pink
-              Color(0xFFFFB454), // amber
-              Color(0xFF4EE6C6), // cyan
-              Color(0xFF4EA8FF), // blue
-              Color(0xFF7C5CFC), // back to violet
-            ],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF6BD6).withValues(alpha: 0.35),
-              blurRadius: 22,
-              spreadRadius: -2,
-              offset: const Offset(-3, 4),
-            ),
-            BoxShadow(
-              color: AppColors.accent.withValues(alpha: 0.4),
-              blurRadius: 22,
-              spreadRadius: -2,
-              offset: const Offset(3, 4),
-            ),
-          ],
-        ),
-        // A soft inner highlight so the orb reads glossy, not flat.
-        child: Container(
-          margin: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.45),
-                Colors.white.withValues(alpha: 0.0),
-              ],
-            ),
-          ),
-          child: const Center(
-            child: Icon(Icons.auto_awesome_rounded,
-                size: 20, color: Colors.white),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The top bar: just a back button that closes the chat. (No ★ glyph — the
-/// rainbow avatar lives with the greeting hero below.)
+/// The top bar: just a back button that closes the chat. (No glyph — the Revo
+/// mascot lives with the greeting hero below.)
 class _Header extends StatelessWidget {
   const _Header({required this.onClose});
   final VoidCallback onClose;

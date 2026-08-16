@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/mascot.dart';
 import '../../../brand/domain/brand.dart';
 import '../../../brand/presentation/brand_logo.dart';
 import '../../../details/domain/currency.dart' show currencyOf, formatAmount;
 import '../../../onboarding/presentation/widgets/magic_text.dart'
-    show MagicText, RevoEntrance;
+    show MagicText;
 import '../../../tasks/domain/category_visuals.dart';
 import '../../../tasks/domain/task.dart';
 
@@ -80,9 +79,8 @@ class _TodayBubblesState extends State<TodayBubbles>
   // up" on its own before the next begins.
   late final AnimationController _run;
 
-  // Intro (Revo + greeting), then a beat, then the items — deliberately SLOW so
+  // Intro (the greeting), then a beat, then the items — deliberately SLOW so
   // the effort is visible.
-  static const _revoMs = 460;
   static const _greetStartMs = 620;
   static const _greetEndMs = 1500;
   static const _firstItemMs = 1850;
@@ -244,32 +242,13 @@ class _TodayBubblesState extends State<TodayBubbles>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Revo + the greeting, materialising word by word ──
+            // ── The greeting, materialising word by word (no mascot here — the
+            //    Revo character now lives on the ★ command chat page). ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10, top: 2),
-                    child: RevoEntrance(
-                      t: _win(0, _revoMs),
-                      child: Transform.flip(
-                        flipX: true,
-                        child: const AnimatedMascot(size: 52, glow: false),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: _Greeting(
-                        greeting: widget.greeting,
-                        progress: _win(_greetStartMs, _greetEndMs),
-                      ),
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              child: _Greeting(
+                greeting: widget.greeting,
+                progress: _win(_greetStartMs, _greetEndMs),
               ),
             ),
 
@@ -452,28 +431,41 @@ class _Greeting extends StatelessWidget {
     final salProgress = _seg(progress, 0.0, 0.58);
     final nameProgress = _seg(progress, 0.42, 1.0);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
+    if (!hasName) {
+      // No name → the salutation itself is the hero, on its own single line.
+      return MagicText(
+        text: salutation,
+        progress: progress,
+        style: const TextStyle(
+          fontSize: 28,
+          height: 1.1,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.2,
+          color: AppColors.ink,
+        ),
+      );
+    }
+
+    // ONE LINE: "Good afternoon," then the gradient name, flowing together on a
+    // single baseline (a Wrap so a long name gracefully falls to a second row
+    // instead of overflowing, but normally it reads as one line).
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 2,
       children: [
-        // ── Tier 1: the quiet salutation (reveals first) ──
         MagicText(
-          text: hasName ? '$salutation,' : salutation,
-          progress: hasName ? salProgress : progress,
-          style: TextStyle(
-            fontSize: hasName ? 16 : 30,
+          text: '$salutation,',
+          progress: salProgress,
+          style: const TextStyle(
+            fontSize: 26,
             height: 1.1,
-            fontWeight: hasName ? FontWeight.w600 : FontWeight.w800,
-            letterSpacing: 0.2,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.1,
             color: AppColors.inkSoft,
           ),
         ),
-        // ── Tier 2: the name — big, gradient-filled, the hero (reveals after),
-        //    with a personal ✦ sparkle beside it and a celebratory landing. ──
-        if (hasName) ...[
-          const SizedBox(height: 2),
-          _NameHero(name: name, progress: nameProgress),
-        ],
+        _NameHero(name: name, progress: nameProgress),
       ],
     );
   }
@@ -568,10 +560,10 @@ class _NameHeroState extends State<_NameHero>
                   text: widget.name,
                   progress: widget.progress,
                   style: const TextStyle(
-                    fontSize: 34,
-                    height: 1.05,
+                    fontSize: 27,
+                    height: 1.1,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -0.6,
+                    letterSpacing: -0.4,
                     color: Colors.white, // recoloured by the ShaderMask
                   ),
                 ),

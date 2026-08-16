@@ -284,11 +284,7 @@ class _BottomBar extends StatelessWidget {
   final ValueChanged<String> onSend;
 
   static const _h = 60.0; // bar height
-  static const _gap = 12.0; // gap between the two elements
-  // Minimum resting width for the nav pill. Tabs are now compact (icon + tiny
-  // label, stacked), so three spread comfortably; the real width is proportional
-  // (see build). This floor just keeps them from cramping on a very narrow bar.
-  static const _navNatural = 200.0;
+  static const _gap = 12.0; // gap between the nav pill and the search circle
 
   @override
   Widget build(BuildContext context) {
@@ -297,30 +293,18 @@ class _BottomBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, c) {
           final total = c.maxWidth;
-          // NAV STATE (t=0): a BALANCED bar — the nav pill takes the left ~62% of
-          // the width (so Home·Browse breathe and read clearly), the ★ sits as a
-          // clean CIRCLE at the right, with a small deliberate gap between (no big
-          // empty middle).
-          // COMMAND STATE (t=1): the ★ grows into the full-width command field and
-          // the nav collapses to a dot. We interpolate both widths from their
-          // resting sizes to their expanded sizes; the exact remainder becomes a
-          // trailing spacer so nothing overflows at any t.
+          // NAV STATE (t=0): the bar uses the FULL width — the nav pill fills
+          // everything left of the search circle, with just [_gap] between them.
+          // No empty middle: nav pill + gap + ★ circle == total.
+          // COMMAND STATE (t=1): the ★ grows into the full-width search field and
+          // the nav collapses to a dot on the left.
           //
-          // Resting nav width: the pill fills the left ~72% so the three flat
-          // tabs (icon + label) spread evenly like a standard bottom nav, with the
-          // search circle sitting on the right. Clamped so it never overflows.
-          final navResting = (total * 0.72).clamp(_navNatural, total - _gap - _h);
-          // Left: resting pill width (t=0) → dot (t=1).
-          final leftW = (navResting + (_h - navResting) * t)
-              .clamp(_h, total - _gap - _h);
-          // Right: a circle (_h, t=0) → everything left over (t=1).
-          final rightMax = total - _gap - leftW; // fills the remainder when open
-          final rightW = (_h + (rightMax - _h) * t).clamp(_h, rightMax);
-          // Whatever's unused sits as an empty spacer BETWEEN the pill and the ★,
-          // so the nav pill hugs the LEFT while the ★ stays pinned to the far
-          // RIGHT edge. As command mode opens the spacer shrinks to zero and the
-          // ★ grows leftward into the full-width field.
-          final middle = (total - leftW - _gap - rightW).clamp(0.0, total);
+          // Right element: a circle (_h) at rest → grows to fill the bar as t→1.
+          final rightW = (_h + (total - _gap - _h - _h) * t).clamp(_h, total - _gap - _h);
+          // Left element (nav pill) takes ALL the remaining width — so the pill
+          // spans the bar and the three tabs spread across it. Shrinks to a dot
+          // as the search field expands over it.
+          final leftW = (total - _gap - rightW).clamp(_h, total);
 
           return SizedBox(
             height: _h,
@@ -336,9 +320,7 @@ class _BottomBar extends StatelessWidget {
                     onChanged: onTab,
                   ),
                 ),
-                // Flexible gap: keeps the ★ at the far right in nav state, then
-                // collapses (through the fixed _gap) as the field expands.
-                SizedBox(width: _gap + middle),
+                const SizedBox(width: _gap),
                 SizedBox(
                   width: rightW,
                   child: _RightHalf(
@@ -719,35 +701,69 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A clean, flat tab — icon stacked over a small label, like a standard
-    // bottom nav. The SELECTED tab is tinted accent (icon + label); unselected
-    // tabs are a quiet muted glyph + label. No boxed pill, so any number of tabs
-    // spread evenly and NOTHING overflows. Colour alone carries the selection.
-    final color = selected ? AppColors.accent : AppColors.inkFaint;
+    // The Orbit look: the SELECTED tab is an ACCENT PILL (violet, matching the
+    // search ★) — icon + label side by side, white, with a soft glow. Every
+    // unselected tab is a quiet muted glyph + label. The pill hugs its own
+    // content and lives inside an evenly-spread row, so it can never push a
+    // sibling out — the bar can't overflow.
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(selected ? item.active : item.icon, size: 24, color: color),
-            const SizedBox(height: 3),
-            Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.clip,
-              softWrap: false,
-              style: TextStyle(
-                color: color,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                fontSize: 11,
-                letterSpacing: -0.1,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        height: 46,
+        padding: EdgeInsets.symmetric(horizontal: selected ? 16 : 10),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: selected
+              ? const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF9B7CFF), AppColors.accent],
+                )
+              : null,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.42),
+                    blurRadius: 14,
+                    spreadRadius: -2,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected ? item.active : item.icon,
+                size: 22,
+                color: selected ? Colors.white : AppColors.inkFaint,
               ),
-            ),
-          ],
+              // Only the SELECTED tab shows its label (inside the pill) — so the
+              // bar reads as one sliding pill among quiet glyphs, and stays clean.
+              if (selected) ...[
+                const SizedBox(width: 7),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

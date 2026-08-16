@@ -436,8 +436,13 @@ class CreateFlowLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The category step is a full-width LIST, so it uses symmetric side padding
+    // (20/20) for even row edges; the other steps keep the reply inset (24 right).
+    final horizontal = flow.stage == CreateStage.pickCategory
+        ? const EdgeInsets.fromLTRB(20, 6, 20, 8)
+        : const EdgeInsets.fromLTRB(20, 6, 24, 8);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 6, 24, 8),
+      padding: horizontal,
       child: switch (flow.stage) {
         CreateStage.pickCategory => _CategoryStep(
             shimmer: shimmer,
@@ -462,51 +467,172 @@ class CreateFlowLine extends StatelessWidget {
   }
 }
 
-/// Step 1 — "Which one?" + the category chips.
+/// Step 1 — "What are you adding?" + the categories as a clean vertical LIST
+/// (one below another), matching the CRUD menu's row style. Each row: a tinted
+/// category icon, its name, a one-line hint, and a chevron — with thin dividers
+/// and a staggered reveal.
 class _CategoryStep extends StatelessWidget {
   const _CategoryStep({required this.shimmer, required this.onPick});
   final double shimmer;
   final ValueChanged<TaskCategory> onPick;
 
+  /// A short, plain hint under each category name.
+  static String _hintFor(TaskCategory c) => switch (c) {
+        TaskCategory.subscription => 'Netflix, Spotify, any recurring plan',
+        TaskCategory.bills => 'Rent, electricity, EMIs',
+        TaskCategory.investment => 'SIPs & mutual funds',
+        TaskCategory.birthday => 'Birthdays & anniversaries',
+        TaskCategory.medicine => 'Doses & courses to track',
+        TaskCategory.policies => 'Savings & endowment policies',
+        TaskCategory.insurance => 'Health, car, home cover',
+        TaskCategory.other => 'A simple reminder or note',
+      };
+
+  static String _titleFor(TaskCategory c) =>
+      c.singular[0].toUpperCase() + c.singular.substring(1);
+
   @override
   Widget build(BuildContext context) {
     final reveal =
-        Curves.easeOut.transform(((shimmer - 0.4) / 0.6).clamp(0.0, 1.0));
+        Curves.easeOut.transform(((shimmer - 0.3) / 0.7).clamp(0.0, 1.0));
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const MagicText(
-          text: 'What are you adding?',
-          progress: 1,
-          reading: true,
-          style: TextStyle(
-              fontSize: 20,
-              height: 1.25,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.2,
-              color: AppColors.ink),
+        const Padding(
+          padding: EdgeInsets.only(left: 4, right: 4, bottom: 4),
+          child: MagicText(
+            text: 'What are you adding?',
+            progress: 1,
+            reading: true,
+            style: TextStyle(
+                fontSize: 20,
+                height: 1.25,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+                color: AppColors.ink),
+          ),
         ),
-        if (reveal > 0.01)
-          Opacity(
-            opacity: reveal,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
+        for (var idx = 0; idx < kCreateCategories.length; idx++) ...[
+          if (idx > 0)
+            Opacity(
+              opacity: Curves.easeOut
+                  .transform(((reveal - idx * 0.07) / 0.4).clamp(0.0, 1.0)),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: Colors.white.withValues(alpha: 0.07),
+              ),
+            ),
+          _staggered(
+            reveal,
+            idx,
+            _CategoryRow(
+              category: kCreateCategories[idx],
+              title: _titleFor(kCreateCategories[idx]),
+              hint: _hintFor(kCreateCategories[idx]),
+              onTap: () => onPick(kCreateCategories[idx]),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Slides + fades each row up in sequence off [reveal].
+  Widget _staggered(double reveal, int i, Widget child) {
+    const step = 0.07;
+    final start = i * step;
+    final local = ((reveal - start) / (1 - start)).clamp(0.0, 1.0);
+    final eased = Curves.easeOutCubic.transform(local);
+    return Opacity(
+      opacity: eased,
+      child: Transform.translate(
+        offset: Offset(0, (1 - eased) * 12),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// One category as a clean tappable LIST ROW: a tinted icon in a soft square
+/// tile, the category name, a one-line hint, and a chevron. Press-highlight.
+class _CategoryRow extends StatefulWidget {
+  const _CategoryRow({
+    required this.category,
+    required this.title,
+    required this.hint,
+    required this.onTap,
+  });
+  final TaskCategory category;
+  final String title;
+  final String hint;
+  final VoidCallback onTap;
+
+  @override
+  State<_CategoryRow> createState() => _CategoryRowState();
+}
+
+class _CategoryRowState extends State<_CategoryRow> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = widget.category.color;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        color:
+            _down ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 13),
+        child: Row(
+          children: [
+            // A soft tinted square tile holding the category glyph — the one
+            // spot of the category's colour, so the list still scans as a list.
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: tint.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(widget.category.icon, size: 21, color: tint),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final c in kCreateCategories)
-                    _Chip(
-                      icon: c.icon,
-                      label: c.singular[0].toUpperCase() +
-                          c.singular.substring(1),
-                      onTap: () => onPick(c),
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      color: AppColors.ink,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
                     ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.hint,
+                    style: TextStyle(
+                      color: AppColors.inkSoft.withValues(alpha: 0.85),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-      ],
+            const Icon(Icons.chevron_right_rounded,
+                size: 20, color: AppColors.inkFaint),
+          ],
+        ),
+      ),
     );
   }
 }

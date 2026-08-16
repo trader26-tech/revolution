@@ -20,15 +20,16 @@ const orbitLabelStyle = TextStyle(
   color: AppColors.ink,
 );
 
-// ── Entrance cascade ─────────────────────────────────────────────────────────
+// ── Form reveal ──────────────────────────────────────────────────────────────
 
-/// A scrollable form body whose rows ARRIVE ONE AFTER ANOTHER — each card/field
-/// eases up, fades, and gently settles a beat after the one above it, so opening
-/// a form reads like the list assembling itself, not a dialog popping up.
+/// A scrollable form body that REVEALS ITSELF AS ONE PIECE — the whole form,
+/// treated as a single cohesive object, eases in together: a soft fade, a gentle
+/// upward settle, and a barely-there scale-up, all on one unhurried curve. No
+/// per-row stagger, nothing "popping" in — it's one form, so it arrives as one.
 ///
 /// Drop-in for a form's `ListView`: give it the same `padding` and `children`.
 /// It runs its own entrance the first time it mounts (so the route transition
-/// can stay a plain, quick fade — the CONTENT does the animating, not the page).
+/// can stay a plain, quick fade — the CONTENT does the reveal, not the page).
 class OrbitFormCascade extends StatefulWidget {
   const OrbitFormCascade({
     super.key,
@@ -48,16 +49,21 @@ class OrbitFormCascade extends StatefulWidget {
 class _OrbitFormCascadeState extends State<OrbitFormCascade>
     with SingleTickerProviderStateMixin {
   late final AnimationController _intro;
+  late final Animation<double> _reveal;
 
   @override
   void initState() {
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      // One considered, unhurried reveal — long enough to feel deliberate and
+      // premium, short enough to never make the user wait to interact.
+      duration: const Duration(milliseconds: 560),
     );
-    // A short beat so the page is painted before the cascade begins — the rows
-    // are then clearly SEEN arriving one by one, not mid-transition.
+    // A smooth decelerate — the form glides in and settles to rest, no bounce.
+    _reveal = CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic);
+    // Start once the page has painted, so the reveal is clearly seen (and never
+    // fights the route's own quick cross-fade).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _intro.forward();
     });
@@ -71,59 +77,30 @@ class _OrbitFormCascadeState extends State<OrbitFormCascade>
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
+    final list = ListView(
       controller: widget.controller,
       padding: widget.padding,
-      itemCount: widget.children.length,
-      itemBuilder: (context, i) => _CascadeRow(
-        intro: _intro,
-        index: i,
-        child: widget.children[i],
-      ),
+      children: widget.children,
     );
-  }
-}
-
-/// One form row's staggered arrival — mirrors the collection-list cascade: a
-/// FIXED per-row delay (so every row gets the same generous window), then a
-/// springy settle (ease up + in + scale, with a soft overshoot) and a fade.
-class _CascadeRow extends StatelessWidget {
-  const _CascadeRow({
-    required this.intro,
-    required this.index,
-    required this.child,
-  });
-
-  final Animation<double> intro;
-  final int index;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
+    // The ENTIRE form as one unit: fade + a small rise + a whisper of scale, so
+    // it reads as the form composing itself into place, cohesive and calm.
     return AnimatedBuilder(
-      animation: intro,
+      animation: _reveal,
       builder: (context, child) {
-        // A longer, more OVERLAPPING wave: rows start close together and each
-        // takes its time, so the whole thing flows as one smooth motion instead
-        // of discrete beats. No overshoot — a pure glide, so nothing "jumps".
-        const perRow = 0.075; // small gap → rows overlap and flow into each other
-        const maxStart = 0.5;
-        const window = 0.5; // long, unhurried per-row settle
-        final start = (index * perRow).clamp(0.0, maxStart);
-        final raw = ((intro.value - start) / window).clamp(0.0, 1.0);
-        // easeOutCubic: a soft, natural decelerate to rest — NO spring-back.
-        final eased = Curves.easeOutCubic.transform(raw);
+        final t = _reveal.value;
         return Opacity(
-          opacity: eased,
+          opacity: t,
           child: Transform.translate(
-            // A gentle rise only — smaller travel, no sideways drift, no scale.
-            // It simply slides up and settles, like the list but calmer.
-            offset: Offset(0, 20 * (1 - eased)),
-            child: child,
+            offset: Offset(0, 16 * (1 - t)), // gentle rise, as one piece
+            child: Transform.scale(
+              scale: 0.985 + 0.015 * t, // barely-there settle, top-anchored
+              alignment: Alignment.topCenter,
+              child: child,
+            ),
           ),
         );
       },
-      child: child,
+      child: list,
     );
   }
 }

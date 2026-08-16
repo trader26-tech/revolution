@@ -826,32 +826,38 @@ class _NavButton extends StatelessWidget {
                     ]
                   : null,
             ),
-            child: AnimatedSize(
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeOutCubic,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    selected ? item.active : item.icon,
-                    size: 22,
-                    color: selected ? Colors.white : AppColors.inkFaint,
-                  ),
-                  if (selected) ...[
-                    const SizedBox(width: 7),
-                    Text(
-                      item.label,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                        letterSpacing: -0.1,
-                      ),
+            // FittedBox keeps the selected pill's icon+label from ever
+            // overflowing its equal slice on narrow screens — it scales down to
+            // fit instead of spilling.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      selected ? item.active : item.icon,
+                      size: 22,
+                      color: selected ? Colors.white : AppColors.inkFaint,
                     ),
+                    if (selected) ...[
+                      const SizedBox(width: 7),
+                      Text(
+                        item.label,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

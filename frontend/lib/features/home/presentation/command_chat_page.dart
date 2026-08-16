@@ -286,29 +286,10 @@ class _HeroGreeting extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                'REVO',
-                style: TextStyle(
-                  color: AppColors.accent.withValues(alpha: 0.9),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2.2,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 5,
-                height: 5,
-                decoration: const BoxDecoration(
-                  color: AppColors.accent,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+          // The rainbow character — a soft multi-colour orb that gently breathes,
+          // in place of the old "Revo" text mark.
+          _RainbowAvatar(progress: progress),
+          const SizedBox(height: 16),
           MagicText(
             text: 'What do you want\nto do today?',
             progress: progress,
@@ -327,7 +308,74 @@ class _HeroGreeting extends StatelessWidget {
   }
 }
 
-/// The top bar: a back button that closes the chat + a small "Revo" glyph.
+/// The RAINBOW character — a rounded gradient orb (violet→pink→amber→cyan) with
+/// a soft glow and a bright inner highlight, standing in for an assistant
+/// avatar. Scales in with the greeting's [progress].
+class _RainbowAvatar extends StatelessWidget {
+  const _RainbowAvatar({required this.progress});
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Curves.easeOutBack.transform(progress.clamp(0.0, 1.0));
+    return Transform.scale(
+      scale: 0.6 + 0.4 * t,
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const SweepGradient(
+            colors: [
+              Color(0xFF7C5CFC), // violet
+              Color(0xFFFF6BD6), // pink
+              Color(0xFFFFB454), // amber
+              Color(0xFF4EE6C6), // cyan
+              Color(0xFF4EA8FF), // blue
+              Color(0xFF7C5CFC), // back to violet
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF6BD6).withValues(alpha: 0.35),
+              blurRadius: 22,
+              spreadRadius: -2,
+              offset: const Offset(-3, 4),
+            ),
+            BoxShadow(
+              color: AppColors.accent.withValues(alpha: 0.4),
+              blurRadius: 22,
+              spreadRadius: -2,
+              offset: const Offset(3, 4),
+            ),
+          ],
+        ),
+        // A soft inner highlight so the orb reads glossy, not flat.
+        child: Container(
+          margin: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.45),
+                Colors.white.withValues(alpha: 0.0),
+              ],
+            ),
+          ),
+          child: const Center(
+            child: Icon(Icons.auto_awesome_rounded,
+                size: 20, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The top bar: just a back button that closes the chat. (No ★ glyph — the
+/// rainbow avatar lives with the greeting hero below.)
 class _Header extends StatelessWidget {
   const _Header({required this.onClose});
   final VoidCallback onClose;
@@ -342,28 +390,6 @@ class _Header extends StatelessWidget {
             icon: Icons.arrow_back_rounded,
             onTap: onClose,
             size: 42,
-          ),
-          const Spacer(),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF9B7CFF), AppColors.accent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.accent.withValues(alpha: 0.5),
-                  blurRadius: 16,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.auto_awesome_rounded,
-                size: 18, color: Colors.white),
           ),
         ],
       ),
@@ -386,8 +412,24 @@ class _ChatInputState extends State<_ChatInput> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
 
+  /// Whether the field has non-blank text — drives the send button's active
+  /// state (there's nothing to send until you type something).
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    final has = _controller.text.trim().isNotEmpty;
+    if (has != _hasText) setState(() => _hasText = has);
+  }
+
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focus.dispose();
     super.dispose();
@@ -439,7 +481,11 @@ class _ChatInputState extends State<_ChatInput> {
                   ),
                 ),
               ),
-              _SendButton(busy: widget.busy, onTap: _send),
+              // Active only when there's something to send AND we're not busy.
+              _SendButton(
+                enabled: _hasText && !widget.busy,
+                onTap: _send,
+              ),
             ],
           ),
         ),
@@ -449,28 +495,45 @@ class _ChatInputState extends State<_ChatInput> {
 }
 
 class _SendButton extends StatelessWidget {
-  const _SendButton({required this.busy, required this.onTap});
-  final bool busy;
+  const _SendButton({required this.enabled, required this.onTap});
+  final bool enabled;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: busy ? null : onTap,
+      onTap: enabled ? onTap : null,
       behavior: HitTestBehavior.opaque,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
         margin: const EdgeInsets.all(6),
         width: 40,
         height: 40,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: busy
-              ? AppColors.accent.withValues(alpha: 0.5)
-              : AppColors.accent,
+          // Dim + flat when there's nothing to send; bright accent when active.
+          color: enabled
+              ? AppColors.accent
+              : Colors.white.withValues(alpha: 0.08),
           shape: BoxShape.circle,
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.45),
+                    blurRadius: 12,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
         ),
-        child: const Icon(Icons.arrow_upward_rounded,
-            size: 20, color: Colors.white),
+        child: Icon(
+          Icons.arrow_upward_rounded,
+          size: 20,
+          color: enabled
+              ? Colors.white
+              : AppColors.inkFaint.withValues(alpha: 0.8),
+        ),
       ),
     );
   }

@@ -76,10 +76,17 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   Future<void> _openCommand() async {
     if (_chatOpen) return;
     _chatOpen = true;
+    // Morph the bottom bar as the chat opens: the Home·Browse pill condenses to
+    // a single dot on the left + the ★ widens — the old "opening" motion, shown
+    // behind the rising chat page during its entrance transition.
+    _morph.forward();
     // The Gemini-Live entrance (aurora bloom + rise) lives in openCommandChat.
     await openCommandChat(context, _chat);
     // Route popped (back button, or a nav-tab tap called maybePop).
-    if (mounted) _chatOpen = false;
+    if (mounted) {
+      _chatOpen = false;
+      _morph.reverse();
+    }
   }
 
   /// Pop the full-screen chat if it's open — used when a nav tab is tapped so
@@ -88,6 +95,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     if (_chatOpen) {
       Navigator.of(context).popUntil((r) => r.isFirst);
       _chatOpen = false;
+      _morph.reverse();
     }
   }
 
@@ -158,7 +166,6 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
                   child: _BottomBar(
                     t: t,
                     tab: _tab,
-                    commandBusy: _chat.commandBusy,
                     onTab: (i) {
                       // Tapping a nav tab closes the full-screen chat (if open)
                       // and switches to that tab.
@@ -167,7 +174,6 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
                     },
                     onOpenCommand: _openCommand,
                     onCloseCommand: _closeCommand,
-                    onSend: _chat.sendCommand,
                   ),
                 ),
               ),
@@ -209,28 +215,25 @@ class _AuroraWash extends StatelessWidget {
   }
 }
 
-/// The morphing bottom bar. [t] (0→1) crossfades/slides between:
+/// The morphing bottom bar. [t] (0→1) slides between:
 ///   t=0 → the Home·Browse nav (left) + the circular ★ command button (right)
-///   t=1 → a small dot-button (left, reopens the nav) + the command text field
+///   t=1 → a small dot-button (left) + the widened ★ (right), played as the
+///         full-screen chat page rises over the bar.
 /// The two halves swap width as [t] moves, so it reads as one fluid morph.
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.t,
     required this.tab,
-    required this.commandBusy,
     required this.onTab,
     required this.onOpenCommand,
     required this.onCloseCommand,
-    required this.onSend,
   });
 
   final double t;
   final int tab;
-  final bool commandBusy;
   final ValueChanged<int> onTab;
   final VoidCallback onOpenCommand;
   final VoidCallback onCloseCommand;
-  final ValueChanged<String> onSend;
 
   static const _h = 60.0; // bar height
   static const _gap = 12.0; // gap between the two elements
@@ -289,9 +292,7 @@ class _BottomBar extends StatelessWidget {
                   width: rightW,
                   child: _RightHalf(
                     t: t,
-                    busy: commandBusy,
                     onOpenCommand: onOpenCommand,
-                    onSend: onSend,
                   ),
                 ),
               ],
@@ -374,29 +375,23 @@ class _NavHalf extends StatelessWidget {
   }
 }
 
-/// The RIGHT element: the circular ★ command button that expands into the
-/// command field as [t] → 1. Crossfades the ★ glyph ⇄ the field contents inside
-/// one growing liquid-glass container.
+/// The RIGHT element: the circular ★ command button. As [t] → 1 (the chat is
+/// opening) it WIDENS into a pill and its glyph slides toward the leading edge —
+/// the old "opening" motion — but it no longer mounts an in-bar text field (the
+/// ★ opens the full-screen chat page instead). The morph just plays behind the
+/// rising page during its entrance transition.
 class _RightHalf extends StatelessWidget {
   const _RightHalf({
     required this.t,
-    required this.busy,
     required this.onOpenCommand,
-    required this.onSend,
   });
   final double t;
-  final bool busy;
   final VoidCallback onOpenCommand;
-  final ValueChanged<String> onSend;
 
   @override
   Widget build(BuildContext context) {
-    // ★ fades out fast; the field only mounts once there's room (t>0.55), so its
-    // full-width Row never overflows the still-narrow container.
-    final starOpacity = (1 - t / 0.35).clamp(0.0, 1.0);
-    final fieldOpacity = ((t - 0.55) / 0.45).clamp(0.0, 1.0);
     return _LiquidGlass(
-      accentFill: 1 - t, // 1 = solid accent circle, 0 = light glass field
+      accentFill: 1 - 0.35 * t, // stay mostly accent — it's a button, not a field
       onTap: t < 0.5
           ? () {
               HapticFeedback.mediumImpact();
@@ -405,23 +400,16 @@ class _RightHalf extends StatelessWidget {
           : null,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            if (starOpacity > 0.01)
-              Opacity(
-                opacity: starOpacity,
-                child: const Icon(Icons.auto_awesome_rounded,
-                    size: 25, color: Colors.white),
-              ),
-            if (fieldOpacity > 0.01)
-              Positioned.fill(
-                child: Opacity(
-                  opacity: fieldOpacity,
-                  child: _CommandField(busy: busy, onSend: onSend),
-                ),
-              ),
-          ],
+        // As the pill widens, keep the ★ glyph near the leading edge so the
+        // motion reads as "the button is stretching open".
+        child: Align(
+          alignment: Alignment.lerp(
+            Alignment.center,
+            const Alignment(-0.82, 0),
+            t,
+          )!,
+          child: const Icon(Icons.auto_awesome_rounded,
+              size: 25, color: Colors.white),
         ),
       ),
     );
@@ -487,106 +475,6 @@ class _LiquidGlass extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 child: content,
               ),
-      ),
-    );
-  }
-}
-
-/// The command text field shown in command mode — sends on Enter.
-class _CommandField extends StatefulWidget {
-  const _CommandField({required this.busy, required this.onSend});
-  final bool busy;
-  final ValueChanged<String> onSend;
-
-  @override
-  State<_CommandField> createState() => _CommandFieldState();
-}
-
-class _CommandFieldState extends State<_CommandField> {
-  final _controller = TextEditingController();
-  final _focus = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    // Focus the field as it opens so the keyboard rises with the morph.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focus.requestFocus();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focus.dispose();
-    super.dispose();
-  }
-
-  void _send() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    HapticFeedback.selectionClick();
-    _controller.clear();
-    widget.onSend(text);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // No own background — it sits INSIDE the shared liquid-glass surface.
-    return Row(
-      children: [
-        const SizedBox(width: 16),
-        Icon(Icons.auto_awesome_rounded,
-            size: 20, color: AppColors.accent.withValues(alpha: 0.95)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextField(
-            controller: _controller,
-            focusNode: _focus,
-            onSubmitted: (_) => _send(),
-            textInputAction: TextInputAction.send,
-            textCapitalization: TextCapitalization.sentences,
-            style: const TextStyle(
-              color: AppColors.ink,
-              fontSize: 15.5,
-              fontWeight: FontWeight.w500,
-            ),
-            decoration: const InputDecoration(
-              hintText: 'Ask or add anything…',
-              hintStyle: TextStyle(color: AppColors.inkFaint),
-              border: InputBorder.none,
-              isDense: true,
-            ),
-          ),
-        ),
-        _SendButton(busy: widget.busy, onTap: _send),
-        const SizedBox(width: 6),
-      ],
-    );
-  }
-}
-
-class _SendButton extends StatelessWidget {
-  const _SendButton({required this.busy, required this.onTap});
-  final bool busy;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: const EdgeInsets.all(7),
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          color: AppColors.accent,
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(Icons.arrow_upward_rounded,
-            size: 20, color: Colors.white),
       ),
     );
   }

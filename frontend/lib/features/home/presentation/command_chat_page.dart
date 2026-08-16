@@ -21,13 +21,20 @@ Future<void> openCommandChat(
     PageRouteBuilder(
       opaque: false,
       barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 520),
-      reverseTransitionDuration: const Duration(milliseconds: 320),
-      pageBuilder: (context, animation, secondary) =>
-          CommandChatPage(controller: controller, entrance: animation),
+      transitionDuration: const Duration(milliseconds: 560),
+      reverseTransitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondary) {
+        // One shared smooth curve drives EVERYTHING the page animates (aurora,
+        // Revo, greeting, bottom bar) so the whole open reads as a single fluid
+        // motion instead of several independently-eased parts.
+        final eased = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return CommandChatPage(controller: controller, entrance: eased);
+      },
       transitionsBuilder: (context, animation, secondary, child) {
-        // The page paints its own aurora + rise off [entrance]; here we only add
-        // a soft fade so the push/pop never hard-cuts.
         final fade = CurvedAnimation(parent: animation, curve: Curves.easeOut);
         return FadeTransition(opacity: fade, child: child);
       },
@@ -156,8 +163,7 @@ class _CommandChatPageState extends State<CommandChatPage>
                 animation: Listenable.merge([widget.entrance, _breath]),
                 builder: (context, _) => CustomPaint(
                   painter: _AuroraPainter(
-                    entrance: Curves.easeOutCubic
-                        .transform(widget.entrance.value),
+                    entrance: widget.entrance.value,
                     breath: _breath.value,
                   ),
                 ),
@@ -169,11 +175,11 @@ class _CommandChatPageState extends State<CommandChatPage>
           AnimatedBuilder(
             animation: widget.entrance,
             builder: (context, child) {
-              final t = Curves.easeOutCubic.transform(widget.entrance.value);
+              final t = widget.entrance.value;
               return Opacity(
-                opacity: t,
+                opacity: t.clamp(0.0, 1.0),
                 child: Transform.translate(
-                  offset: Offset(0, (1 - t) * 34),
+                  offset: Offset(0, (1 - t) * 28),
                   child: child,
                 ),
               );
@@ -219,7 +225,7 @@ class _CommandChatPageState extends State<CommandChatPage>
             animation: Listenable.merge([_shimmer, widget.entrance]),
             builder: (context, _) => _HeroGreeting(
               progress: _shimmer.value,
-              entrance: Curves.easeOutCubic.transform(widget.entrance.value),
+              entrance: widget.entrance.value,
             ),
           );
         }
@@ -299,55 +305,51 @@ class _HeroGreeting extends StatelessWidget {
   /// Route entrance progress (0→1, already eased) for the Revo move.
   final double entrance;
 
-  static const double _bigSize = 92;
-  static const double _smallSize = 46;
+  static const double _bigSize = 84;
+  static const double _smallSize = 44;
 
   @override
   Widget build(BuildContext context) {
-    // Revo starts big + centered, then over the back half of the entrance
-    // shrinks and slides to the top-left as the greeting takes over.
-    final move = ((entrance - 0.35) / 0.65).clamp(0.0, 1.0);
+    // Revo starts big, then over the back half of the entrance shrinks and the
+    // greeting takes over to its right.
+    final move = ((entrance - 0.3) / 0.7).clamp(0.0, 1.0);
     final easedMove = Curves.easeOutCubic.transform(move);
     final revoSize = _bigSize + (_smallSize - _bigSize) * easedMove;
 
     // The greeting fades/slides in from Revo's side once Revo begins settling.
-    final greetIn = ((entrance - 0.5) / 0.5).clamp(0.0, 1.0);
+    final greetIn = ((entrance - 0.45) / 0.55).clamp(0.0, 1.0);
+    final easedGreet = Curves.easeOut.transform(greetIn);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 22, 16),
+      padding: const EdgeInsets.fromLTRB(20, 12, 22, 18),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Revo — a fixed max-height cell so the big→small shrink doesn't reflow
-          // the list; the mascot scales within it, top-aligned.
+          // Revo's cell tracks the mascot's CURRENT size (not the big size), so
+          // the text stays snug beside it — no dead gap when Revo is small.
           SizedBox(
-            width: _bigSize,
-            height: _bigSize,
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: AnimatedMascot(size: revoSize, glow: true),
-            ),
+            width: revoSize,
+            height: revoSize,
+            child: AnimatedMascot(size: revoSize, glow: true),
           ),
-          const SizedBox(width: 12),
-          // The greeting, to Revo's right — appears only as Revo settles.
+          SizedBox(width: 10 + 4 * easedGreet),
+          // The greeting, to Revo's right — appears only as Revo settles, sliding
+          // in from its side.
           Expanded(
             child: Opacity(
-              opacity: greetIn,
+              opacity: easedGreet,
               child: Transform.translate(
-                offset: Offset(-10 * (1 - greetIn), 0),
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: MagicText(
-                    text: 'What do you\nwant to do today?',
-                    progress: progress,
-                    reading: true,
-                    style: const TextStyle(
-                      color: AppColors.ink,
-                      fontSize: 26,
-                      height: 1.16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.4,
-                    ),
+                offset: Offset(-14 * (1 - easedGreet), 0),
+                child: MagicText(
+                  text: 'What do you\nwant to do today?',
+                  progress: progress,
+                  reading: true,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 25,
+                    height: 1.18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
                   ),
                 ),
               ),
@@ -432,48 +434,48 @@ class _MorphBarState extends State<_MorphBar> {
       child: AnimatedBuilder(
         animation: widget.entrance,
         builder: (context, _) {
-          final t = Curves.easeOutCubic.transform(widget.entrance.value);
-          return LayoutBuilder(
-            builder: (context, c) {
-              final total = c.maxWidth;
-              // Home dot appears on the left as we open; the field takes the rest.
-              // At t=0 the field is a lone ★ circle on the right (dot width 0);
-              // at t=1 the dot is a full circle and the field fills the remainder.
-              final dotW = _h * t;
-              final gap = _gap * t;
-              final fieldW = (total - dotW - gap).clamp(_h, total);
-              // The field's inner text row only mounts once there's room, so it
-              // never overflows the still-narrow pill mid-morph.
-              final fieldReveal = ((t - 0.5) / 0.5).clamp(0.0, 1.0);
+          final t = widget.entrance.value.clamp(0.0, 1.0);
+          // The home dot's cell grows from 0 → (dot + gap) as we open; the field
+          // is Expanded, so the two ALWAYS sum to the available width exactly —
+          // no manual clamp that could overflow. The field therefore grows toward
+          // the LEFT as the dot pushes in from the left.
+          final dotCell = (_h + _gap) * t;
+          final dotSize = _h * t;
+          // The field's inner text row only mounts once there's room, so it never
+          // overflows the still-narrow pill mid-morph.
+          final fieldReveal = ((t - 0.5) / 0.5).clamp(0.0, 1.0);
 
-              return SizedBox(
-                height: _h,
-                child: Row(
-                  children: [
-                    // ── LEFT: the home dot (returns to the nav / Home) ──
-                    if (dotW > 0.5)
-                      Opacity(
-                        opacity: t,
-                        child: _HomeDot(size: dotW.clamp(0.0, _h), onTap: widget.onHome),
-                      ),
-                    if (dotW > 0.5) SizedBox(width: gap),
-                    // ── RIGHT: the ★-that-became-the-field ──
-                    SizedBox(
-                      width: fieldW,
-                      child: _FieldPill(
-                        reveal: fieldReveal,
-                        starOpacity: (1 - t / 0.4).clamp(0.0, 1.0),
-                        controller: _controller,
-                        focus: _focus,
-                        sendEnabled: _hasText && !widget.busy,
-                        onSubmit: _send,
-                        onSend: _send,
-                      ),
-                    ),
-                  ],
+          return SizedBox(
+            height: _h,
+            child: Row(
+              children: [
+                // ── LEFT: the home dot (returns to the nav / Home) ──
+                SizedBox(
+                  width: dotCell,
+                  child: dotSize < 1
+                      ? null
+                      : Align(
+                          alignment: Alignment.centerLeft,
+                          child: Opacity(
+                            opacity: t,
+                            child: _HomeDot(size: dotSize, onTap: widget.onHome),
+                          ),
+                        ),
                 ),
-              );
-            },
+                // ── RIGHT: the ★-that-became-the-field (fills the remainder) ──
+                Expanded(
+                  child: _FieldPill(
+                    reveal: fieldReveal,
+                    starOpacity: (1 - t / 0.4).clamp(0.0, 1.0),
+                    controller: _controller,
+                    focus: _focus,
+                    sendEnabled: _hasText && !widget.busy,
+                    onSubmit: _send,
+                    onSend: _send,
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),

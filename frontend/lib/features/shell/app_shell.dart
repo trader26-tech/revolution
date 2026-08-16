@@ -57,8 +57,10 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     super.initState();
     _morph = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 240),
-      reverseDuration: const Duration(milliseconds: 200),
+      // Matches the chat page's entrance (560/300ms) so the home bar's morph and
+      // the page's fade-in read as one continuous motion.
+      duration: const Duration(milliseconds: 560),
+      reverseDuration: const Duration(milliseconds: 300),
     );
     _chat = CommandChatController(_store);
     // Restore saved tasks (and their icons) from on-device storage.
@@ -76,12 +78,16 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   Future<void> _openCommand() async {
     if (_chatOpen) return;
     _chatOpen = true;
-    // The morph now lives INSIDE the chat page's own bottom bar (★ → field, with
-    // a home dot to return), so the shell's in-bar morph stays at rest — it would
-    // only flicker behind the rising page. The page owns the whole open animation.
+    // Morph the home bar IN PLACE as the chat opens — the Home·Browse pill
+    // shrinks to a button (dot) and the ★ widens — so as the page fades in over
+    // it, the bottom bar reads as one continuous motion into the page's field.
+    _morph.forward();
     await openCommandChat(context, _chat);
     // Route popped (home dot, or a nav-tab tap called maybePop).
-    if (mounted) _chatOpen = false;
+    if (mounted) {
+      _chatOpen = false;
+      _morph.reverse();
+    }
   }
 
   /// Pop the full-screen chat if it's open — used when a nav tab is tapped so
@@ -90,6 +96,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     if (_chatOpen) {
       Navigator.of(context).popUntil((r) => r.isFirst);
       _chatOpen = false;
+      _morph.reverse();
     }
   }
 

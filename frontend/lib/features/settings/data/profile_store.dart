@@ -41,6 +41,12 @@ class ProfileStore extends ChangeNotifier {
   static const _kQuietEnd = 'profile_quiet_end_min';
   static const _kWeekStartMon = 'profile_week_start_mon';
   static const _kCloudBackup = 'profile_cloud_backup';
+  // One-time migration flag: reminder notifications are meant to be ON by
+  // default, but some existing installs have a stale `false` persisted (from an
+  // earlier build / a stray toggle) that silences every notification. On first
+  // run after this ships we flip that back on ONCE, then never touch it again —
+  // so a user's future deliberate "off" is always respected.
+  static const _kNotifDefaultFix = 'profile_notif_default_fix_v1';
 
   // --- state (with sensible defaults) ---
   String _name = '';
@@ -100,6 +106,17 @@ class ProfileStore extends ChangeNotifier {
     _currency = p.getString(_kCurrency) ?? 'INR';
     _leadDays = p.getInt(_kLeadDays) ?? 30;
     _notifReminders = p.getBool(_kNotifReminders) ?? true;
+    // One-time correction: reminders default ON. If a stale `false` is stored,
+    // turn it back on ONCE (guarded by a migration flag) so existing installs
+    // stop being silently silenced. Runs at most once; never overrides a choice
+    // the user makes afterwards.
+    if (!(p.getBool(_kNotifDefaultFix) ?? false)) {
+      if (!_notifReminders) {
+        _notifReminders = true;
+        await p.setBool(_kNotifReminders, true);
+      }
+      await p.setBool(_kNotifDefaultFix, true);
+    }
     _digestTimeMin = p.getInt(_kDigestTime) ?? (8 * 60);
     _defaultReminderMin = p.getInt(_kDefaultReminder) ?? (8 * 60 + 30);
     _notifEmail = p.getBool(_kNotifEmail) ?? false;

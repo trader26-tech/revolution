@@ -366,7 +366,7 @@ class _TitleCard extends StatelessWidget {
                   ),
                   decoration: const InputDecoration(
                     isDense: true,
-                    hintText: 'What do you want to remember?',
+                    hintText: 'Name',
                     hintStyle: TextStyle(
                       color: AppColors.inkFaint,
                       fontWeight: FontWeight.w700,
@@ -433,7 +433,7 @@ class _TitleCard extends StatelessWidget {
                         ),
                         decoration: const InputDecoration(
                           isDense: true,
-                          hintText: 'Amount (optional)',
+                          hintText: 'Amount',
                           hintStyle: TextStyle(
                             color: AppColors.inkFaint,
                             fontWeight: FontWeight.w600,
@@ -482,7 +482,7 @@ class _NoteField extends StatelessWidget {
           color: AppColors.ink,
         ),
         decoration: const InputDecoration(
-          hintText: 'Add a note… (optional)',
+          hintText: 'Note',
           hintStyle: TextStyle(
             color: AppColors.inkFaint,
             fontWeight: FontWeight.w500,

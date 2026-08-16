@@ -67,6 +67,20 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _shimmer.forward(from: 0);
   }
 
+  /// Jump straight into a chosen root op — used by the ★ "What do you want to do
+  /// today?" launcher overlay, which picks the op up-front so we skip the inline
+  /// menu step and drop the user right into that flow (Create → the create card;
+  /// Read/Update/Delete → their reply line).
+  void startWithOp(FlowOp op) {
+    // Seed a fresh menu message, then immediately resolve it to [op] via the
+    // same handler the inline chips use — one conversation, no stacked menus.
+    if (_chat.isEmpty) {
+      final menu = ChatMsg.menu();
+      setState(() => _chat.add(menu));
+      _pickOp(menu, op);
+    }
+  }
+
   /// Clear the command conversation (shell's clear button / exiting command mode
   /// keeps it, but this lets the user reset).
   void clearChat() => setState(_chat.clear);

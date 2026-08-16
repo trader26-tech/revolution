@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../home/browse_page.dart';
 import '../home/home_page.dart';
+import '../home/presentation/widgets/command_launcher.dart';
 import '../tasks/data/task_store.dart';
 import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
@@ -57,12 +58,16 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
   }
 
-  void _openCommand() {
-    setState(() => _commandMode = true);
-    _morph.forward();
-    // The ★ opens the natural-language command chat, ready to type — no menu.
-    // (The chat already does full CRUD + queries: "change netflix to 799",
-    // "what subscriptions this week", "delete gym".)
+  /// The ★ opens the full-screen "What do you want to do today?" launcher — a
+  /// beautiful chooser over a cleared, blurred screen. Picking an operation
+  /// drops the user straight into that flow on Home (Create → the create card;
+  /// Read/Update/Delete → their reply line). Dismissed with no pick = no-op.
+  Future<void> _openCommand() async {
+    // Make sure we're on Home so the chosen flow renders in its feed.
+    if (_tab != 0) setState(() => _tab = 0);
+    final op = await showCommandLauncher(context);
+    if (op == null || !mounted) return;
+    _homeKey.currentState?.startWithOp(op);
   }
 
   void _closeCommand() {

@@ -1273,9 +1273,9 @@ class _CollectionRow extends StatelessWidget {
                   color: AppColors.inkFaint,
                 ),
               ),
-            const SizedBox(width: 4),
-            // A clear ⋮ menu — Edit or Delete this item.
-            _RowMenuButton(onEdit: onTap, onDelete: onDelete),
+            // No ⋮ menu here — tapping the row opens its edit form (delete lives
+            // there), and a swipe-left deletes with an undo toast. Keeps the row
+            // clean. (Documents keep their own ⋮ on the Documents page.)
           ],
         ),
       ),
@@ -1316,57 +1316,6 @@ class _CollectionRow extends StatelessWidget {
     if (days < 7) return 'in $days days';
     if (days < 30) return 'in ${(days / 7).round()} wk';
     return 'in ${(days / 30).round()} mo';
-  }
-}
-
-/// The trailing ⋮ button on a collection row — a small menu with Edit + Delete,
-/// so deleting is an obvious, tappable action (not only a swipe).
-class _RowMenuButton extends StatelessWidget {
-  const _RowMenuButton({required this.onEdit, required this.onDelete});
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      tooltip: 'More',
-      color: AppColors.bgTop,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppColors.cardBorder),
-      ),
-      icon: Icon(Icons.more_vert_rounded,
-          size: 20, color: AppColors.inkFaint.withValues(alpha: 0.9)),
-      onSelected: (v) {
-        if (v == 'edit') onEdit();
-        if (v == 'delete') onDelete();
-      },
-      itemBuilder: (_) => const [
-        PopupMenuItem(
-          value: 'edit',
-          child: Row(
-            children: [
-              Icon(Icons.edit_outlined, size: 18, color: AppColors.ink),
-              SizedBox(width: 10),
-              Text('Edit', style: TextStyle(color: AppColors.ink)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline_rounded,
-                  size: 18, color: Color(0xFFFF6B6B)),
-              SizedBox(width: 10),
-              Text('Delete',
-                  style: TextStyle(
-                      color: Color(0xFFFF6B6B), fontWeight: FontWeight.w700)),
-            ],
-          ),
-        ),
-      ],
-    );
   }
 }
 

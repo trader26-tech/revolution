@@ -339,11 +339,22 @@ class CommandChatController extends ChangeNotifier {
         chat[i] = ChatMsg.create(CreateFlow());
         _reveal();
       case FlowOp.read:
+        // READ actually works: answer "what's coming up" (all upcoming items),
+        // then RE-SHOW the menu so the user can pick another action.
+        final draft = CommandDraft(
+          title: '',
+          category: 'other',
+          intent: CommandIntent.query,
+          range: CommandRange.all,
+        );
+        final (header, items) = _answerQuery(draft);
+        chat[i] = ChatMsg.answer(header, items);
+        chat.add(ChatMsg.menu());
+        _reveal();
       case FlowOp.update:
       case FlowOp.delete:
-        // These don't have a dedicated in-chat flow yet. Show the short reply,
-        // then RE-SHOW the menu below it so the user can pick another action —
-        // never a dead end with no way back to the CRUD options.
+        // No dedicated in-chat flow yet. Show the short reply, then RE-SHOW the
+        // menu below it so it's never a dead end with no way back to the options.
         chat[i] = ChatMsg.comingSoon(op);
         chat.add(ChatMsg.menu());
         _reveal();

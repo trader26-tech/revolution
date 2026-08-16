@@ -386,7 +386,6 @@ class _RightHalfState extends State<_RightHalf> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
   bool _hasText = false;
-  bool _focused = false;
 
   @override
   void initState() {
@@ -397,14 +396,10 @@ class _RightHalfState extends State<_RightHalf> {
   @override
   void didUpdateWidget(_RightHalf old) {
     super.didUpdateWidget(old);
-    // Raise the keyboard once the field is mostly open; drop focus as it closes.
-    if (widget.t > 0.6 && !_focused) {
-      _focused = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.t > 0.6) _focus.requestFocus();
-      });
-    } else if (widget.t < 0.3 && _focused) {
-      _focused = false;
+    // Do NOT auto-focus — there's nothing to type when the chat first opens (you
+    // pick CRUD options). The keyboard rises only when the user TAPS the field.
+    // As the bar closes, drop focus so the keyboard dismisses with it.
+    if (widget.t < 0.3 && _focus.hasFocus) {
       _focus.unfocus();
     }
   }

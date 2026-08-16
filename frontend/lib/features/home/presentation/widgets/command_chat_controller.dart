@@ -74,6 +74,29 @@ class CommandChatController extends ChangeNotifier {
     }
   }
 
+  /// Open the chat PRE-SCOPED to a create for [category] — clears the thread and
+  /// drops the user straight into that category's field questions (skipping the
+  /// menu + category picker). Used when adding from a category's collection page.
+  ///
+  /// Guard: if the category has no create fields (e.g. documents, which are a
+  /// file upload — not a chat field-flow), we DON'T seed an empty flow; we fall
+  /// back to the root menu so the chat is still usable. Callers should route
+  /// field-less categories elsewhere (the doc sheet); this is just a safety net.
+  void startCreateForCategory(TaskCategory category) {
+    chat.clear();
+    if (categoryFields(category).isEmpty) {
+      chat.add(ChatMsg.menu());
+      _reveal();
+      return;
+    }
+    final flow = CreateFlow()
+      ..category = category
+      ..stage = CreateStage.fields
+      ..fieldIndex = 0;
+    chat.add(ChatMsg.create(flow));
+    _reveal();
+  }
+
   /// Clear the whole thread (used by the page's "new chat" affordance, if any).
   void clear() {
     chat.clear();

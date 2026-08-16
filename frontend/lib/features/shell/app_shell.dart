@@ -5,9 +5,11 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../home/browse_page.dart';
 import '../home/home_page.dart';
+import '../home/presentation/command_chat_launcher.dart';
 import '../home/presentation/command_chat_page.dart' show CommandChatOverlay;
 import '../home/presentation/widgets/command_chat_controller.dart';
 import '../tasks/data/task_store.dart';
+import '../tasks/domain/task.dart' show TaskCategory;
 import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
 
@@ -62,6 +64,9 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
       reverseDuration: const Duration(milliseconds: 200),
     );
     _chat = CommandChatController(_store);
+    // Let any page open the chat (optionally pre-scoped to a category) without a
+    // reference to this shell — the chat is an overlay, not a pushable route.
+    registerCommandChatOpener(_openChat);
     // Restore saved tasks (and their icons) from on-device storage.
     _store.load();
     // Check for a newer app version on launch, and prompt (blocking if the
@@ -72,9 +77,20 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   /// The ★ opens the command chat IN PLACE: the one bottom bar morphs (nav pill →
   /// home dot, ★ → text field) and the chat content fades/rises in above it — all
   /// off [_morph], so it's one continuous motion (no route push, no second bar).
-  void _openCommand() {
+  void _openCommand() => _openChat();
+
+  /// Open the chat overlay, seeding the thread. With [seedCategory] it drops
+  /// straight into that category's create fields; otherwise the root menu. The
+  /// shell seeds here (the overlay no longer self-resets), so a seeded open is
+  /// never clobbered.
+  void _openChat({TaskCategory? seedCategory}) {
     if (_chatOpen) return;
     if (_tab != 0) _tab = 0; // the chat overlays Home
+    if (seedCategory != null) {
+      _chat.startCreateForCategory(seedCategory);
+    } else {
+      _chat.reset();
+    }
     setState(() => _chatOpen = true);
     _morph.forward();
   }
@@ -99,6 +115,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    registerCommandChatOpener(null);
     _morph.dispose();
     _chat.dispose();
     _store.dispose();
@@ -234,16 +251,20 @@ class _BottomBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, c) {
           final total = c.maxWidth;
-          // NAV STATE (t=0): a compact cluster pinned LEFT — the nav pill HUGS its
-          // Home·Browse buttons and the ★ sits right beside it as a clean CIRCLE
-          // (width == height). The rest of the bar is empty.
+          // NAV STATE (t=0): a BALANCED bar — the nav pill takes the left ~62% of
+          // the width (so Home·Browse breathe and read clearly), the ★ sits as a
+          // clean CIRCLE at the right, with a small deliberate gap between (no big
+          // empty middle).
           // COMMAND STATE (t=1): the ★ grows into the full-width command field and
           // the nav collapses to a dot. We interpolate both widths from their
-          // compact resting sizes to their expanded sizes; the exact remainder
-          // becomes a trailing spacer so nothing overflows at any t.
+          // resting sizes to their expanded sizes; the exact remainder becomes a
+          // trailing spacer so nothing overflows at any t.
           //
-          // Left: natural pill width (t=0) → dot (t=1).
-          final leftW = (_navNatural + (_h - _navNatural) * t)
+          // Resting nav width: proportional so the pill fills the left of the bar
+          // instead of hugging a fixed cluster — but never below its natural min.
+          final navResting = (total * 0.62).clamp(_navNatural, total - _gap - _h);
+          // Left: resting pill width (t=0) → dot (t=1).
+          final leftW = (navResting + (_h - navResting) * t)
               .clamp(_h, total - _gap - _h);
           // Right: a circle (_h, t=0) → everything left over (t=1).
           final rightMax = total - _gap - leftW; // fills the remainder when open
@@ -632,35 +653,39 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The reference look: ONLY the selected item expands into a bright white
-    // pill with the icon + label side by side (accent-coloured). Every
-    // unselected item is a quiet icon ALONE — no label, no background — so the
-    // selection reads as a single sliding pill among plain glyphs.
+    // The Orbit look: ONLY the selected item expands into an ACCENT pill (violet,
+    // matching the ★) with a white icon + label side by side and a soft accent
+    // glow. Every unselected item is a quiet icon ALONE — so the selection reads
+    // as one sliding violet pill among plain glyphs, at home on the dark sky.
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
         // vertical 4 so the taller 52px pill clears the 60px bar cleanly
         // (52 + 8 = 60) without the FittedBox having to scale it down.
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
           height: 52,
-          padding:
-              EdgeInsets.symmetric(horizontal: selected ? 20 : 14),
+          padding: EdgeInsets.symmetric(horizontal: selected ? 22 : 16),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected
-                ? Colors.white.withValues(alpha: 0.92)
-                : Colors.transparent,
+            gradient: selected
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF9B7CFF), AppColors.accent],
+                  )
+                : null,
             borderRadius: BorderRadius.circular(999),
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.10),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: AppColors.accent.withValues(alpha: 0.45),
+                      blurRadius: 16,
+                      spreadRadius: -1,
+                      offset: const Offset(0, 4),
                     ),
                   ]
                 : null,
@@ -675,17 +700,18 @@ class _NavButton extends StatelessWidget {
               children: [
                 Icon(
                   selected ? item.active : item.icon,
-                  size: 24,
-                  color: selected ? AppColors.accent : AppColors.inkFaint,
+                  size: 23,
+                  color: selected ? Colors.white : AppColors.inkFaint,
                 ),
                 if (selected) ...[
                   const SizedBox(width: 8),
                   Text(
                     item.label,
                     style: const TextStyle(
-                      color: AppColors.accent,
+                      color: Colors.white,
                       fontWeight: FontWeight.w800,
-                      fontSize: 15.5,
+                      fontSize: 15,
+                      letterSpacing: -0.1,
                     ),
                   ),
                 ],

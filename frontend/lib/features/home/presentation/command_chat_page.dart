@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/starfield.dart';
+import '../../documents/data/documents_store.dart';
+import '../../documents/presentation/add_document_sheet.dart';
 import '../../onboarding/presentation/widgets/magic_text.dart' show MagicText;
 import '../../update_flow/presentation/update_flow_sheet.dart';
 import 'widgets/command_chat.dart';
@@ -65,14 +67,14 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
     widget.morph.addListener(_onMorph);
   }
 
-  /// On the rising edge of the morph (chat opening), seed the menu + replay the
-  /// shimmer so the greeting conjures fresh each open.
+  /// On the rising edge of the morph (chat opening), replay the shimmer so the
+  /// header + content conjure fresh. The SHELL seeds the thread before forwarding
+  /// the morph (reset for a normal open, or a pre-scoped create for a category),
+  /// so we must NOT reset here — that would clobber a seeded category.
   void _onMorph() {
     final open = widget.morph.value > 0.01;
     if (open && !_wasOpen) {
       _wasOpen = true;
-      // Fresh start every open — no stale previous conversation.
-      _c.reset();
       _lastTick = _c.revealTick;
       _shimmer.forward(from: 0);
     } else if (!open && _wasOpen) {
@@ -118,6 +120,16 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
     // Confirm, then re-show the CRUD menu so there's always a way to pick another
     // action (never a dead end).
     if (mounted) _c.noteThenMenu('Done — your changes are saved.');
+  }
+
+  /// "Document" in the category picker → the add-document sheet (a file upload,
+  /// not a chat field-flow). On success, confirm + re-show the menu.
+  Future<void> _openDocumentSheet() async {
+    final store = DocumentsStore()..load();
+    final added = await showAddDocumentSheet(context, store: store);
+    if (mounted && added != null) {
+      _c.noteThenMenu('Saved your document.');
+    }
   }
 
   @override
@@ -240,6 +252,7 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
               onPick: (t) => _c.pickCandidate(msg, t),
               onPickOp: (op) => _onPickOp(msg, op),
               onPickCategory: (cat) => _c.pickCategory(msg, cat),
+              onDocument: _openDocumentSheet,
               onAnswerField: (k, v) => _c.answerField(msg, k, v),
               onEditField: (idx) => _c.editField(msg, idx),
             );

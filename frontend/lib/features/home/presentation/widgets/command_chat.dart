@@ -245,6 +245,7 @@ class CommandMessage extends StatelessWidget {
     required this.onPick,
     required this.onPickOp,
     required this.onPickCategory,
+    required this.onDocument,
     required this.onAnswerField,
     required this.onEditField,
   });
@@ -261,6 +262,9 @@ class CommandMessage extends StatelessWidget {
 
   /// Create flow → the user picked a category.
   final ValueChanged<TaskCategory> onPickCategory;
+
+  /// Create flow → the user picked "Document" (opens the add-document sheet).
+  final VoidCallback onDocument;
 
   /// Create flow → the user answered (or skipped) the current field.
   final void Function(String key, Object? value) onAnswerField;
@@ -316,6 +320,7 @@ class CommandMessage extends StatelessWidget {
           shimmer: shimmer,
           busy: busy,
           onPickCategory: onPickCategory,
+          onDocument: onDocument,
           onAnswer: onAnswerField,
           onEditField: onEditField,
           onConfirm: onConfirm,

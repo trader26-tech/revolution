@@ -420,6 +420,7 @@ class CreateFlowLine extends StatelessWidget {
     required this.shimmer,
     required this.busy,
     required this.onPickCategory,
+    required this.onDocument,
     required this.onAnswer,
     required this.onEditField,
     required this.onConfirm,
@@ -430,6 +431,9 @@ class CreateFlowLine extends StatelessWidget {
   final double shimmer;
   final bool busy;
   final ValueChanged<TaskCategory> onPickCategory;
+
+  /// "Document" picked in the category step → open the add-document sheet.
+  final VoidCallback onDocument;
   final void Function(String key, Object? value) onAnswer;
   final ValueChanged<int> onEditField;
   final VoidCallback onConfirm;
@@ -448,6 +452,7 @@ class CreateFlowLine extends StatelessWidget {
         CreateStage.pickCategory => _CategoryStep(
             shimmer: shimmer,
             onPick: onPickCategory,
+            onDocument: onDocument,
           ),
         CreateStage.fields => _FieldStep(
             key: ValueKey('field-${flow.category}-${flow.fieldIndex}'),
@@ -473,9 +478,17 @@ class CreateFlowLine extends StatelessWidget {
 /// category icon, its name, a one-line hint, and a chevron — with thin dividers
 /// and a staggered reveal.
 class _CategoryStep extends StatelessWidget {
-  const _CategoryStep({required this.shimmer, required this.onPick});
+  const _CategoryStep({
+    required this.shimmer,
+    required this.onPick,
+    required this.onDocument,
+  });
   final double shimmer;
   final ValueChanged<TaskCategory> onPick;
+
+  /// Tapping "Document" — a file upload, not a chat field-flow — opens the add
+  /// document sheet instead of seeding a create flow.
+  final VoidCallback onDocument;
 
   /// A short, plain hint under each category name.
   static String _hintFor(TaskCategory c) => switch (c) {
@@ -498,31 +511,44 @@ class _CategoryStep extends StatelessWidget {
         Curves.easeOut.transform(((shimmer - 0.3) / 0.7).clamp(0.0, 1.0));
     // No heading here — the contextual page header already says "What are you
     // adding?", so we render only the category list (no duplicate title).
+    // The field categories, then a "Document" row (file upload → the doc sheet).
+    final rowCount = kCreateCategories.length + 1;
+    Widget divider(int idx) => Opacity(
+          opacity: Curves.easeOut
+              .transform(((reveal - idx * 0.07) / 0.4).clamp(0.0, 1.0)),
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: Colors.white.withValues(alpha: 0.07),
+          ),
+        );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var idx = 0; idx < kCreateCategories.length; idx++) ...[
-          if (idx > 0)
-            Opacity(
-              opacity: Curves.easeOut
-                  .transform(((reveal - idx * 0.07) / 0.4).clamp(0.0, 1.0)),
-              child: Divider(
-                height: 1,
-                thickness: 1,
-                color: Colors.white.withValues(alpha: 0.07),
-              ),
-            ),
+          if (idx > 0) divider(idx),
           _staggered(
             reveal,
             idx,
             _CategoryRow(
-              category: kCreateCategories[idx],
+              icon: kCreateCategories[idx].icon,
               title: _titleFor(kCreateCategories[idx]),
               hint: _hintFor(kCreateCategories[idx]),
               onTap: () => onPick(kCreateCategories[idx]),
             ),
           ),
         ],
+        divider(rowCount - 1),
+        _staggered(
+          reveal,
+          rowCount - 1,
+          _CategoryRow(
+            icon: Icons.description_outlined,
+            title: 'Document',
+            hint: 'Upload a file — receipt, policy, bill',
+            onTap: onDocument,
+          ),
+        ),
       ],
     );
   }
@@ -547,12 +573,12 @@ class _CategoryStep extends StatelessWidget {
 /// tile, the category name, a one-line hint, and a chevron. Press-highlight.
 class _CategoryRow extends StatefulWidget {
   const _CategoryRow({
-    required this.category,
+    required this.icon,
     required this.title,
     required this.hint,
     required this.onTap,
   });
-  final TaskCategory category;
+  final IconData icon;
   final String title;
   final String hint;
   final VoidCallback onTap;
@@ -582,8 +608,8 @@ class _CategoryRowState extends State<_CategoryRow> {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 13),
         child: Row(
           children: [
-            // A soft accent square tile holding the category glyph — same
-            // accent for every row (the app's single colour scheme).
+            // A soft accent square tile holding the glyph — same accent for every
+            // row (the app's single colour scheme).
             Container(
               width: 40,
               height: 40,
@@ -592,7 +618,7 @@ class _CategoryRowState extends State<_CategoryRow> {
                 color: tint.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(widget.category.icon, size: 21, color: tint),
+              child: Icon(widget.icon, size: 21, color: tint),
             ),
             const SizedBox(width: 14),
             Expanded(

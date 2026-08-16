@@ -235,9 +235,11 @@ class _BottomBar extends StatelessWidget {
           // Right: a circle (_h, t=0) → everything left over (t=1).
           final rightMax = total - _gap - leftW; // fills the remainder when open
           final rightW = (_h + (rightMax - _h) * t).clamp(_h, rightMax);
-          // Whatever's still unused sits as an empty spacer on the far right, so
-          // the pill+★ cluster stays hugged to the left in nav state.
-          final trailing = (total - leftW - _gap - rightW).clamp(0.0, total);
+          // Whatever's unused sits as an empty spacer BETWEEN the pill and the ★,
+          // so the nav pill hugs the LEFT while the ★ stays pinned to the far
+          // RIGHT edge. As command mode opens the spacer shrinks to zero and the
+          // ★ grows leftward into the full-width field.
+          final middle = (total - leftW - _gap - rightW).clamp(0.0, total);
 
           return SizedBox(
             height: _h,
@@ -253,7 +255,9 @@ class _BottomBar extends StatelessWidget {
                     onChanged: onTab,
                   ),
                 ),
-                const SizedBox(width: _gap),
+                // Flexible gap: keeps the ★ at the far right in nav state, then
+                // collapses (through the fixed _gap) as the field expands.
+                SizedBox(width: _gap + middle),
                 SizedBox(
                   width: rightW,
                   child: _RightHalf(
@@ -263,7 +267,6 @@ class _BottomBar extends StatelessWidget {
                     onSend: onSend,
                   ),
                 ),
-                if (trailing > 0.01) SizedBox(width: trailing),
               ],
             ),
           );

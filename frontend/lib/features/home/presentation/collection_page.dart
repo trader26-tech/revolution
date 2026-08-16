@@ -262,10 +262,23 @@ class _CollectionPageState extends State<CollectionPage> {
   /// Adding is now CHAT-driven: open the ★ command chat pre-scoped to this
   /// category, so Revo asks the category's questions field-by-field and the user
   /// answers conversationally — no traditional form. The chat owns the confirm
-  /// card + save. For the "All" view (no single category) we open the chat
-  /// unseeded, so the user picks a category in-chat.
+  /// card + save. For the "All" view (no single category) the chat opens unseeded
+  /// so the user picks a category in-chat.
+  ///
+  /// The chat is an overlay that lives in the SHELL. This collection page is a
+  /// route pushed ON TOP of the shell, so we must pop back to the shell FIRST —
+  /// otherwise the overlay opens hidden behind this page and the "+" looks dead.
+  /// Popping first, THEN opening on the next frame, makes the chat actually show.
   void _add(BuildContext context) {
-    openCommandChatFor(context, seedCategory: category);
+    // Capture the root (shell) context BEFORE popping — this page's own context
+    // becomes defunct once we pop it off.
+    final rootContext = Navigator.of(context).context;
+    final cat = category;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    // Open on the next frame, once the shell is the visible top route.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      openCommandChatFor(rootContext, seedCategory: cat);
+    });
   }
 
   Future<void> _edit(BuildContext context, Task task) async {

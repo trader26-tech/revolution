@@ -314,7 +314,11 @@ class HomePageState extends State<HomePage> {
         AnimatedBuilder(
           animation: widget.store,
           builder: (context, _) {
-            final showEmpty = widget.store.tasks.isEmpty;
+            // Only the "All clear" empty state once we've ACTUALLY loaded — never
+            // during the very first load, or it flashes "nothing to remember"
+            // before the real list arrives.
+            final showEmpty = widget.store.tasks.isEmpty &&
+                !widget.store.isInitialLoad;
             if (!showEmpty) return const SizedBox.shrink();
             return Positioned.fill(
               child: _EmptyContent(onAdd: _startAdd),
@@ -381,8 +385,24 @@ class HomePageState extends State<HomePage> {
   Widget _buildList() {
     final allTasks = widget.store.tasks;
 
-    // Truly empty (no tasks at all) → the welcoming empty state is drawn as a
-    // full-screen centred layer behind this (see build), so nothing here.
+    // Still loading the very first time (no cache yet) → a quiet centred spinner
+    // so the user sees the app WORKING, not a misleading "nothing to remember"
+    // empty state that then pops full of data a moment later.
+    if (allTasks.isEmpty && widget.store.isInitialLoad) {
+      return const Center(
+        child: SizedBox(
+          width: 26,
+          height: 26,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.4,
+            color: AppColors.accent,
+          ),
+        ),
+      );
+    }
+
+    // Truly empty (loaded, but no tasks) → the welcoming empty state is drawn as
+    // a full-screen centred layer behind this (see build), so nothing here.
     if (allTasks.isEmpty) {
       return const SizedBox.shrink();
     }

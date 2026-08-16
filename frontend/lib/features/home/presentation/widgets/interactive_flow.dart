@@ -51,7 +51,6 @@ const List<TaskCategory> kCreateCategories = [
   TaskCategory.investment,
   TaskCategory.birthday,
   TaskCategory.medicine,
-  TaskCategory.policies,
   TaskCategory.other,
 ];
 

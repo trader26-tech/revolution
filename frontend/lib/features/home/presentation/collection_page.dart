@@ -881,7 +881,7 @@ class _OccasionHeroState extends State<_OccasionHero> {
   /// (count, noun) e.g. (3, "occasions"), (2, "birthdays"), (1, "wedding").
   List<(int, String)> get _views {
     final total = widget.total;
-    final all = (total, total == 1 ? 'occasion' : 'occasions');
+    final all = (total, total == 1 ? 'special day' : 'special days');
     final types = [
       for (final (label, count) in widget.byType)
         (count, count == 1 ? label.toLowerCase() : '${label.toLowerCase()}s'),

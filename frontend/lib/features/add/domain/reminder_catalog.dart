@@ -62,7 +62,7 @@ class ReminderItem {
 const List<ReminderCategory> kReminderCatalog = [
   ReminderCategory(
     key: 'important_dates',
-    title: 'Occasions',
+    title: 'Special Days',
     icon: Icons.event_rounded,
     color: Color(0xFFFF6FB5), // warm pink — people & moments
     items: [

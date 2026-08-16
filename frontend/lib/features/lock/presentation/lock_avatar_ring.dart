@@ -26,21 +26,15 @@ class LockAvatarRing extends StatefulWidget {
   State<LockAvatarRing> createState() => _LockAvatarRingState();
 }
 
-class _LockAvatarRingState extends State<LockAvatarRing>
-    with SingleTickerProviderStateMixin {
+class _LockAvatarRingState extends State<LockAvatarRing> {
   final _store = AppLockStore.instance;
   Timer? _tick;
-  late final AnimationController _spin;
 
   @override
   void initState() {
     super.initState();
-    // The ring rotates continuously — a slow, premium spin.
-    _spin = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
-    // 1s tick advances the countdown digits + the drained fraction.
+    // 1s tick advances the countdown digits + the draining arc. No spin — the
+    // ring is a calm countdown, not a busy spinner.
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -50,7 +44,6 @@ class _LockAvatarRingState extends State<LockAvatarRing>
   @override
   void dispose() {
     _tick?.cancel();
-    _spin.dispose();
     _store.removeListener(_onStore);
     super.dispose();
   }
@@ -104,34 +97,24 @@ class _LockAvatarRingState extends State<LockAvatarRing>
           alignment: Alignment.topCenter,
           clipBehavior: Clip.none,
           children: [
-            // Avatar + the spinning flush ring.
+            // Avatar + the flush countdown ring.
             SizedBox(
               width: ringBox,
               height: ringBox,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // The spinning progress arc at the rim. The rotation is
-                  // QUANTIZED to ~20 steps/sec (80 across the 4s loop) — visually
-                  // identical to a smooth spin on a thin rim arc, but the painter
-                  // (which repaints only when `rotation` changes) fires ~20fps
-                  // instead of 60fps, cutting its per-frame paint cost ~3×.
+                  // The countdown arc at the rim — full from the top, draining
+                  // anticlockwise. Repaints only when `progress` changes (once a
+                  // second), so it's cheap.
                   RepaintBoundary(
-                    child: AnimatedBuilder(
-                      animation: _spin,
-                      builder: (context, _) {
-                        const steps = 80; // 4s loop → 20 steps/sec
-                        final q = (_spin.value * steps).roundToDouble() / steps;
-                        return CustomPaint(
-                          size: Size(ringBox, ringBox),
-                          painter: _RimRingPainter(
-                            progress: progress,
-                            color: color,
-                            stroke: stroke,
-                            rotation: q * 2 * math.pi,
-                          ),
-                        );
-                      },
+                    child: CustomPaint(
+                      size: Size(ringBox, ringBox),
+                      painter: _RimRingPainter(
+                        progress: progress,
+                        color: color,
+                        stroke: stroke,
+                      ),
                     ),
                   ),
                   // The avatar itself — still tappable to change the photo.
@@ -189,21 +172,20 @@ class _TimePill extends StatelessWidget {
   }
 }
 
-/// Paints the countdown arc right at the avatar's rim. The arc's LENGTH is the
-/// remaining fraction; the whole arc is [rotation]-offset so it spins. A faint
-/// full-circle track sits under it so the rim always reads as a ring.
+/// Paints the countdown arc right at the avatar's rim. It starts FULL from the
+/// TOP (12 o'clock) and DRAINS ANTICLOCKWISE as time runs down — a normal, calm
+/// countdown, no spinning. A faint full-circle track sits under it so the rim
+/// always reads as a ring.
 class _RimRingPainter extends CustomPainter {
   _RimRingPainter({
     required this.progress,
     required this.color,
     required this.stroke,
-    required this.rotation,
   });
 
   final double progress; // 1 → full, 0 → empty
   final Color color;
   final double stroke;
-  final double rotation; // radians, continuous spin
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -218,20 +200,22 @@ class _RimRingPainter extends CustomPainter {
       ..color = AppColors.cardBorder.withValues(alpha: 0.6);
     canvas.drawCircle(center, radius, track);
 
-    // The live arc — swept length = remaining fraction, start angle spins.
-    final sweep = 2 * math.pi * progress.clamp(0.0, 1.0);
+    // The live arc: anchored at the TOP (−90°), sweeping ANTICLOCKWISE (negative
+    // sweep). Its length is the remaining fraction, so it shrinks back toward the
+    // top as the countdown drains.
+    const startTop = -math.pi / 2;
+    final sweep = -2 * math.pi * progress.clamp(0.0, 1.0);
     final arc = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
       ..color = color;
-    canvas.drawArc(rect, rotation, sweep, false, arc);
+    canvas.drawArc(rect, startTop, sweep, false, arc);
   }
 
   @override
   bool shouldRepaint(_RimRingPainter old) =>
       old.progress != progress ||
       old.color != color ||
-      old.rotation != rotation ||
       old.stroke != stroke;
 }

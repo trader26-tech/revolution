@@ -135,23 +135,8 @@ class ProfileAvatar extends StatelessWidget {
                           size: size * 0.5,
                           color: AppColors.inkSoft.withValues(alpha: 0.9)),
                 ),
-                // A small "+" badge on the empty state to invite the tap.
-                if (!has)
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      width: size * 0.38,
-                      height: size * 0.38,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.bg, width: 2),
-                      ),
-                      child: Icon(Icons.add_rounded,
-                          size: size * 0.24, color: Colors.white),
-                    ),
-                  ),
+                // (No "+" badge — the avatar is still tappable to add/change a
+                // photo, but the plus overlay was visual clutter.)
               ],
             ),
           ),

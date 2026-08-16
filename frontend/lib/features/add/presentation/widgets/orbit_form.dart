@@ -103,24 +103,23 @@ class _CascadeRow extends StatelessWidget {
     return AnimatedBuilder(
       animation: intro,
       builder: (context, child) {
-        const perRow = 0.10; // gap between row starts — big enough to read
-        const maxStart = 0.62; // last rows still settle within the run
-        const window = 0.38; // each row's own arrival length
+        // A longer, more OVERLAPPING wave: rows start close together and each
+        // takes its time, so the whole thing flows as one smooth motion instead
+        // of discrete beats. No overshoot — a pure glide, so nothing "jumps".
+        const perRow = 0.075; // small gap → rows overlap and flow into each other
+        const maxStart = 0.5;
+        const window = 0.5; // long, unhurried per-row settle
         final start = (index * perRow).clamp(0.0, maxStart);
         final raw = ((intro.value - start) / window).clamp(0.0, 1.0);
-        final eased = Curves.easeOutBack.transform(raw);
-        final fade = Curves.easeOut.transform(raw);
+        // easeOutCubic: a soft, natural decelerate to rest — NO spring-back.
+        final eased = Curves.easeOutCubic.transform(raw);
         return Opacity(
-          opacity: fade,
+          opacity: eased,
           child: Transform.translate(
-            // Ease up + a touch in from the left — the same alive motion as the
-            // collection rows.
-            offset: Offset(12 * (1 - fade), 34 * (1 - eased)),
-            child: Transform.scale(
-              scale: 0.92 + 0.08 * eased,
-              alignment: Alignment.centerLeft,
-              child: child,
-            ),
+            // A gentle rise only — smaller travel, no sideways drift, no scale.
+            // It simply slides up and settles, like the list but calmer.
+            offset: Offset(0, 20 * (1 - eased)),
+            child: child,
           ),
         );
       },

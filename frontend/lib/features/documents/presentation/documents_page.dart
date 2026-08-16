@@ -339,22 +339,49 @@ class _DocumentsPageState extends State<DocumentsPage>
         ),
     ];
 
+    // The whole-library aggregate for under the title — every file anywhere in
+    // the tree, plus the total folders. So the header is a meaningful summary of
+    // everything stored, not just the root.
+    final totalFiles = store.totalCount;
+    final totalFolders = store.folderCount;
+    final headerParts = <String>[
+      '$totalFiles file${totalFiles == 1 ? '' : 's'}',
+      if (totalFolders > 0)
+        '$totalFolders folder${totalFolders == 1 ? '' : 's'}',
+    ];
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 40),
       children: [
-        // Just the header — a big, plain "Documents" title. No box, no count
-        // subtitle; the library reads as clean text lines below.
-        const Padding(
-          padding: EdgeInsets.fromLTRB(14, 6, 14, 10),
-          child: Text(
-            'Documents',
-            style: TextStyle(
-              fontSize: 30,
-              height: 1.05,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-              color: AppColors.ink,
-            ),
+        // The header — a big, plain "Documents" title with a quiet aggregate of
+        // the whole library beneath it. No box; clean text lines below.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Documents',
+                style: TextStyle(
+                  fontSize: 30,
+                  height: 1.05,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.6,
+                  color: AppColors.ink,
+                ),
+              ),
+              if (totalFiles > 0 || totalFolders > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  headerParts.join(' · '),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         // The tree — folders expand in place, each row cascading smoothly in.

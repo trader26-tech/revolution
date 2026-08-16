@@ -5,7 +5,8 @@
       "Bash(flutter analyze *)",
       "Bash(ls -la /Users/ranjeev/Documents/projects/revolution/.claude/ 2>/dev/null; echo \"--- project settings ---\"; cat /Users/ranjeev/Documents/projects/revolution/.claude/settings.json 2>/dev/null; echo \"--- project local ---\"; cat /Users/ranjeev/Documents/projects/revolution/.claude/settings.local.json 2>/dev/null; echo \"--- user settings ---\"; cat /Users/ranjeev/.claude/settings.json 2>/dev/null)",
       "Read(//Users/ranjeev/.claude/**)",
-      "Bash(awk 'NR>=362 && NR<=460 {print NR\": \"$0}' lib/features/add/presentation/subscription_form_page.dart)"
+      "Bash(awk 'NR>=362 && NR<=460 {print NR\": \"$0}' lib/features/add/presentation/subscription_form_page.dart)",
+      "Bash(grep -n \"'Documents'\\\\|totalCount\\\\|folderCount\\\\|EdgeInsets.fromLTRB\\(14, 6\\\\|Text\\(\\\\s*$\\\\|_buildBody\\\\|store.foldersIn\\(null\\)\" lib/features/documents/presentation/documents_page.dart)"
     ]
   },
   "model": "claude-opus-4-8",

@@ -339,16 +339,10 @@ class _DocumentsPageState extends State<DocumentsPage>
         ),
     ];
 
-    // The whole-library aggregate for under the title — every file anywhere in
-    // the tree, plus the total folders. So the header is a meaningful summary of
-    // everything stored, not just the root.
+    // The whole-library aggregate for under the title — ONE value: the total
+    // number of items (documents) anywhere in the tree. No folder count; a
+    // single clean number reads best.
     final totalFiles = store.totalCount;
-    final totalFolders = store.folderCount;
-    final headerParts = <String>[
-      '$totalFiles file${totalFiles == 1 ? '' : 's'}',
-      if (totalFolders > 0)
-        '$totalFolders folder${totalFolders == 1 ? '' : 's'}',
-    ];
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 40),
@@ -370,10 +364,10 @@ class _DocumentsPageState extends State<DocumentsPage>
                   color: AppColors.ink,
                 ),
               ),
-              if (totalFiles > 0 || totalFolders > 0) ...[
+              if (totalFiles > 0) ...[
                 const SizedBox(height: 4),
                 Text(
-                  headerParts.join(' · '),
+                  '$totalFiles item${totalFiles == 1 ? '' : 's'}',
                   style: const TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
@@ -615,14 +609,10 @@ class _FolderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A meaningful count under the name — the AGGREGATE of everything inside
-    // (itemCount = items anywhere under this folder), plus the direct subfolder
-    // count when it has any. So a folder tells you at a glance how much it holds.
-    final parts = <String>[
-      '$itemCount item${itemCount == 1 ? '' : 's'}',
-      if (subfolderCount > 0)
-        '$subfolderCount folder${subfolderCount == 1 ? '' : 's'}',
-    ];
+    // ONE value under the name — the AGGREGATE of everything inside (items
+    // anywhere under this folder). No subfolder count; a single number reads
+    // cleanest.
+    final countLabel = '$itemCount item${itemCount == 1 ? '' : 's'}';
     // A plain LINE row — no box. Caret, folder glyph, name + count, and ONE menu
     // button on the right holding every action (add inside, rename, delete).
     return Material(
@@ -666,7 +656,7 @@ class _FolderRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      parts.join(' · '),
+                      countLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

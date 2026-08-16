@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../tasks/data/task_store.dart';
 import '../../tasks/domain/category_visuals.dart';
 import '../../tasks/domain/task.dart';
@@ -213,29 +214,34 @@ Future<bool> openEditForm(
   Task task, {
   Future<Task?> Function()? fallback,
 }) async {
+  // In EDIT mode, every tailored form gets a delete button. The callback shows a
+  // confirm, then removes via the store (which handles the optimistic delete +
+  // undo toast). Returns true when the item was deleted, so the form pops.
+  Future<bool> onDelete() => confirmAndDeleteTask(context, store, task);
+
   // Policies own their save (patch in place), so they short-circuit here and
   // return whether they saved — they never fall through to the store.update
   // roundtrip below.
   if (task.category == TaskCategory.policies) {
-    final saved = await Navigator.of(context)
-        .push<bool>(_formRoute(PolicyFormPage(store: store, editTask: task)));
+    final saved = await Navigator.of(context).push<bool>(
+        _formRoute(PolicyFormPage(store: store, editTask: task, onDelete: onDelete)));
     return saved == true;
   }
 
   Widget? form;
   switch (task.category) {
     case TaskCategory.subscription:
-      form = SubscriptionFormPage(editTask: task);
+      form = SubscriptionFormPage(editTask: task, onDelete: onDelete);
     case TaskCategory.investment:
-      form = SipFormPage(editTask: task);
+      form = SipFormPage(editTask: task, onDelete: onDelete);
     case TaskCategory.birthday:
-      form = BirthdayFormPage(editTask: task);
+      form = BirthdayFormPage(editTask: task, onDelete: onDelete);
     case TaskCategory.other:
       // General reminders edit in their own title + date + note form.
-      form = GeneralFormPage(editTask: task);
+      form = GeneralFormPage(editTask: task, onDelete: onDelete);
     case TaskCategory.medicine:
       // Medicines edit in their own dose-schedule form.
-      form = MedicineFormPage(editTask: task);
+      form = MedicineFormPage(editTask: task, onDelete: onDelete);
     case TaskCategory.insurance:
     case TaskCategory.policies:
     case TaskCategory.bills:
@@ -248,5 +254,46 @@ Future<bool> openEditForm(
 
   if (updated == null) return false;
   store.update(updated);
+  return true;
+}
+
+/// Confirm + delete a task from its edit screen. Shows a small confirmation
+/// dialog; on confirm, removes via [store] (which does the optimistic delete +
+/// undo toast + rollback). Returns true when deleted, so the caller pops the
+/// edit form. Shared by every tailored edit form's delete button.
+Future<bool> confirmAndDeleteTask(
+    BuildContext context, TaskStore store, Task task) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: AppColors.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: AppColors.cardBorder),
+      ),
+      title: const Text('Delete this?',
+          style: TextStyle(
+              color: AppColors.ink, fontWeight: FontWeight.w800, fontSize: 18)),
+      content: Text(
+        '“${task.title}” will be removed. You can undo right after.',
+        style: const TextStyle(color: AppColors.inkSoft, fontSize: 14.5),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('Cancel',
+              style: TextStyle(color: AppColors.inkSoft, fontWeight: FontWeight.w700)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: const Text('Delete',
+              style: TextStyle(
+                  color: Color(0xFFFF6B6B), fontWeight: FontWeight.w800)),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return false;
+  await store.remove(task);
   return true;
 }

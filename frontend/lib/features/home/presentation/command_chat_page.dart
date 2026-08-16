@@ -143,8 +143,18 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
   Future<void> _openTask(Task task) async {
     _clearSearch();
     widget.onNavigated(); // close the chat overlay
-    await openEditForm(context, _c.store, task,
-        fallback: () => showTaskDetailsSheet(context, task));
+    await openEditForm(
+      context,
+      _c.store,
+      task,
+      // Categories without a tailored form (insurance/bills) edit in the details
+      // sheet — give IT the delete button too, so every result is deletable.
+      fallback: () => showTaskDetailsSheet(
+        context,
+        task,
+        onDelete: () => confirmAndDeleteTask(context, _c.store, task),
+      ),
+    );
   }
 
   void _openDocument(DocItem doc) {

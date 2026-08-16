@@ -25,12 +25,16 @@ import 'widgets/orbit_form.dart';
 /// Like insurance it OWNS its save (create the task → upload the doc → pop true).
 /// Returns true if it created something, so the caller refreshes.
 class PolicyFormPage extends StatefulWidget {
-  const PolicyFormPage({super.key, required this.store, this.editTask});
+  const PolicyFormPage(
+      {super.key, required this.store, this.editTask, this.onDelete});
 
   final TaskStore store;
 
   /// When set, the form opens pre-filled to EDIT this policy instead of adding.
   final Task? editTask;
+
+  /// Edit mode only — confirm + delete this task (returns true when deleted).
+  final Future<bool> Function()? onDelete;
 
   @override
   State<PolicyFormPage> createState() => _PolicyFormPageState();
@@ -234,6 +238,13 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
         payoutCount: _isAmortized ? _payoutCount : null,
       );
 
+  Future<void> _handleDelete() async {
+    final deleted = await widget.onDelete!();
+    // Policy returns bool (saved?) to openEditForm — false = not saved; the task
+    // is already removed, so just pop.
+    if (deleted && mounted) Navigator.of(context).pop(false);
+  }
+
   Future<void> _save() async {
     if (!_valid || _saving) return;
     setState(() => _saving = true);
@@ -317,6 +328,7 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
                 canSave: _valid && !_saving,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
+                onDelete: widget.onDelete == null ? null : _handleDelete,
               ),
               Expanded(
                 child: ListView(

@@ -18,6 +18,7 @@ Future<Task?> showTaskDetailsSheet(
   BuildContext context,
   Task task, {
   bool requireDate = false,
+  Future<bool> Function()? onDelete,
 }) {
   return showModalBottomSheet<Task>(
     context: context,
@@ -29,14 +30,19 @@ Future<Task?> showTaskDetailsSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (_) => _TaskDetailsSheet(task: task, requireDate: requireDate),
+    builder: (_) => _TaskDetailsSheet(
+        task: task, requireDate: requireDate, onDelete: onDelete),
   );
 }
 
 class _TaskDetailsSheet extends StatefulWidget {
-  const _TaskDetailsSheet({required this.task, this.requireDate = false});
+  const _TaskDetailsSheet(
+      {required this.task, this.requireDate = false, this.onDelete});
   final Task task;
   final bool requireDate;
+
+  /// Edit mode only — confirm + delete this task (returns true when deleted).
+  final Future<bool> Function()? onDelete;
 
   @override
   State<_TaskDetailsSheet> createState() => _TaskDetailsSheetState();
@@ -53,6 +59,12 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
     final now = DateTime.now();
     // Default to today at the next round hour.
     return DateTime(now.year, now.month, now.day, now.hour + 1);
+  }
+
+  Future<void> _handleDelete() async {
+    final deleted = await widget.onDelete!();
+    // Deleted → close the sheet with no edit (the task is already removed).
+    if (deleted && mounted) Navigator.of(context).pop();
   }
 
   void _save() {
@@ -142,6 +154,13 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
                       ),
                     ),
                   ),
+                  if (widget.onDelete != null)
+                    IconButton(
+                      onPressed: _handleDelete,
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          color: Color(0xFFFF6B6B)),
+                      tooltip: 'Delete',
+                    ),
                   IconButton(
                     onPressed: _save,
                     icon:

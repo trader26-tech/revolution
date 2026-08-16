@@ -24,6 +24,7 @@ class SipFormPage extends StatefulWidget {
     this.initialName,
     this.accent, // kept for call-site compatibility; the form is always accent
     this.editTask,
+    this.onDelete,
   });
 
   final String? initialName;
@@ -32,6 +33,9 @@ class SipFormPage extends StatefulWidget {
   /// When set, opens in EDIT mode pre-filled from this task; Save returns an
   /// updated copy (same id).
   final Task? editTask;
+
+  /// Edit mode only — confirm + delete this task (returns true when deleted).
+  final Future<bool> Function()? onDelete;
 
   @override
   State<SipFormPage> createState() => _SipFormPageState();
@@ -195,6 +199,11 @@ class _SipFormPageState extends State<SipFormPage> {
     }
   }
 
+  Future<void> _handleDelete() async {
+    final deleted = await widget.onDelete!();
+    if (deleted && mounted) Navigator.of(context).pop();
+  }
+
   void _save() {
     if (!_valid) return;
     HapticFeedback.lightImpact();
@@ -257,6 +266,7 @@ class _SipFormPageState extends State<SipFormPage> {
                 canSave: _valid,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
+                onDelete: widget.onDelete == null ? null : _handleDelete,
               ),
               Expanded(
                 child: ListView(

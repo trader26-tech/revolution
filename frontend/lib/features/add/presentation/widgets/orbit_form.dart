@@ -29,11 +29,16 @@ class OrbitFormHeader extends StatelessWidget {
     required this.canSave,
     required this.onBack,
     required this.onSave,
+    this.onDelete,
   });
   final String title;
   final bool canSave;
   final VoidCallback onBack;
   final VoidCallback onSave;
+
+  /// When set (edit mode only), a delete (trash) button appears before Save so
+  /// the item can be removed right from its edit screen.
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +59,14 @@ class OrbitFormHeader extends StatelessWidget {
               ),
             ),
           ),
+          if (onDelete != null) ...[
+            _CircleButton(
+              icon: Icons.delete_outline_rounded,
+              onTap: onDelete!,
+              danger: true,
+            ),
+            const SizedBox(width: 10),
+          ],
           GestureDetector(
             onTap: canSave ? onSave : null,
             child: AnimatedContainer(
@@ -128,12 +141,20 @@ class OrbitSaveHint extends StatelessWidget {
 }
 
 class _CircleButton extends StatelessWidget {
-  const _CircleButton({required this.icon, required this.onTap});
+  const _CircleButton({
+    required this.icon,
+    required this.onTap,
+    this.danger = false,
+  });
   final IconData icon;
   final VoidCallback onTap;
 
+  /// A destructive button (delete) — tinted red.
+  final bool danger;
+
   @override
   Widget build(BuildContext context) {
+    const red = Color(0xFFFF6B6B);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -142,11 +163,12 @@ class _CircleButton extends StatelessWidget {
         height: 44,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: danger ? red.withValues(alpha: 0.12) : AppColors.card,
           shape: BoxShape.circle,
-          border: Border.all(color: AppColors.cardBorder),
+          border: Border.all(
+              color: danger ? red.withValues(alpha: 0.4) : AppColors.cardBorder),
         ),
-        child: Icon(icon, color: AppColors.ink, size: 22),
+        child: Icon(icon, color: danger ? red : AppColors.ink, size: 22),
       ),
     );
   }

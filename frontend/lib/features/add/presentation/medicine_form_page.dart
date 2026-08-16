@@ -16,9 +16,12 @@ import 'widgets/orbit_form.dart';
 /// Returns a ready-to-save [Task] (category `medicine`), the edited copy in edit
 /// mode, or null if cancelled.
 class MedicineFormPage extends StatefulWidget {
-  const MedicineFormPage({super.key, this.editTask});
+  const MedicineFormPage({super.key, this.editTask, this.onDelete});
 
   final Task? editTask;
+
+  /// Edit mode only — confirm + delete this task (returns true when deleted).
+  final Future<bool> Function()? onDelete;
 
   @override
   State<MedicineFormPage> createState() => _MedicineFormPageState();
@@ -120,6 +123,11 @@ class _MedicineFormPageState extends State<MedicineFormPage> {
     }
   }
 
+  Future<void> _handleDelete() async {
+    final deleted = await widget.onDelete!();
+    if (deleted && mounted) Navigator.of(context).pop();
+  }
+
   void _save() {
     if (!_valid) return;
     HapticFeedback.lightImpact();
@@ -188,6 +196,7 @@ class _MedicineFormPageState extends State<MedicineFormPage> {
               canSave: _valid,
               onBack: () => Navigator.of(context).maybePop(),
               onSave: _save,
+              onDelete: widget.onDelete == null ? null : _handleDelete,
             ),
             Expanded(
               child: ListView(

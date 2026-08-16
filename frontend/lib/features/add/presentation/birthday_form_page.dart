@@ -19,10 +19,13 @@ import 'widgets/orbit_form.dart';
 /// Returns a ready-to-save [Task] (category `birthday`), the edited copy in edit
 /// mode, or null if cancelled.
 class BirthdayFormPage extends StatefulWidget {
-  const BirthdayFormPage({super.key, this.editTask});
+  const BirthdayFormPage({super.key, this.editTask, this.onDelete});
 
   /// When set, opens in EDIT mode pre-filled; Save returns an updated copy.
   final Task? editTask;
+
+  /// Edit mode only — confirm + delete this task (returns true when deleted).
+  final Future<bool> Function()? onDelete;
 
   @override
   State<BirthdayFormPage> createState() => _BirthdayFormPageState();
@@ -152,6 +155,11 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
     }
   }
 
+  Future<void> _handleDelete() async {
+    final deleted = await widget.onDelete!();
+    if (deleted && mounted) Navigator.of(context).pop();
+  }
+
   void _save() {
     if (!_valid) return;
     HapticFeedback.lightImpact();
@@ -206,6 +214,7 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
                 canSave: _valid,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
+                onDelete: widget.onDelete == null ? null : _handleDelete,
               ),
               Expanded(
                 child: ListView(

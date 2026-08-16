@@ -16,10 +16,14 @@ import 'widgets/orbit_form.dart';
 /// Returns a ready-to-save [Task] (category `other`), the edited copy in edit
 /// mode, or null if cancelled.
 class GeneralFormPage extends StatefulWidget {
-  const GeneralFormPage({super.key, this.editTask});
+  const GeneralFormPage({super.key, this.editTask, this.onDelete});
 
   /// When set, opens in EDIT mode pre-filled; Save returns an updated copy.
   final Task? editTask;
+
+  /// Edit mode only — confirm + delete this task. Returns true when deleted so
+  /// the form pops. Null in add mode (no delete button).
+  final Future<bool> Function()? onDelete;
 
   @override
   State<GeneralFormPage> createState() => _GeneralFormPageState();
@@ -79,6 +83,11 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
     if (picked != null) setState(() => _date = picked);
   }
 
+  Future<void> _handleDelete() async {
+    final deleted = await widget.onDelete!();
+    if (deleted && mounted) Navigator.of(context).pop();
+  }
+
   void _save() {
     if (!_valid) return;
     HapticFeedback.lightImpact();
@@ -124,6 +133,7 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
                 canSave: _valid,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
+                onDelete: widget.onDelete == null ? null : _handleDelete,
               ),
               Expanded(
                 child: ListView(

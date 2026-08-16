@@ -28,6 +28,7 @@ class SubscriptionFormPage extends StatefulWidget {
     this.title,
     this.accent, // kept for call-site compatibility; the form is always accent
     this.editTask,
+    this.onDelete,
   });
 
   final Brand? initialBrand;
@@ -39,6 +40,9 @@ class SubscriptionFormPage extends StatefulWidget {
   /// When set, the form opens in EDIT mode pre-filled from this task and its
   /// Save returns an updated copy (same id) instead of a brand-new task.
   final Task? editTask;
+
+  /// Edit mode only — confirm + delete this task (returns true when deleted).
+  final Future<bool> Function()? onDelete;
 
   @override
   State<SubscriptionFormPage> createState() => _SubscriptionFormPageState();
@@ -287,6 +291,11 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
     return false;
   }
 
+  Future<void> _handleDelete() async {
+    final deleted = await widget.onDelete!();
+    if (deleted && mounted) Navigator.of(context).pop();
+  }
+
   void _save() {
     if (!_valid) return;
     HapticFeedback.lightImpact();
@@ -346,6 +355,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                 canSave: _valid,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
+                onDelete: widget.onDelete == null ? null : _handleDelete,
               ),
               Expanded(
                 child: ListView(
@@ -448,11 +458,15 @@ class _Header extends StatelessWidget {
     required this.canSave,
     required this.onBack,
     required this.onSave,
+    this.onDelete,
   });
   final String title;
   final bool canSave;
   final VoidCallback onBack;
   final VoidCallback onSave;
+
+  /// Edit mode only — a delete (trash) button before Save.
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -473,6 +487,14 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
+          if (onDelete != null) ...[
+            _CircleButton(
+              icon: Icons.delete_outline_rounded,
+              onTap: onDelete!,
+              danger: true,
+            ),
+            const SizedBox(width: 10),
+          ],
           // Save pill — accent when ready, muted when the name's empty.
           GestureDetector(
             onTap: canSave ? onSave : null,
@@ -516,12 +538,15 @@ class _Header extends StatelessWidget {
 }
 
 class _CircleButton extends StatelessWidget {
-  const _CircleButton({required this.icon, required this.onTap});
+  const _CircleButton(
+      {required this.icon, required this.onTap, this.danger = false});
   final IconData icon;
   final VoidCallback onTap;
+  final bool danger;
 
   @override
   Widget build(BuildContext context) {
+    const red = Color(0xFFFF6B6B);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -530,11 +555,12 @@ class _CircleButton extends StatelessWidget {
         height: 44,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: danger ? red.withValues(alpha: 0.12) : AppColors.card,
           shape: BoxShape.circle,
-          border: Border.all(color: AppColors.cardBorder),
+          border: Border.all(
+              color: danger ? red.withValues(alpha: 0.4) : AppColors.cardBorder),
         ),
-        child: Icon(icon, color: AppColors.ink, size: 22),
+        child: Icon(icon, color: danger ? red : AppColors.ink, size: 22),
       ),
     );
   }

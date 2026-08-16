@@ -16,6 +16,7 @@ class DocFolder {
     required this.name,
     required this.parentId,
     required this.createdAt,
+    this.cloudSync = true,
   });
 
   final String id;
@@ -26,11 +27,19 @@ class DocFolder {
   final String? parentId;
   final DateTime createdAt;
 
-  DocFolder copyWith({String? name, String? parentId}) => DocFolder(
+  /// Whether this folder's documents back up to the cloud. ON by default; the
+  /// user can turn it off per-folder from the folder's menu, keeping that
+  /// folder's files on this device only. Older stored folders (no flag) read as
+  /// true, preserving the default.
+  final bool cloudSync;
+
+  DocFolder copyWith({String? name, String? parentId, bool? cloudSync}) =>
+      DocFolder(
         id: id,
         name: name ?? this.name,
         parentId: parentId ?? this.parentId,
         createdAt: createdAt,
+        cloudSync: cloudSync ?? this.cloudSync,
       );
 
   Map<String, dynamic> toJson() => {
@@ -38,6 +47,7 @@ class DocFolder {
         'name': name,
         'parent_id': parentId,
         'created_at': createdAt.toIso8601String(),
+        'cloud_sync': cloudSync,
       };
 
   factory DocFolder.fromJson(Map<String, dynamic> j) => DocFolder(
@@ -46,6 +56,8 @@ class DocFolder {
         parentId: j['parent_id'] as String?,
         createdAt: DateTime.tryParse(j['created_at'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0),
+        // Absent (older folders) → true, so the default stays ON.
+        cloudSync: j['cloud_sync'] as bool? ?? true,
       );
 }
 

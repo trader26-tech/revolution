@@ -307,18 +307,24 @@ class DocumentsStore extends ChangeNotifier {
     await _persist();
   }
 
+  /// Toggle whether a folder's documents back up to the cloud. OFF keeps that
+  /// folder's files on this device only.
+  Future<void> setFolderCloudSync(String id, bool value) async {
+    final i = _folders.indexWhere((f) => f.id == id);
+    if (i == -1) return;
+    _folders[i] = _folders[i].copyWith(cloudSync: value);
+    notifyListeners();
+    await _persist();
+  }
+
   /// Move a folder under [newParentId] (null = root). No-op if it would create a
   /// cycle (moving a folder into itself/its descendants).
   Future<void> moveFolder(String id, String? newParentId) async {
     if (newParentId != null && _isSelfOrDescendant(newParentId, id)) return;
     final i = _folders.indexWhere((f) => f.id == id);
     if (i == -1) return;
-    _folders[i] = DocFolder(
-      id: _folders[i].id,
-      name: _folders[i].name,
-      parentId: newParentId,
-      createdAt: _folders[i].createdAt,
-    );
+    // copyWith preserves cloudSync (and everything else); only parentId changes.
+    _folders[i] = _folders[i].copyWith(parentId: newParentId);
     notifyListeners();
     await _persist();
   }

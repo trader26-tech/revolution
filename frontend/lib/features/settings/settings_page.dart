@@ -42,8 +42,9 @@ class _SettingsPageState extends State<SettingsPage> {
   /// True while a test notification is being sent.
   bool _testingNotif = false;
 
-  /// True while a manual cloud sync is running.
-  bool _syncing = false;
+  /// True while a manual reminders/documents sync is running (separate spinners).
+  bool _syncingReminders = false;
+  bool _syncingDocs = false;
 
   /// True while an update check is in flight.
   bool _checkingUpdate = false;
@@ -93,21 +94,37 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  /// Manually push/pull cloud backup now — uploads anything not yet backed up
-  /// and pulls anything new from the account. Uses a transient DocumentsStore
-  /// (documents aren't otherwise held here); reminders are always server-backed.
-  Future<void> _syncNow() async {
-    setState(() => _syncing = true);
+  /// Manually refresh REMINDERS from the account. Reminders are always server-
+  /// backed, so this just re-pulls the latest list from the store.
+  Future<void> _syncReminders() async {
+    if (_syncingReminders) return;
+    setState(() => _syncingReminders = true);
+    try {
+      await widget.store?.load();
+      if (mounted) _toast('Reminders up to date');
+    } catch (_) {
+      if (mounted) _toast("Couldn't sync — try again");
+    } finally {
+      if (mounted) setState(() => _syncingReminders = false);
+    }
+  }
+
+  /// Manually push/pull DOCUMENTS now — uploads anything not yet backed up and
+  /// pulls anything new. Uses a transient DocumentsStore (not otherwise held
+  /// here); its syncWithCloud is a no-op when cloud backup is off.
+  Future<void> _syncDocuments() async {
+    if (_syncingDocs) return;
+    setState(() => _syncingDocs = true);
     final docs = DocumentsStore();
     try {
       await docs.load(); // load() itself kicks a sync when backup is on
       await docs.syncWithCloud();
-      if (mounted) _toast('Everything is up to date');
+      if (mounted) _toast('Documents up to date');
     } catch (_) {
       if (mounted) _toast("Couldn't sync — try again");
     } finally {
       docs.dispose();
-      if (mounted) setState(() => _syncing = false);
+      if (mounted) setState(() => _syncingDocs = false);
     }
   }
 
@@ -327,9 +344,8 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 22),
 
           // --- CLOUD BACKUP ---
-          // A master switch + a manual "Sync now" — no permanent status text; the
-          // "what is this?" reveals on tapping ⓘ. Reminders are always server-
-          // backed; documents back up when this is on.
+          // A master switch + SEPARATE manual sync for Reminders and Documents.
+          // No permanent status text — tap a row's icon to reveal what it is.
           SettingsSection(
             title: 'Cloud backup',
             children: [
@@ -341,24 +357,30 @@ class _SettingsPageState extends State<SettingsPage> {
                 value: _profile.cloudBackup,
                 onChanged: (v) => _profile.setCloudBackup(v),
               ),
-              if (_profile.cloudBackup)
+              if (_profile.cloudBackup) ...[
                 SettingsTile(
-                  icon: Icons.sync_rounded,
-                  title: _syncing ? 'Syncing…' : 'Sync now',
-                  info: 'Push anything not yet backed up and pull anything new '
+                  icon: Icons.event_note_rounded,
+                  title: 'Sync reminders',
+                  info: 'Reminders live in your account and sync across devices. '
+                      'Tap to refresh now.',
+                  showChevron: false,
+                  trailing: _SyncAction(
+                    busy: _syncingReminders,
+                    onTap: _syncReminders,
+                  ),
+                ),
+                SettingsTile(
+                  icon: Icons.folder_outlined,
+                  title: 'Sync documents',
+                  info: 'Push documents not yet backed up and pull any new ones '
                       'from your account.',
                   showChevron: false,
-                  trailing: _syncing
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2.2, color: AppColors.accent),
-                        )
-                      : const Icon(Icons.refresh_rounded,
-                          color: AppColors.accent, size: 20),
-                  onTap: _syncing ? null : _syncNow,
+                  trailing: _SyncAction(
+                    busy: _syncingDocs,
+                    onTap: _syncDocuments,
+                  ),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 22),
@@ -410,13 +432,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   onAllow: _allowNotifications,
                   onTest: _sendTestNotification,
                 ),
-              ),
-              SettingsSwitchTile(
-                icon: Icons.call_outlined,
-                title: 'Call me to remind',
-                info: "We'll call you one week before.",
-                value: _profile.callReminder,
-                onChanged: (v) => _profile.setCallReminder(v),
               ),
             ],
           ),
@@ -477,6 +492,40 @@ class _SettingsPageState extends State<SettingsPage> {
 
 /// A small right-aligned button for the notification row: "Allow" when
 /// notifications are off, "Send test" when they're on, a spinner while sending.
+/// A compact right-pinned "sync now" control for a cloud-backup row: a tappable
+/// refresh glyph that becomes a spinner while syncing.
+class _SyncAction extends StatelessWidget {
+  const _SyncAction({required this.busy, required this.onTap});
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (busy) {
+      return const SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+            strokeWidth: 2.2, color: AppColors.accent),
+      );
+    }
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.accent.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: const Icon(Icons.sync_rounded, color: AppColors.accent, size: 20),
+      ),
+    );
+  }
+}
+
 class _NotifButton extends StatelessWidget {
   const _NotifButton({
     required this.allowed,

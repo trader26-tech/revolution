@@ -75,12 +75,12 @@ class SettingsSection extends StatelessWidget {
 }
 
 /// A single settings row: leading icon, title, and a trailing value + chevron
-/// (or a custom trailing widget).
+/// (or a custom trailing widget), pinned RIGHT.
 ///
-/// Clean by default — NO always-on subtitle. When [info] is set, a small ⓘ sits
-/// by the title; tapping it reveals a one-line description inline. Rows that DO
-/// something on tap ([onTap]) keep that as their primary action; the ⓘ handles
-/// the "what is this?" without cluttering the row.
+/// Clean by default — NO always-on subtitle, NO ⓘ button. When [info] is set,
+/// tapping the row's own LEADING ICON reveals a one-line description inline (the
+/// icon IS the "what is this?" affordance). Rows that DO something on tap
+/// ([onTap]) keep that as their main action; only the icon toggles info.
 class SettingsTile extends StatefulWidget {
   const SettingsTile({
     super.key,
@@ -127,34 +127,32 @@ class _SettingsTileState extends State<SettingsTile> {
     final titleColor = widget.danger ? const Color(0xFFDC2626) : AppColors.ink;
     final hasInfo = widget.info != null && widget.info!.trim().isNotEmpty;
 
-    final title = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: Text(
-            widget.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 15.5,
-              fontWeight: FontWeight.w600,
-              color: titleColor,
-            ),
-          ),
-        ),
-        if (hasInfo) ...[
-          const SizedBox(width: 6),
-          _InfoDot(open: _open),
-        ],
-      ],
+    // The leading icon IS the info affordance — tapping it reveals the one-liner.
+    Widget leading = _IconChip(icon: widget.icon, color: tint);
+    if (hasInfo) {
+      leading = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _open = !_open),
+        child: leading,
+      );
+    }
+
+    final titleText = Text(
+      widget.title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 15.5,
+        fontWeight: FontWeight.w600,
+        color: titleColor,
+      ),
     );
 
     return Column(
       children: [
         InkWell(
-          // If the row has no primary action, the ⓘ becomes the tap target;
-          // otherwise tapping the title area toggles info and the row's own
-          // onTap stays the main action (chevron / trailing).
+          // The whole row runs its action; when there's no action, tapping it
+          // toggles the info (same as the icon).
           onTap: widget.onTap ??
               (hasInfo ? () => setState(() => _open = !_open) : null),
           borderRadius: BorderRadius.circular(18),
@@ -162,25 +160,15 @@ class _SettingsTileState extends State<SettingsTile> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             child: Row(
               children: [
-                _IconChip(icon: widget.icon, color: tint),
+                leading,
                 const SizedBox(width: 14),
-                Flexible(
-                  flex: widget.value != null ? 0 : 1,
-                  child: hasInfo && widget.onTap != null
-                      // Row has its own action → make the ⓘ separately tappable.
-                      ? GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => setState(() => _open = !_open),
-                          child: title,
-                        )
-                      : title,
-                ),
-                if (widget.trailing != null) ...[
-                  const Spacer(),
-                  widget.trailing!,
-                ] else ...[
+                // Title takes the slack so every trailing control is pinned RIGHT.
+                Expanded(child: titleText),
+                if (widget.trailing != null)
+                  widget.trailing!
+                else ...[
                   if (widget.value != null)
-                    Expanded(
+                    Flexible(
                       child: Padding(
                         padding: const EdgeInsets.only(left: 12),
                         child: Text(
@@ -258,33 +246,32 @@ class _SettingsSwitchTileState extends State<SettingsSwitchTile> {
         children: [
           Row(
             children: [
-              _IconChip(icon: widget.icon, color: widget.iconColor ?? AppColors.accent),
+              // The leading icon IS the info affordance — tap it to reveal the
+              // one-liner. No separate ⓘ.
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: hasInfo ? () => setState(() => _open = !_open) : null,
+                child: _IconChip(
+                    icon: widget.icon,
+                    color: widget.iconColor ?? AppColors.accent),
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: hasInfo ? () => setState(() => _open = !_open) : null,
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          widget.title,
-                          style: const TextStyle(
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                      ),
-                      if (hasInfo) ...[
-                        const SizedBox(width: 6),
-                        _InfoDot(open: _open),
-                      ],
-                    ],
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.ink,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
+              // The switch, pinned RIGHT.
               Switch.adaptive(
                 value: widget.value,
                 onChanged: widget.onChanged,
@@ -299,27 +286,7 @@ class _SettingsSwitchTileState extends State<SettingsSwitchTile> {
   }
 }
 
-/// The small ⓘ affordance beside a title — a quiet hint that a one-line
-/// explanation is a tap away. Rotates to a downward chevron when open.
-class _InfoDot extends StatelessWidget {
-  const _InfoDot({required this.open});
-  final bool open;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedRotation(
-      turns: open ? 0.5 : 0,
-      duration: const Duration(milliseconds: 180),
-      child: Icon(
-        open ? Icons.expand_more_rounded : Icons.info_outline_rounded,
-        size: 16,
-        color: AppColors.inkFaint,
-      ),
-    );
-  }
-}
-
-/// The inline description that expands under a row when its ⓘ is tapped.
+/// The inline description that expands under a row when its icon is tapped.
 class _InfoReveal extends StatelessWidget {
   const _InfoReveal({required this.open, required this.text});
   final bool open;

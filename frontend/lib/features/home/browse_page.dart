@@ -141,14 +141,29 @@ class _BrowsePageState extends State<BrowsePage>
   Widget _header() {
     return const Padding(
       padding: EdgeInsets.fromLTRB(22, 4, 22, 0),
-      child: Text(
-        'Browse',
-        style: TextStyle(
-          fontSize: 30,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.6,
-          color: AppColors.ink,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Browse',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.6,
+              color: AppColors.ink,
+            ),
+          ),
+          SizedBox(height: 2),
+          // A short, crisp line explaining Browse.
+          Text(
+            'All your reminders, by category.',
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+              color: AppColors.inkSoft,
+            ),
+          ),
+        ],
       ),
     );
   }

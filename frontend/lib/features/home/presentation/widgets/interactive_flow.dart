@@ -186,7 +186,10 @@ List<FieldSpec> categoryFields(TaskCategory c) {
     case TaskCategory.insurance:
       return const [name, amount, dueDate];
     case TaskCategory.other:
-      return const [name, onDate];
+      // General is the catch-all — it can carry a date, an amount, AND a repeat,
+      // so the chat asks all four (each after name is skippable → a plain
+      // reminder is still just name → confirm).
+      return const [name, onDate, amount, every];
   }
 }
 

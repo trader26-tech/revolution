@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/orbit_date_picker.dart';
 import '../../../core/widgets/starfield.dart';
+import '../../details/domain/currency.dart';
+import '../../details/domain/currency_input.dart';
 import '../../tasks/domain/task.dart';
 import 'widgets/orbit_form.dart';
 
@@ -34,6 +36,14 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
   final _titleFocus = FocusNode();
   final _note = TextEditingController();
 
+  // Optional catch-all extras: an amount (with currency) and a repeat cadence —
+  // so General can capture money and recurring things, not just plain reminders.
+  final _amount = TextEditingController();
+  final _amountFocus = FocusNode();
+  String _currency = 'INR';
+  RepeatCadence _repeat = RepeatCadence.none;
+  int _interval = 1;
+
   DateTime? _date;
   int _remindDaysBefore = 0;
 
@@ -53,6 +63,14 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
       _note.text = edit.note ?? '';
       _date = edit.dueAt;
       _remindDaysBefore = edit.remindDaysBefore;
+      _currency = edit.currency;
+      if (edit.amount != null) {
+        _amount.text = formatAmount(
+            edit.amount!.toStringAsFixed(currencyOf(edit.currency).decimals),
+            currencyOf(edit.currency).grouping);
+      }
+      _repeat = edit.repeat;
+      _interval = edit.repeatTimes;
     }
     _title.addListener(() => setState(() {}));
   }
@@ -62,7 +80,36 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
     _title.dispose();
     _titleFocus.dispose();
     _note.dispose();
+    _amount.dispose();
+    _amountFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickCurrency() async {
+    final picked = await showCurrencyPicker(context, _currency);
+    if (picked != null) {
+      setState(() {
+        _currency = picked;
+        _amount.text = formatAmount(_amount.text, currencyOf(picked).grouping);
+      });
+    }
+  }
+
+  Future<void> _pickFrequency() async {
+    final r = await showFrequencyPicker(context,
+        unit: _repeat, interval: _interval);
+    if (r != null) {
+      setState(() {
+        _repeat = r.unit;
+        _interval = r.interval;
+      });
+    }
+  }
+
+  /// The typed amount as a number, or null when blank.
+  double? get _amountValue {
+    final raw = _amount.text.replaceAll(RegExp(r'[^0-9.]'), '');
+    return raw.isEmpty ? null : double.tryParse(raw);
   }
 
   String _dateLabel() {
@@ -93,6 +140,7 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
     HapticFeedback.lightImpact();
     final title = _title.text.trim();
     final note = _note.text.trim().isEmpty ? null : _note.text.trim();
+    final amount = _amountValue;
     final edit = widget.editTask;
     if (edit != null) {
       Navigator.of(context).pop(edit.copyWith(
@@ -101,6 +149,11 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
         clearDueAt: _date == null,
         note: note,
         clearNote: note == null,
+        amount: amount,
+        clearAmount: amount == null,
+        currency: _currency,
+        repeat: _repeat,
+        repeatTimes: _interval,
         category: TaskCategory.other,
         remindDaysBefore: _remindDaysBefore,
       ));
@@ -111,6 +164,10 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
       title: title,
       dueAt: _date,
       note: note,
+      amount: amount,
+      currency: _currency,
+      repeat: _repeat,
+      repeatTimes: _interval,
       storedCategory: TaskCategory.other,
       remindDaysBefore: _remindDaysBefore,
     ));
@@ -160,6 +217,38 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
                           days: _remindDaysBefore,
                           onChanged: (d) =>
                               setState(() => _remindDaysBefore = d),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
+                    // ── Amount + repeat — both OPTIONAL. Leave blank / "Never"
+                    //    for a plain reminder; fill them for money / recurring. ──
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4, bottom: 8),
+                      child: Text(
+                        'AMOUNT & REPEAT  ·  OPTIONAL',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                          color: AppColors.inkSoft,
+                        ),
+                      ),
+                    ),
+                    _AmountCard(
+                      controller: _amount,
+                      focus: _amountFocus,
+                      currency: _currency,
+                      onPickCurrency: _pickCurrency,
+                    ),
+                    const SizedBox(height: 10),
+                    OrbitGroupCard(
+                      children: [
+                        OrbitNavRow(
+                          label: 'Repeats',
+                          value: frequencyLabel(_repeat, _interval),
+                          onTap: _pickFrequency,
                         ),
                       ],
                     ),
@@ -280,6 +369,98 @@ class _TitleCard extends StatelessWidget {
                 hintStyle: TextStyle(
                   color: AppColors.inkFaint,
                   fontWeight: FontWeight.w700,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// An OPTIONAL amount field with a currency chip — the same look as the tailored
+/// forms' amount input, but standalone (no brand logo). Blank = no amount.
+class _AmountCard extends StatelessWidget {
+  const _AmountCard({
+    required this.controller,
+    required this.focus,
+    required this.currency,
+    required this.onPickCurrency,
+  });
+  final TextEditingController controller;
+  final FocusNode focus;
+  final String currency;
+  final VoidCallback onPickCurrency;
+
+  @override
+  Widget build(BuildContext context) {
+    final cur = currencyOf(currency);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          // Currency chip — tap to change.
+          GestureDetector(
+            onTap: onPickCurrency,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              height: 34,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(10),
+                border:
+                    Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(cur.symbol,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.accent,
+                      )),
+                  const SizedBox(width: 3),
+                  const Icon(Icons.expand_more_rounded,
+                      size: 15, color: AppColors.accent),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              focusNode: focus,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.done,
+              onTapOutside: (_) => FocusScope.of(context).unfocus(),
+              inputFormatters: [
+                CurrencyAmountFormatter(cur.grouping, decimals: cur.decimals),
+              ],
+              cursorColor: AppColors.accent,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'Amount (optional)',
+                hintStyle: TextStyle(
+                  color: AppColors.inkFaint,
+                  fontWeight: FontWeight.w600,
                 ),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,

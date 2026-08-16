@@ -38,6 +38,7 @@ class ProfileStore extends ChangeNotifier {
   static const _kQuietStart = 'profile_quiet_start_min'; // minutes since midnight
   static const _kQuietEnd = 'profile_quiet_end_min';
   static const _kWeekStartMon = 'profile_week_start_mon';
+  static const _kCloudBackup = 'profile_cloud_backup';
 
   // --- state (with sensible defaults) ---
   String _name = '';
@@ -56,6 +57,12 @@ class ProfileStore extends ChangeNotifier {
   int _quietStartMin = 22 * 60; // 10:00 PM
   int _quietEndMin = 7 * 60; //  7:00 AM
   bool _weekStartMon = true;
+  // ON by default: keep everything backed up to the account in the cloud.
+  // Reminders are already always server-backed; when the standalone Documents
+  // library gains a server endpoint, this flag also drives their upload. When
+  // OFF, data stays on this device where it can (documents), and the user has
+  // opted out of cloud backup for anything optional.
+  bool _cloudBackup = true;
 
   // --- getters ---
   String get name => _name;
@@ -76,6 +83,7 @@ class ProfileStore extends ChangeNotifier {
   int get quietStartMin => _quietStartMin;
   int get quietEndMin => _quietEndMin;
   bool get weekStartMon => _weekStartMon;
+  bool get cloudBackup => _cloudBackup;
 
   /// Load persisted preferences. Call once at startup.
   Future<void> load() async {
@@ -99,6 +107,7 @@ class ProfileStore extends ChangeNotifier {
     _quietStartMin = p.getInt(_kQuietStart) ?? (22 * 60);
     _quietEndMin = p.getInt(_kQuietEnd) ?? (7 * 60);
     _weekStartMon = p.getBool(_kWeekStartMon) ?? true;
+    _cloudBackup = p.getBool(_kCloudBackup) ?? true;
     notifyListeners();
   }
 
@@ -158,6 +167,14 @@ class ProfileStore extends ChangeNotifier {
   Future<void> setNotifReminders(bool v) async {
     _notifReminders = v;
     await _persist((p) => p.setBool(_kNotifReminders, v));
+  }
+
+  /// Turn cloud backup on/off. Reminders are always server-backed regardless;
+  /// this flag governs optional backup (documents, once a server endpoint exists)
+  /// and records the user's intent so uploads follow it as they come online.
+  Future<void> setCloudBackup(bool v) async {
+    _cloudBackup = v;
+    await _persist((p) => p.setBool(_kCloudBackup, v));
   }
 
   Future<void> setDigestTime(int minutesSinceMidnight) async {

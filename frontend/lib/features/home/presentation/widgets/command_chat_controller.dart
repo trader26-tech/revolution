@@ -38,6 +38,12 @@ class CommandChatController extends ChangeNotifier {
   /// and restarts its shimmer AnimationController from 0.
   int revealTick = 0;
 
+  /// True when the chat is at its ROOT — just the seeded menu, nothing picked or
+  /// typed yet. The overlay shows the GLANCE at root (instead of the CRUD menu),
+  /// and switches to the conversation the moment anything moves it off-root.
+  bool get isAtRoot =>
+      chat.length == 1 && chat.first.kind == ChatKind.menu;
+
   DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
 
   void _reveal() {
@@ -94,6 +100,25 @@ class CommandChatController extends ChangeNotifier {
       ..stage = CreateStage.fields
       ..fieldIndex = 0;
     chat.add(ChatMsg.create(flow));
+    _reveal();
+  }
+
+  /// Show the OVERDUE items in the thread (from the Glance's "overdue" tap): run
+  /// the overdue query, append the answer, then a fresh menu so it's not a dead
+  /// end. Moves the chat off-root, so the Glance yields to the conversation.
+  void showOverdue() {
+    final draft = CommandDraft(
+      title: '',
+      category: 'other',
+      intent: CommandIntent.query,
+      range: CommandRange.overdue,
+    );
+    final (header, items) = _answerQuery(draft);
+    // Replace the root menu (if that's all there is) with the answer, so the
+    // thread reads cleanly, then re-offer the menu.
+    if (isAtRoot) chat.clear();
+    chat.add(ChatMsg.answer(header, items));
+    chat.add(ChatMsg.menu());
     _reveal();
   }
 

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../onboarding/presentation/screens/onboarding_finish_screen.dart'
     show SetupPage;
 import '../../lock/data/app_lock_store.dart';
@@ -116,14 +115,6 @@ class _AuthGateState extends State<AuthGate> {
   /// exactly as a real sign-in would.
   Future<void> _skipToHome() async {
     await _safeLogin('+10000000000');
-  }
-
-  /// The preview lock's "Verify & continue" was tapped: rise the shared name +
-  /// phone claim sheet (the same premium sheet onboarding uses), which collects
-  /// the name and number and calls [_startVerification] — the OTP screen and
-  /// celebration then layer on top, and the gate rebuilds into the real app.
-  void _startVerifyFromBanner() {
-    showClaimSheet(context, _startVerification);
   }
 
   /// Kick off verification for [phoneE164]. We open the OTP screen IMMEDIATELY
@@ -250,148 +241,6 @@ class _AuthGateState extends State<AuthGate> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
-    );
-  }
-}
-
-/// Wraps the (unverified) app in a NON-INTERACTIVE preview: the user sees their
-/// added items rendered exactly as they will in Home, but nothing responds to
-/// taps — no add button, no task rows, no tab switch, no settings. The only live
-/// control is the "Verify & continue" prompt covering the bottom. Verifying
-/// unlocks the real, fully-interactive app.
-///
-/// Built with [IgnorePointer] over the whole shell (freezes all input) + an
-/// [AbsorbPointer]-free prompt on top (so only it receives touches).
-class _PreviewLock extends StatelessWidget {
-  const _PreviewLock({required this.onVerify});
-
-  final VoidCallback onVerify;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // The frozen preview — the real Home with the user's items, but every
-        // gesture is swallowed so nothing is clickable.
-        const Positioned.fill(
-          child: IgnorePointer(
-            ignoring: true,
-            child: _PreviewChild(),
-          ),
-        ),
-        // The verify prompt — the sole interactive surface, pinned to the bottom
-        // with a fade so the preview reads as "locked behind this".
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _VerifyGate(onVerify: onVerify),
-        ),
-      ],
-    );
-  }
-}
-
-/// The child slot for the preview — a separate widget so the const [IgnorePointer]
-/// can hold it while the enclosing lock stays cheap to rebuild.
-class _PreviewChild extends StatelessWidget {
-  const _PreviewChild();
-  @override
-  Widget build(BuildContext context) => const AppShell(verified: true);
-}
-
-/// The bottom "Verify & continue" gate over the preview — a soft upward fade
-/// into a solid panel, with the copy and the single CTA that unlocks the app.
-class _VerifyGate extends StatelessWidget {
-  const _VerifyGate({required this.onVerify});
-
-  final VoidCallback onVerify;
-
-  @override
-  Widget build(BuildContext context) {
-    // Material provides the text baseline/theme so Text renders normally (no
-    // yellow debug underline that appears under raw Text with no Material
-    // ancestor).
-    return Material(
-      type: MaterialType.transparency,
-      child: Container(
-      // Fade from transparent (so the preview shows through above) into a solid
-      // panel that anchors the CTA.
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0x00100B20),
-            Color(0xE6100B20),
-            AppColors.bg,
-          ],
-          stops: [0.0, 0.5, 1.0],
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 56, 24, 0),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'This is your space.',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: AppColors.ink,
-                letterSpacing: -0.4,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Verify your number to unlock it — save everything you set up\nand sync it across your devices.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                fontWeight: FontWeight.w500,
-                color: AppColors.inkSoft,
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: GestureDetector(
-                onTap: onVerify,
-                child: Container(
-                  height: 56,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    gradient: const LinearGradient(
-                      colors: [AppColors.accent, AppColors.accentDeep],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.accent.withValues(alpha: 0.4),
-                        blurRadius: 22,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Text(
-                    'Verify & continue',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-      ),
     );
   }
 }

@@ -95,33 +95,40 @@ class _AnimatedMascotState extends State<AnimatedMascot>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _idle,
-      builder: (context, _) {
-        final t = _idle.value;
-        final breath = math.sin(t * 2 * math.pi);
-        final blink = (_blinkSpike(t, 0.36) +
-                _blinkSpike(t, 0.43) + // the double-blink
-                _blinkSpike(t, 0.82))
-            .clamp(0.0, 1.0);
-        return Transform.translate(
-          offset: Offset(0, breath * widget.size * 0.03),
-          child: Mascot(
-            size: widget.size,
-            blink: blink,
-            // Gaze rests toward the LEFT to counterbalance the tail at the
-            // bottom-right — the eyes lean away from the point, which reads as
-            // deliberate and balanced. The wander happens around that offset.
-            look: Offset(
-              -0.42 + math.sin(t * 2 * math.pi + 1.2) * 0.22,
-              math.cos(t * 4 * math.pi + 0.4) * 0.15,
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _idle,
+        builder: (context, _) {
+          // PERF: quantize the 5.2s idle loop to 160 steps (~30fps). The mascot
+          // painter runs MaskFilter.blur, so halving its repaint rate is a real
+          // saving; 160 steps still land every blink (each ~0.022 wide) and the
+          // slow breath is indistinguishable from 60fps.
+          const steps = 160;
+          final t = (_idle.value * steps).roundToDouble() / steps;
+          final breath = math.sin(t * 2 * math.pi);
+          final blink = (_blinkSpike(t, 0.36) +
+                  _blinkSpike(t, 0.43) + // the double-blink
+                  _blinkSpike(t, 0.82))
+              .clamp(0.0, 1.0);
+          return Transform.translate(
+            offset: Offset(0, breath * widget.size * 0.03),
+            child: Mascot(
+              size: widget.size,
+              blink: blink,
+              // Gaze rests toward the LEFT to counterbalance the tail at the
+              // bottom-right — the eyes lean away from the point, which reads as
+              // deliberate and balanced. The wander happens around that offset.
+              look: Offset(
+                -0.42 + math.sin(t * 2 * math.pi + 1.2) * 0.22,
+                math.cos(t * 4 * math.pi + 0.4) * 0.15,
+              ),
+              squash: breath * 0.05,
+              tilt: math.sin(t * 2 * math.pi + 2.1) * 0.03,
+              glow: widget.glow,
             ),
-            squash: breath * 0.05,
-            tilt: math.sin(t * 2 * math.pi + 2.1) * 0.03,
-            glow: widget.glow,
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

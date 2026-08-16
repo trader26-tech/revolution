@@ -190,68 +190,73 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
         // The overlay + bar handle the keyboard themselves; don't let the Scaffold
         // resize the whole page under them.
         resizeToAvoidBottomInset: false,
-        body: AnimatedBuilder(
-          animation: _morph,
-          builder: (context, _) {
-            final t = Curves.easeOutCubic.transform(_morph.value);
-            return Stack(
-              children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [AppColors.bgTop, AppColors.bg],
+        // PERF: the pages (IndexedStack) + the chat overlay do NOT depend on the
+        // morph value [t] — only the bottom bar does. So they're built ONCE here
+        // as constant subtrees, and only the bar is wrapped in the morph
+        // AnimatedBuilder. This stops the whole 3-page tree (Home + Browse + Docs)
+        // from rebuilding on every open/close frame. (The overlay reads [_morph]
+        // itself via its own internal AnimatedBuilder.)
+        body: Stack(
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [AppColors.bgTop, AppColors.bg],
+                ),
+              ),
+              child: IndexedStack(index: _tab, children: pages),
+            ),
+
+            // The chat CONTENT overlay — Revo + greeting + thread, fading and
+            // rising in above the pages, BELOW the bar, in sync with the morph.
+            Positioned.fill(
+              child: CommandChatOverlay(
+                controller: _chat,
+                morph: _morph,
+                barSpace: barSpace,
+                searchController: _searchController,
+                onNavigated: _closeCommand,
+              ),
+            ),
+
+            // The ONE morphing bottom bar — the ONLY thing that reads [t], so it
+            // alone rebuilds per morph frame.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AnimatedPadding(
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOut,
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: SafeArea(
+                  top: false,
+                  child: AnimatedBuilder(
+                    animation: _morph,
+                    builder: (context, _) => _BottomBar(
+                      t: Curves.easeOutCubic.transform(_morph.value),
+                      tab: _tab,
+                      busy: _chat.commandBusy,
+                      searchController: _searchController,
+                      onTab: (i) {
+                        // Tapping a nav tab closes the chat + switches tab, with a
+                        // light haptic tick for tactile feedback.
+                        HapticFeedback.selectionClick();
+                        _closeCommand();
+                        setState(() => _tab = i);
+                      },
+                      onOpenCommand: _openCommand,
+                      onCloseCommand: _closeCommand,
+                      onSend: _chat.sendCommand,
                     ),
                   ),
-                  child: IndexedStack(index: _tab, children: pages),
                 ),
-
-                // The chat CONTENT overlay — Revo + greeting + thread, fading and
-                // rising in above the pages, BELOW the bar, in sync with the morph.
-                Positioned.fill(
-                  child: CommandChatOverlay(
-                    controller: _chat,
-                    morph: _morph,
-                    barSpace: barSpace,
-                    searchController: _searchController,
-                    onNavigated: _closeCommand,
-                  ),
-                ),
-
-                // The ONE morphing bottom bar: nav+★  ⇄  home-dot + text field.
-                // Rides above the keyboard via viewInsets.
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: AnimatedPadding(
-                    duration: const Duration(milliseconds: 160),
-                    curve: Curves.easeOut,
-                    padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom),
-                    child: SafeArea(
-                      top: false,
-                      child: _BottomBar(
-                        t: t,
-                        tab: _tab,
-                        busy: _chat.commandBusy,
-                        searchController: _searchController,
-                        onTab: (i) {
-                          // Tapping a nav tab closes the chat + switches tab.
-                          _closeCommand();
-                          setState(() => _tab = i);
-                        },
-                        onOpenCommand: _openCommand,
-                        onCloseCommand: _closeCommand,
-                        onSend: _chat.sendCommand,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -655,17 +660,23 @@ class _LiquidGlass extends StatelessWidget {
       alignment: Alignment.center,
       child: child,
     );
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(32),
-      child: GlassPanel(
-        borderRadius: 32,
-        child: onTap == null
-            ? content
-            : GestureDetector(
-                onTap: onTap,
-                behavior: HitTestBehavior.opaque,
-                child: content,
-              ),
+    // PERF: isolate the glass (a BackdropFilter blur — expensive) in a
+    // RepaintBoundary so it only re-rasterizes when the bar itself changes, not
+    // every time the animated pages BEHIND it repaint. The persistent nav bar has
+    // two of these, so this cut is meaningful and visually identical.
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: GlassPanel(
+          borderRadius: 32,
+          child: onTap == null
+              ? content
+              : GestureDetector(
+                  onTap: onTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: content,
+                ),
+        ),
       ),
     );
   }

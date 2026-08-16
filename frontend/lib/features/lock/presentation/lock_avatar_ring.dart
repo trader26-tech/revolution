@@ -111,17 +111,27 @@ class _LockAvatarRingState extends State<LockAvatarRing>
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // The spinning progress arc at the rim.
-                  AnimatedBuilder(
-                    animation: _spin,
-                    builder: (context, _) => CustomPaint(
-                      size: Size(ringBox, ringBox),
-                      painter: _RimRingPainter(
-                        progress: progress,
-                        color: color,
-                        stroke: stroke,
-                        rotation: _spin.value * 2 * math.pi,
-                      ),
+                  // The spinning progress arc at the rim. The rotation is
+                  // QUANTIZED to ~20 steps/sec (80 across the 4s loop) — visually
+                  // identical to a smooth spin on a thin rim arc, but the painter
+                  // (which repaints only when `rotation` changes) fires ~20fps
+                  // instead of 60fps, cutting its per-frame paint cost ~3×.
+                  RepaintBoundary(
+                    child: AnimatedBuilder(
+                      animation: _spin,
+                      builder: (context, _) {
+                        const steps = 80; // 4s loop → 20 steps/sec
+                        final q = (_spin.value * steps).roundToDouble() / steps;
+                        return CustomPaint(
+                          size: Size(ringBox, ringBox),
+                          painter: _RimRingPainter(
+                            progress: progress,
+                            color: color,
+                            stroke: stroke,
+                            rotation: q * 2 * math.pi,
+                          ),
+                        );
+                      },
                     ),
                   ),
                   // The avatar itself — still tappable to change the photo.

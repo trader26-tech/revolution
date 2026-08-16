@@ -106,11 +106,15 @@ class _GreetingRevoState extends State<GreetingRevo>
               animation: Listenable.merge([_in, _idle]),
               builder: (context, _) {
                 final pop = Curves.easeOutBack.transform(_in.value);
+                // PERF: quantize the perpetual idle loop (~30fps) so the mascot's
+                // blur painter repaints far less often; invisible for a slow bob.
+                const steps = 170;
+                final idleT = (_idle.value * steps).roundToDouble() / steps;
                 return Opacity(
                   opacity: Curves.easeOut.transform(_in.value.clamp(0, 1)),
                   child: Transform.scale(
                     scale: 0.4 + 0.6 * pop,
-                    child: _GreetMascot(t: _idle.value, mood: mood, size: 44),
+                    child: _GreetMascot(t: idleT, mood: mood, size: 44),
                   ),
                 );
               },
@@ -1395,10 +1399,18 @@ class _ParticleStageState extends State<_ParticleStage>
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _c,
-        builder: (context, _) => CustomPaint(
-          painter: _ParticleFieldPainter(_c.value, widget.style),
-          size: Size.infinite,
-        ),
+        builder: (context, _) {
+          // PERF: quantize the 24s loop to ~360 steps (~15fps) — the painter only
+          // repaints when `t` changes (see shouldRepaint), so this cuts the
+          // per-frame paint from 60fps to ~15fps. Invisible for a slow, faint,
+          // 24-second texture; identical to the Starfield throttling elsewhere.
+          const steps = 360;
+          final t = (_c.value * steps).roundToDouble() / steps;
+          return CustomPaint(
+            painter: _ParticleFieldPainter(t, widget.style),
+            size: Size.infinite,
+          );
+        },
       ),
     );
   }

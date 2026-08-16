@@ -74,14 +74,19 @@ class SettingsSection extends StatelessWidget {
   }
 }
 
-/// A single tappable settings row: leading icon, title, optional subtitle, and a
-/// trailing value + chevron (or a custom trailing widget).
-class SettingsTile extends StatelessWidget {
+/// A single settings row: leading icon, title, and a trailing value + chevron
+/// (or a custom trailing widget).
+///
+/// Clean by default — NO always-on subtitle. When [info] is set, a small ⓘ sits
+/// by the title; tapping it reveals a one-line description inline. Rows that DO
+/// something on tap ([onTap]) keep that as their primary action; the ⓘ handles
+/// the "what is this?" without cluttering the row.
+class SettingsTile extends StatefulWidget {
   const SettingsTile({
     super.key,
     required this.icon,
     required this.title,
-    this.subtitle,
+    this.info,
     this.value,
     this.trailing,
     this.onTap,
@@ -92,7 +97,9 @@ class SettingsTile extends StatelessWidget {
 
   final IconData icon;
   final String title;
-  final String? subtitle;
+
+  /// A one-line "what is this?" explanation, hidden until the user taps ⓘ.
+  final String? info;
 
   /// A right-aligned value string (e.g. the current choice).
   final String? value;
@@ -106,81 +113,105 @@ class SettingsTile extends StatelessWidget {
   final bool showChevron;
 
   @override
-  Widget build(BuildContext context) {
-    final tint = danger ? const Color(0xFFDC2626) : (iconColor ?? AppColors.accent);
-    final titleColor = danger ? const Color(0xFFDC2626) : AppColors.ink;
+  State<SettingsTile> createState() => _SettingsTileState();
+}
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        child: Row(
-          children: [
-            _IconChip(icon: icon, color: tint),
-            const SizedBox(width: 14),
-            // Title hugs its content; when there's no value the subtitle can
-            // still take the rest of the row.
-            Flexible(
-              flex: value != null ? 0 : 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w600,
-                      color: titleColor,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        height: 1.3,
-                        color: AppColors.inkSoft,
+class _SettingsTileState extends State<SettingsTile> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = widget.danger
+        ? const Color(0xFFDC2626)
+        : (widget.iconColor ?? AppColors.accent);
+    final titleColor = widget.danger ? const Color(0xFFDC2626) : AppColors.ink;
+    final hasInfo = widget.info != null && widget.info!.trim().isNotEmpty;
+
+    final title = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            widget.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 15.5,
+              fontWeight: FontWeight.w600,
+              color: titleColor,
+            ),
+          ),
+        ),
+        if (hasInfo) ...[
+          const SizedBox(width: 6),
+          _InfoDot(open: _open),
+        ],
+      ],
+    );
+
+    return Column(
+      children: [
+        InkWell(
+          // If the row has no primary action, the ⓘ becomes the tap target;
+          // otherwise tapping the title area toggles info and the row's own
+          // onTap stays the main action (chevron / trailing).
+          onTap: widget.onTap ??
+              (hasInfo ? () => setState(() => _open = !_open) : null),
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            child: Row(
+              children: [
+                _IconChip(icon: widget.icon, color: tint),
+                const SizedBox(width: 14),
+                Flexible(
+                  flex: widget.value != null ? 0 : 1,
+                  child: hasInfo && widget.onTap != null
+                      // Row has its own action → make the ⓘ separately tappable.
+                      ? GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => setState(() => _open = !_open),
+                          child: title,
+                        )
+                      : title,
+                ),
+                if (widget.trailing != null) ...[
+                  const Spacer(),
+                  widget.trailing!,
+                ] else ...[
+                  if (widget.value != null)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 12),
+                        child: Text(
+                          widget.value!,
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.inkSoft,
+                          ),
+                        ),
                       ),
                     ),
+                  if (widget.showChevron && widget.onTap != null) ...[
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right_rounded,
+                        color: AppColors.inkFaint, size: 22),
                   ],
                 ],
-              ),
-            ),
-            if (trailing != null) ...[
-              const Spacer(),
-              trailing!,
-            ] else ...[
-              // The value fills the remaining space and sits hard RIGHT.
-              if (value != null)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Text(
-                      value!,
-                      textAlign: TextAlign.right,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.inkSoft,
-                      ),
-                    ),
-                  ),
-                ),
-              if (showChevron && onTap != null) ...[
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right_rounded,
-                    color: AppColors.inkFaint, size: 22),
               ],
-            ],
-          ],
+            ),
+          ),
         ),
-      ),
+        if (hasInfo)
+          Padding(
+            padding: const EdgeInsets.only(left: 14, right: 14),
+            child: _InfoReveal(open: _open, text: widget.info!),
+          ),
+      ],
     );
   }
 }

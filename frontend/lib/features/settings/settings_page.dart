@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_toast.dart';
 import '../auth/data/auth_store.dart';
 import '../auth/domain/country_code.dart';
+import '../documents/data/documents_store.dart';
 import '../onboarding/data/onboarding_store.dart';
 import '../reminders/data/reminder_scheduler.dart';
 import '../reminders/presentation/reminders_page.dart';
@@ -41,6 +42,12 @@ class _SettingsPageState extends State<SettingsPage> {
   /// True while a test notification is being sent.
   bool _testingNotif = false;
 
+  /// True while a manual cloud sync is running.
+  bool _syncing = false;
+
+  /// True while an update check is in flight.
+  bool _checkingUpdate = false;
+
   /// Whether the OS currently allows notifications (null until first checked) —
   /// drives the button: "Allow" when off, "Send test" when on.
   bool? _notifAllowed;
@@ -75,13 +82,32 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// Manual update check. Tells the user when they're already up to date.
   Future<void> _checkForUpdate() async {
-    _toast('Checking for updates…');
+    setState(() => _checkingUpdate = true);
     final info = await UpdateService.instance.check();
     if (!mounted) return;
+    setState(() => _checkingUpdate = false);
     if (info.available) {
       await showUpdatePrompt(context, info);
     } else {
       _toast("You're on the latest version");
+    }
+  }
+
+  /// Manually push/pull cloud backup now — uploads anything not yet backed up
+  /// and pulls anything new from the account. Uses a transient DocumentsStore
+  /// (documents aren't otherwise held here); reminders are always server-backed.
+  Future<void> _syncNow() async {
+    setState(() => _syncing = true);
+    final docs = DocumentsStore();
+    try {
+      await docs.load(); // load() itself kicks a sync when backup is on
+      await docs.syncWithCloud();
+      if (mounted) _toast('Everything is up to date');
+    } catch (_) {
+      if (mounted) _toast("Couldn't sync — try again");
+    } finally {
+      docs.dispose();
+      if (mounted) setState(() => _syncing = false);
     }
   }
 
@@ -301,44 +327,38 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 22),
 
           // --- CLOUD BACKUP ---
-          // One switch to keep everything on the account in the cloud. It's on by
-          // default. The status rows below tell the TRUTH about what's backed up
-          // right now: reminders always are (the server is their home); the
-          // standalone Documents library is still on-device until its server
-          // endpoint ships — so we never claim a file is in the cloud when it
-          // isn't. When OFF, the two status rows are hidden.
+          // A master switch + a manual "Sync now" — no permanent status text; the
+          // "what is this?" reveals on tapping ⓘ. Reminders are always server-
+          // backed; documents back up when this is on.
           SettingsSection(
             title: 'Cloud backup',
-            footnote: _profile.cloudBackup
-                ? 'Everything is saved to your account and syncs across your '
-                    'devices — reminders and documents. New documents upload in '
-                    'the background as you add them.'
-                : 'Backup is off. Your reminders still sync (the server is their '
-                    'home), but documents stay only on this device.',
             children: [
               SettingsSwitchTile(
                 icon: Icons.cloud_upload_outlined,
                 title: 'Back up to the cloud',
-                subtitle: 'Keep everything saved to your account',
+                info: 'Keeps your reminders and documents saved to your account '
+                    'and synced across your devices.',
                 value: _profile.cloudBackup,
                 onChanged: (v) => _profile.setCloudBackup(v),
               ),
-              if (_profile.cloudBackup) ...[
+              if (_profile.cloudBackup)
                 SettingsTile(
-                  icon: Icons.event_note_rounded,
-                  title: 'Reminders',
-                  subtitle: 'Saved to your account, synced across devices',
-                  trailing: const _SyncBadge(synced: true),
+                  icon: Icons.sync_rounded,
+                  title: _syncing ? 'Syncing…' : 'Sync now',
+                  info: 'Push anything not yet backed up and pull anything new '
+                      'from your account.',
                   showChevron: false,
+                  trailing: _syncing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.2, color: AppColors.accent),
+                        )
+                      : const Icon(Icons.refresh_rounded,
+                          color: AppColors.accent, size: 20),
+                  onTap: _syncing ? null : _syncNow,
                 ),
-                SettingsTile(
-                  icon: Icons.folder_outlined,
-                  title: 'Documents',
-                  subtitle: 'Backed up to your account, synced across devices',
-                  trailing: const _SyncBadge(synced: true),
-                  showChevron: false,
-                ),
-              ],
             ],
           ),
           const SizedBox(height: 22),
@@ -350,7 +370,7 @@ class _SettingsPageState extends State<SettingsPage> {
               SettingsSwitchTile(
                 icon: Icons.notifications_active_outlined,
                 title: 'Reminder alerts',
-                subtitle: 'Get notified for each reminder at its time',
+                info: 'Get notified for each reminder at its time.',
                 value: _profile.notifReminders,
                 onChanged: (v) => _profile.setNotifReminders(v),
               ),
@@ -358,7 +378,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 SettingsTile(
                   icon: Icons.schedule_rounded,
                   title: 'Default reminder time',
-                  subtitle: 'Used when a reminder has no time of its own',
+                  info: 'Used when a reminder has no time of its own.',
                   value: _formatMinutes(_profile.defaultReminderMin),
                   onTap: _pickDefaultReminderTime,
                 ),
@@ -367,7 +387,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 SettingsTile(
                   icon: Icons.event_note_rounded,
                   title: 'Your reminders',
-                  subtitle: 'See what’s scheduled and what was sent',
+                  info: 'See what’s scheduled and what was sent.',
                   onTap: _openReminders,
                 ),
               // Notification check — a right-aligned button that ALLOWS
@@ -380,9 +400,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 title: _notifAllowed == false
                     ? 'Notifications are off'
                     : 'Test notification',
-                subtitle: _notifAllowed == false
-                    ? 'Allow to receive your reminders'
-                    : 'Send one to this device right now',
+                info: _notifAllowed == false
+                    ? 'Allow notifications to receive your reminders.'
+                    : 'Send one to this device right now to check delivery.',
                 showChevron: false,
                 trailing: _NotifButton(
                   allowed: _notifAllowed,
@@ -394,7 +414,7 @@ class _SettingsPageState extends State<SettingsPage> {
               SettingsSwitchTile(
                 icon: Icons.call_outlined,
                 title: 'Call me to remind',
-                subtitle: "We'll call you one week before",
+                info: "We'll call you one week before.",
                 value: _profile.callReminder,
                 onChanged: (v) => _profile.setCallReminder(v),
               ),
@@ -409,8 +429,9 @@ class _SettingsPageState extends State<SettingsPage> {
               SettingsTile(
                 icon: Icons.system_update_rounded,
                 title: 'Check for updates',
-                subtitle: _versionLabel,
-                onTap: _checkForUpdate,
+                info: _versionLabel,
+                value: _checkingUpdate ? 'Checking…' : null,
+                onTap: _checkingUpdate ? null : _checkForUpdate,
               ),
             ],
           ),
@@ -518,50 +539,5 @@ class _LifecycleHook extends WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) onResume();
-  }
-}
-
-/// A tiny status pill for the Cloud backup rows: a filled accent "Synced" chip
-/// with a cloud-done glyph, or a quiet outlined "On device" chip. It states the
-/// literal truth — never "Synced" for something that only lives on the phone.
-class _SyncBadge extends StatelessWidget {
-  const _SyncBadge({required this.synced});
-  final bool synced;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = synced ? 'Synced' : 'On device';
-    final icon = synced ? Icons.cloud_done_rounded : Icons.smartphone_rounded;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: synced
-            ? AppColors.accent.withValues(alpha: 0.14)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: synced
-              ? AppColors.accent.withValues(alpha: 0.30)
-              : AppColors.cardBorder,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon,
-              size: 13,
-              color: synced ? AppColors.accent : AppColors.inkFaint),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: synced ? AppColors.accent : AppColors.inkFaint,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

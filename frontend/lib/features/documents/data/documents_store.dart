@@ -220,11 +220,26 @@ class DocumentsStore extends ChangeNotifier {
   /// files added while offline, or right after the user turns backup on.
   Future<void> backUpPending() async {
     if (!_cloudOn) return;
-    // Snapshot so mutation during the await loop is safe.
-    final pending = _items.where((d) => !d.backedUp).toList();
-    for (final d in pending) {
+    // Snapshot so mutation during the await loop is safe. Skip items whose folder
+    // (or any ancestor folder) has cloud backup turned OFF — those stay on-device
+    // only, per the user's per-folder choice.
+    final pending =
+        _items.where((d) => !d.backedUp && _folderAllowsCloud(d.folderId));
+    for (final d in pending.toList()) {
       await _backUpItem(d);
     }
+  }
+
+  /// Whether an item in [folderId] may back up to the cloud: true unless that
+  /// folder or any ancestor has cloudSync == false. Root items (null) always
+  /// may (the root isn't a toggleable folder).
+  bool _folderAllowsCloud(String? folderId) {
+    var current = folderById(folderId);
+    while (current != null) {
+      if (!current.cloudSync) return false;
+      current = folderById(current.parentId);
+    }
+    return true;
   }
 
   /// Resolve (creating as needed) the folder chain described by [folderPath]

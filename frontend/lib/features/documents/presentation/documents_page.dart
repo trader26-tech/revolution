@@ -187,6 +187,22 @@ class _DocumentsPageState extends State<DocumentsPage>
     if (ok) await store.deleteFolder(f.id);
   }
 
+  /// Flip a folder between cloud backup and local-only. A quick toast confirms
+  /// the new state so the choice is legible.
+  Future<void> _toggleCloud(DocFolder f) async {
+    HapticFeedback.selectionClick();
+    final next = !f.cloudSync;
+    await store.setFolderCloudSync(f.id, next);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(next
+            ? '“${f.displayName}” will back up to the cloud'
+            : '“${f.displayName}” stays on this device only'),
+      ),
+    );
+  }
+
   /// A folder's "+" — create a sub-folder or add a document INSIDE it.
   Future<void> _addInside(DocFolder f) async {
     HapticFeedback.selectionClick();

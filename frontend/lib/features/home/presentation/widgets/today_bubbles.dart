@@ -404,67 +404,75 @@ class _DoneLine extends StatelessWidget {
 /// gradient so it reads as the hero of the screen, not an ordinary line. Both
 /// tiers shimmer in word-by-word from the SAME [progress], so they materialise
 /// together in sync with Revo's entrance.
-class _Greeting extends StatelessWidget {
+class _Greeting extends StatefulWidget {
   const _Greeting({required this.greeting, required this.progress});
 
-  /// The full line, e.g. "Good evening, Ranjeev". Split at the comma into the
-  /// salutation and the name; if there's no comma (name unknown) we show just
-  /// the salutation, styled as the hero.
+  /// The full line, e.g. "Good evening, Ranjeev".
   final String greeting;
   final double progress;
 
   @override
+  State<_Greeting> createState() => _GreetingState();
+}
+
+class _GreetingState extends State<_Greeting>
+    with SingleTickerProviderStateMixin {
+  // A slow perpetual loop that gives the settled sparkle its gentle breathing.
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final comma = greeting.indexOf(',');
-    final hasName = comma >= 0 && comma < greeting.length - 1;
-    final salutation =
-        hasName ? greeting.substring(0, comma).trim() : greeting.trim();
-    final name = hasName ? greeting.substring(comma + 1).trim() : '';
-
-    if (!hasName) {
-      // No name → just the salutation, one line.
-      return MagicText(
-        text: salutation,
-        progress: progress,
-        style: const TextStyle(
-          fontSize: 24,
-          height: 1.15,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.2,
-          color: AppColors.ink,
+    // ONE clean line, ONE uniform ink colour — the whole "Good evening, Ranjeev"
+    // shimmers in together, no gradient tint. A single special ✦ sparkle sits at
+    // the end: it draws in as the line lands, then breathes gently forever, so
+    // the greeting feels personal without any two-tone/colour-jump.
+    final p = widget.progress;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Flexible(
+          child: MagicText(
+            text: widget.greeting,
+            progress: p,
+            style: const TextStyle(
+              fontSize: 24,
+              height: 1.15,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+              color: AppColors.ink,
+            ),
+          ),
         ),
-      );
-    }
-
-    // ONE cohesive line, ONE size, ONE flowing phrase: "Good afternoon, Ranjeev".
-    // The whole thing shimmers in together as a single MagicText; a gradient
-    // ShaderMask sweeps violet→light across the LINE so the name (at the end,
-    // where the gradient is strongest) reads as the accented part — without
-    // being a mismatched second block, a second colour jump, or a second line.
-    return ShaderMask(
-      shaderCallback: (rect) => const LinearGradient(
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        colors: [
-          AppColors.ink, // salutation reads as calm ink…
-          AppColors.ink,
-          Color(0xFFC9BBFF), // …easing into lavender…
-          AppColors.accent, // …to violet on the name at the end.
-        ],
-        stops: [0.0, 0.45, 0.72, 1.0],
-      ).createShader(rect),
-      blendMode: BlendMode.srcIn,
-      child: MagicText(
-        text: '$salutation, $name',
-        progress: progress,
-        style: const TextStyle(
-          fontSize: 24,
-          height: 1.15,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.3,
-          color: Colors.white, // recoloured by the ShaderMask
+        const SizedBox(width: 10),
+        // The special sparkle — arrives with the tail of the line, then pulses.
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: AnimatedBuilder(
+            animation: _pulse,
+            builder: (context, _) => _Sparkle(
+              // Draw the sparkle in over the LAST slice of the line's reveal.
+              arrive: Curves.easeOutBack
+                  .transform(((p - 0.6) / 0.4).clamp(0.0, 1.0)),
+              pulse: _pulse.value,
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }

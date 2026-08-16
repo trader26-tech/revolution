@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/starfield.dart';
 import '../../onboarding/presentation/widgets/magic_text.dart' show MagicText;
 import '../../update_flow/presentation/update_flow_sheet.dart';
 import 'widgets/command_chat.dart';
@@ -152,6 +153,18 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
                         colors: [AppColors.bgTop, AppColors.bg],
                       ),
                     ),
+                  ),
+                ),
+              ),
+
+              // The twinkling STARFIELD — the app's signature sky, painted on the
+              // space gradient so the chat feels like the same continuous space as
+              // onboarding/Home. Fades in with the morph; never eats taps.
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: t.clamp(0.0, 1.0),
+                    child: const Starfield(intensity: 0.9),
                   ),
                 ),
               ),

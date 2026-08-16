@@ -32,8 +32,6 @@ class HomePage extends StatefulWidget {
     super.key,
     required this.store,
     this.isActive = true,
-    this.navOpen = false,
-    this.onToggleNav,
   });
 
   final TaskStore store;
@@ -43,19 +41,26 @@ class HomePage extends StatefulWidget {
   /// you with the bubbling reveal, not a static list.
   final bool isActive;
 
-  /// Whether the nav is currently open — when true, Home hides its bottom input
-  /// line so the nav and the input interchange on one line.
-  final bool navOpen;
-
-  /// Toggle the nav (from the Menu button in the input line).
-  final VoidCallback? onToggleNav;
-
   @override
-  State<HomePage> createState() => _HomePageState();
+  HomePageState createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+/// Public so the shell can drive the command chat via a GlobalKey — the shell
+/// owns the morphing bottom bar (nav ⇄ command field), and when you type a
+/// command it calls [sendCommand] here to run the parse + reply in the feed.
+class HomePageState extends State<HomePage> with TickerProviderStateMixin {
   DateTime _dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// Whether there's an active command conversation — the shell shows a tiny
+  /// "clear" affordance when true.
+  bool get hasChat => _chat.isNotEmpty;
+
+  /// Called by the shell's command field on send.
+  void sendCommand(String text) => _sendCommand(text);
+
+  /// Clear the command conversation (shell's clear button / exiting command mode
+  /// keeps it, but this lets the user reset).
+  void clearChat() => setState(_chat.clear);
 
   /// Bumped every time Home becomes active again — a change to this value tells
   /// TodayBubbles to restart its reveal from empty.

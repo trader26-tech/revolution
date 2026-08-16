@@ -564,21 +564,25 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Selected → a bright rounded pill with the icon + label side by side in the
-    // accent colour (the iOS look). Unselected → a quiet icon over a small label.
+    // The reference look: ONLY the selected item expands into a bright white
+    // pill with the icon + label side by side (accent-coloured). Every
+    // unselected item is a quiet icon ALONE — no label, no background — so the
+    // selection reads as a single sliding pill among plain glyphs.
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 240),
+          duration: const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
+          height: 44,
           padding:
-              EdgeInsets.symmetric(horizontal: selected ? 14 : 8, vertical: 8),
+              EdgeInsets.symmetric(horizontal: selected ? 16 : 12),
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected
-                ? Colors.white.withValues(alpha: 0.9)
+                ? Colors.white.withValues(alpha: 0.92)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
             boxShadow: selected
@@ -591,37 +595,33 @@ class _NavButton extends StatelessWidget {
                   ]
                 : null,
           ),
-          child: selected
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(item.active, size: 21, color: AppColors.accent),
-                    const SizedBox(width: 7),
-                    Text(
-                      item.label,
-                      style: const TextStyle(
-                        color: AppColors.accent,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(item.icon, size: 21, color: AppColors.inkFaint),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.label,
-                      style: const TextStyle(
-                        color: AppColors.inkFaint,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                  ],
+          // AnimatedSize lets the pill grow/shrink smoothly as the label
+          // appears/disappears when selection moves between items.
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected ? item.active : item.icon,
+                  size: 22,
+                  color: selected ? AppColors.accent : AppColors.inkFaint,
                 ),
+                if (selected) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    item.label,
+                    style: const TextStyle(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );

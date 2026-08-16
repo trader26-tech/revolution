@@ -2508,20 +2508,33 @@ class _AddBrowseSheet extends StatelessWidget {
                   color: AppColors.inkSoft,
                 ),
               ),
-              const SizedBox(height: 16),
-              for (final c in kBrowseCategories)
-                _AddChoiceRow(
-                  category: c,
-                  onTap: () => Navigator.of(context).pop(AddChoice.category(c)),
-                ),
-              // Add a document straight from here — no need to open Documents
-              // first. Same row styling, a folder glyph and its own hint.
-              _AddChoiceRow.custom(
-                icon: Icons.description_rounded,
+              const SizedBox(height: 8),
+              // The SAME clean line-row language as the Browse tab — no boxes, no
+              // per-row cards. General leads, then Documents, then every category,
+              // each a plain row (accent glyph · label · chevron) separated by a
+              // thin hairline. Mirrors Browse so the two "pick a category" surfaces
+              // feel identical.
+              _AddChoiceRow(
+                icon: TaskCategory.other.icon,
+                label: 'General',
+                onTap: () =>
+                    Navigator.of(context).pop(const AddChoice.category(TaskCategory.other)),
+              ),
+              const _AddRowDivider(),
+              _AddChoiceRow(
+                icon: Icons.folder_rounded,
                 label: 'Document',
-                hint: 'Add a file to your documents',
                 onTap: () => Navigator.of(context).pop(const AddChoice.document()),
               ),
+              for (final c in kBrowseCategoriesNoGeneral) ...[
+                const _AddRowDivider(),
+                _AddChoiceRow(
+                  icon: c.icon,
+                  label: c.label,
+                  onTap: () =>
+                      Navigator.of(context).pop(AddChoice.category(c)),
+                ),
+              ],
             ],
           ),
         ),
@@ -2530,95 +2543,74 @@ class _AddBrowseSheet extends StatelessWidget {
   }
 }
 
-/// One choice to add — accent icon orb, name, "Add a …" hint, chevron. Usually
-/// a category; the [.custom] form powers the extra "Document" row with its own
-/// icon + label, keeping identical styling.
-class _AddChoiceRow extends StatelessWidget {
-  _AddChoiceRow({required TaskCategory category, required this.onTap})
-      : _icon = category.icon,
-        _label = category.label,
-        _hint = 'Add a ${category.singular}';
+/// A thin hairline between the add rows — the same quiet separator the Browse
+/// list uses, so the sheet reads as one clean list rather than stacked cards.
+class _AddRowDivider extends StatelessWidget {
+  const _AddRowDivider();
+  @override
+  Widget build(BuildContext context) => Divider(
+        height: 1,
+        thickness: 1,
+        indent: 46,
+        color: Colors.white.withValues(alpha: 0.06),
+      );
+}
 
-  const _AddChoiceRow.custom({
-    required IconData icon,
-    required String label,
-    required String hint,
+/// One choice to add, in the Browse-tab LINE style: a calm accent glyph (no chip
+/// box), the label, and a chevron — with a subtle press highlight, no card.
+class _AddChoiceRow extends StatefulWidget {
+  const _AddChoiceRow({
+    required this.icon,
+    required this.label,
     required this.onTap,
-  })  : _icon = icon,
-        _label = label,
-        _hint = hint;
+  });
 
-  final IconData _icon;
-  final String _label;
-  final String _hint;
+  final IconData icon;
+  final String label;
   final VoidCallback onTap;
+
+  @override
+  State<_AddChoiceRow> createState() => _AddChoiceRowState();
+}
+
+class _AddChoiceRowState extends State<_AddChoiceRow> {
+  bool _down = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTapDown: (_) => setState(() => _down = true),
+      onTapUp: (_) => setState(() => _down = false),
+      onTapCancel: () => setState(() => _down = false),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 7),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              AppColors.accent.withValues(alpha: 0.12),
-              AppColors.card,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.glassBorder),
-        ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        color:
+            _down ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 16),
         child: Row(
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(11),
-                border:
-                    Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
-              ),
-              child: Icon(_icon, color: AppColors.accent, size: 20),
-            ),
-            const SizedBox(width: 12),
+            Icon(widget.icon, color: AppColors.accent, size: 26),
+            const SizedBox(width: 16),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _hint,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                ],
+              child: Text(
+                widget.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: AppColors.ink,
+                ),
               ),
             ),
-            Icon(Icons.arrow_forward_rounded,
-                size: 18, color: AppColors.inkFaint.withValues(alpha: 0.9)),
+            Icon(Icons.chevron_right_rounded,
+                size: 22, color: AppColors.inkFaint.withValues(alpha: 0.8)),
           ],
         ),
       ),

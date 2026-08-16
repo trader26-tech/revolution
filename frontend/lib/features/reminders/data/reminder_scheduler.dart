@@ -177,6 +177,10 @@ class ReminderScheduler {
       }
     }
 
+    // Decode the app logo once for use as the notification large icon (branding
+    // in the expanded tray). Best-effort — never blocks readiness.
+    await _loadLargeIcon();
+
     _ready = true;
 
     // Reschedule when notification prefs change (time, quiet hours, toggle).
@@ -293,6 +297,7 @@ class ReminderScheduler {
               importance: Importance.high,
               priority: Priority.high,
               icon: 'ic_stat_notification',
+              largeIcon: _largeIcon,
               color: AppColors.accentDeep,
             ),
             iOS: const DarwinNotificationDetails(
@@ -483,6 +488,7 @@ class ReminderScheduler {
         importance: Importance.high,
         priority: Priority.high,
         icon: 'ic_stat_notification',
+        largeIcon: _largeIcon,
         color: AppColors.accentDeep,
         actions: [
           // Only a one-off can be completed from the tray — completing a
@@ -521,6 +527,7 @@ class ReminderScheduler {
         importance: Importance.high,
         priority: Priority.high,
         icon: 'ic_stat_notification',
+        largeIcon: _largeIcon,
         color: AppColors.accentDeep,
         // Expanded view: one clean line per item, count in the summary row.
         styleInformation: InboxStyleInformation(
@@ -615,6 +622,9 @@ class ReminderScheduler {
         ),
       ),
     );
+    // Background isolate: instance.init() never ran here, so load the large icon
+    // so the snoozed re-post is branded too (best-effort).
+    await instance._loadLargeIcon();
     final at = tz.TZDateTime.now(tz.local).add(const Duration(hours: 1));
     await _plugin.zonedSchedule(
       id: _snoozeIdBase + (notice.taskId.hashCode & 0x7FFFF),

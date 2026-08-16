@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
@@ -8,6 +9,7 @@ import '../home/home_page.dart';
 import '../home/presentation/command_chat_launcher.dart';
 import '../home/presentation/command_chat_page.dart' show CommandChatOverlay;
 import '../home/presentation/widgets/command_chat_controller.dart';
+import '../reminders/data/reminder_scheduler.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart' show TaskCategory;
 import '../update/data/update_service.dart';
@@ -78,7 +80,13 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     _store.load();
     // Check for a newer app version on launch, and prompt (blocking if the
     // build is below the server's min-supported → mandatory update).
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdate();
+      // Ask for notification permission on first reach into the app — reminders
+      // are the whole point, so the OS prompt should appear once at the start,
+      // not only if the user digs into Settings.
+      _askNotificationPermissionOnce();
+    });
   }
 
   /// The ★ opens the command chat IN PLACE: the one bottom bar morphs (nav pill →
@@ -118,6 +126,20 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     final info = await UpdateService.instance.check();
     if (!mounted || !info.available) return;
     await showUpdatePrompt(context, info);
+  }
+
+  /// First-run notification permission ask. Guarded by a persisted flag so the
+  /// system prompt is shown ONCE (on the first real launch into the app); after
+  /// that the user manages it in Settings. On Android 13+ this surfaces the OS
+  /// permission dialog; below 13 it's a no-op (auto-granted).
+  Future<void> _askNotificationPermissionOnce() async {
+    const key = 'notif_permission_asked_v1';
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(key) ?? false) return;
+    await prefs.setBool(key, true);
+    // init() is idempotent; ensurePermissions() no-ops until it's ready.
+    await ReminderScheduler.instance.init();
+    await ReminderScheduler.instance.ensurePermissions();
   }
 
   @override

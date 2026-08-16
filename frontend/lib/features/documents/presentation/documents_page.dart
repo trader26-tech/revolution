@@ -322,6 +322,10 @@ class _DocumentsPageState extends State<DocumentsPage>
                       : () => Navigator.of(context).pop(),
                   onNewFolder: () => _newFolder(),
                 ),
+                // While documents are being pulled from the cloud (e.g. just after
+                // login on a new device), a slim banner so an empty list reads as
+                // "loading your files", not "you have nothing".
+                if (store.isRestoring) const _RestoringBanner(),
                 Expanded(child: _buildBody()),
               ],
             ),
@@ -539,6 +543,46 @@ class _CascadeIn extends StatelessWidget {
 
 /// The slim nav bar — back (left) + new-folder "+" (right). No title: the title
 /// lives BIG in the hero below, matching the category collection pages.
+/// A slim "Restoring your documents…" banner shown while the cloud pull is in
+/// flight, so an empty list right after login reads as loading, not empty.
+class _RestoringBanner extends StatelessWidget {
+  const _RestoringBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 6, 20, 2),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: AppColors.accent),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Restoring your documents from the cloud…',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NavBar extends StatelessWidget {
   const _NavBar({required this.onBack, required this.onNewFolder});
 

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../auth/data/auth_store.dart';
 import '../../settings/data/profile_store.dart';
 import '../domain/document.dart';
 import 'doc_backup_service.dart';
@@ -19,19 +20,29 @@ import 'doc_backup_service.dart';
 /// account in the cloud (via [DocBackupService], which rides the existing
 /// task-scoped file endpoints), and a fresh install pulls them back down.
 class DocumentsStore extends ChangeNotifier {
-  DocumentsStore({DocBackupService? backup, ProfileStore? profile})
+  DocumentsStore(
+      {DocBackupService? backup, ProfileStore? profile, AuthStore? auth})
       : _backup = backup ?? DocBackupService(),
-        _profile = profile ?? ProfileStore.instance {
+        _profile = profile ?? ProfileStore.instance,
+        _auth = auth ?? AuthStore.instance {
     // React to the Settings toggle: when the user turns cloud backup ON, sync in
     // the background so existing documents get pushed up (and any missing ones
     // pulled down) without them leaving Settings.
     _profile.addListener(_onProfileChanged);
     _lastCloudOn = _profile.cloudBackup;
+    // React to LOGIN: the instant the account becomes canonical (phone claim
+    // done), pull the account's documents down. This is the key fix — restore no
+    // longer depends only on the one-shot at load(); logging in re-triggers it
+    // with the real account id, so a returning user's folders come back.
+    _auth.addListener(_onAuthChanged);
+    _lastLoggedIn = _auth.isLoggedIn;
   }
 
   final DocBackupService _backup;
   final ProfileStore _profile;
+  final AuthStore _auth;
   bool _lastCloudOn = false;
+  bool _lastLoggedIn = false;
 
   bool get _cloudOn => _profile.cloudBackup;
 
@@ -44,9 +55,20 @@ class DocumentsStore extends ChangeNotifier {
     _lastCloudOn = on;
   }
 
+  void _onAuthChanged() {
+    final loggedIn = _auth.isLoggedIn;
+    // Rising edge of login → pull the account's documents (retrying, so a cold
+    // backend or a claim that just landed doesn't lose them).
+    if (loggedIn && !_lastLoggedIn && _loaded) {
+      unawaited(refreshFromCloud());
+    }
+    _lastLoggedIn = loggedIn;
+  }
+
   @override
   void dispose() {
     _profile.removeListener(_onProfileChanged);
+    _auth.removeListener(_onAuthChanged);
     super.dispose();
   }
 
@@ -57,6 +79,16 @@ class DocumentsStore extends ChangeNotifier {
   final List<DocFolder> _folders = [];
   final List<DocItem> _items = [];
   bool _loaded = false;
+
+  /// True while a cloud RESTORE (pull-down) is in flight — the Documents page
+  /// shows a "Restoring your documents…" banner so an empty list after login
+  /// reads as "loading", not "you have nothing".
+  bool _restoring = false;
+  bool get isRestoring => _restoring;
+
+  /// Guards against two restore loops running at once (e.g. load() + a login
+  /// re-trigger firing together).
+  bool _restoreInFlight = false;
 
   bool get isInitialLoad => !_loaded;
 
@@ -171,17 +203,49 @@ class DocumentsStore extends ChangeNotifier {
     await backUpPending();
   }
 
-  /// Pull documents that exist in the account but not on this device, rebuilding
-  /// their folder path and re-materialising each file. Dedupes by carrier id so
-  /// re-running never creates duplicates.
+  /// Pull the account's documents down, RETRYING on failure so a cold/slow
+  /// backend (or a claim that lands a beat late) never silently loses them.
+  ///
+  /// The old bug: this ran once, and if that single `GET /tasks` came back empty
+  /// or threw (Railway cold-start, or the request ran under the anonymous id
+  /// before the phone-claim finished), it gave up forever — so a returning user's
+  /// documents never appeared. Now: it tries up to [_restoreAttempts] times with
+  /// backoff, distinguishing a genuine "no documents" (a clean empty list — stop)
+  /// from a transient failure (throw — retry). Shows [isRestoring] throughout so
+  /// the UI reads "loading", not "empty".
+  static const _restoreAttempts = 5;
+
   Future<void> restoreFromCloud() async {
-    if (!_cloudOn) return;
-    final remotes = await _backup.listRemote();
-    if (remotes.isEmpty) return;
-    final have = _items
-        .map((d) => d.carrierTaskId)
-        .whereType<String>()
-        .toSet();
+    if (!_cloudOn || _restoreInFlight) return;
+    _restoreInFlight = true;
+    _restoring = true;
+    notifyListeners();
+    try {
+      for (var attempt = 0; attempt < _restoreAttempts; attempt++) {
+        try {
+          final done = await _restoreOnce();
+          if (done) return; // succeeded (found docs, or account is genuinely empty)
+        } catch (_) {
+          // Transient (cold backend / not-yet-canonical id) — fall through to
+          // wait + retry below.
+        }
+        // Backoff: 1s, 2s, 3s… giving Railway time to wake and the claim to land.
+        await Future.delayed(Duration(seconds: attempt + 1));
+      }
+    } finally {
+      _restoreInFlight = false;
+      _restoring = false;
+      notifyListeners();
+    }
+  }
+
+  /// One restore pass. Returns true when it definitively completed (the list came
+  /// back — whether it had documents or was genuinely empty). Throws on a
+  /// network/backend error so [restoreFromCloud] retries.
+  Future<bool> _restoreOnce() async {
+    final remotes = await _backup.listRemote(); // throws on failure → retried
+    final have =
+        _items.map((d) => d.carrierTaskId).whereType<String>().toSet();
     var changed = false;
     for (final r in remotes) {
       if (have.contains(r.carrierTaskId)) continue; // already local
@@ -214,6 +278,16 @@ class DocumentsStore extends ChangeNotifier {
       notifyListeners();
       await _persist();
     }
+    return true; // the list came back cleanly — done (retry only on throw)
+  }
+
+  /// Force a fresh restore from the cloud — call this after login completes (the
+  /// account id is now canonical). Safe to call repeatedly; dedupes by carrier id
+  /// so it never creates duplicates, and the in-flight guard prevents overlap.
+  Future<void> refreshFromCloud() async {
+    if (!_cloudOn) return;
+    await restoreFromCloud();
+    await backUpPending();
   }
 
   /// Upload every local document that isn't backed up yet — the retry path for

@@ -96,34 +96,34 @@ class DocBackupService {
   }
 
   /// List every document carrier for the account. Returns lightweight records
-  /// the store turns back into local [DocItem]s + folders. Empty on any error.
+  /// the store turns back into local [DocItem]s + folders.
+  ///
+  /// THROWS on a network/backend error (so the caller can distinguish a real
+  /// failure — retry — from a genuinely empty account — done). A cold Railway
+  /// backend returning a timeout must NOT look like "you have no documents".
   Future<List<RemoteDoc>> listRemote() async {
-    try {
-      final res = await _api.get('/tasks');
-      if (res is! List) return const [];
-      final out = <RemoteDoc>[];
-      for (final e in res) {
-        if (e is! Map) continue;
-        if ((e['sub_category'] as String?) != kMarker) continue;
-        final id = e['id']?.toString();
-        if (id == null) continue;
-        final note = (e['note'] as String?) ?? '';
-        final parts = note.split('\n');
-        out.add(RemoteDoc(
-          carrierTaskId: id,
-          name: (e['title'] as String?)?.trim().isNotEmpty == true
-              ? e['title'] as String
-              : 'Document',
-          folderPath: parts.isNotEmpty ? parts[0].trim() : '',
-          originalName: parts.length > 1 && parts[1].trim().isNotEmpty
-              ? parts[1].trim()
-              : null,
-        ));
-      }
-      return out;
-    } catch (_) {
-      return const [];
+    final res = await _api.get('/tasks');
+    if (res is! List) return const [];
+    final out = <RemoteDoc>[];
+    for (final e in res) {
+      if (e is! Map) continue;
+      if ((e['sub_category'] as String?) != kMarker) continue;
+      final id = e['id']?.toString();
+      if (id == null) continue;
+      final note = (e['note'] as String?) ?? '';
+      final parts = note.split('\n');
+      out.add(RemoteDoc(
+        carrierTaskId: id,
+        name: (e['title'] as String?)?.trim().isNotEmpty == true
+            ? e['title'] as String
+            : 'Document',
+        folderPath: parts.isNotEmpty ? parts[0].trim() : '',
+        originalName: parts.length > 1 && parts[1].trim().isNotEmpty
+            ? parts[1].trim()
+            : null,
+      ));
     }
+    return out;
   }
 
   /// Download a carrier's file bytes via its signed URL. Null if unavailable.

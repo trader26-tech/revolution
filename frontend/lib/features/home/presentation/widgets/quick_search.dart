@@ -61,7 +61,8 @@ class _QuickSearchState extends State<QuickSearch>
     super.initState();
     _in = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 620),
+      // A touch slower — a calm, deliberate entrance reads more premium.
+      duration: const Duration(milliseconds: 900),
     );
   }
 
@@ -128,6 +129,7 @@ class _QuickSearchState extends State<QuickSearch>
           const SizedBox(height: 16),
           _staggered(listIn, 0, _GroupLabel('Jump back in')),
           const SizedBox(height: 4),
+          // Pinned rows are deliberately minimal — just an icon + the name.
           for (var i = 0; i < recent.length; i++)
             _staggered(
               listIn,
@@ -135,7 +137,6 @@ class _QuickSearchState extends State<QuickSearch>
               _ResultRow(
                 icon: recent[i].category.icon,
                 title: recent[i].title,
-                subtitle: _taskMeta(recent[i]),
                 onTap: () => onOpenTask(recent[i]),
               ),
             ),
@@ -147,7 +148,7 @@ class _QuickSearchState extends State<QuickSearch>
   /// Fade + slide a row up, staggered by [i] off a 0→1 [progress] — the pinned
   /// list cascades in one after another.
   Widget _staggered(double progress, int i, Widget child) {
-    const step = 0.12;
+    const step = 0.14;
     final start = (i * step).clamp(0.0, 0.9);
     final local = ((progress - start) / (1 - start)).clamp(0.0, 1.0);
     final eased = Curves.easeOutCubic.transform(local);

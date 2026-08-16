@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart' show FileImage, imageCache;
+import 'package:flutter/painting.dart' show FileImage;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,6 +27,7 @@ class ProfileStore extends ChangeNotifier {
   // --- keys ---
   static const _kName = 'profile_name';
   static const _kAvatarPath = 'profile_avatar_path'; // on-device image path
+  static const _kAvatarSeq = 'profile_avatar_seq'; // counter → unique filenames
   static const _kCurrency = 'profile_currency'; // ISO code (INR/USD/KWD)
   static const _kLeadDays = 'profile_lead_days';
   static const _kNotifReminders = 'profile_notif_reminders';

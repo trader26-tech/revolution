@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
@@ -82,6 +83,23 @@ class ReminderScheduler {
   List<Task> _tasks = const [];
   Timer? _debounce;
   bool _canExact = false;
+
+  /// The app logo, decoded once from the asset and reused as the LARGE ICON on
+  /// every Android notification (the big branded image in the expanded tray).
+  /// Null until [init] loads it (or if the asset is missing) — in which case the
+  /// notification just shows without a large icon, never breaks.
+  static const _largeIconAsset = 'assets/images/app_logo.png';
+  AndroidBitmap<Object>? _largeIcon;
+
+  Future<void> _loadLargeIcon() async {
+    if (_largeIcon != null) return;
+    try {
+      final data = await rootBundle.load(_largeIconAsset);
+      _largeIcon = ByteArrayAndroidBitmap(data.buffer.asUint8List());
+    } catch (_) {
+      // Asset missing/unreadable → no large icon (notification still posts fine).
+    }
+  }
 
   // defaultTargetPlatform (not dart:io Platform) so this file also compiles
   // for the web preview build, where the scheduler simply no-ops.

@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
+import '../documents/data/documents_store.dart';
+import '../documents/presentation/documents_page.dart';
 import '../home/browse_page.dart';
 import '../home/home_page.dart';
 import '../home/presentation/command_chat_launcher.dart';
@@ -47,6 +49,11 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   // One shared task store so Home and Browse stay in sync.
   final _store = TaskStore();
 
+  /// The Documents library store — OWNED by the shell now that Documents is a
+  /// top-level tab (it used to live inside Browse). Held here so its loaded state
+  /// and folder tree persist across tab switches, and load once on first build.
+  final _documents = DocumentsStore();
+
   /// The command-chat engine — OWNED here so the conversation persists across
   /// opening/closing the full-screen chat (reopening ★ resumes where you left
   /// off). Created once with the shared store.
@@ -78,6 +85,8 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     registerCommandChatOpener(_openChat);
     // Restore saved tasks (and their icons) from on-device storage.
     _store.load();
+    // Load the Documents library once (shell owns it now that Documents is a tab).
+    _documents.load();
     // Check for a newer app version on launch, and prompt (blocking if the
     // build is below the server's min-supported → mandatory update).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -149,6 +158,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     _chat.dispose();
     _searchController.dispose();
     _store.dispose();
+    _documents.dispose();
     super.dispose();
   }
 
@@ -159,6 +169,9 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
       // replay. Command mode is an OVERLAY on Home, so Home stays active.
       HomePage(key: _homeKey, store: _store, isActive: _tab == 0),
       BrowsePage(store: _store, isActive: _tab == 1),
+      // Documents is now a top-level tab (moved out of Browse). Embedded mode
+      // drops its back arrow — a tab has nothing to pop to.
+      DocumentsPage(store: _documents, embedded: true),
     ];
 
     // The overlay must clear the bottom bar: bar height + its bottom padding +
@@ -273,9 +286,10 @@ class _BottomBar extends StatelessWidget {
   static const _h = 60.0; // bar height
   static const _gap = 12.0; // gap between the two elements
   // The MINIMUM resting width for the nav pill — the real resting width is
-  // proportional (~62% of the bar, see build) so the pill fills the left and the
-  // Home·Browse buttons breathe; this floor keeps it usable on very narrow bars.
-  static const _navNatural = 196.0;
+  // proportional (see build) so the pill fills the left and the Home·Browse·Docs
+  // buttons breathe; this floor keeps it usable on very narrow bars. Bumped when
+  // Documents became a 3rd tab so the selected pill + two icons never cramp.
+  static const _navNatural = 214.0;
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +309,9 @@ class _BottomBar extends StatelessWidget {
           //
           // Resting nav width: proportional so the pill fills the left of the bar
           // instead of hugging a fixed cluster — but never below its natural min.
-          final navResting = (total * 0.62).clamp(_navNatural, total - _gap - _h);
+          // 3 tabs now (Home·Browse·Docs): give the pill a touch more of the bar
+          // so the selected pill + two plain icons sit comfortably.
+          final navResting = (total * 0.70).clamp(_navNatural, total - _gap - _h);
           // Left: resting pill width (t=0) → dot (t=1).
           final leftW = (navResting + (_h - navResting) * t)
               .clamp(_h, total - _gap - _h);
@@ -388,7 +404,7 @@ class _NavHalf extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        for (var i = 0; i < 2; i++)
+                        for (var i = 0; i < _kNavItems.length; i++)
                           _NavButton(
                             item: _kNavItems[i],
                             selected: i == index,
@@ -685,6 +701,11 @@ const _kNavItems = <({IconData icon, IconData active, String label})>[
     active: Icons.grid_view_rounded,
     label: 'Browse',
   ),
+  (
+    icon: Icons.folder_outlined,
+    active: Icons.folder_rounded,
+    label: 'Docs',
+  ),
 ];
 
 class _NavButton extends StatelessWidget {
@@ -710,12 +731,12 @@ class _NavButton extends StatelessWidget {
       child: Padding(
         // vertical 4 so the taller 52px pill clears the 60px bar cleanly
         // (52 + 8 = 60) without the FittedBox having to scale it down.
-        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
           height: 52,
-          padding: EdgeInsets.symmetric(horizontal: selected ? 22 : 16),
+          padding: EdgeInsets.symmetric(horizontal: selected ? 18 : 13),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             gradient: selected

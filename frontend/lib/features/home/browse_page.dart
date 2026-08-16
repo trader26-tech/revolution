@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../documents/data/documents_store.dart';
-import '../documents/presentation/documents_page.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/category_visuals.dart';
 import '../tasks/domain/task.dart';
@@ -34,15 +32,12 @@ class BrowsePage extends StatefulWidget {
 
 class _BrowsePageState extends State<BrowsePage>
     with SingleTickerProviderStateMixin {
-  final _documents = DocumentsStore();
-
   /// Drives the one-at-a-time entrance cascade of the rows.
   late final AnimationController _intro;
 
   @override
   void initState() {
     super.initState();
-    _documents.load();
     _intro = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1600),
@@ -65,14 +60,7 @@ class _BrowsePageState extends State<BrowsePage>
   @override
   void dispose() {
     _intro.dispose();
-    _documents.dispose();
     super.dispose();
-  }
-
-  void _openDocuments() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => DocumentsPage(store: _documents)),
-    );
   }
 
   void _openCollection(TaskCategory category) {
@@ -91,11 +79,11 @@ class _BrowsePageState extends State<BrowsePage>
     return SafeArea(
       bottom: false,
       child: AnimatedBuilder(
-        animation: Listenable.merge([widget.store, _documents]),
+        animation: widget.store,
         builder: (context, _) {
-          // Documents leads, then the tailored categories, and General sits at
-          // the BOTTOM. ONE colour throughout — differentiation is icon + label
-          // only, never hue.
+          // General leads the list, then the tailored categories. Documents is
+          // no longer here — it's a top-level nav tab now. ONE colour throughout
+          // — differentiation is icon + label only, never hue.
           final destinations = <_Dest>[
             // General leads the list — the easy "just remember anything" entry.
             _Dest(
@@ -104,12 +92,6 @@ class _BrowsePageState extends State<BrowsePage>
               count: _countFor(TaskCategory.other),
               onTap: () => _openCollection(TaskCategory.other),
               highlight: true,
-            ),
-            _Dest(
-              icon: Icons.folder_rounded,
-              label: 'Documents',
-              count: _documents.totalCount,
-              onTap: _openDocuments,
             ),
             for (final c in kBrowseCategoriesNoGeneral)
               _Dest(

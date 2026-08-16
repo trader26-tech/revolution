@@ -19,9 +19,14 @@ import 'widgets/morph_icon_button.dart';
 /// and documents — no page pushes. Create folders from the "New folder" tile,
 /// add a document / sub-folder from each folder's own "+". Nothing is uploaded.
 class DocumentsPage extends StatefulWidget {
-  const DocumentsPage({super.key, required this.store});
+  const DocumentsPage({super.key, required this.store, this.embedded = false});
 
   final DocumentsStore store;
+
+  /// True when shown as a top-level nav TAB (inside the shell's IndexedStack)
+  /// rather than a pushed route. Embedded → no back arrow (a tab has nothing to
+  /// pop to); the nav bar keeps only the "new folder" action.
+  final bool embedded;
 
   @override
   State<DocumentsPage> createState() => _DocumentsPageState();
@@ -271,7 +276,9 @@ class _DocumentsPageState extends State<DocumentsPage>
                 // Slim nav — back · new-folder "+". The title lives BIG in the
                 // hero below (same pattern as the category collection pages).
                 _NavBar(
-                  onBack: () => Navigator.of(context).pop(),
+                  onBack: widget.embedded
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   onNewFolder: () => _newFolder(),
                 ),
                 Expanded(child: _buildBody()),
@@ -464,7 +471,9 @@ class _CascadeIn extends StatelessWidget {
 /// lives BIG in the hero below, matching the category collection pages.
 class _NavBar extends StatelessWidget {
   const _NavBar({required this.onBack, required this.onNewFolder});
-  final VoidCallback onBack;
+
+  /// Null when embedded as a tab → no back button is shown.
+  final VoidCallback? onBack;
   final VoidCallback onNewFolder;
 
   @override
@@ -473,11 +482,12 @@ class _NavBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 0, 16, 4),
       child: Row(
         children: [
-          GlassIconButton(
-            icon: Icons.arrow_back_rounded,
-            tooltip: 'Back',
-            onTap: onBack,
-          ),
+          if (onBack != null)
+            GlassIconButton(
+              icon: Icons.arrow_back_rounded,
+              tooltip: 'Back',
+              onTap: onBack!,
+            ),
           const Spacer(),
           MorphIconButton(
             from: Icons.add_rounded,

@@ -5,7 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../home/browse_page.dart';
 import '../home/home_page.dart';
-import '../home/presentation/command_chat_page.dart';
+import '../home/presentation/command_chat_page.dart' show openCommandChat;
 import '../home/presentation/widgets/command_chat_controller.dart';
 import '../tasks/data/task_store.dart';
 import '../update/data/update_service.dart';
@@ -76,9 +76,8 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   Future<void> _openCommand() async {
     if (_chatOpen) return;
     _chatOpen = true;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => CommandChatPage(controller: _chat)),
-    );
+    // The Gemini-Live entrance (aurora bloom + rise) lives in openCommandChat.
+    await openCommandChat(context, _chat);
     // Route popped (back button, or a nav-tab tap called maybePop).
     if (mounted) _chatOpen = false;
   }

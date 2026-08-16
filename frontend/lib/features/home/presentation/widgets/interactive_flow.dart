@@ -280,21 +280,22 @@ class MenuLine extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const MagicText(
-            text: 'What do you want to do today?',
-            progress: 1,
-            reading: true,
+          // The big "What do you want to do today?" headline is rendered as a
+          // hero above the thread (command_chat_page.dart); here we keep only a
+          // quiet prompt so the two don't duplicate.
+          Text(
+            'Choose an action, or just type below.',
             style: TextStyle(
-                fontSize: 16,
-                height: 1.32,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink),
+                fontSize: 14.5,
+                height: 1.3,
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkSoft.withValues(alpha: 0.95)),
           ),
           if (reveal > 0.01)
             Opacity(
               opacity: reveal,
               child: Padding(
-                padding: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.only(top: 12),
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../settings/data/profile_store.dart';
 
 /// Holds the signed-in state.
 ///
@@ -125,6 +128,19 @@ class AuthStore extends ChangeNotifier {
           canonical.isNotEmpty &&
           canonical != _api.userId) {
         await _api.setUserId(canonical);
+      }
+      // Hydrate the display name from the account when we don't have one locally
+      // (e.g. a returning user on a fresh install). If the server returns the
+      // stored name in the claim response, adopt it — so the name that was saved
+      // at sign-up comes back instead of showing empty. No-op if the backend
+      // doesn't return a name yet.
+      if (res is Map && (_name == null || _name!.trim().isEmpty)) {
+        final serverName = (res['name'] as String?)?.trim();
+        if (serverName != null && serverName.isNotEmpty) {
+          _name = serverName;
+          // Keep the profile store (the Settings/Home display name) in step.
+          unawaited(ProfileStore.instance.setName(serverName));
+        }
       }
       _claimed = true;
     } catch (_) {

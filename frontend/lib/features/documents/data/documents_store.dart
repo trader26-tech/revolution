@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/api/api_client.dart';
 import '../../auth/data/auth_store.dart';
 import '../../settings/data/profile_store.dart';
 import '../domain/document.dart';
@@ -284,10 +285,49 @@ class DocumentsStore extends ChangeNotifier {
   /// Force a fresh restore from the cloud — call this after login completes (the
   /// account id is now canonical). Safe to call repeatedly; dedupes by carrier id
   /// so it never creates duplicates, and the in-flight guard prevents overlap.
+  ///
+  /// It also RECONCILES: any local document whose carrier the account can't see
+  /// (it was uploaded under a PRIOR/anonymous id and got orphaned by the claim)
+  /// is re-uploaded under the now-canonical id — so a doc that's still on THIS
+  /// device gets correctly re-linked to the phone account. (Docs already lost —
+  /// not local anywhere — can't be recovered from the client.)
   Future<void> refreshFromCloud() async {
     if (!_cloudOn) return;
     await restoreFromCloud();
+    await _reconcileOrphaned();
     await backUpPending();
+  }
+
+  /// Re-link local documents whose cloud carrier isn't visible to the current
+  /// account (orphaned under an old anonymous id). Best-effort — a failed list
+  /// just skips reconciliation this pass.
+  Future<void> _reconcileOrphaned() async {
+    if (!_cloudOn) return;
+    final List<RemoteDoc> remotes;
+    try {
+      remotes = await _backup.listRemote();
+    } catch (_) {
+      return; // can't tell what the account has → don't touch anything
+    }
+    final visible = remotes.map((r) => r.carrierTaskId).toSet();
+    var changed = false;
+    for (var i = 0; i < _items.length; i++) {
+      final d = _items[i];
+      // Marked backed up, but the account can't see its carrier → orphaned.
+      if (d.backedUp &&
+          d.carrierTaskId != null &&
+          !visible.contains(d.carrierTaskId) &&
+          _folderAllowsCloud(d.folderId)) {
+        _items[i] = d.copyWith(backedUp: false, carrierTaskId: '');
+        changed = true;
+      }
+    }
+    if (changed) {
+      notifyListeners();
+      await _persist();
+      // backUpPending() (called right after) will re-upload these under the
+      // canonical id, re-linking them to the phone account.
+    }
   }
 
   /// Upload every local document that isn't backed up yet — the retry path for
@@ -507,8 +547,19 @@ class DocumentsStore extends ChangeNotifier {
     // When cloud backup is on, push this document up in the background — the UI
     // doesn't wait on the network; the row's badge flips to "backed up" when it
     // lands (a failure just leaves it local, to retry on the next sync).
-    if (_cloudOn) unawaited(_backUpItem(doc));
+    if (_cloudOn) _startBackUp(doc);
     return doc;
+  }
+
+  /// Kick off a document upload AND register it as a pending write, so a login
+  /// [ApiClient.claim] that fires mid-upload WAITS for it before the server
+  /// re-keys the account to the phone. Without this, a document uploaded around
+  /// login time races the claim and gets orphaned under the anonymous id — the
+  /// exact bug where subscriptions come back but documents don't.
+  void _startBackUp(DocItem doc) {
+    final future = _backUpItem(doc);
+    ApiClient.instance.trackPendingWrite(future);
+    unawaited(future);
   }
 
   /// Upload one document to the cloud + mark it backed up. Safe to call repeatedly

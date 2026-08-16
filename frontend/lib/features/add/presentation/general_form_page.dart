@@ -195,16 +195,24 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                   children: [
-                    // ── Title ──
+                    // ── Identity: the name + an OPTIONAL amount (₹) right in the
+                    //    header, like the subscription form. Blank amount = a
+                    //    plain reminder. ──
                     _TitleCard(
                       controller: _title,
                       focus: _titleFocus,
                       autofocus: widget.editTask == null,
+                      amount: _amount,
+                      amountFocus: _amountFocus,
+                      currency: _currency,
+                      onPickCurrency: _pickCurrency,
                     ),
                     const OrbitSaveHint(),
                     const SizedBox(height: 18),
 
-                    // ── When + remind ──
+                    // ── The schedule, all in ONE card: when it's due, whether it
+                    //    repeats, and when to remind. Repeats + Remind read as one
+                    //    contained flow. Repeats defaults to "Never". ──
                     OrbitGroupCard(
                       children: [
                         OrbitNavRow(
@@ -213,42 +221,16 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
                           onTap: _pickDate,
                         ),
                         const OrbitRowDivider(),
-                        _RemindRow(
-                          days: _remindDaysBefore,
-                          onChanged: (d) =>
-                              setState(() => _remindDaysBefore = d),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-
-                    // ── Amount + repeat — both OPTIONAL. Leave blank / "Never"
-                    //    for a plain reminder; fill them for money / recurring. ──
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4, bottom: 8),
-                      child: Text(
-                        'AMOUNT & REPEAT  ·  OPTIONAL',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                          color: AppColors.inkSoft,
-                        ),
-                      ),
-                    ),
-                    _AmountCard(
-                      controller: _amount,
-                      focus: _amountFocus,
-                      currency: _currency,
-                      onPickCurrency: _pickCurrency,
-                    ),
-                    const SizedBox(height: 10),
-                    OrbitGroupCard(
-                      children: [
                         OrbitNavRow(
                           label: 'Repeats',
                           value: frequencyLabel(_repeat, _interval),
                           onTap: _pickFrequency,
+                        ),
+                        const OrbitRowDivider(),
+                        _RemindRow(
+                          days: _remindDaysBefore,
+                          onChanged: (d) =>
+                              setState(() => _remindDaysBefore = d),
                         ),
                       ],
                     ),

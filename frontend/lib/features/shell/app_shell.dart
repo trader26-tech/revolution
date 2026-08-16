@@ -204,157 +204,220 @@ class _BottomBar extends StatelessWidget {
   final VoidCallback onCloseCommand;
   final ValueChanged<String> onSend;
 
+  static const _h = 60.0; // bar height
+  static const _gap = 12.0; // gap between the two elements
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-      child: SizedBox(
-        height: 64,
-        child: Row(
-          children: [
-            // ── LEFT: the nav (t=0) shrinking into a round dot-button (t=1) ──
-            // The nav takes the row's remaining width when open and collapses to
-            // a 56px circle as command mode takes over.
-            Flexible(
-              flex: ((1 - t) * 1000).round().clamp(0, 1000),
-              child: _NavHalf(
-                collapsed: t,
-                index: tab,
-                onChanged: onTab,
-              ),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final total = c.maxWidth;
+          // The RIGHT element's width animates from a circle (_h) to the full
+          // field. The LEFT takes the rest. Real pixel widths → both stay
+          // tappable at every t (no zero-width Flexible eating the tap).
+          final rightMin = _h; // ★ circle
+          final rightMax = total * 0.72; // command field
+          final rightW = rightMin + (rightMax - rightMin) * t;
+          final leftW = total - rightW - _gap;
+
+          return SizedBox(
+            height: _h,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: leftW.clamp(_h, total),
+                  child: _NavHalf(
+                    collapsed: t,
+                    index: tab,
+                    onReopen: onCloseCommand,
+                    onChanged: onTab,
+                  ),
+                ),
+                const SizedBox(width: _gap),
+                SizedBox(
+                  width: rightW,
+                  child: _RightHalf(
+                    t: t,
+                    busy: commandBusy,
+                    onOpenCommand: onOpenCommand,
+                    onSend: onSend,
+                  ),
+                ),
+              ],
             ),
-            // A small dot-button that only exists at t≈1 — tap to reopen the nav.
-            if (t > 0.5)
-              Opacity(
-                opacity: ((t - 0.5) / 0.5).clamp(0.0, 1.0),
-                child: _DotButton(onTap: onCloseCommand),
-              ),
-            SizedBox(width: 10 * (1 - (t - 0.5).abs() * 2).clamp(0.0, 1.0) + 8),
-            // ── RIGHT: the ★ button (t=0) expanding into the command field (t=1) ──
-            Flexible(
-              flex: (t * 1000).round().clamp(1, 1000),
-              child: t < 0.5
-                  ? Opacity(
-                      opacity: (1 - t * 2).clamp(0.0, 1.0),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: _StarButton(onTap: onOpenCommand),
-                      ),
-                    )
-                  : Opacity(
-                      opacity: ((t - 0.5) / 0.5).clamp(0.0, 1.0),
-                      child: _CommandField(busy: commandBusy, onSend: onSend),
-                    ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
 
-/// The nav that lives on the left, collapsing to a circle as [collapsed] → 1.
+/// The LEFT element: the light "liquid glass" nav pill (Home · Browse), which
+/// shrinks into a round grid button as [collapsed] → 1. The container width is
+/// driven by the parent; here we just crossfade the pill contents ⇄ the dot
+/// glyph. In command mode the whole thing is tappable to reopen the nav.
 class _NavHalf extends StatelessWidget {
   const _NavHalf({
     required this.collapsed,
     required this.index,
+    required this.onReopen,
     required this.onChanged,
   });
   final double collapsed;
   final int index;
+  final VoidCallback onReopen;
   final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    // Fade the nav pill out as it collapses; the shell adds the dot-button.
-    final o = (1 - collapsed * 1.6).clamp(0.0, 1.0);
-    if (o <= 0.01) return const SizedBox.shrink();
-    return Opacity(
-      opacity: o,
-      child: GlassPanel(
-        borderRadius: 999,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              for (var i = 0; i < 2; i++)
-                Expanded(
-                  child: _NavButton(
-                    item: _kNavItems[i],
-                    selected: i == index,
-                    onTap: () => onChanged(i),
-                  ),
-                ),
-            ],
-          ),
-        ),
+    final navOpacity = (1 - collapsed * 2).clamp(0.0, 1.0);
+    final dotOpacity = ((collapsed - 0.5) / 0.5).clamp(0.0, 1.0);
+    return _LiquidGlass(
+      // Collapsed → a plain round button that reopens the nav on tap.
+      onTap: collapsed > 0.5 ? onReopen : null,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // The pill's Home·Browse row (default state).
+          if (navOpacity > 0.01)
+            Opacity(
+              opacity: navOpacity,
+              child: Row(
+                children: [
+                  for (var i = 0; i < 2; i++)
+                    Expanded(
+                      child: _NavButton(
+                        item: _kNavItems[i],
+                        selected: i == index,
+                        onTap: () => onChanged(i),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          // The collapsed dot glyph (command state).
+          if (dotOpacity > 0.01)
+            Opacity(
+              opacity: dotOpacity,
+              child: const Icon(Icons.grid_view_rounded,
+                  size: 22, color: AppColors.inkSoft),
+            ),
+        ],
       ),
     );
   }
 }
 
-/// The circular ★ command button (right side, default state). Tapping it opens
-/// the command field with the morph + aurora wash.
-class _StarButton extends StatelessWidget {
-  const _StarButton({required this.onTap});
-  final VoidCallback onTap;
+/// The RIGHT element: the circular ★ command button that expands into the
+/// command field as [t] → 1. Crossfades the ★ glyph ⇄ the field contents inside
+/// one growing liquid-glass container.
+class _RightHalf extends StatelessWidget {
+  const _RightHalf({
+    required this.t,
+    required this.busy,
+    required this.onOpenCommand,
+    required this.onSend,
+  });
+  final double t;
+  final bool busy;
+  final VoidCallback onOpenCommand;
+  final ValueChanged<String> onSend;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        onTap();
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 60,
-        height: 60,
+    final starOpacity = (1 - t * 2).clamp(0.0, 1.0);
+    final fieldOpacity = ((t - 0.5) / 0.5).clamp(0.0, 1.0);
+    // At t=0 the ★ is a filled accent circle; as it opens it becomes the light
+    // glass field. Blend the fill so it reads as one morph.
+    return _LiquidGlass(
+      accentFill: 1 - t, // 1 = solid accent circle, 0 = light glass field
+      onTap: t < 0.5
+          ? () {
+              HapticFeedback.mediumImpact();
+              onOpenCommand();
+            }
+          : null,
+      child: Stack(
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF9B7CFF), AppColors.accent],
-          ),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accent.withValues(alpha: 0.5),
-              blurRadius: 22,
-              spreadRadius: 1,
+        children: [
+          if (starOpacity > 0.01)
+            Opacity(
+              opacity: starOpacity,
+              child: const Icon(Icons.auto_awesome_rounded,
+                  size: 25, color: Colors.white),
             ),
+          if (fieldOpacity > 0.01)
+            Opacity(
+              opacity: fieldOpacity,
+              child: _CommandField(busy: busy, onSend: onSend),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The shared "liquid glass" surface — a soft, bright frosted pill/circle with a
+/// subtle top highlight and a gentle shadow, matching the iOS look. [accentFill]
+/// (0→1) tints it from light glass toward a solid accent circle (for the ★).
+class _LiquidGlass extends StatelessWidget {
+  const _LiquidGlass({
+    required this.child,
+    this.onTap,
+    this.accentFill = 0,
+  });
+  final Widget child;
+  final VoidCallback? onTap;
+  final double accentFill;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Container(
+      height: 60,
+      decoration: BoxDecoration(
+        // Light frosted glass, blending to a solid accent as accentFill→1.
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.lerp(Colors.white.withValues(alpha: 0.14),
+                const Color(0xFF9B7CFF), accentFill)!,
+            Color.lerp(Colors.white.withValues(alpha: 0.06),
+                AppColors.accent, accentFill)!,
           ],
         ),
-        child: const Icon(Icons.auto_awesome_rounded,
-            size: 26, color: Colors.white),
-      ),
-    );
-  }
-}
-
-/// The small round button the nav collapses to — tap to reopen the nav.
-class _DotButton extends StatelessWidget {
-  const _DotButton({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      behavior: HitTestBehavior.opaque,
-      child: GlassPanel(
-        borderRadius: 999,
-        child: Container(
-          width: 56,
-          height: 56,
-          alignment: Alignment.center,
-          child: const Icon(Icons.grid_view_rounded,
-              size: 22, color: AppColors.inkSoft),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: Color.lerp(Colors.white.withValues(alpha: 0.22),
+              Colors.transparent, accentFill)!,
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Color.lerp(Colors.black.withValues(alpha: 0.28),
+                AppColors.accent.withValues(alpha: 0.5), accentFill)!,
+            blurRadius: 20,
+            spreadRadius: accentFill,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: child,
+    );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: GlassPanel(
+        borderRadius: 30,
+        child: onTap == null
+            ? content
+            : GestureDetector(
+                onTap: onTap,
+                behavior: HitTestBehavior.opaque,
+                child: content,
+              ),
       ),
     );
   }
@@ -400,53 +463,36 @@ class _CommandFieldState extends State<_CommandField> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 60,
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: AppColors.accent.withValues(alpha: 0.55),
-          width: 1.4,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accent.withValues(alpha: 0.22),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 16),
-          Icon(Icons.auto_awesome_rounded,
-              size: 20, color: AppColors.accent.withValues(alpha: 0.9)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              focusNode: _focus,
-              onSubmitted: (_) => _send(),
-              textInputAction: TextInputAction.send,
-              textCapitalization: TextCapitalization.sentences,
-              style: const TextStyle(
-                color: AppColors.ink,
-                fontSize: 15.5,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: const InputDecoration(
-                hintText: 'Ask or add anything…',
-                hintStyle: TextStyle(color: AppColors.inkFaint),
-                border: InputBorder.none,
-                isDense: true,
-              ),
+    // No own background — it sits INSIDE the shared liquid-glass surface.
+    return Row(
+      children: [
+        const SizedBox(width: 16),
+        Icon(Icons.auto_awesome_rounded,
+            size: 20, color: AppColors.accent.withValues(alpha: 0.95)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            controller: _controller,
+            focusNode: _focus,
+            onSubmitted: (_) => _send(),
+            textInputAction: TextInputAction.send,
+            textCapitalization: TextCapitalization.sentences,
+            style: const TextStyle(
+              color: AppColors.ink,
+              fontSize: 15.5,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: const InputDecoration(
+              hintText: 'Ask or add anything…',
+              hintStyle: TextStyle(color: AppColors.inkFaint),
+              border: InputBorder.none,
+              isDense: true,
             ),
           ),
-          _SendButton(busy: widget.busy, onTap: _send),
-          const SizedBox(width: 6),
-        ],
-      ),
+        ),
+        _SendButton(busy: widget.busy, onTap: _send),
+        const SizedBox(width: 6),
+      ],
     );
   }
 }
@@ -500,49 +546,64 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Selected → a bright rounded pill with the icon + label side by side in the
+    // accent colour (the iOS look). Unselected → a quiet icon over a small label.
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
           padding:
-              EdgeInsets.symmetric(horizontal: selected ? 18 : 12, vertical: 10),
+              EdgeInsets.symmetric(horizontal: selected ? 14 : 8, vertical: 8),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.accent.withValues(alpha: 0.14)
+                ? Colors.white.withValues(alpha: 0.9)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.10),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                selected ? item.active : item.icon,
-                size: 24,
-                color: selected ? AppColors.accentDeep : AppColors.inkSoft,
-              ),
-              // Show the label only for the selected tab — keeps the bar clean.
-              AnimatedSize(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                child: selected
-                    ? Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Text(
-                          item.label,
-                          style: const TextStyle(
-                            color: AppColors.accentDeep,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
+          child: selected
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(item.active, size: 21, color: AppColors.accent),
+                    const SizedBox(width: 7),
+                    Text(
+                      item.label,
+                      style: const TextStyle(
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(item.icon, size: 21, color: AppColors.inkFaint),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.label,
+                      style: const TextStyle(
+                        color: AppColors.inkFaint,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

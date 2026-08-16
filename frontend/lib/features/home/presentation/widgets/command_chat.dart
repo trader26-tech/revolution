@@ -429,11 +429,11 @@ class _RevoText extends StatelessWidget {
         children: [
           if (leadingCheck) ...[
             const Padding(
-              padding: EdgeInsets.only(top: 2),
+              padding: EdgeInsets.only(top: 4),
               child: Icon(Icons.check_circle_rounded,
-                  size: 17, color: AppColors.accent),
+                  size: 22, color: AppColors.accent),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
           ],
           Expanded(
             child: MagicText(
@@ -441,9 +441,10 @@ class _RevoText extends StatelessWidget {
               progress: shimmer,
               reading: true,
               style: const TextStyle(
-                fontSize: 16,
-                height: 1.32,
-                fontWeight: FontWeight.w700,
+                fontSize: 23,
+                height: 1.24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
                 color: AppColors.ink,
               ),
             ),
@@ -568,9 +569,10 @@ class _ProposalLine extends StatelessWidget {
             progress: shimmer,
             reading: true,
             style: const TextStyle(
-                fontSize: 16,
-                height: 1.32,
-                fontWeight: FontWeight.w700,
+                fontSize: 23,
+                height: 1.24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
                 color: AppColors.ink),
           ),
           if (reveal > 0.01)
@@ -716,9 +718,10 @@ class _ActionLine extends StatelessWidget {
             progress: shimmer,
             reading: true,
             style: const TextStyle(
-                fontSize: 16,
-                height: 1.32,
-                fontWeight: FontWeight.w700,
+                fontSize: 23,
+                height: 1.24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
                 color: AppColors.ink),
           ),
           // For update, show what's changing.
@@ -824,9 +827,10 @@ class _AnswerLine extends StatelessWidget {
             progress: shimmer,
             reading: true,
             style: const TextStyle(
-                fontSize: 16,
-                height: 1.32,
-                fontWeight: FontWeight.w700,
+                fontSize: 23,
+                height: 1.24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
                 color: AppColors.ink),
           ),
           if (reveal > 0.01)

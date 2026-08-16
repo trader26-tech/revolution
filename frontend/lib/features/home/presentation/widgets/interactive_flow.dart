@@ -284,12 +284,13 @@ class MenuLine extends StatelessWidget {
           // hero above the thread (command_chat_page.dart); here we keep only a
           // quiet prompt so the two don't duplicate.
           Text(
-            'Choose an action, or just type below.',
+            'Pick an action',
             style: TextStyle(
-                fontSize: 14.5,
-                height: 1.3,
-                fontWeight: FontWeight.w600,
-                color: AppColors.inkSoft.withValues(alpha: 0.95)),
+                fontSize: 18,
+                height: 1.25,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+                color: AppColors.inkSoft),
           ),
           if (reveal > 0.01)
             Opacity(

@@ -177,7 +177,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
 
     // The overlay must clear the bottom bar: bar height + its bottom padding +
     // safe-area inset.
-    final barSpace = 56.0 + 14 + MediaQuery.of(context).padding.bottom;
+    final barSpace = 64.0 + 14 + MediaQuery.of(context).padding.bottom;
 
     return PopScope(
       // While the chat is open, system back closes IT (not the app).
@@ -284,7 +284,7 @@ class _BottomBar extends StatelessWidget {
   final VoidCallback onCloseCommand;
   final ValueChanged<String> onSend;
 
-  static const _h = 56.0; // bar height — trimmed so the bar isn't top/bottom-heavy
+  static const _h = 64.0; // bar height — room for stacked icon + label tabs
   static const _gap = 10.0; // gap between the nav pill and the search circle
 
   @override
@@ -364,14 +364,14 @@ class _NavHalf extends StatelessWidget {
       onTap: collapsed > 0.5 ? onReopen : null,
       // Clip so nothing spills outside the pill while it's shrinking.
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
         child: Stack(
           alignment: Alignment.center,
           children: [
             // The tabs — each in an EQUAL Expanded slice so Home · Browse · Docs
-            // fill the whole pill evenly (no wasted space, no left-hugging). The
-            // selected tab draws its accent pill centred in its slice; each tab
-            // fills the pill's full height. Fades out by t=0.35 as it collapses.
+            // fill the whole pill evenly (no wasted space). Each is an iOS-style
+            // stacked icon + label; the selected one is tinted accent. Fades out
+            // by t=0.35 as the pill collapses to a dot on chat open.
             if (navOpacity > 0.01)
               Positioned.fill(
                 child: Padding(
@@ -503,7 +503,7 @@ class _RightHalfState extends State<_RightHalf> {
             }
           : null,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -511,7 +511,7 @@ class _RightHalfState extends State<_RightHalf> {
               Opacity(
                 opacity: starOpacity,
                 child: const Icon(Icons.search_rounded,
-                    size: 25, color: Colors.white),
+                    size: 26, color: Colors.white),
               ),
             if (fieldOpacity > 0.01)
               Positioned.fill(
@@ -623,7 +623,7 @@ class _LiquidGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = Container(
-      height: 56,
+      height: 64,
       decoration: BoxDecoration(
         // Light frosted glass, blending to a solid accent as accentFill→1.
         gradient: LinearGradient(
@@ -636,7 +636,7 @@ class _LiquidGlass extends StatelessWidget {
                 AppColors.accent, accentFill)!,
           ],
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
         border: Border.all(
           color: Color.lerp(Colors.white.withValues(alpha: 0.22),
               Colors.transparent, accentFill)!,
@@ -656,9 +656,9 @@ class _LiquidGlass extends StatelessWidget {
       child: child,
     );
     return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(32),
       child: GlassPanel(
-        borderRadius: 28,
+        borderRadius: 32,
         child: onTap == null
             ? content
             : GestureDetector(
@@ -699,82 +699,34 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The Orbit look: the SELECTED tab is an ACCENT PILL (violet, matching the
-    // search ★) — icon + label side by side, white, with a soft glow. Every
-    // unselected tab is a quiet muted glyph + label. The pill hugs its own
-    // content and lives inside an evenly-spread row, so it can never push a
-    // sibling out — the bar can't overflow.
-    // Each tab fills its slot's FULL height (no dead vertical band) and is
-    // vertically centred. The SELECTED tab draws an accent pill INSET a few px
-    // from the glass edge, hugging its icon + label; unselected tabs are a quiet
-    // glyph. Only the selected tab shows a label, so the bar stays clean.
+    // iOS-style tab: the ICON on top with its LABEL right below, ALWAYS visible,
+    // all tabs the SAME size. The selected tab is tinted accent (icon + label);
+    // unselected tabs are a quiet muted glyph + label. Colour alone carries the
+    // selection — clean, consistent, no pill, no size jumps.
+    final color = selected ? AppColors.accent : AppColors.inkFaint;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox.expand(
-        child: Padding(
-          // Small inset so the selected pill sits INSIDE the glass, not touching.
-          padding: const EdgeInsets.symmetric(vertical: 7),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 240),
-            curve: Curves.easeOutCubic,
-            padding: EdgeInsets.symmetric(horizontal: selected ? 12 : 6),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: selected
-                  ? const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF9B7CFF), AppColors.accent],
-                    )
-                  : null,
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: AppColors.accent.withValues(alpha: 0.42),
-                        blurRadius: 14,
-                        spreadRadius: -2,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
-            ),
-            // FittedBox keeps the selected pill's icon+label from ever
-            // overflowing its equal slice on narrow screens — it scales down to
-            // fit instead of spilling.
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: AnimatedSize(
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      selected ? item.active : item.icon,
-                      size: 22,
-                      color: selected ? Colors.white : AppColors.inkFaint,
-                    ),
-                    if (selected) ...[
-                      const SizedBox(width: 7),
-                      Text(
-                        item.label,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          letterSpacing: -0.1,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(selected ? item.active : item.icon, size: 26, color: color),
+            const SizedBox(height: 3),
+            Text(
+              item.label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              style: TextStyle(
+                color: color,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 12.5,
+                letterSpacing: -0.1,
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

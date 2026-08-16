@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,31 +9,38 @@ import '../../home/presentation/widgets/profile_avatar.dart';
 import '../data/app_lock_store.dart';
 import 'lock_timer_pill.dart' show showAutoLockSheet;
 
-/// The App Lock countdown, wrapped AROUND the user's profile avatar — a thin
-/// accent progress ring that drains as the session runs down, with the remaining
-/// time as "M:SS" shown just below. One tidy cluster in the Home greeting: the
-/// avatar stays tappable (add/change photo), and tapping the TIME opens the
-/// auto-lock settings.
+/// The App Lock countdown drawn AS the profile avatar's edge: a thin accent arc
+/// that sits flush at the rim of the photo circle and slowly SPINS, its swept
+/// length shrinking as the session drains. A small time PILL clings to the
+/// bottom of the avatar showing "M:SS". Tapping the pill opens the auto-lock
+/// presets (change the duration / lock now).
 ///
-/// When the lock is off (or no session is live) it renders the bare avatar, so
-/// nothing extra intrudes.
+/// When the lock is off (or no session is live) it renders the bare avatar.
 class LockAvatarRing extends StatefulWidget {
   const LockAvatarRing({super.key, this.avatarSize = 44});
 
-  /// The inner avatar diameter. The ring + time sit around/under it.
+  /// The avatar diameter. The ring hugs its rim; the pill overlaps its base.
   final double avatarSize;
 
   @override
   State<LockAvatarRing> createState() => _LockAvatarRingState();
 }
 
-class _LockAvatarRingState extends State<LockAvatarRing> {
+class _LockAvatarRingState extends State<LockAvatarRing>
+    with SingleTickerProviderStateMixin {
   final _store = AppLockStore.instance;
   Timer? _tick;
+  late final AnimationController _spin;
 
   @override
   void initState() {
     super.initState();
+    // The ring rotates continuously — a slow, premium spin.
+    _spin = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+    // 1s tick advances the countdown digits + the drained fraction.
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -42,6 +50,7 @@ class _LockAvatarRingState extends State<LockAvatarRing> {
   @override
   void dispose() {
     _tick?.cancel();
+    _spin.dispose();
     _store.removeListener(_onStore);
     super.dispose();
   }
@@ -60,7 +69,6 @@ class _LockAvatarRingState extends State<LockAvatarRing> {
   @override
   Widget build(BuildContext context) {
     final size = widget.avatarSize;
-    // Lock off / no live session → just the avatar, no ring, no time.
     final now = DateTime.now();
     final remaining = _store.enabled ? _store.remainingAt(now) : Duration.zero;
     final showRing = _store.enabled && remaining > Duration.zero;
@@ -72,70 +80,148 @@ class _LockAvatarRingState extends State<LockAvatarRing> {
     final total = _store.sessionLength.inSeconds;
     final progress =
         total == 0 ? 0.0 : (remaining.inSeconds / total).clamp(0.0, 1.0);
-    // The ring hugs the avatar with a small breathing gap.
-    const gap = 5.0;
-    const stroke = 3.0;
-    final ringSize = size + gap * 2 + stroke * 2;
-    // Ring warms to a warning tint in the final stretch, so "almost locking"
-    // reads at a glance without a separate alert.
-    final ringColor = progress <= 0.12
-        ? const Color(0xFFFF6B6B) // soft red near the end
-        : AppColors.accent;
+    // Warm to red in the final stretch so "almost locking" reads at a glance.
+    final color =
+        progress <= 0.12 ? const Color(0xFFFF6B6B) : AppColors.accent;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: ringSize,
-          height: ringSize,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // The draining ring.
-              SizedBox(
-                width: ringSize,
-                height: ringSize,
-                child: CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: stroke,
-                  backgroundColor: AppColors.cardBorder,
-                  valueColor: AlwaysStoppedAnimation(ringColor),
-                  strokeCap: StrokeCap.round,
-                ),
+    // The ring is painted right at the avatar's rim (a hair outside), so the
+    // whole control is barely larger than the photo itself.
+    const stroke = 2.6;
+    final ringBox = size + stroke * 2; // just the stroke beyond the rim
+
+    // The pill overlaps the avatar's bottom edge, so it reads as attached.
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        showAutoLockSheet(context);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        // Extra height so the pill can hang below the avatar without clipping.
+        width: ringBox,
+        height: ringBox + 12,
+        child: Stack(
+          alignment: Alignment.topCenter,
+          clipBehavior: Clip.none,
+          children: [
+            // Avatar + the spinning flush ring.
+            SizedBox(
+              width: ringBox,
+              height: ringBox,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // The spinning progress arc at the rim.
+                  AnimatedBuilder(
+                    animation: _spin,
+                    builder: (context, _) => CustomPaint(
+                      size: Size(ringBox, ringBox),
+                      painter: _RimRingPainter(
+                        progress: progress,
+                        color: color,
+                        stroke: stroke,
+                        rotation: _spin.value * 2 * math.pi,
+                      ),
+                    ),
+                  ),
+                  // The avatar itself — still tappable to change the photo.
+                  ProfileAvatar(size: size),
+                ],
               ),
-              // The avatar sits inside the ring, still fully tappable.
-              ProfileAvatar(size: size),
-            ],
-          ),
+            ),
+            // The time pill, clinging to the avatar's bottom.
+            Positioned(
+              bottom: 0,
+              child: _TimePill(label: _fmt(remaining), color: color),
+            ),
+          ],
         ),
-        const SizedBox(height: 5),
-        // The remaining time — tap to change the auto-lock duration.
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            showAutoLockSheet(context);
-          },
-          behavior: HitTestBehavior.opaque,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.lock_clock_rounded,
-                  size: 11, color: ringColor.withValues(alpha: 0.9)),
-              const SizedBox(width: 3),
-              Text(
-                _fmt(remaining),
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  color: ringColor,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
+}
+
+/// The little "M:SS" pill that clings to the avatar's base — a compact status
+/// badge with a subtle border so it lifts off the photo.
+class _TimePill extends StatelessWidget {
+  const _TimePill({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.6), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          color: color,
+          height: 1.0,
+          fontFeatures: const [FontFeature.tabularFigures()],
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
+/// Paints the countdown arc right at the avatar's rim. The arc's LENGTH is the
+/// remaining fraction; the whole arc is [rotation]-offset so it spins. A faint
+/// full-circle track sits under it so the rim always reads as a ring.
+class _RimRingPainter extends CustomPainter {
+  _RimRingPainter({
+    required this.progress,
+    required this.color,
+    required this.stroke,
+    required this.rotation,
+  });
+
+  final double progress; // 1 → full, 0 → empty
+  final Color color;
+  final double stroke;
+  final double rotation; // radians, continuous spin
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - stroke) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Faint full-circle track.
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..color = AppColors.cardBorder.withValues(alpha: 0.6);
+    canvas.drawCircle(center, radius, track);
+
+    // The live arc — swept length = remaining fraction, start angle spins.
+    final sweep = 2 * math.pi * progress.clamp(0.0, 1.0);
+    final arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    canvas.drawArc(rect, rotation, sweep, false, arc);
+  }
+
+  @override
+  bool shouldRepaint(_RimRingPainter old) =>
+      old.progress != progress ||
+      old.color != color ||
+      old.rotation != rotation ||
+      old.stroke != stroke;
 }

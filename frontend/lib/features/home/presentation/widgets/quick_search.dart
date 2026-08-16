@@ -18,6 +18,7 @@ class QuickSearch extends StatelessWidget {
     required this.store,
     required this.documents,
     required this.searchController,
+    required this.entrance,
     required this.onOpenTask,
     required this.onOpenDocument,
     required this.onOpenCategory,
@@ -30,6 +31,10 @@ class QuickSearch extends StatelessWidget {
   /// rebuilds ONLY this palette (not the whole chat overlay). That's the fix for
   /// the typing lag.
   final TextEditingController searchController;
+
+  /// The bar's open progress (0→1). Used ONLY to sequence the idle entrance
+  /// (heading first, then the pinned list) — not the search matching.
+  final double entrance;
 
   final ValueChanged<Task> onOpenTask;
   final ValueChanged<DocItem> onOpenDocument;
@@ -54,38 +59,70 @@ class QuickSearch extends StatelessWidget {
 
   // ── Idle (empty query) — a clean heading + a few PINNED items the user is most
   // likely to want (their most recent reminders), so retrieval is one tap with no
-  // typing. As soon as they type, results replace these.
+  // typing. The heading appears FIRST; the pinned list sequences in AFTER (once
+  // the field + keyboard are up), each row cascading — a clean top-to-bottom
+  // entrance. As soon as they type, results replace these.
   Widget _idle(BuildContext context) {
     final recent = _recentTasks();
+    // The heading leads (0 → 0.5 of the entrance); the list follows (0.5 → 1),
+    // so the order reads heading → field/keyboard → list.
+    final headIn = Curves.easeOut.transform((entrance / 0.5).clamp(0.0, 1.0));
+    final listIn = ((entrance - 0.5) / 0.5).clamp(0.0, 1.0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 2, bottom: 2),
-          child: Text(
-            'Search anything quickly',
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 25,
-              height: 1.15,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
+        Opacity(
+          opacity: headIn,
+          child: Transform.translate(
+            offset: Offset(0, (1 - headIn) * 8),
+            child: const Padding(
+              padding: EdgeInsets.only(top: 2, bottom: 2),
+              child: Text(
+                'Search anything quickly',
+                style: TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 25,
+                  height: 1.15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+              ),
             ),
           ),
         ),
         if (recent.isNotEmpty) ...[
           const SizedBox(height: 16),
-          _GroupLabel('Jump back in'),
+          _staggered(listIn, 0, _GroupLabel('Jump back in')),
           const SizedBox(height: 4),
-          for (final t in recent)
-            _ResultRow(
-              icon: t.category.icon,
-              title: t.title,
-              subtitle: _taskMeta(t),
-              onTap: () => onOpenTask(t),
+          for (var i = 0; i < recent.length; i++)
+            _staggered(
+              listIn,
+              i + 1,
+              _ResultRow(
+                icon: recent[i].category.icon,
+                title: recent[i].title,
+                subtitle: _taskMeta(recent[i]),
+                onTap: () => onOpenTask(recent[i]),
+              ),
             ),
         ],
       ],
+    );
+  }
+
+  /// Fade + slide a row up, staggered by [i] off a 0→1 [progress] — the pinned
+  /// list cascades in one after another.
+  Widget _staggered(double progress, int i, Widget child) {
+    const step = 0.12;
+    final start = (i * step).clamp(0.0, 0.9);
+    final local = ((progress - start) / (1 - start)).clamp(0.0, 1.0);
+    final eased = Curves.easeOutCubic.transform(local);
+    return Opacity(
+      opacity: eased,
+      child: Transform.translate(
+        offset: Offset(0, (1 - eased) * 10),
+        child: child,
+      ),
     );
   }
 

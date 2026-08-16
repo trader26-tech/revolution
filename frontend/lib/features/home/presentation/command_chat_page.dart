@@ -231,12 +231,13 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
               // (No aurora/purple bloom — the space gradient + faint stars are the
               // whole backdrop. A coloured wash read as heavy/playful, not premium.)
 
-              // The content (Revo + greeting + thread) rises + fades in, leaving
-              // room at the bottom for the shell's morphing bar.
+              // The content fades in EARLY (opaque by ~t=0.45) and barely rises,
+              // so its own children own the sequenced entrance (the quick-search
+              // heading→list cascade) without the outer fade double-dimming them.
               Opacity(
-                opacity: t.clamp(0.0, 1.0),
+                opacity: (t / 0.45).clamp(0.0, 1.0),
                 child: Transform.translate(
-                  offset: Offset(0, (1 - t) * 28),
+                  offset: Offset(0, (1 - t) * 10),
                   child: SafeArea(
                     bottom: false,
                     child: Padding(
@@ -277,13 +278,21 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
         children: [
-          QuickSearch(
-            store: _c.store,
-            documents: _documents,
-            searchController: widget.searchController,
-            onOpenTask: _openTask,
-            onOpenDocument: _openDocument,
-            onOpenCategory: _openCategory,
+          // Drive the empty-state entrance off the morph so the idle content
+          // sequences in AFTER the bar/field (heading first, then the pinned
+          // list). The morph AnimatedBuilder only wraps the ENTRANCE, not the
+          // (cheap) search matching, so typing stays instant.
+          AnimatedBuilder(
+            animation: widget.morph,
+            builder: (context, _) => QuickSearch(
+              store: _c.store,
+              documents: _documents,
+              searchController: widget.searchController,
+              entrance: widget.morph.value,
+              onOpenTask: _openTask,
+              onOpenDocument: _openDocument,
+              onOpenCategory: _openCategory,
+            ),
           ),
         ],
       );

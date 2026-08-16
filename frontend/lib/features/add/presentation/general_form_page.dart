@@ -291,10 +291,22 @@ class _TitleCard extends StatelessWidget {
   const _TitleCard({
     required this.controller,
     required this.focus,
+    required this.amount,
+    required this.amountFocus,
+    required this.currency,
+    required this.onPickCurrency,
     this.autofocus = false,
   });
   final TextEditingController controller;
   final FocusNode focus;
+
+  /// The OPTIONAL amount — a currency chip + number, sitting under the name
+  /// right in the identity card (same shape as the subscription form). Blank =
+  /// no amount, so a General item stays a plain reminder.
+  final TextEditingController amount;
+  final FocusNode amountFocus;
+  final String currency;
+  final VoidCallback onPickCurrency;
 
   /// Only auto-focus (raise the keyboard) when ADDING — never when editing an
   /// existing reminder, where the name's already filled and the user is just
@@ -303,6 +315,7 @@ class _TitleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final symbol = currencyOf(currency).symbol;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -311,6 +324,7 @@ class _TitleCard extends StatelessWidget {
         border: Border.all(color: AppColors.cardBorder),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             width: 56,
@@ -333,120 +347,105 @@ class _TitleCard extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: TextField(
-              controller: controller,
-              focusNode: focus,
-              autofocus: autofocus,
-              textCapitalization: TextCapitalization.sentences,
-              cursorColor: AppColors.accent,
-              onTapOutside: (_) => FocusScope.of(context).unfocus(),
-              style: const TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink,
-              ),
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: 'What do you want to remember?',
-                hintStyle: TextStyle(
-                  color: AppColors.inkFaint,
-                  fontWeight: FontWeight.w700,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // The name.
+                TextField(
+                  controller: controller,
+                  focusNode: focus,
+                  autofocus: autofocus,
+                  textCapitalization: TextCapitalization.sentences,
+                  cursorColor: AppColors.accent,
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'What do you want to remember?',
+                    hintStyle: TextStyle(
+                      color: AppColors.inkFaint,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// An OPTIONAL amount field with a currency chip — the same look as the tailored
-/// forms' amount input, but standalone (no brand logo). Blank = no amount.
-class _AmountCard extends StatelessWidget {
-  const _AmountCard({
-    required this.controller,
-    required this.focus,
-    required this.currency,
-    required this.onPickCurrency,
-  });
-  final TextEditingController controller;
-  final FocusNode focus;
-  final String currency;
-  final VoidCallback onPickCurrency;
-
-  @override
-  Widget build(BuildContext context) {
-    final cur = currencyOf(currency);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Row(
-        children: [
-          // Currency chip — tap to change.
-          GestureDetector(
-            onTap: onPickCurrency,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(10),
-                border:
-                    Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(cur.symbol,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.accent,
-                      )),
-                  const SizedBox(width: 3),
-                  const Icon(Icons.expand_more_rounded,
-                      size: 15, color: AppColors.accent),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              focusNode: focus,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              textInputAction: TextInputAction.done,
-              onTapOutside: (_) => FocusScope.of(context).unfocus(),
-              inputFormatters: [
-                CurrencyAmountFormatter(cur.grouping, decimals: cur.decimals),
+                const SizedBox(height: 8),
+                // The OPTIONAL amount, right under the name.
+                Row(
+                  children: [
+                    // Currency chip — tap to change.
+                    GestureDetector(
+                      onTap: onPickCurrency,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: AppColors.accent.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(symbol,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.accent,
+                                )),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.expand_more_rounded,
+                                size: 15, color: AppColors.accent),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: amount,
+                        focusNode: amountFocus,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        textInputAction: TextInputAction.done,
+                        // Same grouped formatter the tailored forms use, so the
+                        // amount round-trips through _save()'s _amountValue.
+                        inputFormatters: [
+                          CurrencyAmountFormatter(
+                            currencyOf(currency).grouping,
+                            decimals: currencyOf(currency).decimals,
+                          ),
+                        ],
+                        cursorColor: AppColors.accent,
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          hintText: 'Amount (optional)',
+                          hintStyle: TextStyle(
+                            color: AppColors.inkFaint,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
-              cursorColor: AppColors.accent,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
-              ),
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: 'Amount (optional)',
-                hintStyle: TextStyle(
-                  color: AppColors.inkFaint,
-                  fontWeight: FontWeight.w600,
-                ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
             ),
           ),
         ],

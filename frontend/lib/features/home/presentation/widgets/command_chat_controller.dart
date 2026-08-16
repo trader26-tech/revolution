@@ -80,6 +80,47 @@ class CommandChatController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The CONTEXTUAL header for the current step — a quiet lead line + a big
+  /// gradient "hero" word. It changes as you move through the flow, so the top of
+  /// the screen always reflects what you're doing (never a constant greeting).
+  /// Returns (lead, hero).
+  (String, String) get header {
+    if (chat.isEmpty) return ('What do you want to do', 'today?');
+    final last = chat.last;
+    switch (last.kind) {
+      case ChatKind.menu:
+        return ('What do you want to do', 'today?');
+      case ChatKind.create:
+        final flow = last.flow!;
+        if (flow.done) return ('That\'s', 'added.');
+        switch (flow.stage) {
+          case CreateStage.pickCategory:
+            return ('What are you', 'adding?');
+          case CreateStage.fields:
+            // Lead with the category, hero with a short cue.
+            return ('Setting up your', '${flow.category?.singular ?? 'item'}.');
+          case CreateStage.confirm:
+            return ('Ready to', 'save?');
+        }
+      case ChatKind.answer:
+        return ('Here\'s what\'s', 'coming up.');
+      case ChatKind.proposal:
+        return ('Want me to', 'add this?');
+      case ChatKind.action:
+        return ('Confirm this', 'change?');
+      case ChatKind.picker:
+        return ('Which one did you', 'mean?');
+      case ChatKind.comingSoon:
+        return ('${last.op?.label ?? 'That'} is', 'coming soon.');
+      case ChatKind.done:
+        return ('All', 'done.');
+      case ChatKind.thinking:
+        return ('One', 'sec…');
+      case ChatKind.user:
+        return ('On', 'it.');
+    }
+  }
+
   /// Append a plain Revo confirmation line to the thread (used by the page after
   /// an out-of-band flow like the Update sheet completes).
   void note(String text) {

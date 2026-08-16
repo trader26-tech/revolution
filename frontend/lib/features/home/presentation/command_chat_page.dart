@@ -210,11 +210,16 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
       itemBuilder: (context, index) {
         if (index == 0) {
           return AnimatedBuilder(
-            animation: Listenable.merge([_shimmer, widget.morph]),
-            builder: (context, _) => _HeroGreeting(
-              progress: _shimmer.value,
-              entrance: widget.morph.value,
-            ),
+            animation: Listenable.merge([_shimmer, widget.morph, _c]),
+            builder: (context, _) {
+              final (lead, hero) = _c.header;
+              return _HeroGreeting(
+                lead: lead,
+                hero: hero,
+                progress: _shimmer.value,
+                entrance: widget.morph.value,
+              );
+            },
           );
         }
         final i = index - 1;

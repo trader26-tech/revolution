@@ -577,7 +577,9 @@ class _CategoryRowState extends State<_CategoryRow> {
 
   @override
   Widget build(BuildContext context) {
-    final tint = widget.category.color;
+    // ONE accent for every category — the app's single colour scheme, never a
+    // per-category colour (matches the CRUD menu rows).
+    const tint = AppColors.accent;
     return GestureDetector(
       onTapDown: (_) => setState(() => _down = true),
       onTapCancel: () => setState(() => _down = false),
@@ -591,8 +593,8 @@ class _CategoryRowState extends State<_CategoryRow> {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 13),
         child: Row(
           children: [
-            // A soft tinted square tile holding the category glyph — the one
-            // spot of the category's colour, so the list still scans as a list.
+            // A soft accent square tile holding the category glyph — same
+            // accent for every row (the app's single colour scheme).
             Container(
               width: 40,
               height: 40,

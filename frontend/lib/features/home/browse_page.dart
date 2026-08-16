@@ -130,19 +130,7 @@ class _BrowsePageState extends State<BrowsePage>
                   intro: _intro,
                   index: i,
                   total: destinations.length,
-                  child: Column(
-                    children: [
-                      if (i > 0)
-                        const Divider(
-                          height: 1,
-                          thickness: 1,
-                          indent: 22,
-                          endIndent: 22,
-                          color: AppColors.hairline,
-                        ),
-                      _DestTile(dest: destinations[i]),
-                    ],
-                  ),
+                  child: _DestTile(dest: destinations[i]),
                 ),
             ],
           );
@@ -279,21 +267,22 @@ class _DestTileState extends State<_DestTile> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         color: _down ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+        // Roomy rows — the same generous presence as the old cards, just no box.
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
         child: Row(
           children: [
-            // A calm accent icon — no chip box, just the glyph.
-            Icon(d.icon, color: AppColors.accent, size: 23),
-            const SizedBox(width: 16),
+            // A calm accent icon — no chip box, just the glyph, larger.
+            Icon(d.icon, color: AppColors.accent, size: 28),
+            const SizedBox(width: 18),
             Expanded(
               child: Text(
                 d.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 16.5,
+                  fontSize: 19,
                   fontWeight: d.highlight ? FontWeight.w800 : FontWeight.w700,
-                  letterSpacing: -0.2,
+                  letterSpacing: -0.3,
                   color: AppColors.ink,
                 ),
               ),
@@ -302,15 +291,15 @@ class _DestTileState extends State<_DestTile> {
             Text(
               count == 0 ? '—' : '$count',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 16.5,
                 fontWeight: FontWeight.w800,
                 color: count == 0 ? AppColors.inkFaint : AppColors.accent,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Icon(Icons.chevron_right_rounded,
-                size: 20, color: AppColors.inkFaint.withValues(alpha: 0.8)),
+                size: 22, color: AppColors.inkFaint.withValues(alpha: 0.8)),
           ],
         ),
       ),

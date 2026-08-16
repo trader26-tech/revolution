@@ -80,16 +80,18 @@ class _TodayBubblesState extends State<TodayBubbles>
 
   // Intro (the greeting), then a beat, then the items — deliberately SLOW so
   // the effort is visible.
-  static const _greetStartMs = 620;
-  static const _greetEndMs = 1500;
-  static const _firstItemMs = 1850;
+  // SNAPPY + elegant: the greeting lands fast, then the reminders cascade in one
+  // after another with a tight stagger — a quick, premium wave, not a slow
+  // word-by-word crawl. (Whole run for 3 items ≈ 1.3s, vs ~7s before.)
+  static const _greetStartMs = 120;
+  static const _greetEndMs = 620;
+  static const _firstItemMs = 560; // first line starts as the greeting settles
 
-  /// How long ONE reminder takes to fully materialise, and the gap before the
-  /// next starts. Slow on purpose — the shimmer should visibly sweep across the
-  /// line word by word, not flash past. This paces that reading sweep.
-  static const _itemRevealMs = 1500;
-  static const _itemGapMs = 300;
-  static const _itemStrideMs = _itemRevealMs + _itemGapMs;
+  /// How long ONE reminder takes to fade + slide into place, and the gap before
+  /// the next STARTS (they overlap, so the wave flows quickly).
+  static const _itemRevealMs = 460;
+  static const _itemGapMs = 150; // start-to-start stagger is reveal-independent
+  static const _itemStrideMs = _itemGapMs; // next line starts one GAP later
 
   List<Task> get _active => widget.tasks;
   List<Task> get _done => widget.doneTasks;
@@ -470,65 +472,56 @@ class _ConjuredLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tint = task.category.color;
-    // The icon and tick bloom slightly AHEAD of the words settling, so the line
-    // feels like it's being assembled: the vessel first, then the words fill in.
-    final chrome = Curves.easeOut.transform((progress / 0.45).clamp(0.0, 1.0));
+    // The WHOLE line arrives as one clean, quick unit: it fades in and eases up
+    // from a few px below — a snappy, premium slide, no slow word-by-word crawl.
+    final fade = Curves.easeOut.transform(progress);
+    final rise = Curves.easeOutCubic.transform(progress);
     final settled = progress >= 0.999;
+    final detail = _detailFor(task);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 16, 20),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: settled ? onTap : null,
-          onLongPress: settled ? onLongPress : null,
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Leading icon — fades/scales in first.
-                Opacity(
-                  opacity: chrome,
-                  child: Transform.scale(
-                    scale: 0.6 + 0.4 * chrome,
-                    child: _LineIcon(task: task, tint: tint),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Line 1 — the NAME, prominent. Shimmers in word by word.
-                        MagicText(
-                          text: task.title.trim().isEmpty
-                              ? 'Reminder'
-                              : task.title.trim(),
-                          progress: progress,
-                          reading: true,
-                          style: const TextStyle(
-                            fontSize: 16.5,
-                            height: 1.2,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.2,
-                            color: AppColors.ink,
+      padding: const EdgeInsets.fromLTRB(20, 0, 16, 18),
+      child: Opacity(
+        opacity: fade,
+        child: Transform.translate(
+          offset: Offset(0, 12 * (1 - rise)),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: settled ? onTap : null,
+              onLongPress: settled ? onLongPress : null,
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _LineIcon(task: task, tint: tint),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Line 1 — the NAME, prominent.
+                          Text(
+                            task.title.trim().isEmpty
+                                ? 'Reminder'
+                                : task.title.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16.5,
+                              height: 1.2,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                              color: AppColors.ink,
+                            ),
                           ),
-                        ),
-                        // Line 2 — the compact DETAIL (amount · context). Just the
-                        // facts, muted, fading in as the name settles.
-                        Builder(builder: (context) {
-                          final detail = _detailFor(task);
-                          if (detail.isEmpty) return const SizedBox.shrink();
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 3),
-                            child: Opacity(
-                              opacity: Curves.easeOut
-                                  .transform((progress / 0.7).clamp(0.0, 1.0)),
+                          // Line 2 — the compact DETAIL (amount · context).
+                          if (detail.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 3),
                               child: Text(
                                 detail,
                                 maxLines: 1,
@@ -540,24 +533,19 @@ class _ConjuredLine extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          );
-                        }),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    // The tick — appears once the line has settled.
+                    AnimatedOpacity(
+                      opacity: settled ? 1 : 0,
+                      duration: const Duration(milliseconds: 220),
+                      child: _TickButton(onDone: onDone, tint: tint),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                // The tick — appears only once the line has settled, so you
-                // can't dismiss a thing that's still being written.
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: AnimatedOpacity(
-                    opacity: settled ? 1 : 0,
-                    duration: const Duration(milliseconds: 220),
-                    child: _TickButton(onDone: onDone, tint: tint),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

@@ -183,11 +183,17 @@ class _CommandChatPageState extends State<CommandChatPage>
                 animation: _c,
                 builder: (context, _) => Column(
                   children: [
-                    _Header(onClose: () => Navigator.of(context).maybePop()),
+                    // A little top breathing room where the old back header was —
+                    // Revo now owns the top-left.
+                    const SizedBox(height: 8),
                     Expanded(child: _buildList()),
-                    _ChatInput(
+                    // The morphing bar: ★ expands rightward into the field, a home
+                    // dot appears on the left to return home.
+                    _MorphBar(
+                      entrance: widget.entrance,
                       busy: _c.commandBusy,
                       onSend: _c.sendCommand,
+                      onHome: () => Navigator.of(context).maybePop(),
                     ),
                   ],
                 ),
@@ -210,8 +216,11 @@ class _CommandChatPageState extends State<CommandChatPage>
       itemBuilder: (context, index) {
         if (index == 0) {
           return AnimatedBuilder(
-            animation: _shimmer,
-            builder: (context, _) => _HeroGreeting(progress: _shimmer.value),
+            animation: Listenable.merge([_shimmer, widget.entrance]),
+            builder: (context, _) => _HeroGreeting(
+              progress: _shimmer.value,
+              entrance: Curves.easeOutCubic.transform(widget.entrance.value),
+            ),
           );
         }
         final i = index - 1;
@@ -274,36 +283,74 @@ class _CommandChatPageState extends State<CommandChatPage>
   }
 }
 
-/// The big conjured greeting hero — "What do you want to do today?" revealed the
-/// way the front page conjures its lines (MagicText), with a soft Revo eyebrow.
+/// The greeting hero, choreographed like Revo waking up and speaking:
+///   • entrance 0→~0.55 : Revo is BIG, alone (the greeting hasn't started).
+///   • entrance ~0.55→1 : Revo SHRINKS and settles to the top-LEFT, and the
+///     greeting conjures in to its RIGHT (MagicText reading-mode = word by word,
+///     top-to-bottom / left-to-right), as if Revo is saying it.
+/// [progress] drives the greeting's word conjure; [entrance] drives Revo's
+/// big→small move + the greeting's hand-off.
 class _HeroGreeting extends StatelessWidget {
-  const _HeroGreeting({required this.progress});
+  const _HeroGreeting({required this.progress, required this.entrance});
+
+  /// Per-open shimmer progress (0→1) for the MagicText word reveal.
   final double progress;
+
+  /// Route entrance progress (0→1, already eased) for the Revo move.
+  final double entrance;
+
+  static const double _bigSize = 92;
+  static const double _smallSize = 46;
 
   @override
   Widget build(BuildContext context) {
+    // Revo starts big + centered, then over the back half of the entrance
+    // shrinks and slides to the top-left as the greeting takes over.
+    final move = ((entrance - 0.35) / 0.65).clamp(0.0, 1.0);
+    final easedMove = Curves.easeOutCubic.transform(move);
+    final revoSize = _bigSize + (_smallSize - _bigSize) * easedMove;
+
+    // The greeting fades/slides in from Revo's side once Revo begins settling.
+    final greetIn = ((entrance - 0.5) / 0.5).clamp(0.0, 1.0);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 8, 22, 14),
-      child: Column(
+      padding: const EdgeInsets.fromLTRB(20, 10, 22, 16),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The Revo character (the circle-with-triangle mascot) — the same one
-          // that used to sit by the home greeting. It now lives here, greeting
-          // you when the ★ command chat opens.
-          const Padding(
-            padding: EdgeInsets.only(bottom: 16),
-            child: AnimatedMascot(size: 56, glow: true),
+          // Revo — a fixed max-height cell so the big→small shrink doesn't reflow
+          // the list; the mascot scales within it, top-aligned.
+          SizedBox(
+            width: _bigSize,
+            height: _bigSize,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: AnimatedMascot(size: revoSize, glow: true),
+            ),
           ),
-          MagicText(
-            text: 'What do you want\nto do today?',
-            progress: progress,
-            reading: true,
-            style: const TextStyle(
-              color: AppColors.ink,
-              fontSize: 30,
-              height: 1.14,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
+          const SizedBox(width: 12),
+          // The greeting, to Revo's right — appears only as Revo settles.
+          Expanded(
+            child: Opacity(
+              opacity: greetIn,
+              child: Transform.translate(
+                offset: Offset(-10 * (1 - greetIn), 0),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: MagicText(
+                    text: 'What do you\nwant to do today?',
+                    progress: progress,
+                    reading: true,
+                    style: const TextStyle(
+                      color: AppColors.ink,
+                      fontSize: 26,
+                      height: 1.16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -312,47 +359,39 @@ class _HeroGreeting extends StatelessWidget {
   }
 }
 
-/// The top bar: just a back button that closes the chat. (No glyph — the Revo
-/// mascot lives with the greeting hero below.)
-class _Header extends StatelessWidget {
-  const _Header({required this.onClose});
-  final VoidCallback onClose;
+/// The morphing bottom bar. As the chat opens ([entrance] 0→1):
+///   • RIGHT: a small ★ circle (anchored right) WIDENS leftward into the full
+///     command field (accent glyph + text field + send button).
+///   • LEFT : a small round HOME dot fades in — tapping it closes the chat and
+///     brings the nav bar back ([onHome]).
+/// So the bar reads as "the ★ opened into a field, with a way home on the left".
+class _MorphBar extends StatefulWidget {
+  const _MorphBar({
+    required this.entrance,
+    required this.busy,
+    required this.onSend,
+    required this.onHome,
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 16, 2),
-      child: Row(
-        children: [
-          GlassIconButton(
-            icon: Icons.arrow_back_rounded,
-            onTap: onClose,
-            size: 42,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The pinned bottom input — mirrors the shell's command field (accent glyph,
-/// a borderless field, a circular accent send button), inside a glass pill.
-class _ChatInput extends StatefulWidget {
-  const _ChatInput({required this.busy, required this.onSend});
+  final Animation<double> entrance;
   final bool busy;
   final ValueChanged<String> onSend;
+  final VoidCallback onHome;
 
   @override
-  State<_ChatInput> createState() => _ChatInputState();
+  State<_MorphBar> createState() => _MorphBarState();
 }
 
-class _ChatInputState extends State<_ChatInput> {
+class _MorphBarState extends State<_MorphBar> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
 
   /// Whether the field has non-blank text — drives the send button's active
   /// state (there's nothing to send until you type something).
   bool _hasText = false;
+
+  static const _h = 56.0; // bar element height
+  static const _gap = 12.0; // gap between the home dot and the field
 
   @override
   void initState() {
@@ -390,42 +429,155 @@ class _ChatInputState extends State<_ChatInput> {
         14,
         14 + MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: GlassPanel(
-        borderRadius: 26,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 6, 4),
-          child: Row(
-            children: [
-              Icon(Icons.auto_awesome_rounded,
-                  size: 20, color: AppColors.accent.withValues(alpha: 0.95)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focus,
-                  onSubmitted: (_) => _send(),
-                  textInputAction: TextInputAction.send,
-                  textCapitalization: TextCapitalization.sentences,
-                  style: const TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: 'Ask or add anything…',
-                    hintStyle: TextStyle(color: AppColors.inkFaint),
-                    border: InputBorder.none,
-                    isDense: true,
+      child: AnimatedBuilder(
+        animation: widget.entrance,
+        builder: (context, _) {
+          final t = Curves.easeOutCubic.transform(widget.entrance.value);
+          return LayoutBuilder(
+            builder: (context, c) {
+              final total = c.maxWidth;
+              // Home dot appears on the left as we open; the field takes the rest.
+              // At t=0 the field is a lone ★ circle on the right (dot width 0);
+              // at t=1 the dot is a full circle and the field fills the remainder.
+              final dotW = _h * t;
+              final gap = _gap * t;
+              final fieldW = (total - dotW - gap).clamp(_h, total);
+              // The field's inner text row only mounts once there's room, so it
+              // never overflows the still-narrow pill mid-morph.
+              final fieldReveal = ((t - 0.5) / 0.5).clamp(0.0, 1.0);
+
+              return SizedBox(
+                height: _h,
+                child: Row(
+                  children: [
+                    // ── LEFT: the home dot (returns to the nav / Home) ──
+                    if (dotW > 0.5)
+                      Opacity(
+                        opacity: t,
+                        child: _HomeDot(size: dotW.clamp(0.0, _h), onTap: widget.onHome),
+                      ),
+                    if (dotW > 0.5) SizedBox(width: gap),
+                    // ── RIGHT: the ★-that-became-the-field ──
+                    SizedBox(
+                      width: fieldW,
+                      child: _FieldPill(
+                        reveal: fieldReveal,
+                        starOpacity: (1 - t / 0.4).clamp(0.0, 1.0),
+                        controller: _controller,
+                        focus: _focus,
+                        sendEnabled: _hasText && !widget.busy,
+                        onSubmit: _send,
+                        onSend: _send,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// The small circular HOME button at the bar's left — brings the nav bar back.
+class _HomeDot extends StatelessWidget {
+  const _HomeDot({required this.size, required this.onTap});
+  final double size;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      borderRadius: size / 2,
+      onTap: onTap,
+      shadow: false,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Icon(Icons.home_rounded,
+            size: size * 0.46, color: AppColors.inkSoft),
+      ),
+    );
+  }
+}
+
+/// The right element: the ★ circle that grows into the command field. Crossfades
+/// the ★ glyph ([starOpacity]) ⇄ the field row ([reveal]) inside one glass pill.
+class _FieldPill extends StatelessWidget {
+  const _FieldPill({
+    required this.reveal,
+    required this.starOpacity,
+    required this.controller,
+    required this.focus,
+    required this.sendEnabled,
+    required this.onSubmit,
+    required this.onSend,
+  });
+
+  final double reveal;
+  final double starOpacity;
+  final TextEditingController controller;
+  final FocusNode focus;
+  final bool sendEnabled;
+  final VoidCallback onSubmit;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      borderRadius: 26,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (starOpacity > 0.01)
+              Opacity(
+                opacity: starOpacity,
+                child: const Icon(Icons.auto_awesome_rounded,
+                    size: 24, color: AppColors.accent),
+              ),
+            if (reveal > 0.01)
+              Positioned.fill(
+                child: Opacity(
+                  opacity: reveal,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 6, 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.auto_awesome_rounded,
+                            size: 20,
+                            color: AppColors.accent.withValues(alpha: 0.95)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: controller,
+                            focusNode: focus,
+                            onSubmitted: (_) => onSubmit(),
+                            textInputAction: TextInputAction.send,
+                            textCapitalization: TextCapitalization.sentences,
+                            style: const TextStyle(
+                              color: AppColors.ink,
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: 'Ask or add anything…',
+                              hintStyle: TextStyle(color: AppColors.inkFaint),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        _SendButton(enabled: sendEnabled, onTap: onSend),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              // Active only when there's something to send AND we're not busy.
-              _SendButton(
-                enabled: _hasText && !widget.busy,
-                onTap: _send,
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );

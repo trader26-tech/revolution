@@ -76,17 +76,12 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   Future<void> _openCommand() async {
     if (_chatOpen) return;
     _chatOpen = true;
-    // Morph the bottom bar as the chat opens: the Home·Browse pill condenses to
-    // a single dot on the left + the ★ widens — the old "opening" motion, shown
-    // behind the rising chat page during its entrance transition.
-    _morph.forward();
-    // The Gemini-Live entrance (aurora bloom + rise) lives in openCommandChat.
+    // The morph now lives INSIDE the chat page's own bottom bar (★ → field, with
+    // a home dot to return), so the shell's in-bar morph stays at rest — it would
+    // only flicker behind the rising page. The page owns the whole open animation.
     await openCommandChat(context, _chat);
-    // Route popped (back button, or a nav-tab tap called maybePop).
-    if (mounted) {
-      _chatOpen = false;
-      _morph.reverse();
-    }
+    // Route popped (home dot, or a nav-tab tap called maybePop).
+    if (mounted) _chatOpen = false;
   }
 
   /// Pop the full-screen chat if it's open — used when a nav tab is tapped so
@@ -95,7 +90,6 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     if (_chatOpen) {
       Navigator.of(context).popUntil((r) => r.isFirst);
       _chatOpen = false;
-      _morph.reverse();
     }
   }
 

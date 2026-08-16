@@ -495,23 +495,11 @@ class _CategoryStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final reveal =
         Curves.easeOut.transform(((shimmer - 0.3) / 0.7).clamp(0.0, 1.0));
+    // No heading here — the contextual page header already says "What are you
+    // adding?", so we render only the category list (no duplicate title).
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4, right: 4, bottom: 4),
-          child: MagicText(
-            text: 'What are you adding?',
-            progress: 1,
-            reading: true,
-            style: TextStyle(
-                fontSize: 20,
-                height: 1.25,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
-                color: AppColors.ink),
-          ),
-        ),
         for (var idx = 0; idx < kCreateCategories.length; idx++) ...[
           if (idx > 0)
             Opacity(
@@ -743,9 +731,6 @@ class _FieldStepState extends State<_FieldStep> {
 
   @override
   Widget build(BuildContext context) {
-    final reveal =
-        Curves.easeOut.transform(((widget.shimmer - 0.35) / 0.65)
-            .clamp(0.0, 1.0));
     final f = _field;
 
     // Small progress hint — "Step 2 of 3".
@@ -767,26 +752,11 @@ class _FieldStepState extends State<_FieldStep> {
                     color: AppColors.inkFaint)),
           ],
         ),
-        const SizedBox(height: 8),
-        MagicText(
-          text: f.prompt,
-          progress: 1,
-          reading: true,
-          style: const TextStyle(
-              fontSize: 20,
-              height: 1.25,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.2,
-              color: AppColors.ink),
-        ),
-        if (reveal > 0.01)
-          Opacity(
-            opacity: reveal,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: _input(f),
-            ),
-          ),
+        // No prompt heading here — the contextual page header already asks the
+        // question (e.g. "What's it called?"), so we show only the step hint +
+        // the input control.
+        const SizedBox(height: 12),
+        _input(f),
       ],
     );
   }

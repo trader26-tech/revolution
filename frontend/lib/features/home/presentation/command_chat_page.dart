@@ -164,7 +164,8 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
                 child: IgnorePointer(
                   child: Opacity(
                     opacity: t.clamp(0.0, 1.0),
-                    child: const Starfield(intensity: 0.9),
+                    // Just a few stars — a quiet scatter (6–7), not a dense field.
+                    child: const Starfield(starCount: 7, intensity: 0.9),
                   ),
                 ),
               ),

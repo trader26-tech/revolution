@@ -97,8 +97,10 @@ class CommandChatController extends ChangeNotifier {
           case CreateStage.pickCategory:
             return ('What are you', 'adding?');
           case CreateStage.fields:
-            // Lead with the category, hero with a short cue.
-            return ('Setting up your', '${flow.category?.singular ?? 'item'}.');
+            // The header ASKS the current field's question (split into a lead +
+            // a short emphasised tail), so the body doesn't repeat it.
+            final prompt = flow.currentField?.prompt ?? 'Tell me more';
+            return _splitPrompt(prompt);
           case CreateStage.confirm:
             return ('Ready to', 'save?');
         }
@@ -119,6 +121,19 @@ class CommandChatController extends ChangeNotifier {
       case ChatKind.user:
         return ('On', 'it.');
     }
+  }
+
+  /// Split a question into a quiet lead + an emphasised tail for the two-tier
+  /// header, e.g. "What's it called?" → ("What's it", "called?"), "How much is
+  /// it?" → ("How much", "is it?"). Falls back to the whole line as the hero.
+  (String, String) _splitPrompt(String prompt) {
+    final words = prompt.trim().split(' ');
+    if (words.length < 2) return ('', prompt);
+    // Emphasise the last 1–2 words as the hero.
+    final tailCount = words.length >= 4 ? 2 : 1;
+    final lead = words.sublist(0, words.length - tailCount).join(' ');
+    final hero = words.sublist(words.length - tailCount).join(' ');
+    return (lead, hero);
   }
 
   /// Append a plain Revo confirmation line to the thread (used by the page after

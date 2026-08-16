@@ -156,16 +156,26 @@ Future<AddResult?> openCategoryForm(
 PageRouteBuilder<T> _formRoute<T>(Widget page) {
   return PageRouteBuilder<T>(
     fullscreenDialog: true,
-    transitionDuration: const Duration(milliseconds: 280),
-    reverseTransitionDuration: Duration.zero,
+    // Longer + a gentle FADE + small RISE (not a full-height slam), with a real
+    // reverse — so opening/closing a form reads calm and premium, not abrupt.
+    transitionDuration: const Duration(milliseconds: 440),
+    reverseTransitionDuration: const Duration(milliseconds: 320),
     pageBuilder: (_, _, _) => page,
     transitionsBuilder: (_, animation, _, child) {
-      final curved =
-          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
-      return SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-            .animate(curved),
-        child: child,
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.06), // rise ~6% of height, not full screen
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
       );
     },
   );

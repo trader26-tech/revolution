@@ -201,7 +201,9 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
                     _TitleCard(
                       controller: _title,
                       focus: _titleFocus,
-                      autofocus: widget.editTask == null,
+                      // Never auto-open the keyboard — let the page settle first;
+                      // the user taps the field when ready. (Applies to add too.)
+                      autofocus: false,
                       amount: _amount,
                       amountFocus: _amountFocus,
                       currency: _currency,

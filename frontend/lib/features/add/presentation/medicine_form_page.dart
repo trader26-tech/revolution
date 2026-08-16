@@ -205,7 +205,8 @@ class _MedicineFormPageState extends State<MedicineFormPage> {
                   _NameCard(
                     controller: _name,
                     focus: _nameFocus,
-                    autofocus: !_isEdit,
+                    // Never auto-open the keyboard — the page settles first.
+                    autofocus: false,
                   ),
                   const OrbitSaveHint(),
                   const SizedBox(height: 20),

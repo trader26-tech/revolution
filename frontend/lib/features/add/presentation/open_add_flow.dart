@@ -139,37 +139,27 @@ Future<AddResult?> openCategoryForm(
 /// a category, AND edit an existing item) — so opening a form always feels the
 /// same: calm and premium.
 ///
-/// Deliberately NOT a `fullscreenDialog` — that forces the platform's abrupt
-/// bottom-to-top cover slide and overrides our motion. Instead we drive the
-/// whole thing ourselves: a soft FADE + a small RISE in, and a real, gentle
-/// reverse out. The incoming form also gets a subtle scale settle (0.985 → 1.0)
-/// so it eases into place rather than snapping.
+/// A PLAIN, QUICK CROSS-FADE — no slide, no scale, no "pop". The screen itself
+/// does not put on a show; instead the form's CONTENT cascades in row-by-row
+/// (see [OrbitFormCascade]) so opening a form reads like a list assembling
+/// itself, not a dialog appearing. Deliberately NOT a `fullscreenDialog` (that
+/// forces the platform's abrupt bottom-to-top cover slide).
+///
+/// The fade is brief so it never competes with the cascade that follows it — by
+/// the time the page is opaque, the rows are already flowing in.
 PageRouteBuilder<T> _formRoute<T>(Widget page) {
   return PageRouteBuilder<T>(
-    // A touch longer than a normal push so the ease is felt, not rushed.
-    transitionDuration: const Duration(milliseconds: 460),
-    reverseTransitionDuration: const Duration(milliseconds: 340),
+    transitionDuration: const Duration(milliseconds: 240),
+    reverseTransitionDuration: const Duration(milliseconds: 200),
     pageBuilder: (_, _, _) => page,
     transitionsBuilder: (_, animation, _, child) {
-      // Incoming form: decelerate in, accelerate out — natural, unhurried.
-      final enter = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
-      );
       return FadeTransition(
-        opacity: enter,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.045), // rise ~4.5% of height, never full-screen
-            end: Offset.zero,
-          ).animate(enter),
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.985, end: 1).animate(enter),
-            alignment: Alignment.center,
-            child: child,
-          ),
+        opacity: CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOut,
+          reverseCurve: Curves.easeIn,
         ),
+        child: child,
       );
     },
   );

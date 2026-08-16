@@ -216,7 +216,7 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
                 onSave: _save,
               ),
               Expanded(
-                child: ListView(
+                child: OrbitFormCascade(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                   children: [
                     // Identity: round photo + name.

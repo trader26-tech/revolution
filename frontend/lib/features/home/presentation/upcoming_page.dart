@@ -6,7 +6,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
-import '../../tasks/domain/category_visuals.dart';
 import '../../tasks/domain/task.dart';
 import 'widgets/home_dashboard.dart' show WeekStripCalendar;
 
@@ -377,8 +376,6 @@ class _DayHeader extends StatelessWidget {
   }
 }
 
-Color _catColor(TaskCategory c) => c.color;
-
 /// One upcoming reminder as a full-width glass row.
 class _UpcomingRow extends StatelessWidget {
   const _UpcomingRow({required this.task, required this.onTap});
@@ -387,8 +384,6 @@ class _UpcomingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cat = task.category;
-    final tint = _catColor(cat);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -401,7 +396,7 @@ class _UpcomingRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _Avatar(task: task, tint: tint),
+            _Avatar(task: task),
             const SizedBox(width: 14),
             // Just the title — no category/amount/repeat subline. The name alone
             // is enough here; the date header + time already give the context.
@@ -417,10 +412,10 @@ class _UpcomingRow extends StatelessWidget {
             const SizedBox(width: 10),
             Text(
               _timeLabel(task.dueAt!),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
-                color: tint,
+                color: AppColors.accent,
               ),
             ),
           ],
@@ -440,9 +435,8 @@ class _UpcomingRow extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.task, required this.tint});
+  const _Avatar({required this.task});
   final Task task;
-  final Color tint;
 
   @override
   Widget build(BuildContext context) {

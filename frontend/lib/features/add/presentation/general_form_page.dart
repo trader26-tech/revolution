@@ -192,7 +192,7 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
                 onSave: _save,
               ),
               Expanded(
-                child: ListView(
+                child: OrbitFormCascade(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                   children: [
                     // ── Identity: the name + an OPTIONAL amount (₹) right in the

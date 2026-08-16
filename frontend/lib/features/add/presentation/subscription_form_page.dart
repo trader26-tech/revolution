@@ -357,7 +357,7 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                 onSave: _save,
               ),
               Expanded(
-                child: ListView(
+                child: OrbitFormCascade(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                   children: [
                     // ── Identity: logo + name + price ──

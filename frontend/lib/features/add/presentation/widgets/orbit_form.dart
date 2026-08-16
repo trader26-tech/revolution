@@ -20,6 +20,115 @@ const orbitLabelStyle = TextStyle(
   color: AppColors.ink,
 );
 
+// ── Entrance cascade ─────────────────────────────────────────────────────────
+
+/// A scrollable form body whose rows ARRIVE ONE AFTER ANOTHER — each card/field
+/// eases up, fades, and gently settles a beat after the one above it, so opening
+/// a form reads like the list assembling itself, not a dialog popping up.
+///
+/// Drop-in for a form's `ListView`: give it the same `padding` and `children`.
+/// It runs its own entrance the first time it mounts (so the route transition
+/// can stay a plain, quick fade — the CONTENT does the animating, not the page).
+class OrbitFormCascade extends StatefulWidget {
+  const OrbitFormCascade({
+    super.key,
+    required this.children,
+    this.padding = EdgeInsets.zero,
+    this.controller,
+  });
+
+  final List<Widget> children;
+  final EdgeInsetsGeometry padding;
+  final ScrollController? controller;
+
+  @override
+  State<OrbitFormCascade> createState() => _OrbitFormCascadeState();
+}
+
+class _OrbitFormCascadeState extends State<OrbitFormCascade>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _intro;
+
+  @override
+  void initState() {
+    super.initState();
+    _intro = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    // A short beat so the page is painted before the cascade begins — the rows
+    // are then clearly SEEN arriving one by one, not mid-transition.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _intro.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      controller: widget.controller,
+      padding: widget.padding,
+      itemCount: widget.children.length,
+      itemBuilder: (context, i) => _CascadeRow(
+        intro: _intro,
+        index: i,
+        child: widget.children[i],
+      ),
+    );
+  }
+}
+
+/// One form row's staggered arrival — mirrors the collection-list cascade: a
+/// FIXED per-row delay (so every row gets the same generous window), then a
+/// springy settle (ease up + in + scale, with a soft overshoot) and a fade.
+class _CascadeRow extends StatelessWidget {
+  const _CascadeRow({
+    required this.intro,
+    required this.index,
+    required this.child,
+  });
+
+  final Animation<double> intro;
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: intro,
+      builder: (context, child) {
+        const perRow = 0.10; // gap between row starts — big enough to read
+        const maxStart = 0.62; // last rows still settle within the run
+        const window = 0.38; // each row's own arrival length
+        final start = (index * perRow).clamp(0.0, maxStart);
+        final raw = ((intro.value - start) / window).clamp(0.0, 1.0);
+        final eased = Curves.easeOutBack.transform(raw);
+        final fade = Curves.easeOut.transform(raw);
+        return Opacity(
+          opacity: fade,
+          child: Transform.translate(
+            // Ease up + a touch in from the left — the same alive motion as the
+            // collection rows.
+            offset: Offset(12 * (1 - fade), 34 * (1 - eased)),
+            child: Transform.scale(
+              scale: 0.92 + 0.08 * eased,
+              alignment: Alignment.centerLeft,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
 // ── Header ───────────────────────────────────────────────────────────────────
 
 class OrbitFormHeader extends StatelessWidget {

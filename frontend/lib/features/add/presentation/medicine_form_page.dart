@@ -248,6 +248,33 @@ class _MedicineFormPageState extends State<MedicineFormPage> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded,
+                            size: 14,
+                            color: AppColors.inkFaint.withValues(alpha: 0.9)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _courseDays <= 0
+                                ? 'Ongoing — no end date. Tap + to set how many '
+                                    'days it lasts.'
+                                : 'It’ll remind you for $_courseDays days, then '
+                                    'stop. Tap − down to “Ongoing” for no end.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.3,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.inkFaint,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 18),
 
                   // ── The plain-English summary ──
@@ -596,22 +623,25 @@ class _CourseRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       child: Row(
         children: [
-          Text(ongoing ? 'Ongoing' : '$days days', style: orbitLabelStyle),
+          Text(ongoing ? 'No end date' : 'Course length',
+              style: orbitLabelStyle),
           const Spacer(),
           _btn(Icons.remove_rounded, days > 0, () {
             HapticFeedback.selectionClick();
             onChanged(days - 1); // 1 → 0 = ongoing
           }),
+          // At 0 the value reads a clear word — "Ongoing" — so nobody has to
+          // guess what ∞/0 means; otherwise "N days".
           SizedBox(
-            width: 76,
+            width: 108,
             child: Text(
-              ongoing ? '∞' : '$days',
+              ongoing ? 'Ongoing' : '$days ${days == 1 ? 'day' : 'days'}',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 17,
+              style: TextStyle(
+                fontSize: ongoing ? 15 : 16,
                 fontWeight: FontWeight.w800,
-                color: AppColors.ink,
-                fontFeatures: [FontFeature.tabularFigures()],
+                color: ongoing ? AppColors.accent : AppColors.ink,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),

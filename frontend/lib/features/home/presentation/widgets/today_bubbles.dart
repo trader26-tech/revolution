@@ -799,42 +799,46 @@ String _amountPart(Task task) {
   return '${cur.symbol}$body';
 }
 
-/// The one compact DETAIL line under an item's name — just the facts, no
-/// sentence: the amount and a two-word context ("Subscription · renews today",
-/// "Bill · due today"). Kept to a single short line, so the feed reads clean and
-/// scannable rather than as chatty prose.
-String _detailFor(Task task) {
-  final amount = _amountPart(task);
-  final ctx = switch (task.category) {
-    TaskCategory.subscription => 'renews today',
-    TaskCategory.bills => 'due today',
-    TaskCategory.insurance => 'renews today',
-    TaskCategory.investment => 'invest today',
-    TaskCategory.policies => 'premium due',
-    TaskCategory.birthday => 'today',
-    TaskCategory.medicine => _doseTimesLabel(task),
-    TaskCategory.other => 'today',
-  };
-  if (amount.isEmpty) return ctx;
-  if (ctx.isEmpty) return amount;
-  return '$amount · $ctx';
+/// The ONE consistent DETAIL line under every item's name — just the TIME, when
+/// there is a meaningful one, and nothing otherwise. The whole list already sits
+/// under the "Today" header, so repeating "Today" on every row is noise; the
+/// time is the only per-item WHEN worth showing:
+///
+///   "8:00 AM"            (a reminder with a set time — e.g. medicine, or a task
+///                         whose due time isn't midnight)
+///   "8:00 AM, 2:00 PM"   (a medicine with several dose times)
+///   ""                   (a date-only reminder, e.g. a birthday → no subline)
+///
+/// No per-category phrasing, no amount, no redundant "Today" — the rest is a tap
+/// away.
+String _detailFor(Task task) => _timePart(task);
+
+/// The time portion — dose times for a medicine, otherwise the task's due time
+/// when it carries a meaningful (non-midnight) one. Empty when there's no time.
+String _timePart(Task task) {
+  if (task.category == TaskCategory.medicine && task.doseTimes.isNotEmpty) {
+    final shown = task.doseTimes.take(3).map(_fmtHHmm).join(', ');
+    return task.doseTimes.length > 3 ? '$shown…' : shown;
+  }
+  final d = task.dueAt;
+  if (d != null && !(d.hour == 0 && d.minute == 0)) {
+    return _fmtHm(d.hour, d.minute);
+  }
+  return '';
 }
 
-/// For a medicine, a compact "8:00 AM, 2:00 PM" of its dose times (or "today").
-String _doseTimesLabel(Task task) {
-  if (task.doseTimes.isEmpty) return 'today';
-  String fmt(String hhmm) {
-    final parts = hhmm.split(':');
-    if (parts.length != 2) return hhmm;
-    final h = int.tryParse(parts[0]) ?? 0;
-    final m = parts[1];
-    final ap = h < 12 ? 'AM' : 'PM';
-    final h12 = h % 12 == 0 ? 12 : h % 12;
-    return '$h12:$m $ap';
-  }
+/// "8:00 AM" from an "HH:mm" string.
+String _fmtHHmm(String hhmm) {
+  final parts = hhmm.split(':');
+  if (parts.length != 2) return hhmm;
+  return _fmtHm(int.tryParse(parts[0]) ?? 0, int.tryParse(parts[1]) ?? 0);
+}
 
-  final shown = task.doseTimes.take(3).map(fmt).join(', ');
-  return task.doseTimes.length > 3 ? '$shown…' : shown;
+/// "8:00 AM" from hour + minute.
+String _fmtHm(int h, int m) {
+  final ap = h < 12 ? 'AM' : 'PM';
+  final h12 = h % 12 == 0 ? 12 : h % 12;
+  return '$h12:${m.toString().padLeft(2, '0')} $ap';
 }
 
 /// The ONE unified sentence to conjure for a reminder. Prefers the AI (Groq)

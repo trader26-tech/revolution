@@ -39,9 +39,10 @@ const List<TaskCategory> kBrowseCategories = [
   TaskCategory.subscription,
   TaskCategory.birthday,
   TaskCategory.investment,
-  TaskCategory.policies,
   TaskCategory.medicine,
-  // Insurance & Bills temporarily removed from browse — add back later.
+  // Policies hidden (General now covers amount + repeat); Insurance & Bills
+  // temporarily removed from browse. The enum + PolicyFormPage stay so any
+  // existing policy tasks still load/edit.
 ];
 
 /// The same list WITHOUT the General catch-all — for surfaces that render
@@ -50,6 +51,5 @@ const List<TaskCategory> kBrowseCategoriesNoGeneral = [
   TaskCategory.subscription,
   TaskCategory.birthday,
   TaskCategory.investment,
-  TaskCategory.policies,
   TaskCategory.medicine,
 ];

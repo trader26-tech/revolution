@@ -97,6 +97,14 @@ class _BrowsePageState extends State<BrowsePage>
           // the BOTTOM. ONE colour throughout — differentiation is icon + label
           // only, never hue.
           final destinations = <_Dest>[
+            // General leads the list — the easy "just remember anything" entry.
+            _Dest(
+              icon: TaskCategory.other.icon,
+              label: 'General',
+              count: _countFor(TaskCategory.other),
+              onTap: () => _openCollection(TaskCategory.other),
+              highlight: true,
+            ),
             _Dest(
               icon: Icons.folder_rounded,
               label: 'Documents',
@@ -110,13 +118,6 @@ class _BrowsePageState extends State<BrowsePage>
                 count: _countFor(c),
                 onTap: () => _openCollection(c),
               ),
-            _Dest(
-              icon: TaskCategory.other.icon,
-              label: 'General',
-              count: _countFor(TaskCategory.other),
-              onTap: () => _openCollection(TaskCategory.other),
-              highlight: true,
-            ),
           ];
 
           return ListView(

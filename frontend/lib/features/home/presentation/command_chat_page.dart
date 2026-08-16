@@ -58,9 +58,10 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
     super.initState();
     _shimmer = AnimationController(
       vsync: this,
-      // Long enough for the two-tier greeting to land AND the four CRUD rows to
-      // cascade in one after another without feeling rushed.
-      duration: const Duration(milliseconds: 1900),
+      // Two clear beats: the greeting line conjures first (0 → ~0.62), THEN the
+      // four CRUD rows cascade in one after another (~0.62 → 1). Long enough that
+      // neither feels rushed and they never land at the same time.
+      duration: const Duration(milliseconds: 2400),
     );
     _breath = AnimationController(
       vsync: this,
@@ -391,13 +392,15 @@ class _AuroraPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // Breath eases the glow's strength + radius a little, endlessly.
-    final pulse = 0.85 + 0.15 * breath;
+    // Breath eases the glow's strength + radius very gently, endlessly.
+    final pulse = 0.92 + 0.08 * breath;
 
-    // ── Bottom bloom (rises from below the input) ──
-    final bottomCenter = Offset(w * 0.5, h * (1.18 - 0.06 * entrance));
-    final bottomRadius = h * (0.55 + 0.20 * entrance) * pulse;
-    final bottomAlpha = (0.34 * entrance) * pulse;
+    // ── Bottom floor-glow — a WHISPER of violet low on the screen. Deliberately
+    //    faint: it should read as depth, not a purple wash. Sits mostly below the
+    //    frame so only its soft upper edge bleeds in.
+    final bottomCenter = Offset(w * 0.5, h * (1.32 - 0.05 * entrance));
+    final bottomRadius = h * (0.42 + 0.12 * entrance) * pulse;
+    final bottomAlpha = (0.11 * entrance) * pulse;
     _blob(
       canvas,
       size,
@@ -405,19 +408,19 @@ class _AuroraPainter extends CustomPainter {
       bottomRadius,
       [
         AppColors.accent.withValues(alpha: bottomAlpha),
-        const Color(0xFF3A2A8C).withValues(alpha: bottomAlpha * 0.7),
+        const Color(0xFF3A2A8C).withValues(alpha: bottomAlpha * 0.6),
         Colors.transparent,
       ],
-      const [0.0, 0.45, 1.0],
+      const [0.0, 0.5, 1.0],
     );
 
-    // ── Top-left drift bloom (subtle, cooler) ──
+    // ── Top drift — barely-there cool haze, so the top isn't a flat black. ──
     final topCenter = Offset(
-      w * (0.22 + 0.05 * breath),
-      h * (0.18 + 0.03 * (1 - breath)),
+      w * (0.24 + 0.03 * breath),
+      h * (0.14 + 0.02 * (1 - breath)),
     );
-    final topRadius = w * (0.75 + 0.10 * entrance) * pulse;
-    final topAlpha = (0.16 * entrance) * pulse;
+    final topRadius = w * (0.6 + 0.08 * entrance) * pulse;
+    final topAlpha = (0.05 * entrance) * pulse;
     _blob(
       canvas,
       size,

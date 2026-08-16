@@ -281,11 +281,12 @@ class MenuLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Start the rows only AFTER the greeting hero has mostly landed (shimmer>0.5),
-    // then run them one-after-another so Create → Read → Update → Delete each
-    // arrives in turn.
+    // Hold the rows back until the greeting line has FULLY conjured (shimmer >
+    // 0.62), so the screen reads in two clear beats: first the question lands,
+    // THEN the options arrive one-after-another (Create → Read → Update →
+    // Delete). Never both at once.
     final reveal =
-        Curves.easeOut.transform(((shimmer - 0.5) / 0.5).clamp(0.0, 1.0));
+        Curves.easeOut.transform(((shimmer - 0.62) / 0.38).clamp(0.0, 1.0));
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
       child: Column(

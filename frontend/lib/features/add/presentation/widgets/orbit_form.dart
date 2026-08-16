@@ -56,9 +56,10 @@ class _OrbitFormCascadeState extends State<OrbitFormCascade>
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      // One considered, unhurried reveal — long enough to feel deliberate and
-      // premium, short enough to never make the user wait to interact.
-      duration: const Duration(milliseconds: 560),
+      // One considered, unhurried reveal — slow enough to feel deliberate and
+      // premium (the form takes its time composing into place), still short
+      // enough to never make the user wait to interact.
+      duration: const Duration(milliseconds: 760),
     );
     // A smooth decelerate — the form glides in and settles to rest, no bounce.
     _reveal = CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic);
@@ -91,7 +92,7 @@ class _OrbitFormCascadeState extends State<OrbitFormCascade>
         return Opacity(
           opacity: t,
           child: Transform.translate(
-            offset: Offset(0, 16 * (1 - t)), // gentle rise, as one piece
+            offset: Offset(0, 20 * (1 - t)), // gentle rise, as one piece
             child: Transform.scale(
               scale: 0.985 + 0.015 * t, // barely-there settle, top-anchored
               alignment: Alignment.topCenter,

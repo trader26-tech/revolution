@@ -27,13 +27,9 @@ class AddResult {
 /// own), then fill the tailored form pre-seeded with that choice. Returns an
 /// [AddResult], or null if the user backed out at any step.
 Future<AddResult?> openAddFlow(BuildContext context, TaskStore store) async {
-  // Step 1: the catalog picker.
-  final pick = await Navigator.of(context).push<AddPickerResult>(
-    MaterialPageRoute(
-      fullscreenDialog: true,
-      builder: (_) => const AddPickerPage(),
-    ),
-  );
+  // Step 1: the catalog picker — same calm transition as the forms it leads to.
+  final pick = await Navigator.of(context)
+      .push<AddPickerResult>(_formRoute(const AddPickerPage()));
   if (pick == null || !context.mounted) return null;
 
   // Birthdays get their own tailored form (person + date, no price/cycle) —
@@ -43,12 +39,8 @@ Future<AddResult?> openAddFlow(BuildContext context, TaskStore store) async {
       pick.item?.label == 'Wedding anniversary' ||
       pick.category?.key == 'important_dates';
   if (isBirthday) {
-    final task = await Navigator.of(context).push<Task>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => const BirthdayFormPage(),
-      ),
-    );
+    final task = await Navigator.of(context)
+        .push<Task>(_formRoute(const BirthdayFormPage()));
     return task == null ? null : AddResult(task: task);
   }
 
@@ -58,32 +50,26 @@ Future<AddResult?> openAddFlow(BuildContext context, TaskStore store) async {
   final isSip = pick.category?.key == 'investments' ||
       pick.item?.label == 'SIP investment';
   if (isSip) {
-    final task = await Navigator.of(context).push<Task>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => SipFormPage(
-          initialName: pick.item?.label,
-          accent: pick.category?.color,
-        ),
+    final task = await Navigator.of(context).push<Task>(_formRoute(
+      SipFormPage(
+        initialName: pick.item?.label,
+        accent: pick.category?.color,
       ),
-    );
+    ));
     return task == null ? null : AddResult(task: task);
   }
 
   // Everything else → the general reminder form, pre-seeded with the picked
   // item's name + cadence + category accent (or the name the user typed).
   final name = pick.item?.label ?? pick.query;
-  final task = await Navigator.of(context).push<Task>(
-    MaterialPageRoute(
-      fullscreenDialog: true,
-      builder: (_) => SubscriptionFormPage(
-        initialName: name,
-        initialCycle: pick.item?.defaultRepeat,
-        title: name ?? 'New reminder',
-        accent: pick.category?.color,
-      ),
+  final task = await Navigator.of(context).push<Task>(_formRoute(
+    SubscriptionFormPage(
+      initialName: name,
+      initialCycle: pick.item?.defaultRepeat,
+      title: name ?? 'New reminder',
+      accent: pick.category?.color,
     ),
-  );
+  ));
   return task == null ? null : AddResult(task: task);
 }
 
@@ -149,32 +135,40 @@ Future<AddResult?> openCategoryForm(
   }
 }
 
-/// The add-form route. It slides up like a fullscreen dialog on the way IN, but
-/// closes with ZERO reverse animation — so the instant you press Save, the form
-/// vanishes and the success celebration (pushed right after) is already there,
-/// with no slide-down and no flash of the screen underneath.
+/// The ONE route used for every add / edit form (add via "+", add straight into
+/// a category, AND edit an existing item) — so opening a form always feels the
+/// same: calm and premium.
+///
+/// Deliberately NOT a `fullscreenDialog` — that forces the platform's abrupt
+/// bottom-to-top cover slide and overrides our motion. Instead we drive the
+/// whole thing ourselves: a soft FADE + a small RISE in, and a real, gentle
+/// reverse out. The incoming form also gets a subtle scale settle (0.985 → 1.0)
+/// so it eases into place rather than snapping.
 PageRouteBuilder<T> _formRoute<T>(Widget page) {
   return PageRouteBuilder<T>(
-    fullscreenDialog: true,
-    // Longer + a gentle FADE + small RISE (not a full-height slam), with a real
-    // reverse — so opening/closing a form reads calm and premium, not abrupt.
-    transitionDuration: const Duration(milliseconds: 440),
-    reverseTransitionDuration: const Duration(milliseconds: 320),
+    // A touch longer than a normal push so the ease is felt, not rushed.
+    transitionDuration: const Duration(milliseconds: 460),
+    reverseTransitionDuration: const Duration(milliseconds: 340),
     pageBuilder: (_, _, _) => page,
     transitionsBuilder: (_, animation, _, child) {
-      final curved = CurvedAnimation(
+      // Incoming form: decelerate in, accelerate out — natural, unhurried.
+      final enter = CurvedAnimation(
         parent: animation,
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       );
       return FadeTransition(
-        opacity: curved,
+        opacity: enter,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0, 0.06), // rise ~6% of height, not full screen
+            begin: const Offset(0, 0.045), // rise ~4.5% of height, never full-screen
             end: Offset.zero,
-          ).animate(curved),
-          child: child,
+          ).animate(enter),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.985, end: 1).animate(enter),
+            alignment: Alignment.center,
+            child: child,
+          ),
         ),
       );
     },

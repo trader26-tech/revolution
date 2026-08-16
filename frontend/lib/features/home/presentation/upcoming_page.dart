@@ -404,31 +404,16 @@ class _UpcomingRow extends StatelessWidget {
           children: [
             _Avatar(task: task, tint: tint),
             const SizedBox(width: 14),
+            // Just the title — no category/amount/repeat subline. The name alone
+            // is enough here; the date header + time already give the context.
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(task.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink)),
-                  const SizedBox(height: 3),
-                  Text(
-                    task.hasAmount
-                        ? '${currencyOf(task.currency).symbol}${task.amount!.toStringAsFixed(task.amount == task.amount!.roundToDouble() ? 0 : 2)} · ${frequencyLabel(task.repeat, task.repeatTimes)}'
-                        : cat.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.inkSoft),
-                  ),
-                ],
-              ),
+              child: Text(task.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.ink)),
             ),
             const SizedBox(width: 10),
             Text(

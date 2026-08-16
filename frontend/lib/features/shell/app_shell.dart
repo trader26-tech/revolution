@@ -408,8 +408,10 @@ class _UnifiedBar extends StatelessWidget {
                   },
                   behavior: HitTestBehavior.opaque,
                   child: const SizedBox.expand(
-                    child: Icon(Icons.search_rounded,
-                        size: 24, color: AppColors.inkFaint),
+                    child: Center(
+                      child: Icon(Icons.search_rounded,
+                          size: 24, color: AppColors.inkFaint),
+                    ),
                   ),
                 ),
               ),
@@ -463,13 +465,14 @@ class _NavHalf extends StatelessWidget {
                   child: Opacity(
                     opacity: navOpacity,
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         for (var i = 0; i < _kNavItems.length; i++)
-                          _NavButton(
-                            item: _kNavItems[i],
-                            selected: i == index,
-                            onTap: () => onChanged(i),
+                          Expanded(
+                            child: _NavButton(
+                              item: _kNavItems[i],
+                              selected: i == index,
+                              onTap: () => onChanged(i),
+                            ),
                           ),
                       ],
                     ),

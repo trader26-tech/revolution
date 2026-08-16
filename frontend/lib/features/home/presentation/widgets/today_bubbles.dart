@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -400,70 +398,43 @@ class _DoneLine extends StatelessWidget {
   }
 }
 
-/// The two-tier greeting Revo says: a small, muted salutation ("Good evening,")
-/// leading into the user's name — LARGE and painted with a violet→light
-/// gradient so it reads as the hero of the screen, not an ordinary line. Both
-/// tiers shimmer in word-by-word from the SAME [progress], so they materialise
-/// together in sync with Revo's entrance.
-class _Greeting extends StatefulWidget {
+/// The greeting Revo says atop Home — the user's photo + "Good evening, Rajeev!"
+/// as one cohesive line, shimmering in together from [progress].
+class _Greeting extends StatelessWidget {
   const _Greeting({required this.greeting, required this.progress});
 
-  /// The full line, e.g. "Good evening, Ranjeev".
+  /// The full line, e.g. "Good evening, Rajeev!".
   final String greeting;
   final double progress;
 
   @override
-  State<_Greeting> createState() => _GreetingState();
-}
-
-class _GreetingState extends State<_Greeting>
-    with SingleTickerProviderStateMixin {
-  // A slow perpetual loop that gives the settled sparkle its gentle breathing.
-  late final AnimationController _pulse;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2600),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // ONE clean line, ONE uniform ink colour — the whole "Good evening, Ranjeev"
-    // shimmers in together, no gradient tint. A single special ✦ sparkle sits at
-    // the end: it draws in as the line lands, then breathes gently forever, so
-    // the greeting feels personal without any two-tone/colour-jump.
-    final p = widget.progress;
+    // The photo + "Good evening, Rajeev!" read as ONE cohesive unit: the avatar
+    // sits snug beside the greeting on a single line, one uniform ink colour, no
+    // trailing sparkle. The whole line shimmers in together.
+    final p = progress;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         // The user's PHOTO — tap to add/change. Fades in with the greeting.
         Opacity(
           opacity: Curves.easeOut.transform((p / 0.5).clamp(0.0, 1.0)),
-          child: const ProfileAvatar(size: 46),
+          child: const ProfileAvatar(size: 44),
         ),
-        const SizedBox(width: 14),
-        // Keep the whole "Good evening, Rajeev!" on ONE line: FittedBox gives the
-        // text unbounded width (so MagicText's word wrap never triggers) and
-        // scales it down to fit if the name is long — never a second line.
+        const SizedBox(width: 12),
+        // Keep the whole line on ONE line: FittedBox gives the text unbounded
+        // width (so MagicText's word wrap never triggers) and scales it down to
+        // fit a long name — never a second line.
         Flexible(
           child: FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: MagicText(
-              text: widget.greeting,
+              text: greeting,
               progress: p,
               style: const TextStyle(
-                fontSize: 24,
+                fontSize: 23,
                 height: 1.15,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.3,
@@ -472,108 +443,9 @@ class _GreetingState extends State<_Greeting>
             ),
           ),
         ),
-        const SizedBox(width: 10),
-        // The special sparkle — arrives with the tail of the line, then pulses.
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: AnimatedBuilder(
-            animation: _pulse,
-            builder: (context, _) => _Sparkle(
-              // Draw the sparkle in over the LAST slice of the line's reveal.
-              arrive: Curves.easeOutBack
-                  .transform(((p - 0.6) / 0.4).clamp(0.0, 1.0)),
-              pulse: _pulse.value,
-            ),
-          ),
-        ),
       ],
     );
   }
-}
-
-/// A small four-point spark that scales/rotates IN as the name arrives, then
-/// once settled breathes with a gentle scale + glow pulse. Pure paint — no
-/// glyph font dependency, so it always renders crisp.
-class _Sparkle extends StatelessWidget {
-  const _Sparkle({required this.arrive, required this.pulse});
-
-  /// 0→1 entrance as the name lands.
-  final double arrive;
-
-  /// 0→1 perpetual loop for the settled breathing.
-  final double pulse;
-
-  @override
-  Widget build(BuildContext context) {
-    // [arrive] rides an easeOutBack curve upstream, so it can overshoot OUTSIDE
-    // 0..1 (that's what gives the pop). Opacity + colour alpha must stay in
-    // range, so clamp a dedicated fade value; the springy [arrive] still drives
-    // the scale for the bouncy landing.
-    final fade = arrive.clamp(0.0, 1.0);
-    final breath = 0.5 - 0.5 * math.cos(pulse * 2 * math.pi); // 0..1..0
-    final scale = (arrive * (1.0 + 0.08 * breath)).clamp(0.0, 2.0);
-    final spin = (1 - fade) * 0.5; // a half-turn as it draws in
-    final glow = ((0.35 + 0.65 * breath) * fade).clamp(0.0, 1.0);
-    return Opacity(
-      opacity: fade,
-      child: Transform.rotate(
-        angle: spin * math.pi,
-        child: Transform.scale(
-          scale: scale,
-          child: CustomPaint(
-            size: const Size(22, 22),
-            painter: _SparklePainter(glow: glow),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SparklePainter extends CustomPainter {
-  const _SparklePainter({required this.glow});
-  final double glow;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final r = size.width / 2;
-    // A four-point star: two crossed "diamonds" pinched at the centre.
-    Path star(double scale) {
-      final rr = r * scale;
-      final w = rr * 0.30; // waist
-      return Path()
-        ..moveTo(c.dx, c.dy - rr)
-        ..quadraticBezierTo(c.dx + w, c.dy - w, c.dx + rr, c.dy)
-        ..quadraticBezierTo(c.dx + w, c.dy + w, c.dx, c.dy + rr)
-        ..quadraticBezierTo(c.dx - w, c.dy + w, c.dx - rr, c.dy)
-        ..quadraticBezierTo(c.dx - w, c.dy - w, c.dx, c.dy - rr)
-        ..close();
-    }
-
-    // Soft glow underlay.
-    if (glow > 0.01) {
-      canvas.drawPath(
-        star(1.15),
-        Paint()
-          ..color = AppColors.accent.withValues(alpha: 0.45 * glow)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * glow),
-      );
-    }
-    // The bright spark, in the app accent → light gradient for a jewel feel.
-    canvas.drawPath(
-      star(1.0),
-      Paint()
-        ..shader = const LinearGradient(
-          colors: [Color(0xFFEDE7FF), AppColors.accent],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ).createShader(Rect.fromCircle(center: c, radius: r)),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_SparklePainter old) => old.glow != glow;
 }
 
 /// One reminder as Revo conjures it: a leading icon and a tick bloom in around

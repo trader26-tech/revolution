@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/mascot.dart';
 import '../../onboarding/presentation/widgets/magic_text.dart' show MagicText;
 import '../../update_flow/presentation/update_flow_sheet.dart';
@@ -10,62 +8,35 @@ import 'widgets/command_chat.dart';
 import 'widgets/command_chat_controller.dart';
 import 'widgets/interactive_flow.dart';
 
-/// Open the full-screen command chat with a Gemini-Live-style entrance: the
-/// screen dims to the space gradient, a violet AURORA blooms up from below, and
-/// the content rises + fades in. Returns when the page is popped.
-Future<void> openCommandChat(
-  BuildContext context,
-  CommandChatController controller,
-) {
-  return Navigator.of(context).push(
-    PageRouteBuilder(
-      opaque: false,
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 560),
-      reverseTransitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation, secondary) {
-        // One shared smooth curve drives EVERYTHING the page animates (aurora,
-        // Revo, greeting, bottom bar) so the whole open reads as a single fluid
-        // motion instead of several independently-eased parts.
-        final eased = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return CommandChatPage(controller: controller, entrance: eased);
-      },
-      transitionsBuilder: (context, animation, secondary, child) {
-        final fade = CurvedAnimation(parent: animation, curve: Curves.easeOut);
-        return FadeTransition(opacity: fade, child: child);
-      },
-    ),
-  );
-}
-
-/// The full-screen COMMAND CHAT — the ★ opens this. The entire
-/// Create / Read / Update / Delete conversation (and every follow-up) happens
-/// here, in place: picking an option continues the thread on THIS screen rather
-/// than bouncing back to Home.
+/// The COMMAND CHAT content, rendered as an in-shell OVERLAY (not a route) so the
+/// single bottom bar can morph the ★ into the text field in place beneath it. The
+/// entire Create / Read / Update / Delete conversation happens here; picking an
+/// option continues the thread in place.
 ///
-/// Rooted in a [Scaffold] (Material ancestor) so text never renders with the
-/// "missing Material" yellow debug underlines. The [controller] is owned by the
-/// shell, so closing + reopening resumes the same conversation. [entrance]
-/// (0→1) is the route animation — it drives the aurora bloom + the content rise.
-class CommandChatPage extends StatefulWidget {
-  const CommandChatPage({
+/// [morph] (0→1) is the shell's bottom-bar morph controller — the SAME one that
+/// widens the ★ into the field — so this overlay's entrance (aurora bloom + Revo
+/// + greeting rise) is perfectly in sync with the bar, giving one fluid motion.
+/// [barSpace] is the height to leave clear at the bottom for the bar.
+///
+/// Wrapped by the shell in a [Material] so text never shows the yellow "missing
+/// Material" debug underlines.
+class CommandChatOverlay extends StatefulWidget {
+  const CommandChatOverlay({
     super.key,
     required this.controller,
-    required this.entrance,
+    required this.morph,
+    required this.barSpace,
   });
 
   final CommandChatController controller;
-  final Animation<double> entrance;
+  final Animation<double> morph;
+  final double barSpace;
 
   @override
-  State<CommandChatPage> createState() => _CommandChatPageState();
+  State<CommandChatOverlay> createState() => _CommandChatOverlayState();
 }
 
-class _CommandChatPageState extends State<CommandChatPage>
+class _CommandChatOverlayState extends State<CommandChatOverlay>
     with TickerProviderStateMixin {
   /// Drives the per-message conjure (MagicText) reveal of the newest reply.
   late final AnimationController _shimmer;
@@ -76,6 +47,7 @@ class _CommandChatPageState extends State<CommandChatPage>
 
   final _scroll = ScrollController();
   int _lastTick = -1;
+  bool _wasOpen = false;
 
   CommandChatController get _c => widget.controller;
 
@@ -90,16 +62,30 @@ class _CommandChatPageState extends State<CommandChatPage>
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat(reverse: true);
-    // Open with the greeting + CRUD chips if this is a fresh conversation.
-    _c.startInteractive();
-    _lastTick = _c.revealTick;
-    _shimmer.forward(from: 0);
     _c.addListener(_onControllerChanged);
+    // Watch the morph so we can seed the greeting + replay the conjure each time
+    // the overlay opens (it stays mounted in the shell, gated by the morph).
+    widget.morph.addListener(_onMorph);
+  }
+
+  /// On the rising edge of the morph (chat opening), seed the menu + replay the
+  /// shimmer so the greeting conjures fresh each open.
+  void _onMorph() {
+    final open = widget.morph.value > 0.01;
+    if (open && !_wasOpen) {
+      _wasOpen = true;
+      _c.startInteractive();
+      _lastTick = _c.revealTick;
+      _shimmer.forward(from: 0);
+    } else if (!open && _wasOpen) {
+      _wasOpen = false;
+    }
   }
 
   @override
   void dispose() {
     _c.removeListener(_onControllerChanged);
+    widget.morph.removeListener(_onMorph);
     _shimmer.dispose();
     _breath.dispose();
     _scroll.dispose();
@@ -137,77 +123,75 @@ class _CommandChatPageState extends State<CommandChatPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      resizeToAvoidBottomInset: true,
-      body: Stack(
-        children: [
-          // The base space gradient — the "cleared screen".
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [AppColors.bgTop, AppColors.bg],
-                ),
-              ),
-            ),
-          ),
-
-          // The Gemini-Live AURORA — blooms up from below on entrance, then keeps
-          // a slow breathing glow.
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AnimatedBuilder(
-                animation: Listenable.merge([widget.entrance, _breath]),
-                builder: (context, _) => CustomPaint(
-                  painter: _AuroraPainter(
-                    entrance: widget.entrance.value,
-                    breath: _breath.value,
+    // Content-only overlay (the shell owns the bar). Fully ignore pointers when
+    // closed so taps pass through to Home; fade + rise in on the morph.
+    return AnimatedBuilder(
+      animation: widget.morph,
+      builder: (context, _) {
+        final t = widget.morph.value;
+        if (t <= 0.001) return const SizedBox.shrink();
+        return IgnorePointer(
+          ignoring: t < 0.5, // interactive once mostly open
+          child: Stack(
+            children: [
+              // The base space gradient — the "cleared screen", fading in.
+              Positioned.fill(
+                child: Opacity(
+                  opacity: t.clamp(0.0, 1.0),
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [AppColors.bgTop, AppColors.bg],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
 
-          // The content rises + fades on entrance.
-          AnimatedBuilder(
-            animation: widget.entrance,
-            builder: (context, child) {
-              final t = widget.entrance.value;
-              return Opacity(
+              // The Gemini-Live AURORA — blooms up from below, then breathes.
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _breath,
+                    builder: (context, _) => CustomPaint(
+                      painter: _AuroraPainter(
+                        entrance: t,
+                        breath: _breath.value,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // The content (Revo + greeting + thread) rises + fades in, leaving
+              // room at the bottom for the shell's morphing bar.
+              Opacity(
                 opacity: t.clamp(0.0, 1.0),
                 child: Transform.translate(
                   offset: Offset(0, (1 - t) * 28),
-                  child: child,
-                ),
-              );
-            },
-            child: SafeArea(
-              child: AnimatedBuilder(
-                animation: _c,
-                builder: (context, _) => Column(
-                  children: [
-                    // A little top breathing room where the old back header was —
-                    // Revo now owns the top-left.
-                    const SizedBox(height: 8),
-                    Expanded(child: _buildList()),
-                    // The morphing bar: ★ expands rightward into the field, a home
-                    // dot appears on the left to return home.
-                    _MorphBar(
-                      entrance: widget.entrance,
-                      busy: _c.commandBusy,
-                      onSend: _c.sendCommand,
-                      onHome: () => Navigator.of(context).maybePop(),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: widget.barSpace),
+                      child: AnimatedBuilder(
+                        animation: _c,
+                        builder: (context, _) => Column(
+                          children: [
+                            const SizedBox(height: 12),
+                            Expanded(child: _buildList()),
+                          ],
+                        ),
+                      ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -222,10 +206,10 @@ class _CommandChatPageState extends State<CommandChatPage>
       itemBuilder: (context, index) {
         if (index == 0) {
           return AnimatedBuilder(
-            animation: Listenable.merge([_shimmer, widget.entrance]),
+            animation: Listenable.merge([_shimmer, widget.morph]),
             builder: (context, _) => _HeroGreeting(
               progress: _shimmer.value,
-              entrance: widget.entrance.value,
+              entrance: widget.morph.value,
             ),
           );
         }
@@ -356,276 +340,6 @@ class _HeroGreeting extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// The morphing bottom bar. As the chat opens ([entrance] 0→1):
-///   • RIGHT: a small ★ circle (anchored right) WIDENS leftward into the full
-///     command field (accent glyph + text field + send button).
-///   • LEFT : a small round HOME dot fades in — tapping it closes the chat and
-///     brings the nav bar back ([onHome]).
-/// So the bar reads as "the ★ opened into a field, with a way home on the left".
-class _MorphBar extends StatefulWidget {
-  const _MorphBar({
-    required this.entrance,
-    required this.busy,
-    required this.onSend,
-    required this.onHome,
-  });
-
-  final Animation<double> entrance;
-  final bool busy;
-  final ValueChanged<String> onSend;
-  final VoidCallback onHome;
-
-  @override
-  State<_MorphBar> createState() => _MorphBarState();
-}
-
-class _MorphBarState extends State<_MorphBar> {
-  final _controller = TextEditingController();
-  final _focus = FocusNode();
-
-  /// Whether the field has non-blank text — drives the send button's active
-  /// state (there's nothing to send until you type something).
-  bool _hasText = false;
-
-  static const _h = 56.0; // bar element height
-  static const _gap = 12.0; // gap between the home dot and the field
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(_onTextChanged);
-  }
-
-  void _onTextChanged() {
-    final has = _controller.text.trim().isNotEmpty;
-    if (has != _hasText) setState(() => _hasText = has);
-  }
-
-  @override
-  void dispose() {
-    _controller.removeListener(_onTextChanged);
-    _controller.dispose();
-    _focus.dispose();
-    super.dispose();
-  }
-
-  void _send() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    HapticFeedback.selectionClick();
-    _controller.clear();
-    widget.onSend(text);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        14,
-        6,
-        14,
-        14 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: AnimatedBuilder(
-        animation: widget.entrance,
-        builder: (context, _) {
-          final t = widget.entrance.value.clamp(0.0, 1.0);
-          // The home dot's cell grows from 0 → (dot + gap) as we open; the field
-          // is Expanded, so the two ALWAYS sum to the available width exactly —
-          // no manual clamp that could overflow. The field therefore grows toward
-          // the LEFT as the dot pushes in from the left.
-          final dotCell = (_h + _gap) * t;
-          final dotSize = _h * t;
-          // The field's inner text row only mounts once there's room, so it never
-          // overflows the still-narrow pill mid-morph.
-          final fieldReveal = ((t - 0.5) / 0.5).clamp(0.0, 1.0);
-
-          return SizedBox(
-            height: _h,
-            child: Row(
-              children: [
-                // ── LEFT: the home dot (returns to the nav / Home) ──
-                SizedBox(
-                  width: dotCell,
-                  child: dotSize < 1
-                      ? null
-                      : Align(
-                          alignment: Alignment.centerLeft,
-                          child: Opacity(
-                            opacity: t,
-                            child: _HomeDot(size: dotSize, onTap: widget.onHome),
-                          ),
-                        ),
-                ),
-                // ── RIGHT: the ★-that-became-the-field (fills the remainder) ──
-                Expanded(
-                  child: _FieldPill(
-                    reveal: fieldReveal,
-                    starOpacity: (1 - t / 0.4).clamp(0.0, 1.0),
-                    controller: _controller,
-                    focus: _focus,
-                    sendEnabled: _hasText && !widget.busy,
-                    onSubmit: _send,
-                    onSend: _send,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// The small circular HOME button at the bar's left — brings the nav bar back.
-class _HomeDot extends StatelessWidget {
-  const _HomeDot({required this.size, required this.onTap});
-  final double size;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      borderRadius: size / 2,
-      onTap: onTap,
-      shadow: false,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Icon(Icons.home_rounded,
-            size: size * 0.46, color: AppColors.inkSoft),
-      ),
-    );
-  }
-}
-
-/// The right element: the ★ circle that grows into the command field. Crossfades
-/// the ★ glyph ([starOpacity]) ⇄ the field row ([reveal]) inside one glass pill.
-class _FieldPill extends StatelessWidget {
-  const _FieldPill({
-    required this.reveal,
-    required this.starOpacity,
-    required this.controller,
-    required this.focus,
-    required this.sendEnabled,
-    required this.onSubmit,
-    required this.onSend,
-  });
-
-  final double reveal;
-  final double starOpacity;
-  final TextEditingController controller;
-  final FocusNode focus;
-  final bool sendEnabled;
-  final VoidCallback onSubmit;
-  final VoidCallback onSend;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassPanel(
-      borderRadius: 26,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            if (starOpacity > 0.01)
-              Opacity(
-                opacity: starOpacity,
-                child: const Icon(Icons.auto_awesome_rounded,
-                    size: 24, color: AppColors.accent),
-              ),
-            if (reveal > 0.01)
-              Positioned.fill(
-                child: Opacity(
-                  opacity: reveal,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 6, 4),
-                    child: Row(
-                      children: [
-                        Icon(Icons.auto_awesome_rounded,
-                            size: 20,
-                            color: AppColors.accent.withValues(alpha: 0.95)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: controller,
-                            focusNode: focus,
-                            onSubmitted: (_) => onSubmit(),
-                            textInputAction: TextInputAction.send,
-                            textCapitalization: TextCapitalization.sentences,
-                            style: const TextStyle(
-                              color: AppColors.ink,
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: 'Ask or add anything…',
-                              hintStyle: TextStyle(color: AppColors.inkFaint),
-                              border: InputBorder.none,
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        _SendButton(enabled: sendEnabled, onTap: onSend),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SendButton extends StatelessWidget {
-  const _SendButton({required this.enabled, required this.onTap});
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        margin: const EdgeInsets.all(6),
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          // Dim + flat when there's nothing to send; bright accent when active.
-          color: enabled
-              ? AppColors.accent
-              : Colors.white.withValues(alpha: 0.08),
-          shape: BoxShape.circle,
-          boxShadow: enabled
-              ? [
-                  BoxShadow(
-                    color: AppColors.accent.withValues(alpha: 0.45),
-                    blurRadius: 12,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
-        ),
-        child: Icon(
-          Icons.arrow_upward_rounded,
-          size: 20,
-          color: enabled
-              ? Colors.white
-              : AppColors.inkFaint.withValues(alpha: 0.8),
-        ),
       ),
     );
   }

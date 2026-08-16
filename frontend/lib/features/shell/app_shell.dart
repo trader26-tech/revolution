@@ -5,7 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../home/browse_page.dart';
 import '../home/home_page.dart';
-import '../home/presentation/command_chat_page.dart' show openCommandChat;
+import '../home/presentation/command_chat_page.dart' show CommandChatOverlay;
 import '../home/presentation/widgets/command_chat_controller.dart';
 import '../tasks/data/task_store.dart';
 import '../update/data/update_service.dart';
@@ -30,10 +30,10 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   int _tab = 0;
 
-  /// [_morph] used to drive an in-bar nav⇄command-field morph. The ★ now opens a
-  /// full-screen chat page instead, so the bar stays in its nav+★ resting state
-  /// (t=0); the controller is retained (kept at rest) to avoid churning the
-  /// bottom-bar widget tree, and can be reclaimed if an in-bar morph returns.
+  /// [_morph] (0→1) drives the ONE bottom bar's morph AND the chat overlay's
+  /// entrance, so they move as a single fluid motion: the Home·Browse pill shrinks
+  /// to a home dot on the left, the ★ widens into the text field on the right, and
+  /// the chat content (Revo + greeting + thread) fades/rises in above the bar.
   late final AnimationController _morph;
 
   /// Home's state handle (kept for the auth/verify plumbing + any future
@@ -48,8 +48,8 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   /// off). Created once with the shared store.
   late final CommandChatController _chat;
 
-  /// Whether the full-screen [CommandChatPage] is currently pushed — so tapping a
-  /// nav tab can pop it.
+  /// Whether the chat overlay is open — the morph target. Drives the bar morph +
+  /// the overlay entrance, and gates system-back handling.
   bool _chatOpen = false;
 
   @override
@@ -57,10 +57,9 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     super.initState();
     _morph = AnimationController(
       vsync: this,
-      // Matches the chat page's entrance (560/300ms) so the home bar's morph and
-      // the page's fade-in read as one continuous motion.
-      duration: const Duration(milliseconds: 560),
-      reverseDuration: const Duration(milliseconds: 300),
+      // One smooth, unhurried morph for the whole open/close motion.
+      duration: const Duration(milliseconds: 500),
+      reverseDuration: const Duration(milliseconds: 340),
     );
     _chat = CommandChatController(_store);
     // Restore saved tasks (and their icons) from on-device storage.
@@ -70,34 +69,22 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
   }
 
-  /// The ★ opens the full-screen "What do you want to do today?" launcher — a
-  /// beautiful full-screen chat: the greeting "What do you want to do today?"
-  /// with the Create/Read/Update/Delete options + a free-text field, and the
-  /// whole conversation continues IN that page (picking Create does NOT bounce
-  /// back here). The controller is shell-owned, so reopening resumes the thread.
-  Future<void> _openCommand() async {
+  /// The ★ opens the command chat IN PLACE: the one bottom bar morphs (nav pill →
+  /// home dot, ★ → text field) and the chat content fades/rises in above it — all
+  /// off [_morph], so it's one continuous motion (no route push, no second bar).
+  void _openCommand() {
     if (_chatOpen) return;
-    _chatOpen = true;
-    // Morph the home bar IN PLACE as the chat opens — the Home·Browse pill
-    // shrinks to a button (dot) and the ★ widens — so as the page fades in over
-    // it, the bottom bar reads as one continuous motion into the page's field.
+    if (_tab != 0) _tab = 0; // the chat overlays Home
+    setState(() => _chatOpen = true);
     _morph.forward();
-    await openCommandChat(context, _chat);
-    // Route popped (home dot, or a nav-tab tap called maybePop).
-    if (mounted) {
-      _chatOpen = false;
-      _morph.reverse();
-    }
   }
 
-  /// Pop the full-screen chat if it's open — used when a nav tab is tapped so
-  /// switching to Home/Browse closes the chat.
+  /// Close the chat — the bar morphs back to Home·Browse + ★ and the overlay fades
+  /// out. Used by the home dot, a nav-tab tap, and system back.
   void _closeCommand() {
-    if (_chatOpen) {
-      Navigator.of(context).popUntil((r) => r.isFirst);
-      _chatOpen = false;
-      _morph.reverse();
-    }
+    if (!_chatOpen) return;
+    setState(() => _chatOpen = false);
+    _morph.reverse();
   }
 
   /// Ask the backend if a newer build exists. When one does, show the update
@@ -127,89 +114,80 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
       BrowsePage(store: _store, isActive: _tab == 1),
     ];
 
-    return Scaffold(
-      extendBody: true, // let the background flow under the floating bar
-      body: AnimatedBuilder(
-        animation: _morph,
-        builder: (context, _) {
-          // easeOutExpo: responds instantly to the tap then glides to a smooth
-          // stop — reads faster and less "laggy" than easeOutCubic at this speed.
-          final t = Curves.easeOutExpo.transform(_morph.value);
-          return Stack(
-            children: [
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [AppColors.bgTop, AppColors.bg],
-                  ),
-                ),
-                child: IndexedStack(index: _tab, children: pages),
-              ),
+    // The overlay must clear the bottom bar: bar height + its bottom padding +
+    // safe-area inset.
+    final barSpace = 60.0 + 14 + MediaQuery.of(context).padding.bottom;
 
-              // The space-colour AURORA WASH — blooms once as command mode opens,
-              // then settles to a quiet ambient glow around the edges.
-              if (_morph.value > 0.001)
+    return PopScope(
+      // While the chat is open, system back closes IT (not the app).
+      canPop: !_chatOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _chatOpen) _closeCommand();
+      },
+      child: Scaffold(
+        extendBody: true, // let the background flow under the floating bar
+        // The overlay + bar handle the keyboard themselves; don't let the Scaffold
+        // resize the whole page under them.
+        resizeToAvoidBottomInset: false,
+        body: AnimatedBuilder(
+          animation: _morph,
+          builder: (context, _) {
+            final t = Curves.easeOutCubic.transform(_morph.value);
+            return Stack(
+              children: [
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [AppColors.bgTop, AppColors.bg],
+                    ),
+                  ),
+                  child: IndexedStack(index: _tab, children: pages),
+                ),
+
+                // The chat CONTENT overlay — Revo + greeting + thread, fading and
+                // rising in above the pages, BELOW the bar, in sync with the morph.
                 Positioned.fill(
-                  child: IgnorePointer(
-                    child: _AuroraWash(t: t),
+                  child: CommandChatOverlay(
+                    controller: _chat,
+                    morph: _morph,
+                    barSpace: barSpace,
                   ),
                 ),
 
-              // The morphing bottom bar: nav+★  ⇄  dot+command-field.
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: SafeArea(
-                  top: false,
-                  child: _BottomBar(
-                    t: t,
-                    tab: _tab,
-                    onTab: (i) {
-                      // Tapping a nav tab closes the full-screen chat (if open)
-                      // and switches to that tab.
-                      _closeCommand();
-                      setState(() => _tab = i);
-                    },
-                    onOpenCommand: _openCommand,
-                    onCloseCommand: _closeCommand,
+                // The ONE morphing bottom bar: nav+★  ⇄  home-dot + text field.
+                // Rides above the keyboard via viewInsets.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: AnimatedPadding(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom),
+                    child: SafeArea(
+                      top: false,
+                      child: _BottomBar(
+                        t: t,
+                        tab: _tab,
+                        busy: _chat.commandBusy,
+                        onTab: (i) {
+                          // Tapping a nav tab closes the chat + switches tab.
+                          _closeCommand();
+                          setState(() => _tab = i);
+                        },
+                        onOpenCommand: _openCommand,
+                        onCloseCommand: _closeCommand,
+                        onSend: _chat.sendCommand,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// The soft space-colour aurora that washes around the screen edges when command
-/// mode opens — a violet→indigo glow that blooms in, then settles quiet. Never
-/// fights the text; it just signals "the command chat is here". [t] is 0→1.
-class _AuroraWash extends StatelessWidget {
-  const _AuroraWash({required this.t});
-  final double t;
-
-  @override
-  Widget build(BuildContext context) {
-    // Bloom brighter mid-open, then settle to a calm resting glow.
-    final settle = 0.5 + 0.5 * t; // 0.5→1 as it settles in
-    final bloom = (t < 0.6 ? t / 0.6 : 1.0);
-    final edge = (0.10 + 0.14 * bloom) * settle;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: const Alignment(0, 1.15), // just below the input
-          radius: 1.3,
-          colors: [
-            AppColors.accent.withValues(alpha: edge * 1.4),
-            const Color(0xFF3A2A8C).withValues(alpha: edge),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.45, 1.0],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -225,16 +203,20 @@ class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.t,
     required this.tab,
+    required this.busy,
     required this.onTab,
     required this.onOpenCommand,
     required this.onCloseCommand,
+    required this.onSend,
   });
 
   final double t;
   final int tab;
+  final bool busy;
   final ValueChanged<int> onTab;
   final VoidCallback onOpenCommand;
   final VoidCallback onCloseCommand;
+  final ValueChanged<String> onSend;
 
   static const _h = 60.0; // bar height
   static const _gap = 12.0; // gap between the two elements
@@ -293,7 +275,9 @@ class _BottomBar extends StatelessWidget {
                   width: rightW,
                   child: _RightHalf(
                     t: t,
+                    busy: busy,
                     onOpenCommand: onOpenCommand,
+                    onSend: onSend,
                   ),
                 ),
               ],
@@ -366,8 +350,10 @@ class _NavHalf extends StatelessWidget {
             if (dotOpacity > 0.01)
               Opacity(
                 opacity: dotOpacity,
-                child: const Icon(Icons.grid_view_rounded,
-                    size: 22, color: AppColors.inkSoft),
+                // The collapsed nav = a HOME dot: tapping it closes the chat and
+                // brings the Home·Browse nav bar back.
+                child: const Icon(Icons.home_rounded,
+                    size: 24, color: AppColors.inkSoft),
               ),
           ],
         ),
@@ -376,41 +362,188 @@ class _NavHalf extends StatelessWidget {
   }
 }
 
-/// The RIGHT element: the circular ★ command button. As [t] → 1 (the chat is
-/// opening) it WIDENS into a pill and its glyph slides toward the leading edge —
-/// the old "opening" motion — but it no longer mounts an in-bar text field (the
-/// ★ opens the full-screen chat page instead). The morph just plays behind the
-/// rising page during its entrance transition.
-class _RightHalf extends StatelessWidget {
+/// The RIGHT element: the ★ button that MORPHS into the command text field as
+/// [t] → 1. At t=0 it's a solid accent ★ circle; as it widens it crossfades into
+/// a glass field (accent glyph + text field + send button) — the SINGLE field for
+/// the chat. Tapping the ★ (t≈0) opens the chat; the field auto-focuses once open.
+class _RightHalf extends StatefulWidget {
   const _RightHalf({
     required this.t,
+    required this.busy,
     required this.onOpenCommand,
+    required this.onSend,
   });
   final double t;
+  final bool busy;
   final VoidCallback onOpenCommand;
+  final ValueChanged<String> onSend;
+
+  @override
+  State<_RightHalf> createState() => _RightHalfState();
+}
+
+class _RightHalfState extends State<_RightHalf> {
+  final _controller = TextEditingController();
+  final _focus = FocusNode();
+  bool _hasText = false;
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onText);
+  }
+
+  @override
+  void didUpdateWidget(_RightHalf old) {
+    super.didUpdateWidget(old);
+    // Raise the keyboard once the field is mostly open; drop focus as it closes.
+    if (widget.t > 0.6 && !_focused) {
+      _focused = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.t > 0.6) _focus.requestFocus();
+      });
+    } else if (widget.t < 0.3 && _focused) {
+      _focused = false;
+      _focus.unfocus();
+    }
+  }
+
+  void _onText() {
+    final has = _controller.text.trim().isNotEmpty;
+    if (has != _hasText) setState(() => _hasText = has);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onText);
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _send() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    HapticFeedback.selectionClick();
+    _controller.clear();
+    widget.onSend(text);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final t = widget.t;
+    // ★ glyph fades out fast; the field row fades in once there's room, so its
+    // full-width Row never overflows the still-narrow pill mid-morph.
+    final starOpacity = (1 - t / 0.4).clamp(0.0, 1.0);
+    final fieldOpacity = ((t - 0.55) / 0.45).clamp(0.0, 1.0);
     return _LiquidGlass(
-      accentFill: 1 - 0.35 * t, // stay mostly accent — it's a button, not a field
+      accentFill: 1 - t, // solid accent ★ (t=0) → light glass field (t=1)
       onTap: t < 0.5
           ? () {
               HapticFeedback.mediumImpact();
-              onOpenCommand();
+              widget.onOpenCommand();
             }
           : null,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
-        // As the pill widens, keep the ★ glyph near the leading edge so the
-        // motion reads as "the button is stretching open".
-        child: Align(
-          alignment: Alignment.lerp(
-            Alignment.center,
-            const Alignment(-0.82, 0),
-            t,
-          )!,
-          child: const Icon(Icons.auto_awesome_rounded,
-              size: 25, color: Colors.white),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (starOpacity > 0.01)
+              Opacity(
+                opacity: starOpacity,
+                child: const Icon(Icons.auto_awesome_rounded,
+                    size: 25, color: Colors.white),
+              ),
+            if (fieldOpacity > 0.01)
+              Positioned.fill(
+                child: Opacity(
+                  opacity: fieldOpacity,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 6, 0),
+                    child: Row(
+                      children: [
+                        Icon(Icons.auto_awesome_rounded,
+                            size: 20,
+                            color: AppColors.accent.withValues(alpha: 0.95)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _focus,
+                            onSubmitted: (_) => _send(),
+                            textInputAction: TextInputAction.send,
+                            textCapitalization: TextCapitalization.sentences,
+                            style: const TextStyle(
+                              color: AppColors.ink,
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: 'Ask or add anything…',
+                              hintStyle: TextStyle(color: AppColors.inkFaint),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        _SendButton(
+                          enabled: _hasText && !widget.busy,
+                          onTap: _send,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The circular accent send button inside the morphed field — dim + flat when
+/// there's nothing to send, bright accent when active.
+class _SendButton extends StatelessWidget {
+  const _SendButton({required this.enabled, required this.onTap});
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        margin: const EdgeInsets.all(6),
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: enabled
+              ? AppColors.accent
+              : Colors.white.withValues(alpha: 0.10),
+          shape: BoxShape.circle,
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.45),
+                    blurRadius: 12,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Icon(
+          Icons.arrow_upward_rounded,
+          size: 20,
+          color: enabled
+              ? Colors.white
+              : AppColors.inkFaint.withValues(alpha: 0.8),
         ),
       ),
     );

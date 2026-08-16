@@ -1,9 +1,6 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/mascot.dart';
 import '../../../core/widgets/starfield.dart';
 
 /// The full-screen lock overlay shown when the App Lock session has expired.
@@ -73,9 +70,10 @@ class _LockScreenState extends State<LockScreen>
               child: Column(
                 children: [
                   const Spacer(flex: 5),
-                  // Revo — the REAL brand mark — happy and bouncing inside a warm
-                  // accent halo. This is the hero of the screen; no chip clutter.
-                  _HaloMascot(anim: _in),
+                  // A calm glowing lock emblem — the hero of the screen. (The
+                  // mascot was removed here per product direction; the lock glyph
+                  // keeps the screen premium and on-theme without it.)
+                  _LockEmblem(anim: _in),
                   const SizedBox(height: 30),
                   const Text(
                     'Welcome back!',
@@ -125,70 +123,59 @@ class _LockScreenState extends State<LockScreen>
   }
 }
 
-/// A HAPPY, bouncing Revo inside a warm accent halo — the delight of the screen.
-/// A springy vertical bob with matching squash-and-stretch (the classic "happy
-/// hop"), a cheerful tilt, and the occasional double-blink, over a soft glowing
-/// bloom. Runs its own loop so it feels alive the whole time you're locked.
-class _HaloMascot extends StatefulWidget {
-  const _HaloMascot({required this.anim});
+/// A calm glowing lock emblem — a lock glyph on an accent-tinted disc, wrapped
+/// in a soft radial halo that breathes very gently. Pops in with the screen's
+/// entrance, then rests: premium and quiet, no looping motion to distract.
+class _LockEmblem extends StatefulWidget {
+  const _LockEmblem({required this.anim});
 
   /// The screen's entrance animation — used for the initial pop-in scale.
   final Animation<double> anim;
 
   @override
-  State<_HaloMascot> createState() => _HaloMascotState();
+  State<_LockEmblem> createState() => _LockEmblemState();
 }
 
-class _HaloMascotState extends State<_HaloMascot>
+class _LockEmblemState extends State<_LockEmblem>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _loop;
+  late final AnimationController _breathe;
 
   @override
   void initState() {
     super.initState();
-    _loop = AnimationController(
+    // A very slow halo breath — barely perceptible, just enough life.
+    _breathe = AnimationController(
       vsync: this,
-      // Slow + calm — one gentle float per ~5s, not a busy bounce.
-      duration: const Duration(milliseconds: 5200),
-    )..repeat();
+      duration: const Duration(milliseconds: 4200),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _loop.dispose();
+    _breathe.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final popIn = Tween(begin: 0.82, end: 1.0)
+    final popIn = Tween(begin: 0.86, end: 1.0)
         .animate(CurvedAnimation(parent: widget.anim, curve: Curves.easeOutBack));
     return ScaleTransition(
       scale: popIn,
       child: AnimatedBuilder(
-        animation: _loop,
+        animation: _breathe,
         builder: (context, _) {
-          final t = _loop.value; // 0..1
-          // ONE slow, gentle float per loop — a soft rise and settle, no hop.
-          final wave = math.sin(t * math.pi * 2); // -1..1, single smooth cycle
-          final lift = -6.0 * (0.5 + 0.5 * wave); // drifts up ~6px and back
-          // A whisper of squash, in sympathy with the drift — barely there.
-          final squash = -0.05 * wave;
-          final tilt = 0.02 * math.sin(t * math.pi * 2); // faint sway
-          // A calm double-blink once per loop.
-          final blink = _blinkAt(t);
-          // Halo breathes very softly.
-          final glowA = 0.22 + 0.06 * (0.5 + 0.5 * wave);
-
+          final glowA = 0.20 + 0.10 * _breathe.value;
           return SizedBox(
-            width: 176,
-            height: 176,
+            width: 168,
+            height: 168,
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // Soft accent bloom.
                 Container(
-                  width: 176,
-                  height: 176,
+                  width: 168,
+                  height: 168,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
@@ -199,17 +186,28 @@ class _HaloMascotState extends State<_HaloMascot>
                     ),
                   ),
                 ),
-                Transform.translate(
-                  offset: Offset(0, lift),
-                  child: Mascot(
-                    size: 120,
-                    squash: squash,
-                    tilt: tilt,
-                    blink: blink,
-                    // A slow, small wander of the gaze — calm, not darting.
-                    look: Offset(0.07 * math.sin(t * math.pi * 2), -0.06),
-                    glow: false,
+                // The disc + lock glyph.
+                Container(
+                  width: 96,
+                  height: 96,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF9B7CFF), AppColors.accent],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.45),
+                        blurRadius: 26,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
+                  child: const Icon(Icons.lock_rounded,
+                      size: 42, color: Colors.white),
                 ),
               ],
             ),
@@ -217,16 +215,6 @@ class _HaloMascotState extends State<_HaloMascot>
         },
       ),
     );
-  }
-
-  /// One quick double-blink centred at ~70% through the loop.
-  double _blinkAt(double t) {
-    double pulse(double c) {
-      final d = (t - c).abs();
-      return d < 0.03 ? (1 - d / 0.03) : 0.0;
-    }
-
-    return (pulse(0.70) + pulse(0.78)).clamp(0.0, 1.0);
   }
 }
 

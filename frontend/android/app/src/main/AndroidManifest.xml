@@ -17,6 +17,12 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- In-app updates: the app downloads a newer APK (sideload distribution)
+         and hands it to Android's package installer. REQUEST_INSTALL_PACKAGES
+         lets us launch that install prompt directly, so the user doesn't have to
+         hunt the file in a browser's downloads. The install itself still requires
+         the user's explicit confirmation (Android shows its own install screen). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:label="Revora"
         android:name="${applicationName}"

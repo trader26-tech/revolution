@@ -186,12 +186,17 @@ class SettingsTile extends StatelessWidget {
 }
 
 /// A settings row with a trailing switch (for on/off preferences).
-class SettingsSwitchTile extends StatelessWidget {
+///
+/// Clean by default: just the icon, title, and switch — NO always-on subtitle.
+/// When [info] is set, a small ⓘ appears; tapping it (or the title) reveals a
+/// one-line description inline, so the explanation is there on demand but never
+/// clutters the row.
+class SettingsSwitchTile extends StatefulWidget {
   const SettingsSwitchTile({
     super.key,
     required this.icon,
     required this.title,
-    this.subtitle,
+    this.info,
     required this.value,
     required this.onChanged,
     this.iconColor,
@@ -199,53 +204,118 @@ class SettingsSwitchTile extends StatelessWidget {
 
   final IconData icon;
   final String title;
-  final String? subtitle;
+
+  /// A one-line "what is this?" explanation, hidden until the user taps ⓘ.
+  final String? info;
   final bool value;
   final ValueChanged<bool> onChanged;
   final Color? iconColor;
 
   @override
+  State<SettingsSwitchTile> createState() => _SettingsSwitchTileState();
+}
+
+class _SettingsSwitchTileState extends State<SettingsSwitchTile> {
+  bool _open = false;
+
+  @override
   Widget build(BuildContext context) {
+    final hasInfo = widget.info != null && widget.info!.trim().isNotEmpty;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      child: Row(
+      child: Column(
         children: [
-          _IconChip(icon: icon, color: iconColor ?? AppColors.accent),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.ink,
+          Row(
+            children: [
+              _IconChip(icon: widget.icon, color: widget.iconColor ?? AppColors.accent),
+              const SizedBox(width: 14),
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: hasInfo ? () => setState(() => _open = !_open) : null,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.title,
+                          style: const TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                      if (hasInfo) ...[
+                        const SizedBox(width: 6),
+                        _InfoDot(open: _open),
+                      ],
+                    ],
                   ),
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      height: 1.3,
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              Switch.adaptive(
+                value: widget.value,
+                onChanged: widget.onChanged,
+                activeTrackColor: AppColors.accent,
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            activeTrackColor: AppColors.accent,
-          ),
+          if (hasInfo) _InfoReveal(open: _open, text: widget.info!),
         ],
       ),
+    );
+  }
+}
+
+/// The small ⓘ affordance beside a title — a quiet hint that a one-line
+/// explanation is a tap away. Rotates to a downward chevron when open.
+class _InfoDot extends StatelessWidget {
+  const _InfoDot({required this.open});
+  final bool open;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedRotation(
+      turns: open ? 0.5 : 0,
+      duration: const Duration(milliseconds: 180),
+      child: Icon(
+        open ? Icons.expand_more_rounded : Icons.info_outline_rounded,
+        size: 16,
+        color: AppColors.inkFaint,
+      ),
+    );
+  }
+}
+
+/// The inline description that expands under a row when its ⓘ is tapped.
+class _InfoReveal extends StatelessWidget {
+  const _InfoReveal({required this.open, required this.text});
+  final bool open;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: open
+          ? Padding(
+              padding: const EdgeInsets.fromLTRB(48, 6, 8, 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  text,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.35,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ),
+            )
+          : const SizedBox(width: double.infinity),
     );
   }
 }

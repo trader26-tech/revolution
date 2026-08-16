@@ -30,22 +30,48 @@ class _UpdateDialog extends StatefulWidget {
 }
 
 class _UpdateDialogState extends State<_UpdateDialog> {
-  bool _opening = false;
+  /// null = idle; otherwise a download is in flight (0→1, or null = started but
+  /// size unknown, shown as an indeterminate bar).
+  double? _progress;
+  bool _busy = false;
 
+  /// Download the APK IN-APP and hand it to Android's installer. Shows live
+  /// progress; on any failure, falls back to opening the link in the browser so
+  /// the update path is never a dead end.
   Future<void> _update() async {
-    setState(() => _opening = true);
+    setState(() {
+      _busy = true;
+      _progress = 0;
+    });
+    final result = await UpdateService.instance.downloadAndInstall(
+      widget.info.apkUrl,
+      onProgress: (p) {
+        if (mounted) setState(() => _progress = p);
+      },
+    );
+    if (!mounted) return;
+    if (result == InstallResult.launched) {
+      // Android's install screen is up. Leave the dialog (forced stays blocking;
+      // optional lets them dismiss).
+      setState(() => _busy = false);
+      return;
+    }
+    // Download/hand-off failed → fall back to the browser link.
     final ok = await launchUrl(
       Uri.parse(widget.info.apkUrl),
       mode: LaunchMode.externalApplication,
     );
-    if (!ok && mounted) {
-      setState(() => _opening = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't open the download link.")),
-      );
+    if (mounted) {
+      setState(() {
+        _busy = false;
+        _progress = null;
+      });
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't download the update.")),
+        );
+      }
     }
-    // On success the browser takes over; leave the dialog as-is (forced) or the
-    // user can dismiss (optional).
   }
 
   @override
@@ -127,18 +153,33 @@ class _UpdateDialogState extends State<_UpdateDialog> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: _opening ? null : _update,
-                  child: _opening
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2.2, color: Colors.white),
+                  onPressed: _busy ? null : _update,
+                  child: _busy
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: Colors.white,
+                                // Determinate once we know the size, else spin.
+                                value: _progress,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              _progress == null
+                                  ? 'Downloading…'
+                                  : 'Downloading ${(_progress! * 100).round()}%',
+                            ),
+                          ],
                         )
                       : const Text('Update now'),
                 ),
               ),
-              if (!info.forced)
+              if (!info.forced && !_busy)
                 TextButton(
                   onPressed: () => Navigator.of(context).maybePop(),
                   style: TextButton.styleFrom(

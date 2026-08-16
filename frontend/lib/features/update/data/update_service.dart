@@ -1,4 +1,9 @@
+import 'dart:io';
+
+import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/api_client.dart';
@@ -107,4 +112,70 @@ class UpdateService {
       return UpdateInfo.none;
     }
   }
+
+  /// Download the new APK from [apkUrl] and hand it to Android's package
+  /// installer — a real in-app update (no browser detour). [onProgress] reports
+  /// 0→1 as bytes arrive (null total → indeterminate, reported as null).
+  ///
+  /// Returns an [InstallResult]: [InstallResult.launched] means the OS install
+  /// screen opened (the user still taps "Install" — Android always requires that
+  /// final confirmation; the app cannot silently replace itself). Anything else
+  /// is a failure the caller should surface (with the browser link as a
+  /// fallback).
+  Future<InstallResult> downloadAndInstall(
+    String apkUrl, {
+    void Function(double? progress)? onProgress,
+  }) async {
+    if (apkUrl.isEmpty) return InstallResult.failed;
+    http.Client? client;
+    try {
+      client = http.Client();
+      final req = http.Request('GET', Uri.parse(apkUrl));
+      final res = await client.send(req).timeout(const Duration(minutes: 5));
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        return InstallResult.failed;
+      }
+
+      final total = res.contentLength; // may be null
+      final bytes = <int>[];
+      var received = 0;
+      onProgress?.call(total == null ? null : 0);
+      await for (final chunk in res.stream) {
+        bytes.addAll(chunk);
+        received += chunk.length;
+        if (total != null && total > 0) {
+          onProgress?.call((received / total).clamp(0.0, 1.0));
+        }
+      }
+
+      // Save to a private temp file we can hand to the installer. A stable name
+      // (overwritten each time) so repeated updates don't pile up files.
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/revora-update.apk');
+      await file.writeAsBytes(bytes, flush: true);
+
+      // Hand the APK to the OS. open_filex opens it with the package installer,
+      // which shows Android's own install confirmation screen.
+      final opened = await OpenFilex.open(
+        file.path,
+        type: 'application/vnd.android.package-archive',
+      );
+      return opened.type == ResultType.done
+          ? InstallResult.launched
+          : InstallResult.failed;
+    } catch (_) {
+      return InstallResult.failed;
+    } finally {
+      client?.close();
+    }
+  }
+}
+
+/// The outcome of [UpdateService.downloadAndInstall].
+enum InstallResult {
+  /// The APK downloaded and Android's install screen opened (user confirms).
+  launched,
+
+  /// Download or hand-off failed — fall back to opening the link in a browser.
+  failed,
 }

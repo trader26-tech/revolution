@@ -167,20 +167,21 @@ class _SettingsTileState extends State<SettingsTile> {
                 if (widget.trailing != null)
                   widget.trailing!
                 else ...[
+                  // The value hugs its own width and sits hard RIGHT, just before
+                  // the chevron — aligned with every other row's trailing control.
+                  // (Title is Expanded above, so it takes the slack, never this.)
                   if (widget.value != null)
-                    Flexible(
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 12),
-                        child: Text(
-                          widget.value!,
-                          textAlign: TextAlign.right,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.inkSoft,
-                          ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: Text(
+                        widget.value!,
+                        textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.inkSoft,
                         ),
                       ),
                     ),

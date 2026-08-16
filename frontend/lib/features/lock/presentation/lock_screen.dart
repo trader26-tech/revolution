@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -123,43 +125,107 @@ class _LockScreenState extends State<LockScreen>
   }
 }
 
-/// The mascot with a soft radial accent halo behind it and a gentle entrance
-/// scale, so it feels alive without any looping cost on the lock screen.
-class _HaloMascot extends StatelessWidget {
+/// A HAPPY, bouncing Revo inside a warm accent halo — the delight of the screen.
+/// A springy vertical bob with matching squash-and-stretch (the classic "happy
+/// hop"), a cheerful tilt, and the occasional double-blink, over a soft glowing
+/// bloom. Runs its own loop so it feels alive the whole time you're locked.
+class _HaloMascot extends StatefulWidget {
   const _HaloMascot({required this.anim});
+
+  /// The screen's entrance animation — used for the initial pop-in scale.
   final Animation<double> anim;
 
   @override
+  State<_HaloMascot> createState() => _HaloMascotState();
+}
+
+class _HaloMascotState extends State<_HaloMascot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _loop;
+
+  @override
+  void initState() {
+    super.initState();
+    _loop = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _loop.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final scale = Tween(begin: 0.86, end: 1.0)
-        .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutBack));
+    final popIn = Tween(begin: 0.82, end: 1.0)
+        .animate(CurvedAnimation(parent: widget.anim, curve: Curves.easeOutBack));
     return ScaleTransition(
-      scale: scale,
-      child: SizedBox(
-        width: 168,
-        height: 168,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Accent bloom.
-            Container(
-              width: 168,
-              height: 168,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.accent.withValues(alpha: 0.28),
-                    AppColors.accent.withValues(alpha: 0.0),
-                  ],
+      scale: popIn,
+      child: AnimatedBuilder(
+        animation: _loop,
+        builder: (context, _) {
+          final t = _loop.value; // 0..1
+          // Two happy hops per loop — a springy up/down with squash on landing.
+          final hop = (math.sin(t * math.pi * 4)).abs(); // 0..1, two arcs
+          final lift = -14.0 * hop; // rises on each hop
+          // Stretch tall at peak, squash wide at the bottom of each hop.
+          final phase = math.sin(t * math.pi * 4);
+          final squash = -0.16 * phase; // +wider when low, taller when high
+          final tilt = 0.05 * math.sin(t * math.pi * 2); // gentle sway
+          // A cheerful double-blink once per loop.
+          final blink = _blinkAt(t);
+          // Halo pulses softly with the hops.
+          final glowA = 0.22 + 0.12 * hop;
+
+          return SizedBox(
+            width: 176,
+            height: 176,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 176,
+                  height: 176,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppColors.accent.withValues(alpha: glowA),
+                        AppColors.accent.withValues(alpha: 0.0),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                Transform.translate(
+                  offset: Offset(0, lift),
+                  child: Mascot(
+                    size: 120,
+                    squash: squash,
+                    tilt: tilt,
+                    blink: blink,
+                    look: Offset(0.12 * math.sin(t * math.pi * 2), -0.1),
+                    glow: false,
+                  ),
+                ),
+              ],
             ),
-            const AnimatedMascot(size: 116, glow: false),
-          ],
-        ),
+          );
+        },
       ),
     );
+  }
+
+  /// One quick double-blink centred at ~70% through the loop.
+  double _blinkAt(double t) {
+    double pulse(double c) {
+      final d = (t - c).abs();
+      return d < 0.03 ? (1 - d / 0.03) : 0.0;
+    }
+
+    return (pulse(0.70) + pulse(0.78)).clamp(0.0, 1.0);
   }
 }
 

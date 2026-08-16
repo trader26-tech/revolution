@@ -5,6 +5,7 @@ import '../../../details/domain/currency.dart' show currencyOf, formatAmount;
 import '../../../onboarding/presentation/widgets/magic_text.dart' show MagicText;
 import '../../../tasks/domain/category_visuals.dart';
 import '../../../tasks/domain/task.dart';
+import 'interactive_flow.dart';
 
 /// The command CHAT — the model + message widgets rendered INSIDE the Home feed
 /// (not a floating box). The user's typed line, Revo's "thinking" shimmer, the
@@ -12,7 +13,22 @@ import '../../../tasks/domain/task.dart';
 /// attach to the page and scroll with it. The input bar itself lives separately
 /// (command_input.dart), pinned at the bottom.
 
-enum ChatKind { user, thinking, proposal, action, picker, answer, done }
+enum ChatKind {
+  user,
+  thinking,
+  proposal,
+  action,
+  picker,
+  answer,
+  done,
+  // ── The deterministic (no-LLM) command assistant ──
+  /// The root Create/Read/Update/Delete option chips.
+  menu,
+  /// A create-in-progress (category → fields → confirm), all on one card.
+  create,
+  /// A short "coming soon" reply for Read/Update/Delete.
+  comingSoon,
+}
 
 /// One message in the command chat.
 class ChatMsg {
@@ -20,38 +36,80 @@ class ChatMsg {
       : kind = ChatKind.user,
         draft = null,
         task = null,
+        flow = null,
+        op = null,
         candidates = const [];
   ChatMsg.thinking()
       : kind = ChatKind.thinking,
         text = '',
         draft = null,
         task = null,
+        flow = null,
+        op = null,
         candidates = const [];
   /// A proposed ADD — shown as text + a tiny inline Add/Cancel.
   ChatMsg.proposal(this.draft)
       : kind = ChatKind.proposal,
         text = '',
         task = null,
+        flow = null,
+        op = null,
         candidates = const [];
   /// A complete/delete/update action on a resolved existing [task].
   ChatMsg.action(this.draft, this.task)
       : kind = ChatKind.action,
         text = '',
+        flow = null,
+        op = null,
         candidates = const [];
   /// Ambiguous match — pick which reminder from [candidates].
   ChatMsg.picker(this.draft, this.candidates)
       : kind = ChatKind.picker,
         text = '',
-        task = null;
+        task = null,
+        flow = null,
+        op = null;
   /// A QUERY answer — a header line + the matching reminders as text.
   ChatMsg.answer(this.text, this.candidates)
       : kind = ChatKind.answer,
         draft = null,
-        task = null;
+        task = null,
+        flow = null,
+        op = null;
   ChatMsg.done(this.text)
       : kind = ChatKind.done,
         draft = null,
         task = null,
+        flow = null,
+        op = null,
+        candidates = const [];
+
+  /// The root Create/Read/Update/Delete chips.
+  ChatMsg.menu()
+      : kind = ChatKind.menu,
+        text = '',
+        draft = null,
+        task = null,
+        flow = null,
+        op = null,
+        candidates = const [];
+
+  /// A create-in-progress — [flow] carries the mutable step state.
+  ChatMsg.create(this.flow)
+      : kind = ChatKind.create,
+        text = '',
+        draft = null,
+        task = null,
+        op = null,
+        candidates = const [];
+
+  /// A "coming soon" reply for [op] (Read/Update/Delete).
+  ChatMsg.comingSoon(this.op)
+      : kind = ChatKind.comingSoon,
+        text = '',
+        draft = null,
+        task = null,
+        flow = null,
         candidates = const [];
 
   final ChatKind kind;
@@ -60,6 +118,12 @@ class ChatMsg {
 
   /// The resolved existing task for an action message.
   final Task? task;
+
+  /// The mutable create-flow state, for a [ChatKind.create] message.
+  final CreateFlow? flow;
+
+  /// The operation a [ChatKind.comingSoon] message refers to.
+  final FlowOp? op;
 
   /// Candidate tasks (picker) / answer items (query).
   final List<Task> candidates;
@@ -179,6 +243,10 @@ class CommandMessage extends StatelessWidget {
     required this.onConfirm,
     required this.onDismiss,
     required this.onPick,
+    required this.onPickOp,
+    required this.onPickCategory,
+    required this.onAnswerField,
+    required this.onEditField,
   });
 
   final ChatMsg msg;
@@ -187,6 +255,18 @@ class CommandMessage extends StatelessWidget {
   final VoidCallback onConfirm;
   final VoidCallback onDismiss;
   final ValueChanged<Task> onPick;
+
+  /// Root menu → the user picked Create/Read/Update/Delete.
+  final ValueChanged<FlowOp> onPickOp;
+
+  /// Create flow → the user picked a category.
+  final ValueChanged<TaskCategory> onPickCategory;
+
+  /// Create flow → the user answered (or skipped) the current field.
+  final void Function(String key, Object? value) onAnswerField;
+
+  /// Create flow → the user tapped a confirm-card row to re-ask that field.
+  final ValueChanged<int> onEditField;
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +308,21 @@ class CommandMessage extends StatelessWidget {
           items: msg.candidates,
           shimmer: shimmer,
         );
+      case ChatKind.menu:
+        return MenuLine(shimmer: shimmer, onPick: onPickOp);
+      case ChatKind.create:
+        return CreateFlowLine(
+          flow: msg.flow!,
+          shimmer: shimmer,
+          busy: busy,
+          onPickCategory: onPickCategory,
+          onAnswer: onAnswerField,
+          onEditField: onEditField,
+          onConfirm: onConfirm,
+          onCancel: onDismiss,
+        );
+      case ChatKind.comingSoon:
+        return ComingSoonLine(op: msg.op!, shimmer: shimmer);
     }
   }
 }

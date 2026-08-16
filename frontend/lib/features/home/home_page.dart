@@ -18,6 +18,7 @@ import '../tasks/presentation/task_details_sheet.dart';
 import 'presentation/collection_page.dart';
 import 'presentation/upcoming_page.dart';
 import 'presentation/widgets/command_chat.dart';
+import 'presentation/widgets/interactive_flow.dart';
 import 'presentation/widgets/home_dashboard.dart' show showAddBrowseSheet;
 import 'presentation/widgets/today_bubbles.dart';
 
@@ -56,6 +57,15 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   /// Called by the shell's command field on send.
   void sendCommand(String text) => _sendCommand(text);
+
+  /// Called by the shell when the ★ opens command mode — seed the deterministic
+  /// (no-LLM) assistant with its root Create/Read/Update/Delete menu, unless a
+  /// conversation is already going (don't stack menus).
+  void startInteractive() {
+    if (_chat.isNotEmpty) return;
+    setState(() => _chat.add(ChatMsg.menu()));
+    _shimmer.forward(from: 0);
+  }
 
   /// Clear the command conversation (shell's clear button / exiting command mode
   /// keeps it, but this lets the user reset).
@@ -613,6 +623,111 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
     setState(() => _chat.remove(msg));
   }
 
+  // ── The deterministic (no-LLM) assistant: menu → create ──────────────────
+
+  /// The user tapped a root option chip. Create opens the interactive create
+  /// flow; the others surface a short "coming soon" line for now.
+  void _pickOp(ChatMsg menu, FlowOp op) {
+    HapticFeedback.selectionClick();
+    final i = _chat.indexOf(menu);
+    if (i == -1) return;
+    setState(() {
+      switch (op) {
+        case FlowOp.create:
+          _chat[i] = ChatMsg.create(CreateFlow());
+        case FlowOp.read:
+        case FlowOp.update:
+        case FlowOp.delete:
+          _chat[i] = ChatMsg.comingSoon(op);
+      }
+    });
+    _shimmer.forward(from: 0);
+  }
+
+  /// Create flow: category chosen → advance to the first field question.
+  void _pickCategory(ChatMsg msg, TaskCategory category) {
+    final flow = msg.flow;
+    if (flow == null) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      flow.category = category;
+      flow.stage = CreateStage.fields;
+      flow.fieldIndex = 0;
+    });
+    _shimmer.forward(from: 0);
+  }
+
+  /// Create flow: the current field was answered (or skipped) → advance to the
+  /// next question, or to the confirm card when the questions run out.
+  void _answerField(ChatMsg msg, String key, Object? value) {
+    final flow = msg.flow;
+    if (flow == null) return;
+    setState(() => flow.answer(key, value));
+    _shimmer.forward(from: 0);
+  }
+
+  /// Create flow: a confirm-card row was tapped → re-ask just that field.
+  void _editField(ChatMsg msg, int index) {
+    final flow = msg.flow;
+    if (flow == null) return;
+    HapticFeedback.selectionClick();
+    setState(() => flow.editField(index));
+    _shimmer.forward(from: 0);
+  }
+
+  /// Create flow: Confirm → build the task from the collected values and add it
+  /// (one atomic store.add, no LLM). The card locks and Revo confirms.
+  Future<void> _confirmCreate(ChatMsg msg) async {
+    final flow = msg.flow;
+    if (flow == null || flow.done || _commandBusy) return;
+    final title = flow.title?.trim();
+    if (title == null || title.isEmpty) return;
+    setState(() => _commandBusy = true);
+    HapticFeedback.mediumImpact();
+    try {
+      // Medicine dose times are derived from "how many times a day" — evenly
+      // seeded slots the user can refine later in the task's details.
+      final doseTimes = _doseTimesFor(flow.timesPerDay);
+      await widget.store.add(
+        title,
+        category: flow.category!.name,
+        amount: flow.amount,
+        currency: 'INR',
+        dueAt: flow.dueAt,
+        repeat: flow.repeat,
+        doseTimes: doseTimes,
+        courseDays: flow.courseDays,
+      );
+      if (!mounted) return;
+      setState(() {
+        flow.done = true;
+        _commandBusy = false;
+      });
+      _fetchLines();
+      setState(() => _replay++);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _commandBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't add that — try again.")),
+      );
+    }
+  }
+
+  /// Seed evenly-spaced dose times for a medicine taken [n] times a day
+  /// (e.g. 3 → 08:00, 14:00, 20:00). Empty when not a dosing medicine.
+  List<String> _doseTimesFor(int? n) {
+    if (n == null || n <= 0) return const [];
+    if (n == 1) return const ['09:00'];
+    const startHour = 8;
+    const endHour = 20;
+    final span = endHour - startHour;
+    return List.generate(n, (i) {
+      final h = startHour + (span * i / (n - 1)).round();
+      return '${h.toString().padLeft(2, '0')}:00';
+    });
+  }
+
   /// The chat messages as feed rows. The LAST message animates its shimmer via
   /// [_shimmer]; every earlier one is fully settled (shimmer = 1). A small top
   /// gap separates the thread from the bubbles above.
@@ -622,6 +737,11 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
     for (var i = 0; i < _chat.length; i++) {
       final msg = _chat[i];
       final isLast = i == _chat.length - 1;
+      // Create messages commit via _confirmCreate; every other kind via the
+      // NL-path _confirmCommand.
+      final onConfirm = msg.kind == ChatKind.create
+          ? () => _confirmCreate(msg)
+          : () => _confirmCommand(msg);
       final row = Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: isLast
@@ -631,18 +751,26 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   msg: msg,
                   shimmer: _shimmer.value,
                   busy: _commandBusy,
-                  onConfirm: () => _confirmCommand(msg),
+                  onConfirm: onConfirm,
                   onDismiss: () => _dismissCommand(msg),
                   onPick: (t) => _pickCandidate(msg, t),
+                  onPickOp: (op) => _pickOp(msg, op),
+                  onPickCategory: (c) => _pickCategory(msg, c),
+                  onAnswerField: (k, v) => _answerField(msg, k, v),
+                  onEditField: (idx) => _editField(msg, idx),
                 ),
               )
             : CommandMessage(
                 msg: msg,
                 shimmer: 1,
                 busy: _commandBusy,
-                onConfirm: () => _confirmCommand(msg),
+                onConfirm: onConfirm,
                 onDismiss: () => _dismissCommand(msg),
                 onPick: (t) => _pickCandidate(msg, t),
+                onPickOp: (op) => _pickOp(msg, op),
+                onPickCategory: (c) => _pickCategory(msg, c),
+                onAnswerField: (k, v) => _answerField(msg, k, v),
+                onEditField: (idx) => _editField(msg, idx),
               ),
       );
       rows.add(row);

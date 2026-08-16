@@ -47,7 +47,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     super.initState();
     _morph = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 520),
+      duration: const Duration(milliseconds: 320),
     );
     // Restore saved tasks (and their icons) from on-device storage.
     _store.load();
@@ -59,6 +59,9 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   void _openCommand() {
     setState(() => _commandMode = true);
     _morph.forward();
+    // Seed the deterministic (no-LLM) assistant with its root menu, so the ★
+    // greets you with Create/Read/Update/Delete chips right away.
+    _homeKey.currentState?.startInteractive();
   }
 
   void _closeCommand() {
@@ -214,20 +217,23 @@ class _BottomBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, c) {
           final total = c.maxWidth;
-          // The RIGHT element's width animates from a circle (_h) to the full
-          // field. The LEFT takes the rest. Real pixel widths → both stay
-          // tappable at every t (no zero-width Flexible eating the tap).
-          final rightMin = _h; // ★ circle
-          final rightMax = total * 0.72; // command field
-          final rightW = rightMin + (rightMax - rightMin) * t;
-          final leftW = total - rightW - _gap;
+          // Widths are derived so left + gap + right == total EXACTLY at every
+          // t — no independent clamps that could sum past `total` and overflow.
+          //   right: circle (_h) → full command field
+          //   left : rest → shrinks to a small dot (never below _h)
+          final rightMin = _h;
+          final rightMax = total - _gap - _h; // leave a dot's width on the left
+          final rightW = (rightMin + (rightMax - rightMin) * t)
+              .clamp(_h, total - _gap - _h);
+          final leftW = total - _gap - rightW; // exact remainder
 
           return SizedBox(
             height: _h,
             child: Row(
+              mainAxisSize: MainAxisSize.max,
               children: [
                 SizedBox(
-                  width: leftW.clamp(_h, total),
+                  width: leftW,
                   child: _NavHalf(
                     collapsed: t,
                     index: tab,
@@ -272,39 +278,46 @@ class _NavHalf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final navOpacity = (1 - collapsed * 2).clamp(0.0, 1.0);
-    final dotOpacity = ((collapsed - 0.5) / 0.5).clamp(0.0, 1.0);
+    // Fade the nav contents out QUICKLY (done by t=0.35) so they never linger to
+    // overflow as the pill narrows; the dot fades in after.
+    final navOpacity = (1 - collapsed / 0.35).clamp(0.0, 1.0);
+    final dotOpacity = ((collapsed - 0.55) / 0.45).clamp(0.0, 1.0);
     return _LiquidGlass(
-      // Collapsed → a plain round button that reopens the nav on tap.
       onTap: collapsed > 0.5 ? onReopen : null,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // The pill's Home·Browse row (default state).
-          if (navOpacity > 0.01)
-            Opacity(
-              opacity: navOpacity,
-              child: Row(
-                children: [
-                  for (var i = 0; i < 2; i++)
-                    Expanded(
-                      child: _NavButton(
-                        item: _kNavItems[i],
-                        selected: i == index,
-                        onTap: () => onChanged(i),
-                      ),
-                    ),
-                ],
+      // Clip so nothing spills outside the pill while it's shrinking.
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // The pill's Home·Browse row — centered, min-width buttons, kept from
+            // overflowing by a FittedBox scaleDown.
+            if (navOpacity > 0.01)
+              Opacity(
+                opacity: navOpacity,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < 2; i++)
+                        _NavButton(
+                          item: _kNavItems[i],
+                          selected: i == index,
+                          onTap: () => onChanged(i),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          // The collapsed dot glyph (command state).
-          if (dotOpacity > 0.01)
-            Opacity(
-              opacity: dotOpacity,
-              child: const Icon(Icons.grid_view_rounded,
-                  size: 22, color: AppColors.inkSoft),
-            ),
-        ],
+            if (dotOpacity > 0.01)
+              Opacity(
+                opacity: dotOpacity,
+                child: const Icon(Icons.grid_view_rounded,
+                    size: 22, color: AppColors.inkSoft),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -327,10 +340,10 @@ class _RightHalf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final starOpacity = (1 - t * 2).clamp(0.0, 1.0);
-    final fieldOpacity = ((t - 0.5) / 0.5).clamp(0.0, 1.0);
-    // At t=0 the ★ is a filled accent circle; as it opens it becomes the light
-    // glass field. Blend the fill so it reads as one morph.
+    // ★ fades out fast; the field only mounts once there's room (t>0.55), so its
+    // full-width Row never overflows the still-narrow container.
+    final starOpacity = (1 - t / 0.35).clamp(0.0, 1.0);
+    final fieldOpacity = ((t - 0.55) / 0.45).clamp(0.0, 1.0);
     return _LiquidGlass(
       accentFill: 1 - t, // 1 = solid accent circle, 0 = light glass field
       onTap: t < 0.5
@@ -339,21 +352,26 @@ class _RightHalf extends StatelessWidget {
               onOpenCommand();
             }
           : null,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (starOpacity > 0.01)
-            Opacity(
-              opacity: starOpacity,
-              child: const Icon(Icons.auto_awesome_rounded,
-                  size: 25, color: Colors.white),
-            ),
-          if (fieldOpacity > 0.01)
-            Opacity(
-              opacity: fieldOpacity,
-              child: _CommandField(busy: busy, onSend: onSend),
-            ),
-        ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (starOpacity > 0.01)
+              Opacity(
+                opacity: starOpacity,
+                child: const Icon(Icons.auto_awesome_rounded,
+                    size: 25, color: Colors.white),
+              ),
+            if (fieldOpacity > 0.01)
+              Positioned.fill(
+                child: Opacity(
+                  opacity: fieldOpacity,
+                  child: _CommandField(busy: busy, onSend: onSend),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

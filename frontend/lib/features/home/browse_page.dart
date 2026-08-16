@@ -124,13 +124,25 @@ class _BrowsePageState extends State<BrowsePage>
             padding: const EdgeInsets.only(top: 18, bottom: 120),
             children: [
               _header(),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               for (var i = 0; i < destinations.length; i++)
                 _CascadeIn(
                   intro: _intro,
                   index: i,
                   total: destinations.length,
-                  child: _DestTile(dest: destinations[i]),
+                  child: Column(
+                    children: [
+                      if (i > 0)
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          indent: 22,
+                          endIndent: 22,
+                          color: AppColors.hairline,
+                        ),
+                      _DestTile(dest: destinations[i]),
+                    ],
+                  ),
                 ),
             ],
           );
@@ -254,6 +266,8 @@ class _DestTileState extends State<_DestTile> {
   Widget build(BuildContext context) {
     final d = widget.dest;
     final count = d.count;
+    // A plain LINE row (no card box) — icon, label, count, chevron, with a subtle
+    // press highlight. Dividers between rows come from the parent list.
     return GestureDetector(
       onTapDown: (_) => setState(() => _down = true),
       onTapUp: (_) => setState(() => _down = false),
@@ -262,69 +276,42 @@ class _DestTileState extends State<_DestTile> {
         HapticFeedback.selectionClick();
         d.onTap();
       },
-      child: AnimatedScale(
-        scale: _down ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOut,
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(18, 5, 18, 5),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: d.highlight
-                ? AppColors.accent.withValues(alpha: 0.10)
-                : AppColors.card.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: d.highlight
-                  ? AppColors.accent.withValues(alpha: 0.32)
-                  : AppColors.cardBorder,
-            ),
-          ),
-          child: Row(
-            children: [
-              // A calm, static accent icon chip.
-              Container(
-                width: 48,
-                height: 48,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: AppColors.accent.withValues(alpha: 0.34)),
-                ),
-                child: Icon(d.icon, color: AppColors.accent, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                // Just the heading — no subtitle, for a clean, consistent list.
-                child: Text(
-                  d.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.2,
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                count == 0 ? '—' : '$count',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        color: _down ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+        child: Row(
+          children: [
+            // A calm accent icon — no chip box, just the glyph.
+            Icon(d.icon, color: AppColors.accent, size: 23),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                d.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: count == 0 ? AppColors.inkFaint : AppColors.accent,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+                  fontSize: 16.5,
+                  fontWeight: d.highlight ? FontWeight.w800 : FontWeight.w700,
+                  letterSpacing: -0.2,
+                  color: AppColors.ink,
                 ),
               ),
-              const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded,
-                  size: 20, color: AppColors.inkFaint.withValues(alpha: 0.8)),
-            ],
-          ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              count == 0 ? '—' : '$count',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: count == 0 ? AppColors.inkFaint : AppColors.accent,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded,
+                size: 20, color: AppColors.inkFaint.withValues(alpha: 0.8)),
+          ],
         ),
       ),
     );

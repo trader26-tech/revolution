@@ -47,7 +47,8 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     super.initState();
     _morph = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 320),
+      duration: const Duration(milliseconds: 240),
+      reverseDuration: const Duration(milliseconds: 200),
     );
     // Restore saved tasks (and their icons) from on-device storage.
     _store.load();
@@ -100,7 +101,9 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
       body: AnimatedBuilder(
         animation: _morph,
         builder: (context, _) {
-          final t = Curves.easeOutCubic.transform(_morph.value);
+          // easeOutExpo: responds instantly to the tap then glides to a smooth
+          // stop — reads faster and less "laggy" than easeOutCubic at this speed.
+          final t = Curves.easeOutExpo.transform(_morph.value);
           return Stack(
             children: [
               Container(

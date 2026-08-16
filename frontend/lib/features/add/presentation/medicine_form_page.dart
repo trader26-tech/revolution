@@ -374,7 +374,7 @@ class _NameCard extends StatelessWidget {
               ),
               decoration: const InputDecoration(
                 isDense: true,
-                hintText: 'Which medicine? (e.g. Metformin)',
+                hintText: 'Medicine name',
                 hintStyle: TextStyle(
                   color: AppColors.inkFaint,
                   fontWeight: FontWeight.w700,

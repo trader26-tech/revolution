@@ -293,131 +293,45 @@ class _BottomBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, c) {
           final total = c.maxWidth;
-
-          // ── AT REST (t≈0): ONE unified glass bar — Home · Browse · Docs · a
-          // search button, evenly spread across the FULL width. No nested pills,
-          // no wasted gaps. This is the clean resting face.
-          //
-          // ── OPENING (t→1): cross-fade the unified bar out and the morphing
-          // two-element field in (dot on the left, the search field growing to
-          // fill the bar). The existing morph machinery drives that state.
-          final restOpacity = (1 - t / 0.35).clamp(0.0, 1.0);
-          final morphOpacity = ((t - 0.25) / 0.75).clamp(0.0, 1.0);
-
-          // The morphing (open) layout — kept as-is, shown only while opening.
+          // TWO elements: the NAV PILL (Home · Browse · Docs, in one glass pill)
+          // on the left, and a SEPARATE search circle on the right. At rest they
+          // sit side by side with just [_gap] between — the nav pill takes all the
+          // width left of the circle, so nothing is wasted.
+          // As the chat opens (t→1) the search circle grows into the full-width
+          // field and the nav pill collapses to a dot.
           final rightW =
               (_h + (total - _gap - _h - _h) * t).clamp(_h, total - _gap - _h);
           final leftW = (total - _gap - rightW).clamp(_h, total);
 
           return SizedBox(
             height: _h,
-            child: Stack(
+            child: Row(
+              mainAxisSize: MainAxisSize.max,
               children: [
-                // The morphing dot + field (only meaningful while opening/open).
-                if (morphOpacity > 0.01)
-                  Opacity(
-                    opacity: morphOpacity,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        SizedBox(
-                          width: leftW,
-                          child: _NavHalf(
-                            collapsed: t,
-                            index: tab,
-                            onReopen: onCloseCommand,
-                            onChanged: onTab,
-                          ),
-                        ),
-                        const SizedBox(width: _gap),
-                        SizedBox(
-                          width: rightW,
-                          child: _RightHalf(
-                            t: t,
-                            busy: busy,
-                            controller: searchController,
-                            onOpenCommand: onOpenCommand,
-                            onSend: onSend,
-                          ),
-                        ),
-                      ],
-                    ),
+                SizedBox(
+                  width: leftW,
+                  child: _NavHalf(
+                    collapsed: t,
+                    index: tab,
+                    onReopen: onCloseCommand,
+                    onChanged: onTab,
                   ),
-
-                // The unified resting bar — the clean single pill with everything.
-                if (restOpacity > 0.01)
-                  Opacity(
-                    opacity: restOpacity,
-                    child: IgnorePointer(
-                      ignoring: restOpacity < 0.5,
-                      child: _UnifiedBar(
-                        tab: tab,
-                        onTab: onTab,
-                        onSearch: onOpenCommand,
-                      ),
-                    ),
+                ),
+                const SizedBox(width: _gap),
+                SizedBox(
+                  width: rightW,
+                  child: _RightHalf(
+                    t: t,
+                    busy: busy,
+                    controller: searchController,
+                    onOpenCommand: onOpenCommand,
+                    onSend: onSend,
                   ),
+                ),
               ],
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// The clean RESTING nav bar: one glass pill holding Home · Browse · Docs and a
-/// Search button, all evenly spread across the full width — no nested pills, no
-/// wasted space. The selected tab is an accent pill; Search is the last item and
-/// opens the command chat (which morphs it into a full search field).
-class _UnifiedBar extends StatelessWidget {
-  const _UnifiedBar({
-    required this.tab,
-    required this.onTab,
-    required this.onSearch,
-  });
-
-  final int tab;
-  final ValueChanged<int> onTab;
-  final VoidCallback onSearch;
-
-  @override
-  Widget build(BuildContext context) {
-    return _LiquidGlass(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Row(
-            children: [
-              for (var i = 0; i < _kNavItems.length; i++)
-                Expanded(
-                  child: _NavButton(
-                    item: _kNavItems[i],
-                    selected: i == tab,
-                    onTap: () => onTab(i),
-                  ),
-                ),
-              // The search item — a quiet glyph that expands into the search
-              // field (via the morph) when tapped. Same visual weight as a tab.
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    onSearch();
-                  },
-                  behavior: HitTestBehavior.opaque,
-                  child: const SizedBox.expand(
-                    child: Center(
-                      child: Icon(Icons.search_rounded,
-                          size: 24, color: AppColors.inkFaint),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -453,11 +367,10 @@ class _NavHalf extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // The pill's Home·Browse row — the two buttons DISTRIBUTED across the
-            // FULL pill width (spaceEvenly) so the wider resting pill reads as a
-            // balanced bar, not a left-hugged cluster with empty space. It fills
-            // the pill (Positioned.fill), and the pill's ClipRRect keeps it tidy
-            // while it narrows on morph (the contents fade out by t=0.35 anyway).
+            // The tabs — each in an EQUAL Expanded slice so Home · Browse · Docs
+            // fill the whole pill evenly (no wasted space, no left-hugging). The
+            // selected tab draws its accent pill centred in its slice; each tab
+            // fills the pill's full height. Fades out by t=0.35 as it collapses.
             if (navOpacity > 0.01)
               Positioned.fill(
                 child: Padding(
@@ -804,7 +717,7 @@ class _NavButton extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 240),
             curve: Curves.easeOutCubic,
-            padding: EdgeInsets.symmetric(horizontal: selected ? 16 : 8),
+            padding: EdgeInsets.symmetric(horizontal: selected ? 12 : 6),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               gradient: selected

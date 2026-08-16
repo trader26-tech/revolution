@@ -291,7 +291,6 @@ class _TodayBubblesState extends State<TodayBubbles>
               _DoneLine(
                 key: ValueKey('done-${t.id}'),
                 task: t,
-                sentence: sentenceFor(t, widget.lineFor(t)),
                 onRestore: () => _restore(t),
                 onTap: () => widget.onOpen(t),
                 onLongPress: () => _showActions(t),
@@ -311,14 +310,10 @@ class _DoneLine extends StatelessWidget {
   const _DoneLine({
     super.key,
     required this.task,
-    required this.sentence,
     required this.onRestore,
     required this.onTap,
     required this.onLongPress,
   });
-
-  /// The same unified sentence the line showed while active — now struck through.
-  final String sentence;
 
   final Task task;
   final VoidCallback onRestore;
@@ -350,13 +345,15 @@ class _DoneLine extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    // The whole sentence, struck through + dimmed.
+                    // The NAME, struck through + dimmed — matches the active line.
                     child: Text(
-                      sentence,
+                      task.title.trim().isEmpty ? 'Reminder' : task.title.trim(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
-                        height: 1.32,
-                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700,
                         color: AppColors.inkFaint,
                         decoration: TextDecoration.lineThrough,
                         decorationColor: AppColors.inkFaint,

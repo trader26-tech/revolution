@@ -58,6 +58,8 @@ class DocItem {
     required this.addedAt,
     this.originalName,
     this.size,
+    this.carrierTaskId,
+    this.backedUp = false,
   });
 
   final String id;
@@ -72,6 +74,15 @@ class DocItem {
   final String? originalName;
   final int? size;
 
+  /// The id of this document's hidden "carrier" task on the server — the row the
+  /// file bytes are attached to (via POST /tasks/{id}/document). Null = never
+  /// backed up. Set once the carrier task is created + the file uploaded.
+  final String? carrierTaskId;
+
+  /// True once the file bytes are confirmed uploaded to the carrier task's
+  /// bucket. False = local-only (never uploaded, or upload pending/failed).
+  final bool backedUp;
+
   bool get isPdf =>
       localPath.toLowerCase().endsWith('.pdf') ||
       (originalName ?? '').toLowerCase().endsWith('.pdf');
@@ -84,14 +95,23 @@ class DocItem {
     return '${(s / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  DocItem copyWith({String? name, String? folderId}) => DocItem(
+  DocItem copyWith({
+    String? name,
+    String? folderId,
+    String? localPath,
+    String? carrierTaskId,
+    bool? backedUp,
+  }) =>
+      DocItem(
         id: id,
         name: name ?? this.name,
         folderId: folderId ?? this.folderId,
-        localPath: localPath,
+        localPath: localPath ?? this.localPath,
         addedAt: addedAt,
         originalName: originalName,
         size: size,
+        carrierTaskId: carrierTaskId ?? this.carrierTaskId,
+        backedUp: backedUp ?? this.backedUp,
       );
 
   Map<String, dynamic> toJson() => {
@@ -102,6 +122,8 @@ class DocItem {
         'added_at': addedAt.toIso8601String(),
         'original_name': originalName,
         'size': size,
+        'carrier_task_id': carrierTaskId,
+        'backed_up': backedUp,
       };
 
   factory DocItem.fromJson(Map<String, dynamic> j) => DocItem(
@@ -115,5 +137,7 @@ class DocItem {
             DateTime.fromMillisecondsSinceEpoch(0),
         originalName: j['original_name'] as String?,
         size: (j['size'] as num?)?.toInt(),
+        carrierTaskId: j['carrier_task_id'] as String?,
+        backedUp: j['backed_up'] as bool? ?? false,
       );
 }

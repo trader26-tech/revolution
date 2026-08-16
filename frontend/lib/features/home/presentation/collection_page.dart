@@ -1178,11 +1178,6 @@ class _CollectionRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
-  static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final urgent = _daysAway() != null && _daysAway()! <= 3;
@@ -1200,69 +1195,39 @@ class _CollectionRow extends StatelessWidget {
           children: [
             _Avatar(task: task, tint: accent),
             const SizedBox(width: 14),
+            // MINIMAL row — just the name. No amount, no cadence, no exact date.
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _priceLine(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                ],
+              child: Text(
+                task.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
+                ),
               ),
             ),
             const SizedBox(width: 10),
-            // The DATE, made explicit — the NEXT occurrence (rolled forward, so
-            // never "overdue"): exact day on top, relative below.
+            // Only a short "when next" relative label ("in 8 days", "in 3 weeks").
             if (task.isScheduled)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _dateLabel(_next()),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
-                    ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: urgent
+                      ? accent.withValues(alpha: 0.18)
+                      : Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  _relLabel(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: urgent ? accent : AppColors.inkSoft,
                   ),
-                  const SizedBox(height: 3),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: urgent
-                          ? accent.withValues(alpha: 0.18)
-                          : Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      _relLabel(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: urgent ? accent : AppColors.inkSoft,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               )
             else
               Text(
@@ -1273,9 +1238,8 @@ class _CollectionRow extends StatelessWidget {
                   color: AppColors.inkFaint,
                 ),
               ),
-            // No ⋮ menu here — tapping the row opens its edit form (delete lives
-            // there), and a swipe-left deletes with an undo toast. Keeps the row
-            // clean. (Documents keep their own ⋮ on the Documents page.)
+            // No ⋮ menu — tapping the row opens its edit form (delete lives
+            // there), and a swipe-left deletes with an undo toast.
           ],
         ),
       ),
@@ -1290,32 +1254,28 @@ class _CollectionRow extends StatelessWidget {
     return DateTime(n.year, n.month, n.day);
   }
 
-  String _priceLine() {
-    // Compact frequency (times but no weekday list) to keep the row tidy.
-    final freq = frequencyLabel(task.repeat, task.repeatTimes);
-    if (task.hasAmount) {
-      final sym = currencyOf(task.currency).symbol;
-      final amt = task.amount!.toStringAsFixed(
-          task.amount == task.amount!.roundToDouble() ? 0 : 2);
-      return '$sym$amt · $freq';
-    }
-    return freq == 'Never' ? 'One-time' : freq;
-  }
-
-  String _dateLabel(DateTime d) => '${d.day} ${_months[d.month - 1]}';
-
   int? _daysAway() {
     if (!task.isScheduled) return null;
     return _next().difference(_today()).inDays;
   }
 
+  /// A short, human "when next" — the ONLY meta shown on a row.
+  ///   Today · Tomorrow · in 5 days · in 3 weeks · in 2 months · in 1 year
   String _relLabel() {
     final days = _daysAway()!;
     if (days <= 0) return 'Today';
     if (days == 1) return 'Tomorrow';
     if (days < 7) return 'in $days days';
-    if (days < 30) return 'in ${(days / 7).round()} wk';
-    return 'in ${(days / 30).round()} mo';
+    if (days < 30) {
+      final w = (days / 7).round();
+      return 'in $w ${w == 1 ? 'week' : 'weeks'}';
+    }
+    if (days < 365) {
+      final m = (days / 30).round();
+      return 'in $m ${m == 1 ? 'month' : 'months'}';
+    }
+    final y = (days / 365).round();
+    return 'in $y ${y == 1 ? 'year' : 'years'}';
   }
 }
 

@@ -2511,50 +2511,33 @@ class _AddBrowseSheet extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               // The SAME clean line-row language as the Browse tab — no boxes, no
-              // per-row cards. General leads, then Documents, then every category,
-              // each a plain row (accent glyph · label · chevron) separated by a
-              // thin hairline. Mirrors Browse so the two "pick a category" surfaces
-              // feel identical.
+              // per-row cards, no dividers. General leads, then Documents, then
+              // every category, each a plain row (accent glyph · label · chevron).
+              // Mirrors Browse so the two "pick a category" surfaces feel identical.
               _AddChoiceRow(
                 icon: TaskCategory.other.icon,
                 label: 'General',
                 onTap: () =>
                     Navigator.of(context).pop(const AddChoice.category(TaskCategory.other)),
               ),
-              const _AddRowDivider(),
               _AddChoiceRow(
                 icon: Icons.folder_rounded,
                 label: 'Document',
                 onTap: () => Navigator.of(context).pop(const AddChoice.document()),
               ),
-              for (final c in kBrowseCategoriesNoGeneral) ...[
-                const _AddRowDivider(),
+              for (final c in kBrowseCategoriesNoGeneral)
                 _AddChoiceRow(
                   icon: c.icon,
                   label: c.label,
                   onTap: () =>
                       Navigator.of(context).pop(AddChoice.category(c)),
                 ),
-              ],
             ],
           ),
         ),
       ),
     );
   }
-}
-
-/// A thin hairline between the add rows — the same quiet separator the Browse
-/// list uses, so the sheet reads as one clean list rather than stacked cards.
-class _AddRowDivider extends StatelessWidget {
-  const _AddRowDivider();
-  @override
-  Widget build(BuildContext context) => Divider(
-        height: 1,
-        thickness: 1,
-        indent: 46,
-        color: Colors.white.withValues(alpha: 0.06),
-      );
 }
 
 /// One choice to add, in the Browse-tab LINE style: a calm accent glyph (no chip

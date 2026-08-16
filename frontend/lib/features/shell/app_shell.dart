@@ -59,9 +59,9 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   void _openCommand() {
     setState(() => _commandMode = true);
     _morph.forward();
-    // Seed the deterministic (no-LLM) assistant with its root menu, so the ★
-    // greets you with Create/Read/Update/Delete chips right away.
-    _homeKey.currentState?.startInteractive();
+    // The ★ opens the natural-language command chat, ready to type — no menu.
+    // (The chat already does full CRUD + queries: "change netflix to 799",
+    // "what subscriptions this week", "delete gym".)
   }
 
   void _closeCommand() {

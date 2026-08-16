@@ -290,7 +290,18 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
 /// [progress] drives the greeting's word conjure; [entrance] drives Revo's
 /// big→small move + the greeting's hand-off.
 class _HeroGreeting extends StatelessWidget {
-  const _HeroGreeting({required this.progress, required this.entrance});
+  const _HeroGreeting({
+    required this.lead,
+    required this.hero,
+    required this.progress,
+    required this.entrance,
+  });
+
+  /// The quiet lead line (tier 1) and the big gradient hero word (tier 2) — both
+  /// change per step (see CommandChatController.header), so the header is never a
+  /// constant greeting.
+  final String lead;
+  final String hero;
 
   /// Per-open shimmer progress (0→1) for the MagicText word reveal.
   final double progress;
@@ -317,9 +328,11 @@ class _HeroGreeting extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Tier 1 — the quiet lead ("What do you want to do")
+              // Tier 1 — the quiet lead line. Keyed by text so a new step's line
+              // re-conjures instead of morphing letters in place.
               MagicText(
-                text: 'What do you want to do',
+                key: ValueKey('lead-$lead'),
+                text: lead,
                 progress: tier1,
                 reading: true,
                 style: const TextStyle(
@@ -331,7 +344,7 @@ class _HeroGreeting extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              // Tier 2 — the big gradient HERO word ("today?"), glowing in.
+              // Tier 2 — the big gradient HERO word, glowing in.
               DecoratedBox(
                 decoration: BoxDecoration(
                   boxShadow: [
@@ -353,7 +366,8 @@ class _HeroGreeting extends StatelessWidget {
                   ).createShader(rect),
                   blendMode: BlendMode.srcIn,
                   child: MagicText(
-                    text: 'today?',
+                    key: ValueKey('hero-$hero'),
+                    text: hero,
                     progress: tier2,
                     style: const TextStyle(
                       fontSize: 40,

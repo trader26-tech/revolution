@@ -202,7 +202,11 @@ class _MedicineFormPageState extends State<MedicineFormPage> {
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                 children: [
                   // ── Name ──
-                  _NameCard(controller: _name, focus: _nameFocus),
+                  _NameCard(
+                    controller: _name,
+                    focus: _nameFocus,
+                    autofocus: !_isEdit,
+                  ),
                   const OrbitSaveHint(),
                   const SizedBox(height: 20),
 
@@ -286,7 +290,14 @@ class _GroupLabel extends StatelessWidget {
 // ── Name card ────────────────────────────────────────────────────────────────
 
 class _NameCard extends StatelessWidget {
-  const _NameCard({required this.controller, required this.focus});
+  const _NameCard({
+    required this.controller,
+    required this.focus,
+    this.autofocus = false,
+  });
+
+  /// Only raise the keyboard when ADDING, never when editing an existing item.
+  final bool autofocus;
   final TextEditingController controller;
   final FocusNode focus;
 
@@ -325,7 +336,7 @@ class _NameCard extends StatelessWidget {
             child: TextField(
               controller: controller,
               focusNode: focus,
-              autofocus: true,
+              autofocus: autofocus,
               textCapitalization: TextCapitalization.sentences,
               cursorColor: AppColors.accent,
               onTapOutside: (_) => FocusScope.of(context).unfocus(),

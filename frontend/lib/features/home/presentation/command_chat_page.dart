@@ -138,11 +138,17 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
   // then closes the chat so returning shows the destination, not the stale
   // palette. The field is cleared so the next ★ open starts fresh.
 
-  void _clearSearch() => widget.searchController.clear();
+  /// Before navigating to a result: dismiss the keyboard, clear the field, and
+  /// close the chat overlay — so the destination opens cleanly, NOT with the
+  /// search field/keyboard still up over its header.
+  void _leaveSearch() {
+    FocusManager.instance.primaryFocus?.unfocus(); // drop the keyboard
+    widget.searchController.clear();
+    widget.onNavigated(); // close the chat overlay (reverse the morph)
+  }
 
   Future<void> _openTask(Task task) async {
-    _clearSearch();
-    widget.onNavigated(); // close the chat overlay
+    _leaveSearch();
     await openEditForm(
       context,
       _c.store,
@@ -158,16 +164,14 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
   }
 
   void _openDocument(DocItem doc) {
-    _clearSearch();
-    widget.onNavigated();
+    _leaveSearch();
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => DocumentViewerPage(doc: doc)),
     );
   }
 
   void _openCategory(TaskCategory category) {
-    _clearSearch();
-    widget.onNavigated();
+    _leaveSearch();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CollectionPage(store: _c.store, category: category),

@@ -139,7 +139,11 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
                   children: [
                     // ── Title ──
-                    _TitleCard(controller: _title, focus: _titleFocus),
+                    _TitleCard(
+                      controller: _title,
+                      focus: _titleFocus,
+                      autofocus: widget.editTask == null,
+                    ),
                     const OrbitSaveHint(),
                     const SizedBox(height: 18),
 
@@ -213,9 +217,18 @@ class _GeneralFormPageState extends State<GeneralFormPage> {
 
 /// The title input, in the orbit identity-card style (icon chip + text field).
 class _TitleCard extends StatelessWidget {
-  const _TitleCard({required this.controller, required this.focus});
+  const _TitleCard({
+    required this.controller,
+    required this.focus,
+    this.autofocus = false,
+  });
   final TextEditingController controller;
   final FocusNode focus;
+
+  /// Only auto-focus (raise the keyboard) when ADDING — never when editing an
+  /// existing reminder, where the name's already filled and the user is just
+  /// reviewing/tweaking.
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +265,7 @@ class _TitleCard extends StatelessWidget {
             child: TextField(
               controller: controller,
               focusNode: focus,
-              autofocus: true,
+              autofocus: autofocus,
               textCapitalization: TextCapitalization.sentences,
               cursorColor: AppColors.accent,
               onTapOutside: (_) => FocusScope.of(context).unfocus(),

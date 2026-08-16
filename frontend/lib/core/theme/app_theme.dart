@@ -60,6 +60,19 @@ class AppTheme {
       fontFamily: 'PlusJakartaSans',
       textTheme: _textTheme,
       splashFactory: InkRipple.splashFactory,
+      // ONE consistent, subtle page transition everywhere (all platforms) so
+      // navigating between screens feels smooth — a gentle fade + rise/slide,
+      // never the abrupt platform default.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _SmoothPageTransitionsBuilder(),
+          TargetPlatform.iOS: _SmoothPageTransitionsBuilder(),
+          TargetPlatform.macOS: _SmoothPageTransitionsBuilder(),
+          TargetPlatform.windows: _SmoothPageTransitionsBuilder(),
+          TargetPlatform.linux: _SmoothPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: _SmoothPageTransitionsBuilder(),
+        },
+      ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.accent,
@@ -108,4 +121,50 @@ class AppTheme {
     labelLarge: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0),
     labelMedium: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.1),
   );
+}
+
+/// The app's ONE page transition — a subtle FADE + gentle RISE for the incoming
+/// page, and a slight fade-back for the outgoing one. Calm and premium, applied
+/// to every route push app-wide via [ThemeData.pageTransitionsTheme] so every
+/// screen change feels smooth and consistent (never the abrupt default).
+class _SmoothPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _SmoothPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    // Incoming page: fade in + rise a touch, on a smooth decelerating curve.
+    final enter = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    // Outgoing page (underneath): a gentle fade + tiny lift, so it recedes
+    // instead of just snapping away.
+    final exit = CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    return FadeTransition(
+      opacity: enter,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.03), // rise ~3% of height as it fades in
+          end: Offset.zero,
+        ).animate(enter),
+        child: FadeTransition(
+          // The outgoing page dims slightly to ~0.85 as the new one covers it.
+          opacity: Tween<double>(begin: 1, end: 0.85).animate(exit),
+          child: child,
+        ),
+      ),
+    );
+  }
 }

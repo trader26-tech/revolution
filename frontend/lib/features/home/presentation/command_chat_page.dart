@@ -74,7 +74,8 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
     final open = widget.morph.value > 0.01;
     if (open && !_wasOpen) {
       _wasOpen = true;
-      _c.startInteractive();
+      // Fresh start every open — no stale previous conversation.
+      _c.reset();
       _lastTick = _c.revealTick;
       _shimmer.forward(from: 0);
     } else if (!open && _wasOpen) {
@@ -199,74 +200,48 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
 
   Widget _buildList() {
     final msgs = _c.chat;
-    // MINIMAL VIEW: only the NEWEST item sits in view (near the top), so it's the
-    // one clear focus. Everything before it — the greeting hero + earlier replies
-    // — is pushed UP off-screen; scroll up to see the timeline. We do this with a
-    // big spacer inserted right before the last message, sized to the viewport,
-    // and by auto-scrolling to the bottom whenever a new message lands.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final lastIndex = msgs.length - 1; // -1 if empty
-        // Spacer height ≈ most of the viewport, so scrolling to the bottom parks
-        // the newest item just under the top. Leave a little so a hint of the
-        // previous item peeks (invites the scroll-up).
-        final spacer = (constraints.maxHeight - 140).clamp(0.0, double.infinity);
+    return ListView.builder(
+      controller: _scroll,
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
+      itemCount: msgs.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return AnimatedBuilder(
+            animation: Listenable.merge([_shimmer, widget.morph]),
+            builder: (context, _) => _HeroGreeting(
+              progress: _shimmer.value,
+              entrance: widget.morph.value,
+            ),
+          );
+        }
+        final i = index - 1;
+        final msg = msgs[i];
+        final isLast = i == msgs.length - 1;
+        final onConfirm = msg.kind == ChatKind.create
+            ? () => _confirmCreate(msg)
+            : () => _confirmCommand(msg);
 
-        return ListView.builder(
-          controller: _scroll,
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
-          // items: [greeting] + each message; a spacer is prepended to the last.
-          itemCount: msgs.length + 1,
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return AnimatedBuilder(
-                animation: Listenable.merge([_shimmer, widget.morph]),
-                builder: (context, _) => _HeroGreeting(
-                  progress: _shimmer.value,
-                  entrance: widget.morph.value,
-                ),
-              );
-            }
-            final i = index - 1;
-            final msg = msgs[i];
-            final isLast = i == lastIndex;
-            final onConfirm = msg.kind == ChatKind.create
-                ? () => _confirmCreate(msg)
-                : () => _confirmCommand(msg);
-
-            Widget message(double shimmer) => CommandMessage(
-                  msg: msg,
-                  shimmer: shimmer,
-                  busy: _c.commandBusy,
-                  onConfirm: onConfirm,
-                  onDismiss: () => _c.dismissCommand(msg),
-                  onPick: (t) => _c.pickCandidate(msg, t),
-                  onPickOp: (op) => _onPickOp(msg, op),
-                  onPickCategory: (cat) => _c.pickCategory(msg, cat),
-                  onAnswerField: (k, v) => _c.answerField(msg, k, v),
-                  onEditField: (idx) => _c.editField(msg, idx),
-                );
-
-            final row = Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: isLast
-                  ? AnimatedBuilder(
-                      animation: _shimmer,
-                      builder: (context, _) => message(_shimmer.value),
-                    )
-                  : message(1),
+        Widget message(double shimmer) => CommandMessage(
+              msg: msg,
+              shimmer: shimmer,
+              busy: _c.commandBusy,
+              onConfirm: onConfirm,
+              onDismiss: () => _c.dismissCommand(msg),
+              onPick: (t) => _c.pickCandidate(msg, t),
+              onPickOp: (op) => _onPickOp(msg, op),
+              onPickCategory: (cat) => _c.pickCategory(msg, cat),
+              onAnswerField: (k, v) => _c.answerField(msg, k, v),
+              onEditField: (idx) => _c.editField(msg, idx),
             );
 
-            // Push the newest item down so, once scrolled to the bottom, it's the
-            // only thing in view (history sits above, off-screen).
-            if (isLast && msgs.length > 1) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [SizedBox(height: spacer), row],
-              );
-            }
-            return row;
-          },
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: isLast
+              ? AnimatedBuilder(
+                  animation: _shimmer,
+                  builder: (context, _) => message(_shimmer.value),
+                )
+              : message(1),
         );
       },
     );

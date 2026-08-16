@@ -271,48 +271,151 @@ class MenuLine extends StatelessWidget {
   final double shimmer;
   final ValueChanged<FlowOp> onPick;
 
+  /// One-line hint under each action label.
+  static String _hintFor(FlowOp op) => switch (op) {
+        FlowOp.create => 'Add a new reminder or item',
+        FlowOp.read => 'See what you have coming up',
+        FlowOp.update => 'Change something you saved',
+        FlowOp.delete => 'Remove an item',
+      };
+
   @override
   Widget build(BuildContext context) {
     final reveal =
-        Curves.easeOut.transform(((shimmer - 0.45) / 0.55).clamp(0.0, 1.0));
+        Curves.easeOut.transform(((shimmer - 0.3) / 0.7).clamp(0.0, 1.0));
+    // The four CRUD actions as clean tappable LIST ROWS (not chips), each
+    // revealing in sequence.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 6, 24, 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // The big "What do you want to do today?" headline is rendered as a
-          // hero above the thread (command_chat_page.dart); here we keep only a
-          // quiet prompt so the two don't duplicate.
-          Text(
-            'Pick an action',
-            style: TextStyle(
-                fontSize: 18,
-                height: 1.25,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.1,
-                color: AppColors.inkSoft),
-          ),
-          if (reveal > 0.01)
-            Opacity(
-              opacity: reveal,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final op in FlowOp.values)
-                      _Chip(
-                        icon: op.icon,
-                        label: op.label,
-                        filled: op == FlowOp.create,
-                        onTap: () => onPick(op),
-                      ),
-                  ],
-                ),
+          for (var idx = 0; idx < FlowOp.values.length; idx++)
+            _staggered(
+              reveal,
+              idx,
+              _MenuRow(
+                op: FlowOp.values[idx],
+                hint: _hintFor(FlowOp.values[idx]),
+                onTap: () => onPick(FlowOp.values[idx]),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// Slides + fades each row up in sequence off [reveal].
+  Widget _staggered(double reveal, int i, Widget child) {
+    const step = 0.1;
+    final start = i * step;
+    final local = ((reveal - start) / (1 - start)).clamp(0.0, 1.0);
+    final eased = Curves.easeOutCubic.transform(local);
+    return Opacity(
+      opacity: eased,
+      child: Transform.translate(
+        offset: Offset(0, (1 - eased) * 12),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// One CRUD action as a clean tappable LIST ROW: a tinted icon tile, the action
+/// name, a one-line hint, and a chevron. Full-width, press-highlight.
+class _MenuRow extends StatefulWidget {
+  const _MenuRow({required this.op, required this.hint, required this.onTap});
+  final FlowOp op;
+  final String hint;
+  final VoidCallback onTap;
+
+  @override
+  State<_MenuRow> createState() => _MenuRowState();
+}
+
+class _MenuRowState extends State<_MenuRow> {
+  bool _down = false;
+
+  Color get _tint => switch (widget.op) {
+        FlowOp.create => const Color(0xFF7C5CFC),
+        FlowOp.read => const Color(0xFF4EA8FF),
+        FlowOp.update => const Color(0xFFFFB454),
+        FlowOp.delete => const Color(0xFFFF6B6B),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        margin: const EdgeInsets.symmetric(vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: _down
+              ? Colors.white.withValues(alpha: 0.10)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _tint.withValues(alpha: 0.9),
+                    _tint.withValues(alpha: 0.6),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: _tint.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(widget.op.icon, size: 21, color: Colors.white),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.op.label,
+                    style: const TextStyle(
+                      color: AppColors.ink,
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.hint,
+                    style: TextStyle(
+                      color: AppColors.inkSoft.withValues(alpha: 0.9),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                size: 20, color: AppColors.inkFaint),
+          ],
+        ),
       ),
     );
   }

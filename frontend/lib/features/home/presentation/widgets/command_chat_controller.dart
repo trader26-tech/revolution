@@ -55,6 +55,15 @@ class CommandChatController extends ChangeNotifier {
     _reveal();
   }
 
+  /// Start FRESH — clear any previous conversation and seed the root menu. Called
+  /// each time the chat opens, so reopening never shows the old thread.
+  void reset() {
+    chat
+      ..clear()
+      ..add(ChatMsg.menu());
+    _reveal();
+  }
+
   /// Jump straight into a chosen root op (the ★ launcher chips) — seeds a menu
   /// then immediately resolves it, so we skip the extra menu step.
   void startWithOp(FlowOp op) {

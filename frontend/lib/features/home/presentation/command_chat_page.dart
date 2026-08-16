@@ -278,21 +278,15 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
         children: [
-          // Drive the empty-state entrance off the morph so the idle content
-          // sequences in AFTER the bar/field (heading first, then the pinned
-          // list). The morph AnimatedBuilder only wraps the ENTRANCE, not the
-          // (cheap) search matching, so typing stays instant.
-          AnimatedBuilder(
-            animation: widget.morph,
-            builder: (context, _) => QuickSearch(
-              store: _c.store,
-              documents: _documents,
-              searchController: widget.searchController,
-              entrance: widget.morph.value,
-              onOpenTask: _openTask,
-              onOpenDocument: _openDocument,
-              onOpenCategory: _openCategory,
-            ),
+          // QuickSearch owns its OWN entrance (started once the keyboard is up),
+          // so the order reads: field → keyboard → heading + list.
+          QuickSearch(
+            store: _c.store,
+            documents: _documents,
+            searchController: widget.searchController,
+            onOpenTask: _openTask,
+            onOpenDocument: _openDocument,
+            onOpenCategory: _openCategory,
           ),
         ],
       );

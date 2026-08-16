@@ -12,13 +12,12 @@ import '../../../tasks/domain/task.dart';
 /// The ★ QUICK-ACCESS SEARCH — a command-palette / Spotlight. Type anything and
 /// jump straight to it: a reminder, a document, or a category. Typing something
 /// new can also add it. This is the ★'s root content (before any chat).
-class QuickSearch extends StatelessWidget {
+class QuickSearch extends StatefulWidget {
   const QuickSearch({
     super.key,
     required this.store,
     required this.documents,
     required this.searchController,
-    required this.entrance,
     required this.onOpenTask,
     required this.onOpenDocument,
     required this.onOpenCategory,
@@ -32,21 +31,58 @@ class QuickSearch extends StatelessWidget {
   /// the typing lag.
   final TextEditingController searchController;
 
-  /// The bar's open progress (0→1). Used ONLY to sequence the idle entrance
-  /// (heading first, then the pinned list) — not the search matching.
-  final double entrance;
-
   final ValueChanged<Task> onOpenTask;
   final ValueChanged<DocItem> onOpenDocument;
   final ValueChanged<TaskCategory> onOpenCategory;
 
+  @override
+  State<QuickSearch> createState() => _QuickSearchState();
+}
+
+class _QuickSearchState extends State<QuickSearch>
+    with SingleTickerProviderStateMixin {
   static const _perGroup = 5;
+
+  /// The idle-content entrance — starts ONLY once the KEYBOARD is up, so the
+  /// order reads: field appears → keyboard rises → THEN the heading + list
+  /// sequence in. Runs once.
+  late final AnimationController _in;
+  bool _started = false;
+
+  TaskStore get store => widget.store;
+  DocumentsStore get documents => widget.documents;
+  TextEditingController get searchController => widget.searchController;
+  ValueChanged<Task> get onOpenTask => widget.onOpenTask;
+  ValueChanged<DocItem> get onOpenDocument => widget.onOpenDocument;
+  ValueChanged<TaskCategory> get onOpenCategory => widget.onOpenCategory;
+
+  @override
+  void initState() {
+    super.initState();
+    _in = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 620),
+    );
+  }
+
+  @override
+  void dispose() {
+    _in.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Kick the entrance the first frame the keyboard is actually up.
+    final keyboardUp = MediaQuery.of(context).viewInsets.bottom > 0;
+    if (keyboardUp && !_started) {
+      _started = true;
+      _in.forward();
+    }
     return AnimatedBuilder(
-      // Rebuild on: the query typed, tasks changing, documents loading.
-      animation: Listenable.merge([searchController, store, documents]),
+      // Rebuild on: the query typed, tasks changing, documents loading, entrance.
+      animation:
+          Listenable.merge([searchController, store, documents, _in]),
       builder: (context, _) {
         final q = searchController.text.trim();
         return Padding(
@@ -59,15 +95,13 @@ class QuickSearch extends StatelessWidget {
 
   // ── Idle (empty query) — a clean heading + a few PINNED items the user is most
   // likely to want (their most recent reminders), so retrieval is one tap with no
-  // typing. The heading appears FIRST; the pinned list sequences in AFTER (once
-  // the field + keyboard are up), each row cascading — a clean top-to-bottom
-  // entrance. As soon as they type, results replace these.
+  // typing. Sequenced AFTER the keyboard: heading first, then the list cascades.
   Widget _idle(BuildContext context) {
     final recent = _recentTasks();
-    // The heading leads (0 → 0.5 of the entrance); the list follows (0.5 → 1),
-    // so the order reads heading → field/keyboard → list.
-    final headIn = Curves.easeOut.transform((entrance / 0.5).clamp(0.0, 1.0));
-    final listIn = ((entrance - 0.5) / 0.5).clamp(0.0, 1.0);
+    final entrance = _in.value;
+    // Heading leads (0 → 0.45); the list follows (0.45 → 1).
+    final headIn = Curves.easeOut.transform((entrance / 0.45).clamp(0.0, 1.0));
+    final listIn = ((entrance - 0.45) / 0.55).clamp(0.0, 1.0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

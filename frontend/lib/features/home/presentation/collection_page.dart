@@ -396,6 +396,7 @@ class _CollectionPageState extends State<CollectionPage> {
       onClearFilter: () => setState(() => _filter = null),
       isOccasions: category == TaskCategory.birthday,
       isMedicine: category == TaskCategory.medicine,
+      isGeneral: category == TaskCategory.other,
       onTap: (t) => _edit(context, t),
       onDelete: (t) => _delete(context, t),
     );
@@ -439,6 +440,7 @@ class _GroupedList extends StatefulWidget {
     this.onClearFilter,
     this.isOccasions = false,
     this.isMedicine = false,
+    this.isGeneral = false,
   });
 
   final List<_Section> sections;
@@ -452,6 +454,7 @@ class _GroupedList extends StatefulWidget {
   final VoidCallback? onClearFilter;
   final bool isOccasions;
   final bool isMedicine;
+  final bool isGeneral;
 
   @override
   State<_GroupedList> createState() => _GroupedListState();
@@ -493,12 +496,21 @@ class _GroupedListState extends State<_GroupedList>
     final onClearFilter = widget.onClearFilter;
     final isOccasions = widget.isOccasions;
     final isMedicine = widget.isMedicine;
+    final isGeneral = widget.isGeneral;
     final children = <Widget>[
-      // Occasions → a count hero (All → each type). Medicines → a count hero with
-      // a morning/afternoon/evening/night dose breakdown (money is irrelevant for
-      // meds). Everything else → the spend hero.
+      // Category-specific heroes where money isn't the point:
+      //   Medicines → total + morning/afternoon/evening/night dose breakdown.
+      //   Occasions → total + per-type counts.
+      //   General   → total + a repeat breakdown (one-time / monthly / yearly…).
+      // Everything else → the spend hero.
       if (isMedicine)
         _MedicineHero(
+          title: title,
+          icon: icon,
+          items: [for (final s in sections) ...s.items],
+        )
+      else if (isGeneral)
+        _GeneralHero(
           title: title,
           icon: icon,
           items: [for (final s in sections) ...s.items],
@@ -1217,6 +1229,167 @@ class _DosePart extends StatelessWidget {
               color: AppColors.inkSoft.withValues(alpha: 0.85),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The GENERAL hero — total reminders + a REPEAT breakdown (one-time vs how many
+/// repeat monthly / yearly / weekly / daily). Money isn't the point for General,
+/// so this replaces the spend hero. Same card styling.
+class _GeneralHero extends StatelessWidget {
+  const _GeneralHero({
+    required this.title,
+    required this.icon,
+    required this.items,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Task> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = items.where((t) => !t.done).toList();
+    final total = active.length;
+
+    // Bucket by repeat cadence. One-time = no repeat; the rest by cadence.
+    var oneTime = 0, daily = 0, weekly = 0, monthly = 0, yearly = 0;
+    for (final t in active) {
+      switch (t.repeat) {
+        case RepeatCadence.none:
+          oneTime++;
+        case RepeatCadence.minute:
+        case RepeatCadence.hour:
+        case RepeatCadence.daily:
+          daily++;
+        case RepeatCadence.weekly:
+          weekly++;
+        case RepeatCadence.monthly:
+          monthly++;
+        case RepeatCadence.yearly:
+          yearly++;
+      }
+    }
+    // Only show the buckets that actually have items, so it stays clean.
+    final parts = <(String, int)>[
+      if (oneTime > 0) ('One-time', oneTime),
+      if (daily > 0) ('Daily', daily),
+      if (weekly > 0) ('Weekly', weekly),
+      if (monthly > 0) ('Monthly', monthly),
+      if (yearly > 0) ('Yearly', yearly),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF241A44), Color(0xFF1A1330)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.18),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title + emblem.
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    height: 1.05,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _OrbitBadge(icon: icon),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // The big total count.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              ShaderMask(
+                shaderCallback: (r) => const LinearGradient(
+                  colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                ).createShader(r),
+                child: Text(
+                  '$total',
+                  style: const TextStyle(
+                    fontSize: 32,
+                    height: 1.0,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.5,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  total == 1 ? 'reminder' : 'reminders',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.inkSoft.withValues(alpha: 0.95),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          if (parts.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            // The repeat breakdown as small pills.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (label, count) in parts)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 11, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                          color: AppColors.accent.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      '$count $label',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );

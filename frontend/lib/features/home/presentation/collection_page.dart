@@ -1251,35 +1251,7 @@ class _GeneralHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = items.where((t) => !t.done).toList();
-    final total = active.length;
-
-    // Bucket by repeat cadence. One-time = no repeat; the rest by cadence.
-    var oneTime = 0, daily = 0, weekly = 0, monthly = 0, yearly = 0;
-    for (final t in active) {
-      switch (t.repeat) {
-        case RepeatCadence.none:
-          oneTime++;
-        case RepeatCadence.minute:
-        case RepeatCadence.hour:
-        case RepeatCadence.daily:
-          daily++;
-        case RepeatCadence.weekly:
-          weekly++;
-        case RepeatCadence.monthly:
-          monthly++;
-        case RepeatCadence.yearly:
-          yearly++;
-      }
-    }
-    // Only show the buckets that actually have items, so it stays clean.
-    final parts = <(String, int)>[
-      if (oneTime > 0) ('One-time', oneTime),
-      if (daily > 0) ('Daily', daily),
-      if (weekly > 0) ('Weekly', weekly),
-      if (monthly > 0) ('Monthly', monthly),
-      if (yearly > 0) ('Yearly', yearly),
-    ];
+    final total = items.where((t) => !t.done).length;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -1360,36 +1332,6 @@ class _GeneralHero extends StatelessWidget {
               ),
             ],
           ),
-
-          if (parts.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            // The repeat breakdown as small pills.
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final (label, count) in parts)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 11, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                          color: AppColors.accent.withValues(alpha: 0.3)),
-                    ),
-                    child: Text(
-                      '$count $label',
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
         ],
       ),
     );

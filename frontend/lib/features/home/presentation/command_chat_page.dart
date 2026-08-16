@@ -225,15 +225,11 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
         if (index == 0) {
           return AnimatedBuilder(
             animation: Listenable.merge([_shimmer, widget.morph, _c]),
-            builder: (context, _) {
-              final (lead, hero) = _c.header;
-              return _HeroGreeting(
-                lead: lead,
-                hero: hero,
-                progress: _shimmer.value,
-                entrance: widget.morph.value,
-              );
-            },
+            builder: (context, _) => _HeroGreeting(
+              text: _c.header,
+              progress: _shimmer.value,
+              entrance: widget.morph.value,
+            ),
           );
         }
         final i = index - 1;
@@ -305,17 +301,15 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
 /// big→small move + the greeting's hand-off.
 class _HeroGreeting extends StatelessWidget {
   const _HeroGreeting({
-    required this.lead,
-    required this.hero,
+    required this.text,
     required this.progress,
     required this.entrance,
   });
 
-  /// The quiet lead line (tier 1) and the big gradient hero word (tier 2) — both
-  /// change per step (see CommandChatController.header), so the header is never a
-  /// constant greeting.
-  final String lead;
-  final String hero;
+  /// The whole header line — one uniform sentence that changes per step (see
+  /// CommandChatController.header). Rendered as a single gradient line, so it's
+  /// consistent: no mixed colours, no one-word-highlighted look.
+  final String text;
 
   /// Per-open shimmer progress (0→1) for the MagicText word reveal.
   final double progress;
@@ -326,83 +320,57 @@ class _HeroGreeting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final slide = Curves.easeOut.transform(entrance.clamp(0.0, 1.0));
-    // Two tiers, matching the HOME greeting: a quiet lead line, then a BIG
-    // gradient-filled hero line (violet→lavender ShaderMask) with a soft glow —
-    // the same premium "name" treatment as "Good evening, Rajeev".
-    final tier1 = _seg(progress, 0.0, 0.55);
-    final tier2 = _seg(progress, 0.4, 1.0);
-    final bloom = tier2 >= 0.999 ? 0.0 : math.sin(tier2.clamp(0.0, 1.0) * math.pi);
+    final bloom = progress >= 0.999
+        ? 0.0
+        : math.sin(progress.clamp(0.0, 1.0) * math.pi);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 22, 18),
+      padding: const EdgeInsets.fromLTRB(20, 12, 22, 18),
       child: Opacity(
         opacity: slide,
         child: Transform.translate(
           offset: Offset(0, (1 - slide) * 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Tier 1 — the quiet lead line. Keyed by text so a new step's line
-              // re-conjures instead of morphing letters in place.
-              MagicText(
-                key: ValueKey('lead-$lead'),
-                text: lead,
-                progress: tier1,
+          // ONE uniform header: the full line, one size/weight, one violet→
+          // lavender gradient across the whole thing, with a soft glow.
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.accent.withValues(alpha: 0.35 * bloom),
+                  blurRadius: 28 * bloom,
+                  spreadRadius: 1 * bloom,
+                ),
+              ],
+            ),
+            child: ShaderMask(
+              shaderCallback: (rect) => const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFF3EFFF), // near-white lavender
+                  Color(0xFFB9A5FF), // soft violet
+                ],
+              ).createShader(rect),
+              blendMode: BlendMode.srcIn,
+              child: MagicText(
+                key: ValueKey('header-$text'),
+                text: text,
+                progress: progress,
                 reading: true,
                 style: const TextStyle(
-                  color: AppColors.inkSoft,
-                  fontSize: 20,
-                  height: 1.15,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
+                  fontSize: 30,
+                  height: 1.16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: Colors.white, // recoloured by the ShaderMask
                 ),
               ),
-              const SizedBox(height: 2),
-              // Tier 2 — the big gradient HERO word, glowing in.
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.accent.withValues(alpha: 0.45 * bloom),
-                      blurRadius: 26 * bloom,
-                      spreadRadius: 1 * bloom,
-                    ),
-                  ],
-                ),
-                child: ShaderMask(
-                  shaderCallback: (rect) => const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFEDE7FF), // near-white lavender
-                      AppColors.accent, // vivid violet
-                    ],
-                  ).createShader(rect),
-                  blendMode: BlendMode.srcIn,
-                  child: MagicText(
-                    key: ValueKey('hero-$hero'),
-                    text: hero,
-                    progress: tier2,
-                    style: const TextStyle(
-                      fontSize: 40,
-                      height: 1.05,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.8,
-                      color: Colors.white, // recoloured by the ShaderMask
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
-
-  /// Remap [p] onto a sub-window [start,end], clamped 0..1.
-  double _seg(double p, double start, double end) =>
-      ((p - start) / (end - start)).clamp(0.0, 1.0);
 }
 
 /// The living violet AURORA behind the chat — two soft radial blooms (one rising

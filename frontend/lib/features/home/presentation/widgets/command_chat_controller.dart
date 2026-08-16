@@ -80,60 +80,45 @@ class CommandChatController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The CONTEXTUAL header for the current step — a quiet lead line + a big
-  /// gradient "hero" word. It changes as you move through the flow, so the top of
-  /// the screen always reflects what you're doing (never a constant greeting).
-  /// Returns (lead, hero).
-  (String, String) get header {
-    if (chat.isEmpty) return ('What do you want to do', 'today?');
+  /// The CONTEXTUAL header for the current step — ONE clean, meaningful line
+  /// that changes as you move through the flow, so the top of the screen always
+  /// reflects what you're doing (never a constant greeting).
+  String get header {
+    if (chat.isEmpty) return 'What would you like to do?';
     final last = chat.last;
     switch (last.kind) {
       case ChatKind.menu:
-        return ('What do you want to do', 'today?');
+        return 'What would you like to do?';
       case ChatKind.create:
         final flow = last.flow!;
-        if (flow.done) return ('That\'s', 'added.');
+        if (flow.done) return 'Added to your list.';
         switch (flow.stage) {
           case CreateStage.pickCategory:
-            return ('What are you', 'adding?');
+            return 'What are you adding?';
           case CreateStage.fields:
-            // The header ASKS the current field's question (split into a lead +
-            // a short emphasised tail), so the body doesn't repeat it.
-            final prompt = flow.currentField?.prompt ?? 'Tell me more';
-            return _splitPrompt(prompt);
+            // The header ASKS the current field's question, so the body doesn't
+            // repeat it.
+            return flow.currentField?.prompt ?? 'Tell me more.';
           case CreateStage.confirm:
-            return ('Ready to', 'save?');
+            return 'Does this look right?';
         }
       case ChatKind.answer:
-        return ('Here\'s what\'s', 'coming up.');
+        return 'Here\'s what you have.';
       case ChatKind.proposal:
-        return ('Want me to', 'add this?');
+        return 'Want me to add this?';
       case ChatKind.action:
-        return ('Confirm this', 'change?');
+        return 'Confirm this change?';
       case ChatKind.picker:
-        return ('Which one did you', 'mean?');
+        return 'Which one did you mean?';
       case ChatKind.comingSoon:
-        return ('${last.op?.label ?? 'That'} is', 'coming soon.');
+        return '${last.op?.label ?? 'That'} is coming soon.';
       case ChatKind.done:
-        return ('All', 'done.');
+        return 'All done.';
       case ChatKind.thinking:
-        return ('One', 'sec…');
+        return 'One second…';
       case ChatKind.user:
-        return ('On', 'it.');
+        return 'On it…';
     }
-  }
-
-  /// Split a question into a quiet lead + an emphasised tail for the two-tier
-  /// header, e.g. "What's it called?" → ("What's it", "called?"), "How much is
-  /// it?" → ("How much", "is it?"). Falls back to the whole line as the hero.
-  (String, String) _splitPrompt(String prompt) {
-    final words = prompt.trim().split(' ');
-    if (words.length < 2) return ('', prompt);
-    // Emphasise the last 1–2 words as the hero.
-    final tailCount = words.length >= 4 ? 2 : 1;
-    final lead = words.sublist(0, words.length - tailCount).join(' ');
-    final hero = words.sublist(words.length - tailCount).join(' ');
-    return (lead, hero);
   }
 
   /// Append a plain Revo confirmation line to the thread (used by the page after

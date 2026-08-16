@@ -212,7 +212,6 @@ class _Browse extends StatelessWidget {
             count: cat.items.where((i) => !i.isOther).length,
             onTap: () => onPickCategory(cat),
           ),
-        const _RowDivider(),
         // The catch-all: a blank reminder, no category, no count.
         _CategoryRow(
           title: 'Add a reminder',
@@ -323,15 +322,6 @@ class _CategoryRow extends StatelessWidget {
       ),
     );
   }
-}
-
-class _RowDivider extends StatelessWidget {
-  const _RowDivider();
-  @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.fromLTRB(80, 4, 20, 4),
-        child: Divider(height: 1, color: AppColors.hairline),
-      );
 }
 
 /// One reminder row: a soft accent icon tile, the label, and a trailing "+".

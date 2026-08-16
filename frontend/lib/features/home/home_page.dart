@@ -17,7 +17,6 @@ import '../tasks/domain/task.dart';
 import '../tasks/presentation/task_details_sheet.dart';
 import 'presentation/collection_page.dart';
 import 'presentation/upcoming_page.dart';
-import 'presentation/widgets/command_box.dart';
 import 'presentation/widgets/command_chat.dart';
 import 'presentation/widgets/home_dashboard.dart' show showAddBrowseSheet;
 import 'presentation/widgets/today_bubbles.dart';
@@ -361,23 +360,9 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ],
           ),
         ),
-        // The COMMAND INPUT — pinned to the bottom, always open. Hidden while
-        // the nav is open, so the input line and the Home·Browse nav interchange
-        // on that one line (the Menu button on the left opens the nav).
-        if (!widget.navOpen)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: CommandBox(
-                busy: _commandBusy,
-                onSend: _sendCommand,
-                onMenu: () => widget.onToggleNav?.call(),
-              ),
-            ),
-          ),
+        // The command INPUT + morphing nav live in the SHELL now (it owns the
+        // bottom-bar morph). Home just renders the chat in its feed and exposes
+        // sendCommand()/hasChat/clearChat for the shell to drive.
       ],
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
@@ -24,12 +25,19 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   int _tab = 0;
 
-  /// Whether the bottom nav is revealed. Hidden by default so the Home command
-  /// box owns the bottom of the screen; a small handle reveals it on demand.
-  bool _navOpen = false;
+  /// COMMAND MODE — the bottom bar morphs between two states:
+  ///   false → [Home·Browse nav | left] + [circular ★ button | right]
+  ///   true  → [small dot-button | left] + [command text field | right]
+  /// [_morph] (0→1) drives the whole transition + the space-colour aurora wash.
+  bool _commandMode = false;
+  late final AnimationController _morph;
+
+  /// Drives the command chat (parse + reply) — lives on Home; the shell owns the
+  /// input and forwards typed commands here.
+  final _homeKey = GlobalKey<HomePageState>();
 
   // One shared task store so Home and Browse stay in sync.
   final _store = TaskStore();
@@ -37,11 +45,25 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    _morph = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
     // Restore saved tasks (and their icons) from on-device storage.
     _store.load();
     // Check for a newer app version on launch, and prompt (blocking if the
     // build is below the server's min-supported → mandatory update).
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+  }
+
+  void _openCommand() {
+    setState(() => _commandMode = true);
+    _morph.forward();
+  }
+
+  void _closeCommand() {
+    setState(() => _commandMode = false);
+    _morph.reverse();
   }
 
   /// Ask the backend if a newer build exists. When one does, show the update
@@ -56,6 +78,7 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    _morph.dispose();
     _store.dispose();
     super.dispose();
   }
@@ -63,112 +86,406 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      // isActive flips true when Home is the visible tab, so its conjuring
-      // animation re-plays each time you return to it. Home owns the bottom
-      // input/menu line, so it needs the nav state + a way to toggle it.
-      HomePage(
-        store: _store,
-        isActive: _tab == 0,
-        navOpen: _navOpen,
-        onToggleNav: () => setState(() => _navOpen = !_navOpen),
-      ),
-      // isActive flips true when Browse is the visible tab, so its row-entrance
-      // cascade re-plays each time you switch to it.
+      // isActive == "this page is the visible tab" — drives each page's entrance
+      // replay. Command mode is an OVERLAY on Home, so Home stays active.
+      HomePage(key: _homeKey, store: _store, isActive: _tab == 0),
       BrowsePage(store: _store, isActive: _tab == 1),
     ];
 
     return Scaffold(
-      extendBody: true, // let the background flow under the floating nav
-      body: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [AppColors.bgTop, AppColors.bg],
+      extendBody: true, // let the background flow under the floating bar
+      body: AnimatedBuilder(
+        animation: _morph,
+        builder: (context, _) {
+          final t = Curves.easeOutCubic.transform(_morph.value);
+          return Stack(
+            children: [
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [AppColors.bgTop, AppColors.bg],
+                  ),
+                ),
+                child: IndexedStack(index: _tab, children: pages),
               ),
-            ),
-            child: IndexedStack(index: _tab, children: pages),
-          ),
-          // A tap-catcher behind the revealed nav so tapping away closes it.
-          if (_navOpen)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => setState(() => _navOpen = false),
-                behavior: HitTestBehavior.opaque,
-              ),
-            ),
-          // The nav shows at the bottom ONLY when opened (via the Menu button in
-          // Home's input line). When open, Home hides its input line, so the two
-          // interchange on one line. When closed, nothing here — Home's input
-          // owns the bottom.
-          if (_navOpen)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: SafeArea(
-                top: false,
-                child: _GlassNav(
-                  index: _tab,
-                  onChanged: (i) => setState(() {
-                    _tab = i;
-                    _navOpen = false;
-                  }),
+
+              // The space-colour AURORA WASH — blooms once as command mode opens,
+              // then settles to a quiet ambient glow around the edges.
+              if (_morph.value > 0.001)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: _AuroraWash(t: t),
+                  ),
+                ),
+
+              // The morphing bottom bar: nav+★  ⇄  dot+command-field.
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(
+                  top: false,
+                  child: _BottomBar(
+                    t: t,
+                    tab: _tab,
+                    commandBusy:
+                        _homeKey.currentState?.hasChat ?? false,
+                    onTab: (i) => setState(() {
+                      _tab = i;
+                      // Switching tab exits command mode back to the nav.
+                      if (_commandMode) _closeCommand();
+                    }),
+                    onOpenCommand: _openCommand,
+                    onCloseCommand: _closeCommand,
+                    onSend: (text) => _homeKey.currentState?.sendCommand(text),
+                  ),
                 ),
               ),
-            ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-/// A floating frosted-glass pill with exactly two destinations: Home and Browse.
-class _GlassNav extends StatelessWidget {
-  const _GlassNav({required this.index, required this.onChanged});
-
-  final int index;
-  final ValueChanged<int> onChanged;
-
-  static const _items = <({IconData icon, IconData active, String label})>[
-    (icon: Icons.home_outlined, active: Icons.home_rounded, label: 'Home'),
-    (
-      icon: Icons.grid_view_outlined,
-      active: Icons.grid_view_rounded,
-      label: 'Browse',
-    ),
-  ];
+/// The soft space-colour aurora that washes around the screen edges when command
+/// mode opens — a violet→indigo glow that blooms in, then settles quiet. Never
+/// fights the text; it just signals "the command chat is here". [t] is 0→1.
+class _AuroraWash extends StatelessWidget {
+  const _AuroraWash({required this.t});
+  final double t;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 0, 40, 16),
-        child: GlassPanel(
-          borderRadius: 999,
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              children: [
-                for (var i = 0; i < _items.length; i++)
-                  Expanded(
-                    child: _NavButton(
-                      item: _items[i],
-                      selected: i == index,
-                      onTap: () => onChanged(i),
-                    ),
-                  ),
-              ],
+    // Bloom brighter mid-open, then settle to a calm resting glow.
+    final settle = 0.5 + 0.5 * t; // 0.5→1 as it settles in
+    final bloom = (t < 0.6 ? t / 0.6 : 1.0);
+    final edge = (0.10 + 0.14 * bloom) * settle;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          center: const Alignment(0, 1.15), // just below the input
+          radius: 1.3,
+          colors: [
+            AppColors.accent.withValues(alpha: edge * 1.4),
+            const Color(0xFF3A2A8C).withValues(alpha: edge),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.45, 1.0],
+        ),
+      ),
+    );
+  }
+}
+
+/// The morphing bottom bar. [t] (0→1) crossfades/slides between:
+///   t=0 → the Home·Browse nav (left) + the circular ★ command button (right)
+///   t=1 → a small dot-button (left, reopens the nav) + the command text field
+/// The two halves swap width as [t] moves, so it reads as one fluid morph.
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({
+    required this.t,
+    required this.tab,
+    required this.commandBusy,
+    required this.onTab,
+    required this.onOpenCommand,
+    required this.onCloseCommand,
+    required this.onSend,
+  });
+
+  final double t;
+  final int tab;
+  final bool commandBusy;
+  final ValueChanged<int> onTab;
+  final VoidCallback onOpenCommand;
+  final VoidCallback onCloseCommand;
+  final ValueChanged<String> onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      child: SizedBox(
+        height: 64,
+        child: Row(
+          children: [
+            // ── LEFT: the nav (t=0) shrinking into a round dot-button (t=1) ──
+            // The nav takes the row's remaining width when open and collapses to
+            // a 56px circle as command mode takes over.
+            Flexible(
+              flex: ((1 - t) * 1000).round().clamp(0, 1000),
+              child: _NavHalf(
+                collapsed: t,
+                index: tab,
+                onChanged: onTab,
+              ),
             ),
+            // A small dot-button that only exists at t≈1 — tap to reopen the nav.
+            if (t > 0.5)
+              Opacity(
+                opacity: ((t - 0.5) / 0.5).clamp(0.0, 1.0),
+                child: _DotButton(onTap: onCloseCommand),
+              ),
+            SizedBox(width: 10 * (1 - (t - 0.5).abs() * 2).clamp(0.0, 1.0) + 8),
+            // ── RIGHT: the ★ button (t=0) expanding into the command field (t=1) ──
+            Flexible(
+              flex: (t * 1000).round().clamp(1, 1000),
+              child: t < 0.5
+                  ? Opacity(
+                      opacity: (1 - t * 2).clamp(0.0, 1.0),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: _StarButton(onTap: onOpenCommand),
+                      ),
+                    )
+                  : Opacity(
+                      opacity: ((t - 0.5) / 0.5).clamp(0.0, 1.0),
+                      child: _CommandField(busy: commandBusy, onSend: onSend),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The nav that lives on the left, collapsing to a circle as [collapsed] → 1.
+class _NavHalf extends StatelessWidget {
+  const _NavHalf({
+    required this.collapsed,
+    required this.index,
+    required this.onChanged,
+  });
+  final double collapsed;
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    // Fade the nav pill out as it collapses; the shell adds the dot-button.
+    final o = (1 - collapsed * 1.6).clamp(0.0, 1.0);
+    if (o <= 0.01) return const SizedBox.shrink();
+    return Opacity(
+      opacity: o,
+      child: GlassPanel(
+        borderRadius: 999,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: [
+              for (var i = 0; i < 2; i++)
+                Expanded(
+                  child: _NavButton(
+                    item: _kNavItems[i],
+                    selected: i == index,
+                    onTap: () => onChanged(i),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
     );
   }
 }
+
+/// The circular ★ command button (right side, default state). Tapping it opens
+/// the command field with the morph + aurora wash.
+class _StarButton extends StatelessWidget {
+  const _StarButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        onTap();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 60,
+        height: 60,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF9B7CFF), AppColors.accent],
+          ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withValues(alpha: 0.5),
+              blurRadius: 22,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: const Icon(Icons.auto_awesome_rounded,
+            size: 26, color: Colors.white),
+      ),
+    );
+  }
+}
+
+/// The small round button the nav collapses to — tap to reopen the nav.
+class _DotButton extends StatelessWidget {
+  const _DotButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: GlassPanel(
+        borderRadius: 999,
+        child: Container(
+          width: 56,
+          height: 56,
+          alignment: Alignment.center,
+          child: const Icon(Icons.grid_view_rounded,
+              size: 22, color: AppColors.inkSoft),
+        ),
+      ),
+    );
+  }
+}
+
+/// The command text field shown in command mode — sends on Enter.
+class _CommandField extends StatefulWidget {
+  const _CommandField({required this.busy, required this.onSend});
+  final bool busy;
+  final ValueChanged<String> onSend;
+
+  @override
+  State<_CommandField> createState() => _CommandFieldState();
+}
+
+class _CommandFieldState extends State<_CommandField> {
+  final _controller = TextEditingController();
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    // Focus the field as it opens so the keyboard rises with the morph.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _send() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    HapticFeedback.selectionClick();
+    _controller.clear();
+    widget.onSend(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: AppColors.accent.withValues(alpha: 0.55),
+          width: 1.4,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.22),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Icon(Icons.auto_awesome_rounded,
+              size: 20, color: AppColors.accent.withValues(alpha: 0.9)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              focusNode: _focus,
+              onSubmitted: (_) => _send(),
+              textInputAction: TextInputAction.send,
+              textCapitalization: TextCapitalization.sentences,
+              style: const TextStyle(
+                color: AppColors.ink,
+                fontSize: 15.5,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: const InputDecoration(
+                hintText: 'Ask or add anything…',
+                hintStyle: TextStyle(color: AppColors.inkFaint),
+                border: InputBorder.none,
+                isDense: true,
+              ),
+            ),
+          ),
+          _SendButton(busy: widget.busy, onTap: _send),
+          const SizedBox(width: 6),
+        ],
+      ),
+    );
+  }
+}
+
+class _SendButton extends StatelessWidget {
+  const _SendButton({required this.busy, required this.onTap});
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: const EdgeInsets.all(7),
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: AppColors.accent,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.arrow_upward_rounded,
+            size: 20, color: Colors.white),
+      ),
+    );
+  }
+}
+
+/// The two nav destinations, shared by [_NavHalf].
+const _kNavItems = <({IconData icon, IconData active, String label})>[
+  (icon: Icons.home_outlined, active: Icons.home_rounded, label: 'Home'),
+  (
+    icon: Icons.grid_view_outlined,
+    active: Icons.grid_view_rounded,
+    label: 'Browse',
+  ),
+];
 
 class _NavButton extends StatelessWidget {
   const _NavButton({

@@ -286,11 +286,21 @@ class MenuLine extends StatelessWidget {
     // The four CRUD actions as clean tappable LIST ROWS (not chips), each
     // revealing in sequence.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var idx = 0; idx < FlowOp.values.length; idx++)
+          for (var idx = 0; idx < FlowOp.values.length; idx++) ...[
+            if (idx > 0)
+              Opacity(
+                opacity: Curves.easeOut
+                    .transform(((reveal - idx * 0.1) / 0.4).clamp(0.0, 1.0)),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Colors.white.withValues(alpha: 0.07),
+                ),
+              ),
             _staggered(
               reveal,
               idx,
@@ -300,6 +310,7 @@ class MenuLine extends StatelessWidget {
                 onTap: () => onPick(FlowOp.values[idx]),
               ),
             ),
+          ],
         ],
       ),
     );
@@ -336,15 +347,13 @@ class _MenuRow extends StatefulWidget {
 class _MenuRowState extends State<_MenuRow> {
   bool _down = false;
 
-  Color get _tint => switch (widget.op) {
-        FlowOp.create => const Color(0xFF7C5CFC),
-        FlowOp.read => const Color(0xFF4EA8FF),
-        FlowOp.update => const Color(0xFFFFB454),
-        FlowOp.delete => const Color(0xFFFF6B6B),
-      };
+  // One single accent colour for every action — clean + consistent.
+  Color get _tint => AppColors.accent;
 
   @override
   Widget build(BuildContext context) {
+    // A clean, flat LIST LINE: a single-accent icon, the label + hint, a chevron,
+    // and a thin divider — no coloured card, no per-action colours.
     return GestureDetector(
       onTapDown: (_) => setState(() => _down = true),
       onTapCancel: () => setState(() => _down = false),
@@ -353,67 +362,44 @@ class _MenuRowState extends State<_MenuRow> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
-        margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: _down
-              ? Colors.white.withValues(alpha: 0.10)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        child: Row(
+        color: _down
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 15),
+        child: Column(
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    _tint.withValues(alpha: 0.9),
-                    _tint.withValues(alpha: 0.6),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            Row(
+              children: [
+                Icon(widget.op.icon, size: 23, color: _tint),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.op.label,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.hint,
+                        style: TextStyle(
+                          color: AppColors.inkSoft.withValues(alpha: 0.85),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: _tint.withValues(alpha: 0.35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Icon(widget.op.icon, size: 21, color: Colors.white),
+                const Icon(Icons.chevron_right_rounded,
+                    size: 20, color: AppColors.inkFaint),
+              ],
             ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.op.label,
-                    style: const TextStyle(
-                      color: AppColors.ink,
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    widget.hint,
-                    style: TextStyle(
-                      color: AppColors.inkSoft.withValues(alpha: 0.9),
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded,
-                size: 20, color: AppColors.inkFaint),
           ],
         ),
       ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/mascot.dart';
 import '../../onboarding/presentation/widgets/magic_text.dart' show MagicText;
 import '../../update_flow/presentation/update_flow_sheet.dart';
 import 'widgets/command_chat.dart';
@@ -287,60 +286,32 @@ class _HeroGreeting extends StatelessWidget {
   /// Per-open shimmer progress (0→1) for the MagicText word reveal.
   final double progress;
 
-  /// Route entrance progress (0→1, already eased) for the Revo move.
+  /// Entrance progress (0→1, already eased) for a gentle slide-in.
   final double entrance;
-
-  static const double _bigSize = 84;
-  static const double _smallSize = 44;
 
   @override
   Widget build(BuildContext context) {
-    // Revo starts big, then over the back half of the entrance shrinks and the
-    // greeting takes over to its right.
-    final move = ((entrance - 0.3) / 0.7).clamp(0.0, 1.0);
-    final easedMove = Curves.easeOutCubic.transform(move);
-    final revoSize = _bigSize + (_smallSize - _bigSize) * easedMove;
-
-    // The greeting fades/slides in from Revo's side once Revo begins settling.
-    final greetIn = ((entrance - 0.45) / 0.55).clamp(0.0, 1.0);
-    final easedGreet = Curves.easeOut.transform(greetIn);
-
+    final slide = Curves.easeOut.transform(entrance.clamp(0.0, 1.0));
+    // Clean: just the greeting, conjuring in — no mascot.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 22, 18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Revo's cell tracks the mascot's CURRENT size (not the big size), so
-          // the text stays snug beside it — no dead gap when Revo is small.
-          SizedBox(
-            width: revoSize,
-            height: revoSize,
-            child: AnimatedMascot(size: revoSize, glow: true),
-          ),
-          SizedBox(width: 10 + 4 * easedGreet),
-          // The greeting, to Revo's right — appears only as Revo settles, sliding
-          // in from its side.
-          Expanded(
-            child: Opacity(
-              opacity: easedGreet,
-              child: Transform.translate(
-                offset: Offset(-14 * (1 - easedGreet), 0),
-                child: MagicText(
-                  text: 'What do you\nwant to do today?',
-                  progress: progress,
-                  reading: true,
-                  style: const TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 25,
-                    height: 1.18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-              ),
+      padding: const EdgeInsets.fromLTRB(20, 8, 22, 18),
+      child: Opacity(
+        opacity: slide,
+        child: Transform.translate(
+          offset: Offset(0, (1 - slide) * 12),
+          child: MagicText(
+            text: 'What do you\nwant to do today?',
+            progress: progress,
+            reading: true,
+            style: const TextStyle(
+              color: AppColors.ink,
+              fontSize: 26,
+              height: 1.18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
             ),
           ),
-        ],
+        ),
       ),
     );
   }

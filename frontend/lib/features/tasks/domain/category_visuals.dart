@@ -35,14 +35,13 @@ extension TaskCategoryVisuals on TaskCategory {
 /// the Browse page's own list explicitly, so [kBrowseCategoriesNoGeneral]
 /// excludes it there to avoid showing it twice.
 const List<TaskCategory> kBrowseCategories = [
-  TaskCategory.other, // "General"
+  TaskCategory.other, // "General" — leads the list
   TaskCategory.subscription,
   TaskCategory.birthday,
-  TaskCategory.investment,
   TaskCategory.medicine,
-  // Policies hidden (General now covers amount + repeat); Insurance & Bills
-  // temporarily removed from browse. The enum + PolicyFormPage stay so any
-  // existing policy tasks still load/edit.
+  // Policies + SIPs hidden (General now covers amount + repeat); Insurance &
+  // Bills temporarily removed from browse. Their enums + forms stay so any
+  // existing tasks still load/edit.
 ];
 
 /// The same list WITHOUT the General catch-all — for surfaces that render
@@ -50,6 +49,5 @@ const List<TaskCategory> kBrowseCategories = [
 const List<TaskCategory> kBrowseCategoriesNoGeneral = [
   TaskCategory.subscription,
   TaskCategory.birthday,
-  TaskCategory.investment,
   TaskCategory.medicine,
 ];

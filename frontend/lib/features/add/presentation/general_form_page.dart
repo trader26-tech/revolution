@@ -551,8 +551,10 @@ class _RemindRow extends StatelessWidget {
         children: [
           Text('Remind me', style: orbitLabelStyle),
           const Spacer(),
-          _step(Icons.remove_rounded, i < _presets.length - 1, () {
-            onChanged(_presets[i + 1]);
+          // − steps DOWN toward "On the day"; + steps UP to more days before —
+          // the intuitive direction (bigger number to the right of +).
+          _step(Icons.remove_rounded, i > 0, () {
+            onChanged(_presets[i - 1]);
           }),
           SizedBox(
             width: 108,
@@ -566,8 +568,8 @@ class _RemindRow extends StatelessWidget {
               ),
             ),
           ),
-          _step(Icons.add_rounded, i > 0, () {
-            onChanged(_presets[i - 1]);
+          _step(Icons.add_rounded, i < _presets.length - 1, () {
+            onChanged(_presets[i + 1]);
           }),
         ],
       ),

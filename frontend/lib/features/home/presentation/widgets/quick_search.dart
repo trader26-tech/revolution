@@ -17,44 +17,36 @@ class QuickSearch extends StatelessWidget {
     super.key,
     required this.store,
     required this.documents,
-    required this.query,
-    required this.progress,
+    required this.searchController,
     required this.onOpenTask,
     required this.onOpenDocument,
     required this.onOpenCategory,
-    required this.onAdd,
   });
 
   final TaskStore store;
   final DocumentsStore documents;
 
-  /// The live text from the search field.
-  final String query;
-
-  /// 0→1 entrance progress (fades the content in).
-  final double progress;
+  /// The live search field controller — listened to directly, so a keystroke
+  /// rebuilds ONLY this palette (not the whole chat overlay). That's the fix for
+  /// the typing lag.
+  final TextEditingController searchController;
 
   final ValueChanged<Task> onOpenTask;
   final ValueChanged<DocItem> onOpenDocument;
   final ValueChanged<TaskCategory> onOpenCategory;
-  final ValueChanged<String> onAdd;
 
   static const _perGroup = 5;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      // Rebuild when tasks OR documents change.
-      animation: Listenable.merge([store, documents]),
+      // Rebuild on: the query typed, tasks changing, documents loading.
+      animation: Listenable.merge([searchController, store, documents]),
       builder: (context, _) {
-        final reveal = Curves.easeOut.transform(progress.clamp(0.0, 1.0));
-        final q = query.trim();
-        return Opacity(
-          opacity: reveal,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
-            child: q.isEmpty ? _idle(context) : _results(context, q),
-          ),
+        final q = searchController.text.trim();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
+          child: q.isEmpty ? _idle(context) : _results(context, q),
         );
       },
     );
@@ -66,7 +58,7 @@ class QuickSearch extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Find anything',
+          'Search anything',
           style: TextStyle(
             color: AppColors.ink,
             fontSize: 26,
@@ -77,7 +69,7 @@ class QuickSearch extends StatelessWidget {
         ),
         const SizedBox(height: 5),
         Text(
-          'Search your reminders, documents & categories — or type to add.',
+          'Find any reminder, document or category — start typing.',
           style: TextStyle(
             color: AppColors.inkSoft.withValues(alpha: 0.95),
             fontSize: 14.5,
@@ -157,28 +149,16 @@ class QuickSearch extends StatelessWidget {
       children.add(const SizedBox(height: 12));
     }
 
-    // Always offer to add what was typed.
-    children.add(_ResultRow(
-      icon: Icons.add_rounded,
-      accent: true,
-      title: 'Add “$q”',
-      subtitle: 'Create a new reminder',
-      onTap: () => onAdd(q),
-    ));
-
-    // Nothing matched (only the Add row) → a gentle line above it.
+    // Search only — nothing to add here. If nothing matched, say so plainly.
     if (tasks.isEmpty && docs.isEmpty && cats.isEmpty) {
-      children.insert(
-        0,
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            'No matches for “$q”.',
-            style: TextStyle(
-              color: AppColors.inkSoft.withValues(alpha: 0.9),
-              fontSize: 14.5,
-              fontWeight: FontWeight.w600,
-            ),
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text(
+          'No matches for “$q”.',
+          style: TextStyle(
+            color: AppColors.inkSoft.withValues(alpha: 0.9),
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
           ),
         ),
       );
@@ -284,13 +264,11 @@ class _ResultRow extends StatefulWidget {
     required this.title,
     required this.onTap,
     this.subtitle,
-    this.accent = false,
   });
   final IconData icon;
   final String title;
   final String? subtitle;
   final VoidCallback onTap;
-  final bool accent;
 
   @override
   State<_ResultRow> createState() => _ResultRowState();
@@ -327,12 +305,10 @@ class _ResultRowState extends State<_ResultRow> {
               height: 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: widget.accent ? 0.9 : 0.14),
+                color: AppColors.accent.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(widget.icon,
-                  size: 20,
-                  color: widget.accent ? Colors.white : AppColors.accent),
+              child: Icon(widget.icon, size: 20, color: AppColors.accent),
             ),
             const SizedBox(width: 13),
             Expanded(

@@ -482,7 +482,7 @@ class _RightHalfState extends State<_RightHalf> {
             if (starOpacity > 0.01)
               Opacity(
                 opacity: starOpacity,
-                child: const Icon(Icons.auto_awesome_rounded,
+                child: const Icon(Icons.search_rounded,
                     size: 25, color: Colors.white),
               ),
             if (fieldOpacity > 0.01)
@@ -493,7 +493,7 @@ class _RightHalfState extends State<_RightHalf> {
                     padding: const EdgeInsets.fromLTRB(16, 0, 6, 0),
                     child: Row(
                       children: [
-                        Icon(Icons.auto_awesome_rounded,
+                        Icon(Icons.search_rounded,
                             size: 20,
                             color: AppColors.accent.withValues(alpha: 0.95)),
                         const SizedBox(width: 8),
@@ -510,7 +510,7 @@ class _RightHalfState extends State<_RightHalf> {
                               fontWeight: FontWeight.w500,
                             ),
                             decoration: const InputDecoration(
-                              hintText: 'Ask or add anything…',
+                              hintText: 'Search anything…',
                               hintStyle: TextStyle(color: AppColors.inkFaint),
                               border: InputBorder.none,
                               isDense: true,

@@ -84,16 +84,9 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
     );
     _documents.load();
     _c.addListener(_onControllerChanged);
-    // The palette reads the live search text — rebuild as the user types.
-    widget.searchController.addListener(_onSearchChanged);
     // Watch the morph so we can seed the greeting + replay the conjure each time
     // the overlay opens (it stays mounted in the shell, gated by the morph).
     widget.morph.addListener(_onMorph);
-  }
-
-  void _onSearchChanged() {
-    // Only the ROOT (quick-search) view depends on the live query.
-    if (_c.isAtRoot && mounted) setState(() {});
   }
 
   /// On the rising edge of the morph (chat opening), replay the shimmer so the
@@ -115,7 +108,6 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
   void dispose() {
     _c.removeListener(_onControllerChanged);
     widget.morph.removeListener(_onMorph);
-    widget.searchController.removeListener(_onSearchChanged);
     _documents.dispose();
     _shimmer.dispose();
     _scroll.dispose();
@@ -171,13 +163,6 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
         builder: (_) => CollectionPage(store: _c.store, category: category),
       ),
     );
-  }
-
-  /// The "Add …" row — send the typed text through the parse/add path. Moves the
-  /// thread off-root (the add proposal renders), and clears the field.
-  void _addTyped(String text) {
-    _clearSearch();
-    _c.sendCommand(text);
   }
 
   // ── UPDATE SEAM ──────────────────────────────────────────────────────────
@@ -284,22 +269,21 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
     // moment anything moves the thread off-root (pick an op, a seeded create,
     // an add proposal), the normal conversation renders instead.
     if (_c.isAtRoot) {
+      // Rendered directly — NOT inside the shimmer AnimatedBuilder, so the search
+      // matching doesn't recompute on every animation frame (that was the lag).
+      // The whole overlay already fades in via the outer Opacity(morph); the
+      // palette rebuilds only when tasks/documents/the query change.
       return ListView(
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
         children: [
-          AnimatedBuilder(
-            animation: Listenable.merge([_shimmer, widget.morph]),
-            builder: (context, _) => QuickSearch(
-              store: _c.store,
-              documents: _documents,
-              query: widget.searchController.text,
-              progress: _shimmer.value,
-              onOpenTask: _openTask,
-              onOpenDocument: _openDocument,
-              onOpenCategory: _openCategory,
-              onAdd: _addTyped,
-            ),
+          QuickSearch(
+            store: _c.store,
+            documents: _documents,
+            searchController: widget.searchController,
+            onOpenTask: _openTask,
+            onOpenDocument: _openDocument,
+            onOpenCategory: _openCategory,
           ),
         ],
       );

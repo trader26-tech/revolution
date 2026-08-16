@@ -118,7 +118,9 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
   // pick another op afterwards; on close we drop a short confirmation line.
   Future<void> _openUpdateFlow() async {
     await showUpdateFlow(context, _c.store);
-    if (mounted) _c.note('Done — your changes are saved.');
+    // Confirm, then re-show the CRUD menu so there's always a way to pick another
+    // action (never a dead end).
+    if (mounted) _c.noteThenMenu('Done — your changes are saved.');
   }
 
   @override

@@ -78,6 +78,14 @@ class CommandChatController extends ChangeNotifier {
     _reveal();
   }
 
+  /// A confirmation line followed by a fresh CRUD menu, so after an action the
+  /// user can immediately pick another — never a dead end.
+  void noteThenMenu(String text) {
+    chat.add(ChatMsg.done(text));
+    chat.add(ChatMsg.menu());
+    _reveal();
+  }
+
   bool get hasChat => chat.isNotEmpty;
 
   // ── The natural-language path: parse on send ─────────────────────────────
@@ -326,13 +334,20 @@ class CommandChatController extends ChangeNotifier {
     if (i == -1) return;
     switch (op) {
       case FlowOp.create:
+        // Create replaces the menu with the interactive create flow (which can
+        // be cancelled back to the menu via its own cancel).
         chat[i] = ChatMsg.create(CreateFlow());
+        _reveal();
       case FlowOp.read:
       case FlowOp.update:
       case FlowOp.delete:
+        // These don't have a dedicated in-chat flow yet. Show the short reply,
+        // then RE-SHOW the menu below it so the user can pick another action —
+        // never a dead end with no way back to the CRUD options.
         chat[i] = ChatMsg.comingSoon(op);
+        chat.add(ChatMsg.menu());
+        _reveal();
     }
-    _reveal();
   }
 
   /// Create flow: category chosen → advance to the first field question.
@@ -387,7 +402,10 @@ class CommandChatController extends ChangeNotifier {
       );
       flow.done = true;
       commandBusy = false;
-      notifyListeners();
+      // Re-show the CRUD menu below the confirmed card so the user can add or do
+      // something else without leaving the chat.
+      chat.add(ChatMsg.menu());
+      _reveal();
       return null;
     } catch (_) {
       commandBusy = false;

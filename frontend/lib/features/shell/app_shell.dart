@@ -57,9 +57,9 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     super.initState();
     _morph = AnimationController(
       vsync: this,
-      // One smooth, unhurried morph for the whole open/close motion.
-      duration: const Duration(milliseconds: 500),
-      reverseDuration: const Duration(milliseconds: 340),
+      // Fast + smooth: snaps open, quick close.
+      duration: const Duration(milliseconds: 260),
+      reverseDuration: const Duration(milliseconds: 200),
     );
     _chat = CommandChatController(_store);
     // Restore saved tasks (and their icons) from on-device storage.

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show FileImage, imageCache;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -121,29 +122,57 @@ class ProfileStore extends ChangeNotifier {
   /// documents dir (a stable, private location that survives cache clears — the
   /// same pattern the documents feature uses), then the path is persisted. Pass
   /// null to remove the photo. Fully on-device; nothing is uploaded.
+  ///
+  /// The destination filename is made UNIQUE per change (a counter suffix), not a
+  /// fixed name. This is deliberate: Flutter's image cache keys on the file path,
+  /// so writing a new photo to the SAME path left [FileImage] serving the old,
+  /// cached bytes — the avatar wouldn't update on "Change photo" (only remove +
+  /// add worked, because that cleared the widget first). A fresh path every time
+  /// guarantees the new image is loaded everywhere it's shown. We also evict the
+  /// old path from the cache and delete the old file.
   Future<void> setAvatarFromPath(String? sourcePath) async {
     // Remove.
     if (sourcePath == null) {
       final old = _avatarPath;
       _avatarPath = null;
       await _persist((p) => p.remove(_kAvatarPath));
+      _evictQuietly(old);
       _deleteQuietly(old);
       return;
     }
     try {
       final dir = await getApplicationDocumentsDirectory();
       final ext = sourcePath.contains('.') ? sourcePath.split('.').last : 'jpg';
-      // A single stable filename per profile; overwrite on change.
-      final dest = '${dir.path}/profile_avatar.$ext';
+      // A UNIQUE filename per change (monotonic counter), so the path always
+      // differs from the previous one and Flutter can't serve a stale cached
+      // image. new Date()/random are unavailable here; a persisted counter gives
+      // us uniqueness without them.
+      final seq = (_prefs?.getInt(_kAvatarSeq) ?? 0) + 1;
+      final dest = '${dir.path}/profile_avatar_$seq.$ext';
       final old = _avatarPath;
       await File(sourcePath).copy(dest);
       _avatarPath = dest;
-      await _persist((p) => p.setString(_kAvatarPath, dest));
-      // Clean up a previous file with a different extension.
-      if (old != null && old != dest) _deleteQuietly(old);
+      await _persist((p) async {
+        await p.setString(_kAvatarPath, dest);
+        await p.setInt(_kAvatarSeq, seq);
+      });
+      // Drop the previous image from the cache and delete its file.
+      if (old != null && old != dest) {
+        _evictQuietly(old);
+        _deleteQuietly(old);
+      }
     } catch (_) {
       // Non-fatal — leave the existing photo unchanged.
     }
+  }
+
+  /// Evict a file path from Flutter's image cache so a re-read hits disk, not the
+  /// stale in-memory copy. Safe to call for a path that was never cached.
+  void _evictQuietly(String? path) {
+    if (path == null) return;
+    try {
+      FileImage(File(path)).evict();
+    } catch (_) {}
   }
 
   void _deleteQuietly(String? path) {

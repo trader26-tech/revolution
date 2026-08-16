@@ -285,11 +285,10 @@ class _BottomBar extends StatelessWidget {
 
   static const _h = 60.0; // bar height
   static const _gap = 12.0; // gap between the two elements
-  // The MINIMUM resting width for the nav pill — the real resting width is
-  // proportional (see build) so the pill fills the left and the Home·Browse·Docs
-  // buttons breathe; this floor keeps it usable on very narrow bars. Bumped when
-  // Documents became a 3rd tab so the selected pill + two icons never cramp.
-  static const _navNatural = 214.0;
+  // Minimum resting width for the nav pill. Tabs are now compact (icon + tiny
+  // label, stacked), so three spread comfortably; the real width is proportional
+  // (see build). This floor just keeps them from cramping on a very narrow bar.
+  static const _navNatural = 200.0;
 
   @override
   Widget build(BuildContext context) {
@@ -307,11 +306,10 @@ class _BottomBar extends StatelessWidget {
           // resting sizes to their expanded sizes; the exact remainder becomes a
           // trailing spacer so nothing overflows at any t.
           //
-          // Resting nav width: proportional so the pill fills the left of the bar
-          // instead of hugging a fixed cluster — but never below its natural min.
-          // 3 tabs now (Home·Browse·Docs): give the pill a touch more of the bar
-          // so the selected pill + two plain icons sit comfortably.
-          final navResting = (total * 0.70).clamp(_navNatural, total - _gap - _h);
+          // Resting nav width: the pill fills the left ~72% so the three flat
+          // tabs (icon + label) spread evenly like a standard bottom nav, with the
+          // search circle sitting on the right. Clamped so it never overflows.
+          final navResting = (total * 0.72).clamp(_navNatural, total - _gap - _h);
           // Left: resting pill width (t=0) → dot (t=1).
           final leftW = (navResting + (_h - navResting) * t)
               .clamp(_h, total - _gap - _h);
@@ -721,71 +719,35 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The Orbit look: ONLY the selected item expands into an ACCENT pill (violet,
-    // matching the ★) with a white icon + label side by side and a soft accent
-    // glow. Every unselected item is a quiet icon ALONE — so the selection reads
-    // as one sliding violet pill among plain glyphs, at home on the dark sky.
+    // A clean, flat tab — icon stacked over a small label, like a standard
+    // bottom nav. The SELECTED tab is tinted accent (icon + label); unselected
+    // tabs are a quiet muted glyph + label. No boxed pill, so any number of tabs
+    // spread evenly and NOTHING overflows. Colour alone carries the selection.
+    final color = selected ? AppColors.accent : AppColors.inkFaint;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        // vertical 4 so the taller 52px pill clears the 60px bar cleanly
-        // (52 + 8 = 60) without the FittedBox having to scale it down.
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic,
-          height: 52,
-          padding: EdgeInsets.symmetric(horizontal: selected ? 18 : 13),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: selected
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF9B7CFF), AppColors.accent],
-                  )
-                : null,
-            borderRadius: BorderRadius.circular(999),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: AppColors.accent.withValues(alpha: 0.45),
-                      blurRadius: 16,
-                      spreadRadius: -1,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
-          ),
-          // AnimatedSize lets the pill grow/shrink smoothly as the label
-          // appears/disappears when selection moves between items.
-          child: AnimatedSize(
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  selected ? item.active : item.icon,
-                  size: 23,
-                  color: selected ? Colors.white : AppColors.inkFaint,
-                ),
-                if (selected) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    item.label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ],
-              ],
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(selected ? item.active : item.icon, size: 24, color: color),
+            const SizedBox(height: 3),
+            Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              softWrap: false,
+              style: TextStyle(
+                color: color,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                fontSize: 11,
+                letterSpacing: -0.1,
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

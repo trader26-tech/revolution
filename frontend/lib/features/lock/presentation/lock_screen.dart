@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/mascot.dart';
 import '../../../core/widgets/starfield.dart';
-import '../../auth/presentation/widgets/app_logo.dart';
 
 /// The full-screen lock overlay shown when the App Lock session has expired.
-/// Orbit space theme — the brandmark over a starfield, a calm "Locked" line, and
-/// a single Unlock button that fires the native biometric/PIN prompt. Auto-fires
-/// the prompt once on mount so the OS dialog appears without an extra tap.
+///
+/// Orbit space theme done right: the app's REAL mascot (Revo) over a calm
+/// starfield, a soft accent glow, a clear lock chip, and one confident Unlock
+/// button. The native biometric/PIN prompt fires automatically on mount (and on
+/// return-to-foreground) so the OS sheet appears without an extra tap; the button
+/// is the manual retry. Kept deliberately minimal so it reads as premium, not
+/// busy.
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key, required this.onUnlock});
 
@@ -18,12 +22,26 @@ class LockScreen extends StatefulWidget {
   State<LockScreen> createState() => _LockScreenState();
 }
 
-class _LockScreenState extends State<LockScreen> {
+class _LockScreenState extends State<LockScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _in;
+
   @override
   void initState() {
     super.initState();
-    // Prompt immediately — the user landed here to get back in.
+    _in = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    )..forward();
+    // Prompt immediately — the user is here to get back in. (The parent gate
+    // owns resume-handling and an in-flight guard, so we don't double-fire.)
     WidgetsBinding.instance.addPostFrameCallback((_) => widget.onUnlock());
+  }
+
+  @override
+  void dispose() {
+    _in.dispose();
+    super.dispose();
   }
 
   @override
@@ -31,102 +49,172 @@ class _LockScreenState extends State<LockScreen> {
     // Opaque space background so the app underneath is fully hidden while locked.
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: Starfield(
-        intensity: 0.6,
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Deep space gradient + a quiet starfield — the app's signature sky.
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AppColors.bgTop, AppColors.bg],
+              ),
+            ),
+          ),
+          const Positioned.fill(
+            child: IgnorePointer(child: Starfield(starCount: 40, intensity: 0.7)),
+          ),
+          SafeArea(
+            child: FadeTransition(
+              opacity: _in,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const AppLogo(size: 84),
-                  const SizedBox(height: 28),
-                  Container(
-                    width: 52,
-                    height: 52,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.14),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.lock_rounded,
-                        size: 26, color: AppColors.accent),
-                  ),
-                  const SizedBox(height: 20),
+                  const Spacer(flex: 5),
+                  // Revo — the REAL brand mark — happy and bouncing inside a warm
+                  // accent halo. This is the hero of the screen; no chip clutter.
+                  _HaloMascot(anim: _in),
+                  const SizedBox(height: 30),
                   const Text(
-                    'Revora is locked',
+                    'Welcome back!',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 27,
                       fontWeight: FontWeight.w800,
                       color: AppColors.ink,
-                      letterSpacing: -0.4,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Unlock with your fingerprint, face, or device PIN to continue.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      height: 1.4,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.inkSoft,
+                  const SizedBox(height: 10),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 44),
+                    child: Text(
+                      'Unlock to pick up right where you left off.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.inkSoft,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
+                  const Spacer(flex: 6),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 0, 28, 8),
                     child: _UnlockButton(onTap: widget.onUnlock),
                   ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Fingerprint, face, or device PIN',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.inkFaint,
+                    ),
+                  ),
+                  const Spacer(flex: 1),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The mascot with a soft radial accent halo behind it and a gentle entrance
+/// scale, so it feels alive without any looping cost on the lock screen.
+class _HaloMascot extends StatelessWidget {
+  const _HaloMascot({required this.anim});
+  final Animation<double> anim;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = Tween(begin: 0.86, end: 1.0)
+        .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutBack));
+    return ScaleTransition(
+      scale: scale,
+      child: SizedBox(
+        width: 168,
+        height: 168,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Accent bloom.
+            Container(
+              width: 168,
+              height: 168,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.accent.withValues(alpha: 0.28),
+                    AppColors.accent.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+            const AnimatedMascot(size: 116, glow: false),
+          ],
         ),
       ),
     );
   }
 }
 
-class _UnlockButton extends StatelessWidget {
+class _UnlockButton extends StatefulWidget {
   const _UnlockButton({required this.onTap});
   final Future<void> Function() onTap;
 
   @override
+  State<_UnlockButton> createState() => _UnlockButtonState();
+}
+
+class _UnlockButtonState extends State<_UnlockButton> {
+  bool _down = false;
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: const LinearGradient(
-            colors: [AppColors.accent, AppColors.accentDeep],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accent.withValues(alpha: 0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+      onTapDown: (_) => setState(() => _down = true),
+      onTapUp: (_) => setState(() => _down = false),
+      onTapCancel: () => setState(() => _down = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        child: Container(
+          height: 58,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: const LinearGradient(
+              colors: [AppColors.accent, AppColors.accentDeep],
             ),
-          ],
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.fingerprint_rounded, size: 22, color: Colors.white),
-            SizedBox(width: 10),
-            Text(
-              'Unlock',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: 0.4),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
               ),
-            ),
-          ],
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.fingerprint_rounded, size: 23, color: Colors.white),
+              SizedBox(width: 10),
+              Text(
+                'Unlock',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

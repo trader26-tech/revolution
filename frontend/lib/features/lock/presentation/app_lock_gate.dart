@@ -45,6 +45,7 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
   @override
   void dispose() {
     _tick?.cancel();
+    _cooldown?.cancel();
     _store.removeListener(_reevaluate);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -54,8 +55,20 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Coming back to the foreground: a session may have lapsed while we were
     // away — re-check immediately rather than waiting for the next tick.
-    if (state == AppLifecycleState.resumed) _reevaluate();
+    if (state == AppLifecycleState.resumed) {
+      _reevaluate();
+      // Re-offer the native prompt on resume — BUT NOT if we just resolved an
+      // auth attempt (cancelling the native sheet itself fires a `resumed`; an
+      // instant re-prompt would trap the user in a loop and hide our own lock
+      // screen). The cooldown lets them land on the lock screen and tap Unlock.
+      if (_locked && !_recentlyPrompted) _authenticate();
+    }
   }
+
+  /// True for a short window after an auth attempt resolves — suppresses the
+  /// resume-triggered auto re-prompt so cancelling doesn't immediately re-pop.
+  bool _recentlyPrompted = false;
+  Timer? _cooldown;
 
   void _reevaluate() {
     final nowLocked = _store.isLockedAt(DateTime.now());
@@ -71,12 +84,21 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
     try {
       final ok = await BiometricService.instance
           .authenticate(reason: 'Unlock Revora');
-      if (ok) {
+      if (ok && mounted) {
         _store.startSession(); // stamps a new deadline → isLockedAt() == false
-        _reevaluate();
+        // Flip out of the lock IMMEDIATELY in the same frame the prompt returns,
+        // so unlocking feels instant — don't wait for a timer tick or a second
+        // notify/rebuild round-trip.
+        setState(() => _locked = false);
       }
     } finally {
       _authInFlight = false;
+      // Start a brief cooldown so the `resumed` event that cancelling the sheet
+      // fires doesn't immediately re-prompt (which would hide our lock screen).
+      _recentlyPrompted = true;
+      _cooldown?.cancel();
+      _cooldown = Timer(const Duration(milliseconds: 800),
+          () => _recentlyPrompted = false);
     }
   }
 

@@ -458,7 +458,6 @@ class _SearchBar extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16, 8, 16, 12 + bottomInset),
       decoration: const BoxDecoration(
         color: AppColors.bg,
-        border: Border(top: BorderSide(color: AppColors.cardBorder)),
       ),
       child: Container(
         decoration: BoxDecoration(

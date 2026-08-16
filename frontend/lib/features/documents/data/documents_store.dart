@@ -323,8 +323,16 @@ class DocumentsStore extends ChangeNotifier {
     if (newParentId != null && _isSelfOrDescendant(newParentId, id)) return;
     final i = _folders.indexWhere((f) => f.id == id);
     if (i == -1) return;
-    // copyWith preserves cloudSync (and everything else); only parentId changes.
-    _folders[i] = _folders[i].copyWith(parentId: newParentId);
+    // Explicit rebuild (copyWith can't set parentId back to null for a root
+    // move). Carry cloudSync + createdAt through unchanged.
+    final f = _folders[i];
+    _folders[i] = DocFolder(
+      id: f.id,
+      name: f.name,
+      parentId: newParentId,
+      createdAt: f.createdAt,
+      cloudSync: f.cloudSync,
+    );
     notifyListeners();
     await _persist();
   }

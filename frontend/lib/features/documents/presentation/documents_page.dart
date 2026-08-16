@@ -446,6 +446,7 @@ class _DocumentsPageState extends State<DocumentsPage>
           onAddInside: () => _addInside(f),
           onRename: () => _renameFolder(f),
           onDelete: () => _deleteFolder(f),
+          onToggleCloud: () => _toggleCloud(f),
         ),
       ),
       if (expanded) ...[
@@ -596,6 +597,7 @@ class _FolderRow extends StatelessWidget {
     required this.onAddInside,
     required this.onRename,
     required this.onDelete,
+    required this.onToggleCloud,
   });
 
   final DocFolder folder;
@@ -606,6 +608,7 @@ class _FolderRow extends StatelessWidget {
   final VoidCallback onAddInside;
   final VoidCallback onRename;
   final VoidCallback onDelete;
+  final VoidCallback onToggleCloud;
 
   @override
   Widget build(BuildContext context) {
@@ -669,11 +672,22 @@ class _FolderRow extends StatelessWidget {
                 ),
               ),
               // ONE button — the whole action set lives here. "Add inside" leads
-              // (it's the primary action), then rename/delete.
+              // (it's the primary action), then the cloud toggle, rename, delete.
               _RowMenu(
                 items: [
                   _MenuAction('add', Icons.add_rounded, 'Add inside', onAddInside,
                       accent: true),
+                  // Save-to-cloud toggle. Label + icon reflect the current state;
+                  // selecting it flips this folder between cloud backup and
+                  // local-only. Short label so it fits the menu row cleanly.
+                  _MenuAction(
+                    'cloud',
+                    folder.cloudSync
+                        ? Icons.cloud_done_rounded
+                        : Icons.cloud_off_rounded,
+                    folder.cloudSync ? 'Cloud: On' : 'Cloud: Off',
+                    onToggleCloud,
+                  ),
                   _MenuAction('rename', Icons.edit_outlined, 'Rename', onRename),
                   _MenuAction('delete', Icons.delete_outline_rounded, 'Delete',
                       onDelete, danger: true),

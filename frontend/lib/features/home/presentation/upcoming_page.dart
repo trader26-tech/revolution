@@ -6,7 +6,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../../brand/domain/brand.dart';
 import '../../brand/presentation/brand_logo.dart';
-import '../../details/domain/currency.dart';
 import '../../tasks/domain/category_visuals.dart';
 import '../../tasks/domain/task.dart';
 import 'widgets/home_dashboard.dart' show WeekStripCalendar;

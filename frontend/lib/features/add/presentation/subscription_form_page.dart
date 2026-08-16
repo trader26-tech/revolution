@@ -355,7 +355,6 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                 canSave: _valid,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
-                onDelete: widget.onDelete == null ? null : _handleDelete,
               ),
               Expanded(
                 child: ListView(
@@ -432,6 +431,8 @@ class _SubscriptionFormPageState extends State<SubscriptionFormPage> {
                         ),
                       ),
                     ),
+                    if (widget.onDelete != null)
+                      OrbitDeleteButton(onDelete: _handleDelete),
                   ],
                 ),
               ),
@@ -458,15 +459,11 @@ class _Header extends StatelessWidget {
     required this.canSave,
     required this.onBack,
     required this.onSave,
-    this.onDelete,
   });
   final String title;
   final bool canSave;
   final VoidCallback onBack;
   final VoidCallback onSave;
-
-  /// Edit mode only — a delete (trash) button before Save.
-  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -487,14 +484,6 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          if (onDelete != null) ...[
-            _CircleButton(
-              icon: Icons.delete_outline_rounded,
-              onTap: onDelete!,
-              danger: true,
-            ),
-            const SizedBox(width: 10),
-          ],
           // Save pill — accent when ready, muted when the name's empty.
           GestureDetector(
             onTap: canSave ? onSave : null,
@@ -538,15 +527,12 @@ class _Header extends StatelessWidget {
 }
 
 class _CircleButton extends StatelessWidget {
-  const _CircleButton(
-      {required this.icon, required this.onTap, this.danger = false});
+  const _CircleButton({required this.icon, required this.onTap});
   final IconData icon;
   final VoidCallback onTap;
-  final bool danger;
 
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFFFF6B6B);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -555,12 +541,11 @@ class _CircleButton extends StatelessWidget {
         height: 44,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: danger ? red.withValues(alpha: 0.12) : AppColors.card,
+          color: AppColors.card,
           shape: BoxShape.circle,
-          border: Border.all(
-              color: danger ? red.withValues(alpha: 0.4) : AppColors.cardBorder),
+          border: Border.all(color: AppColors.cardBorder),
         ),
-        child: Icon(icon, color: danger ? red : AppColors.ink, size: 22),
+        child: Icon(icon, color: AppColors.ink, size: 22),
       ),
     );
   }

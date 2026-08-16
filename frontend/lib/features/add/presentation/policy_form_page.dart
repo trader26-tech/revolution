@@ -328,7 +328,6 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
                 canSave: _valid && !_saving,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
-                onDelete: widget.onDelete == null ? null : _handleDelete,
               ),
               Expanded(
                 child: ListView(
@@ -433,6 +432,8 @@ class _PolicyFormPageState extends State<PolicyFormPage> {
                       onPick: _pickDocument,
                       onClear: () => setState(() => _doc = null),
                     ),
+                    if (widget.onDelete != null)
+                      OrbitDeleteButton(onDelete: _handleDelete),
                   ],
                 ),
               ),

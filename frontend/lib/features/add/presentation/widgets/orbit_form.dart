@@ -29,16 +29,11 @@ class OrbitFormHeader extends StatelessWidget {
     required this.canSave,
     required this.onBack,
     required this.onSave,
-    this.onDelete,
   });
   final String title;
   final bool canSave;
   final VoidCallback onBack;
   final VoidCallback onSave;
-
-  /// When set (edit mode only), a delete (trash) button appears before Save so
-  /// the item can be removed right from its edit screen.
-  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -59,14 +54,6 @@ class OrbitFormHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (onDelete != null) ...[
-            _CircleButton(
-              icon: Icons.delete_outline_rounded,
-              onTap: onDelete!,
-              danger: true,
-            ),
-            const SizedBox(width: 10),
-          ],
           GestureDetector(
             onTap: canSave ? onSave : null,
             child: AnimatedContainer(
@@ -108,6 +95,51 @@ class OrbitFormHeader extends StatelessWidget {
   }
 }
 
+/// A full-width DELETE button for the BOTTOM of an edit form — a quiet red
+/// outline (destructive but not shouty). Sits at the end of the scroll content,
+/// shown only in edit mode. Tapping runs [onDelete] (which confirms + removes).
+class OrbitDeleteButton extends StatelessWidget {
+  const OrbitDeleteButton({super.key, required this.onDelete});
+  final VoidCallback onDelete;
+
+  static const _red = Color(0xFFFF6B6B);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: GestureDetector(
+        onTap: onDelete,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: 52,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _red.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _red.withValues(alpha: 0.35)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.delete_outline_rounded, size: 20, color: _red),
+              SizedBox(width: 8),
+              Text(
+                'Delete',
+                style: TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                  color: _red,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A quiet reassurance line — "save now, tweak later" — meant to sit just below
 /// the identity block on an add form, so users don't hesitate before saving.
 /// Low-contrast on purpose: it reassures without competing with the fields.
@@ -141,20 +173,12 @@ class OrbitSaveHint extends StatelessWidget {
 }
 
 class _CircleButton extends StatelessWidget {
-  const _CircleButton({
-    required this.icon,
-    required this.onTap,
-    this.danger = false,
-  });
+  const _CircleButton({required this.icon, required this.onTap});
   final IconData icon;
   final VoidCallback onTap;
 
-  /// A destructive button (delete) — tinted red.
-  final bool danger;
-
   @override
   Widget build(BuildContext context) {
-    const red = Color(0xFFFF6B6B);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -163,12 +187,11 @@ class _CircleButton extends StatelessWidget {
         height: 44,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: danger ? red.withValues(alpha: 0.12) : AppColors.card,
+          color: AppColors.card,
           shape: BoxShape.circle,
-          border: Border.all(
-              color: danger ? red.withValues(alpha: 0.4) : AppColors.cardBorder),
+          border: Border.all(color: AppColors.cardBorder),
         ),
-        child: Icon(icon, color: danger ? red : AppColors.ink, size: 22),
+        child: Icon(icon, color: AppColors.ink, size: 22),
       ),
     );
   }

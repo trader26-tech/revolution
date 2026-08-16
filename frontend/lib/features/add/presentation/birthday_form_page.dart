@@ -214,7 +214,6 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
                 canSave: _valid,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
-                onDelete: widget.onDelete == null ? null : _handleDelete,
               ),
               Expanded(
                 child: ListView(
@@ -288,6 +287,8 @@ class _BirthdayFormPageState extends State<BirthdayFormPage> {
                         ],
                       ),
                     ),
+                    if (widget.onDelete != null)
+                      OrbitDeleteButton(onDelete: _handleDelete),
                   ],
                 ),
               ),

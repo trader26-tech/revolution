@@ -154,13 +154,6 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
                       ),
                     ),
                   ),
-                  if (widget.onDelete != null)
-                    IconButton(
-                      onPressed: _handleDelete,
-                      icon: const Icon(Icons.delete_outline_rounded,
-                          color: Color(0xFFFF6B6B)),
-                      tooltip: 'Delete',
-                    ),
                   IconButton(
                     onPressed: _save,
                     icon:
@@ -243,6 +236,20 @@ class _TaskDetailsSheetState extends State<_TaskDetailsSheet> {
             ),
               const SizedBox(height: 12),
               FilledButton(onPressed: _save, child: const Text('Save')),
+              if (widget.onDelete != null) ...[
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: _handleDelete,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                  label: const Text('Delete'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFFF6B6B),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    textStyle: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

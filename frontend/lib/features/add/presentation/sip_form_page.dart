@@ -266,7 +266,6 @@ class _SipFormPageState extends State<SipFormPage> {
                 canSave: _valid,
                 onBack: () => Navigator.of(context).maybePop(),
                 onSave: _save,
-                onDelete: widget.onDelete == null ? null : _handleDelete,
               ),
               Expanded(
                 child: ListView(
@@ -326,6 +325,8 @@ class _SipFormPageState extends State<SipFormPage> {
                         ),
                       ),
                     ),
+                    if (widget.onDelete != null)
+                      OrbitDeleteButton(onDelete: _handleDelete),
                   ],
                 ),
               ),

@@ -11,6 +11,7 @@ import '../../../onboarding/presentation/widgets/magic_text.dart'
     show MagicText;
 import '../../../tasks/domain/category_visuals.dart';
 import '../../../tasks/domain/task.dart';
+import 'profile_avatar.dart';
 
 /// The Home hero: the screen starts EMPTY, then Revo conjures today's reminders
 /// ONE AT A TIME, in slow motion — each line materialises word by word (the
@@ -445,6 +446,12 @@ class _GreetingState extends State<_Greeting>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        // The user's PHOTO — tap to add/change. Fades in with the greeting.
+        Opacity(
+          opacity: Curves.easeOut.transform((p / 0.5).clamp(0.0, 1.0)),
+          child: const ProfileAvatar(size: 46),
+        ),
+        const SizedBox(width: 14),
         Flexible(
           child: MagicText(
             text: widget.greeting,

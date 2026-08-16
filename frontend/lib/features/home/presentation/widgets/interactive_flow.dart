@@ -281,12 +281,12 @@ class MenuLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Hold the rows back until the greeting line has FULLY conjured (shimmer >
-    // 0.62), so the screen reads in two clear beats: first the question lands,
-    // THEN the options arrive one-after-another (Create → Read → Update →
-    // Delete). Never both at once.
+    // The question FULLY conjures over the first half of the shimmer clock (0 →
+    // 0.5, see CommandChatOverlay); only then — from 0.5 → 1.0 — do these rows
+    // begin, one-after-another (Create → Read → Update → Delete). Two clean
+    // beats: question first, list second. Never both at once.
     final reveal =
-        Curves.easeOut.transform(((shimmer - 0.62) / 0.38).clamp(0.0, 1.0));
+        Curves.easeOut.transform(((shimmer - 0.5) / 0.5).clamp(0.0, 1.0));
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
       child: Column(

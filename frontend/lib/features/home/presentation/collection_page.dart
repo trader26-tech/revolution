@@ -319,8 +319,10 @@ class _CollectionPageState extends State<CollectionPage> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Slim nav bar: just back · add. The title lives BIG in the
-                  // hero below, so no redundant title text here.
+                  // Slim nav bar: back (+ an optional filter). No top "+" — adding
+                  // now happens through the bottom command chat (tap the category
+                  // from Browse, or the ★), so a separate top add button is
+                  // redundant. The title lives BIG in the hero below.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 8, 16, 6),
                     child: Row(
@@ -331,8 +333,8 @@ class _CollectionPageState extends State<CollectionPage> {
                           onTap: () => Navigator.of(context).maybePop(),
                         ),
                         const Spacer(),
-                        // Filter (subscriptions only) — pick a category.
-                        if (_groupByCategory) ...[
+                        // Filter (the "All" view only) — narrow to one category.
+                        if (_groupByCategory)
                           GlassIconButton(
                             icon: _filter == null
                                 ? Icons.tune_rounded
@@ -340,14 +342,6 @@ class _CollectionPageState extends State<CollectionPage> {
                             tooltip: 'Filter',
                             onTap: _openFilter,
                           ),
-                          const SizedBox(width: 10),
-                        ],
-                        GlassIconButton(
-                          icon: Icons.add_rounded,
-                          tooltip: 'Add',
-                          accent: true,
-                          onTap: () => _add(context),
-                        ),
                       ],
                     ),
                   ),

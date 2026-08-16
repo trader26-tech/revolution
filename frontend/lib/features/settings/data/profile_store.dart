@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/api_client.dart';
@@ -22,6 +25,7 @@ class ProfileStore extends ChangeNotifier {
 
   // --- keys ---
   static const _kName = 'profile_name';
+  static const _kAvatarPath = 'profile_avatar_path'; // on-device image path
   static const _kCurrency = 'profile_currency'; // ISO code (INR/USD/KWD)
   static const _kLeadDays = 'profile_lead_days';
   static const _kNotifReminders = 'profile_notif_reminders';
@@ -37,6 +41,7 @@ class ProfileStore extends ChangeNotifier {
 
   // --- state (with sensible defaults) ---
   String _name = '';
+  String? _avatarPath; // absolute path to the user's photo on this device
   String _currency = 'INR';
   int _leadDays = 30;
   bool _notifReminders = true;
@@ -55,6 +60,10 @@ class ProfileStore extends ChangeNotifier {
   // --- getters ---
   String get name => _name;
   bool get hasName => _name.trim().isNotEmpty;
+
+  /// The user's photo path on this device (null = none set / file missing).
+  String? get avatarPath => _avatarPath;
+  bool get hasAvatar => _avatarPath != null;
   String get currency => _currency;
   int get leadDays => _leadDays;
   bool get notifReminders => _notifReminders;
@@ -73,6 +82,11 @@ class ProfileStore extends ChangeNotifier {
     _prefs ??= await SharedPreferences.getInstance();
     final p = _prefs!;
     _name = p.getString(_kName) ?? '';
+    // Avatar: drop the stored path if the file no longer exists on disk.
+    final storedAvatar = p.getString(_kAvatarPath);
+    _avatarPath = (storedAvatar != null && File(storedAvatar).existsSync())
+        ? storedAvatar
+        : null;
     _currency = p.getString(_kCurrency) ?? 'INR';
     _leadDays = p.getInt(_kLeadDays) ?? 30;
     _notifReminders = p.getBool(_kNotifReminders) ?? true;
@@ -92,6 +106,43 @@ class ProfileStore extends ChangeNotifier {
   Future<void> setName(String value) async {
     _name = value.trim();
     await _persist((p) => p.setString(_kName, _name));
+  }
+
+  /// Set the user's photo from a picked file. The source is COPIED into the app's
+  /// documents dir (a stable, private location that survives cache clears — the
+  /// same pattern the documents feature uses), then the path is persisted. Pass
+  /// null to remove the photo. Fully on-device; nothing is uploaded.
+  Future<void> setAvatarFromPath(String? sourcePath) async {
+    // Remove.
+    if (sourcePath == null) {
+      final old = _avatarPath;
+      _avatarPath = null;
+      await _persist((p) => p.remove(_kAvatarPath));
+      _deleteQuietly(old);
+      return;
+    }
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final ext = sourcePath.contains('.') ? sourcePath.split('.').last : 'jpg';
+      // A single stable filename per profile; overwrite on change.
+      final dest = '${dir.path}/profile_avatar.$ext';
+      final old = _avatarPath;
+      await File(sourcePath).copy(dest);
+      _avatarPath = dest;
+      await _persist((p) => p.setString(_kAvatarPath, dest));
+      // Clean up a previous file with a different extension.
+      if (old != null && old != dest) _deleteQuietly(old);
+    } catch (_) {
+      // Non-fatal — leave the existing photo unchanged.
+    }
+  }
+
+  void _deleteQuietly(String? path) {
+    if (path == null) return;
+    try {
+      final f = File(path);
+      if (f.existsSync()) f.deleteSync();
+    } catch (_) {}
   }
 
   Future<void> setCurrency(String code) async {

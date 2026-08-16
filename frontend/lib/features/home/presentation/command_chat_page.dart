@@ -43,10 +43,6 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
   /// Drives the per-message conjure (MagicText) reveal of the newest reply.
   late final AnimationController _shimmer;
 
-  /// A slow, endless breath so the aurora keeps living once it's settled — the
-  /// "it's alive, listening" feel (like Gemini Live's ambient glow).
-  late final AnimationController _breath;
-
   final _scroll = ScrollController();
   int _lastTick = -1;
   bool _wasOpen = false;
@@ -63,10 +59,6 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
       // neither feels rushed and they never land at the same time.
       duration: const Duration(milliseconds: 2400),
     );
-    _breath = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat(reverse: true);
     _c.addListener(_onControllerChanged);
     // Watch the morph so we can seed the greeting + replay the conjure each time
     // the overlay opens (it stays mounted in the shell, gated by the morph).
@@ -93,7 +85,6 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
     _c.removeListener(_onControllerChanged);
     widget.morph.removeListener(_onMorph);
     _shimmer.dispose();
-    _breath.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -171,20 +162,8 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
                 ),
               ),
 
-              // The Gemini-Live AURORA — blooms up from below, then breathes.
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: AnimatedBuilder(
-                    animation: _breath,
-                    builder: (context, _) => CustomPaint(
-                      painter: _AuroraPainter(
-                        entrance: t,
-                        breath: _breath.value,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              // (No aurora/purple bloom — the space gradient + faint stars are the
+              // whole backdrop. A coloured wash read as heavy/playful, not premium.)
 
               // The content (Revo + greeting + thread) rises + fades in, leaving
               // room at the bottom for the shell's morphing bar.
@@ -226,11 +205,23 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
         if (index == 0) {
           return AnimatedBuilder(
             animation: Listenable.merge([_shimmer, widget.morph, _c]),
-            builder: (context, _) => _HeroGreeting(
-              text: _c.header,
-              progress: _shimmer.value,
-              entrance: widget.morph.value,
-            ),
+            builder: (context, _) {
+              // On the MENU step we run TWO strictly-sequential beats on the one
+              // shimmer clock: the question conjures + FINISHES over 0→0.5, then
+              // the list cascades over 0.5→1. So here the greeting is remapped to
+              // complete by the half-way point. On every other step the header
+              // conjures across the whole clock as usual (single beat).
+              final onMenu =
+                  _c.chat.isNotEmpty && _c.chat.last.kind == ChatKind.menu;
+              final headerProgress = onMenu
+                  ? (_shimmer.value / 0.5).clamp(0.0, 1.0)
+                  : _shimmer.value;
+              return _HeroGreeting(
+                text: _c.header,
+                progress: headerProgress,
+                entrance: widget.morph.value,
+              );
+            },
           );
         }
         final i = index - 1;
@@ -374,76 +365,3 @@ class _HeroGreeting extends StatelessWidget {
   }
 }
 
-/// The living violet AURORA behind the chat — two soft radial blooms (one rising
-/// from the bottom, one drifting near the top) that grow in on [entrance] and
-/// then keep a slow [breath]. This is the Gemini-Live "listening glow".
-class _AuroraPainter extends CustomPainter {
-  _AuroraPainter({required this.entrance, required this.breath});
-
-  /// 0→1 open progress (drives the bloom-in).
-  final double entrance;
-
-  /// 0→1 slow breath (drives the settled shimmer).
-  final double breath;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (entrance <= 0.001) return;
-    final w = size.width;
-    final h = size.height;
-
-    // Breath eases the glow's strength + radius very gently, endlessly.
-    final pulse = 0.92 + 0.08 * breath;
-
-    // ── Bottom floor-glow — a WHISPER of violet low on the screen. Deliberately
-    //    faint: it should read as depth, not a purple wash. Sits mostly below the
-    //    frame so only its soft upper edge bleeds in.
-    final bottomCenter = Offset(w * 0.5, h * (1.32 - 0.05 * entrance));
-    final bottomRadius = h * (0.42 + 0.12 * entrance) * pulse;
-    final bottomAlpha = (0.11 * entrance) * pulse;
-    _blob(
-      canvas,
-      size,
-      bottomCenter,
-      bottomRadius,
-      [
-        AppColors.accent.withValues(alpha: bottomAlpha),
-        const Color(0xFF3A2A8C).withValues(alpha: bottomAlpha * 0.6),
-        Colors.transparent,
-      ],
-      const [0.0, 0.5, 1.0],
-    );
-
-    // ── Top drift — barely-there cool haze, so the top isn't a flat black. ──
-    final topCenter = Offset(
-      w * (0.24 + 0.03 * breath),
-      h * (0.14 + 0.02 * (1 - breath)),
-    );
-    final topRadius = w * (0.6 + 0.08 * entrance) * pulse;
-    final topAlpha = (0.05 * entrance) * pulse;
-    _blob(
-      canvas,
-      size,
-      topCenter,
-      topRadius,
-      [
-        const Color(0xFF6C4CF0).withValues(alpha: topAlpha),
-        Colors.transparent,
-      ],
-      const [0.0, 1.0],
-    );
-  }
-
-  void _blob(Canvas canvas, Size size, Offset center, double radius,
-      List<Color> colors, List<double> stops) {
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    final paint = Paint()
-      ..shader = RadialGradient(colors: colors, stops: stops).createShader(rect);
-    // Paint the radial glow across the whole canvas (transparent beyond it).
-    canvas.drawRect(Offset.zero & size, paint);
-  }
-
-  @override
-  bool shouldRepaint(_AuroraPainter old) =>
-      old.entrance != entrance || old.breath != breath;
-}

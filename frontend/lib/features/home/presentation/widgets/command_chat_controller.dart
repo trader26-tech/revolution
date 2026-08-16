@@ -103,25 +103,6 @@ class CommandChatController extends ChangeNotifier {
     _reveal();
   }
 
-  /// Show the OVERDUE items in the thread (from the Glance's "overdue" tap): run
-  /// the overdue query, append the answer, then a fresh menu so it's not a dead
-  /// end. Moves the chat off-root, so the Glance yields to the conversation.
-  void showOverdue() {
-    final draft = CommandDraft(
-      title: '',
-      category: 'other',
-      intent: CommandIntent.query,
-      range: CommandRange.overdue,
-    );
-    final (header, items) = _answerQuery(draft);
-    // Replace the root menu (if that's all there is) with the answer, so the
-    // thread reads cleanly, then re-offer the menu.
-    if (isAtRoot) chat.clear();
-    chat.add(ChatMsg.answer(header, items));
-    chat.add(ChatMsg.menu());
-    _reveal();
-  }
-
   /// Clear the whole thread (used by the page's "new chat" affordance, if any).
   void clear() {
     chat.clear();

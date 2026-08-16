@@ -63,6 +63,9 @@ class DocumentsStore extends ChangeNotifier {
   /// Total documents across the whole tree (for the Home badge).
   int get totalCount => _items.length;
 
+  /// Every document across the whole tree (unmodifiable) — for global search.
+  List<DocItem> get allItems => List.unmodifiable(_items);
+
   /// Total folders across the whole tree (for the Documents hero).
   int get folderCount => _folders.length;
 

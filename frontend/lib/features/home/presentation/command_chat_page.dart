@@ -4,14 +4,20 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/starfield.dart';
+import '../../add/presentation/open_add_flow.dart';
 import '../../documents/data/documents_store.dart';
+import '../../documents/domain/document.dart';
 import '../../documents/presentation/add_document_sheet.dart';
+import '../../documents/presentation/document_viewer_page.dart';
 import '../../onboarding/presentation/widgets/magic_text.dart' show MagicText;
+import '../../tasks/domain/task.dart';
+import '../../tasks/presentation/task_details_sheet.dart';
 import '../../update_flow/presentation/update_flow_sheet.dart';
+import 'collection_page.dart';
 import 'widgets/command_chat.dart';
 import 'widgets/command_chat_controller.dart';
-import 'widgets/glance_view.dart';
 import 'widgets/interactive_flow.dart';
+import 'widgets/quick_search.dart';
 
 /// The COMMAND CHAT content, rendered as an in-shell OVERLAY (not a route) so the
 /// single bottom bar can morph the ★ into the text field in place beneath it. The
@@ -31,11 +37,21 @@ class CommandChatOverlay extends StatefulWidget {
     required this.controller,
     required this.morph,
     required this.barSpace,
+    required this.searchController,
+    required this.onNavigated,
   });
 
   final CommandChatController controller;
   final Animation<double> morph;
   final double barSpace;
+
+  /// The ★ field's controller (shell-owned) — the quick-search palette reads its
+  /// live text.
+  final TextEditingController searchController;
+
+  /// Called after the palette navigates to a result, so the shell closes the
+  /// chat (the pushed destination becomes what the user sees).
+  final VoidCallback onNavigated;
 
   @override
   State<CommandChatOverlay> createState() => _CommandChatOverlayState();
@@ -50,6 +66,10 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
   int _lastTick = -1;
   bool _wasOpen = false;
 
+  /// The documents library — loaded once so the quick-search palette can find
+  /// files. Owned here (there's no shared instance).
+  final _documents = DocumentsStore();
+
   CommandChatController get _c => widget.controller;
 
   @override
@@ -62,10 +82,18 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
       // neither feels rushed and they never land at the same time.
       duration: const Duration(milliseconds: 2400),
     );
+    _documents.load();
     _c.addListener(_onControllerChanged);
+    // The palette reads the live search text — rebuild as the user types.
+    widget.searchController.addListener(_onSearchChanged);
     // Watch the morph so we can seed the greeting + replay the conjure each time
     // the overlay opens (it stays mounted in the shell, gated by the morph).
     widget.morph.addListener(_onMorph);
+  }
+
+  void _onSearchChanged() {
+    // Only the ROOT (quick-search) view depends on the live query.
+    if (_c.isAtRoot && mounted) setState(() {});
   }
 
   /// On the rising edge of the morph (chat opening), replay the shimmer so the
@@ -87,6 +115,8 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
   void dispose() {
     _c.removeListener(_onControllerChanged);
     widget.morph.removeListener(_onMorph);
+    widget.searchController.removeListener(_onSearchChanged);
+    _documents.dispose();
     _shimmer.dispose();
     _scroll.dispose();
     super.dispose();
@@ -111,6 +141,45 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
     );
   }
 
+  // ── QUICK-SEARCH navigation ────────────────────────────────────────────────
+  // Tapping a result opens its destination (a pushed route ON TOP of the shell),
+  // then closes the chat so returning shows the destination, not the stale
+  // palette. The field is cleared so the next ★ open starts fresh.
+
+  void _clearSearch() => widget.searchController.clear();
+
+  Future<void> _openTask(Task task) async {
+    _clearSearch();
+    widget.onNavigated(); // close the chat overlay
+    await openEditForm(context, _c.store, task,
+        fallback: () => showTaskDetailsSheet(context, task));
+  }
+
+  void _openDocument(DocItem doc) {
+    _clearSearch();
+    widget.onNavigated();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => DocumentViewerPage(doc: doc)),
+    );
+  }
+
+  void _openCategory(TaskCategory category) {
+    _clearSearch();
+    widget.onNavigated();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CollectionPage(store: _c.store, category: category),
+      ),
+    );
+  }
+
+  /// The "Add …" row — send the typed text through the parse/add path. Moves the
+  /// thread off-root (the add proposal renders), and clears the field.
+  void _addTyped(String text) {
+    _clearSearch();
+    _c.sendCommand(text);
+  }
+
   // ── UPDATE SEAM ──────────────────────────────────────────────────────────
   // The Update op opens the self-contained update sheet (category → item →
   // inline edit → Save, writes straight to the store) — a sheet OVER this page,
@@ -126,8 +195,7 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
   /// "Document" in the category picker → the add-document sheet (a file upload,
   /// not a chat field-flow). On success, confirm + re-show the menu.
   Future<void> _openDocumentSheet() async {
-    final store = DocumentsStore()..load();
-    final added = await showAddDocumentSheet(context, store: store);
+    final added = await showAddDocumentSheet(context, store: _documents);
     if (mounted && added != null) {
       _c.noteThenMenu('Saved your document.');
     }
@@ -211,10 +279,10 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
   Widget _buildList() {
     final msgs = _c.chat;
 
-    // AT ROOT (just the seeded menu, nothing picked/typed): show the GLANCE —
-    // the user's money + reminders at a glance — instead of the CRUD menu. The
-    // moment anything moves the thread off-root (type in the field, pick an op,
-    // a seeded create), the normal conversation renders instead.
+    // AT ROOT (nothing picked yet): the ★ is a QUICK-ACCESS SEARCH — type to find
+    // a reminder, document, or category and jump straight to it (or add). The
+    // moment anything moves the thread off-root (pick an op, a seeded create,
+    // an add proposal), the normal conversation renders instead.
     if (_c.isAtRoot) {
       return ListView(
         controller: _scroll,
@@ -222,11 +290,15 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
         children: [
           AnimatedBuilder(
             animation: Listenable.merge([_shimmer, widget.morph]),
-            builder: (context, _) => GlanceView(
+            builder: (context, _) => QuickSearch(
               store: _c.store,
+              documents: _documents,
+              query: widget.searchController.text,
               progress: _shimmer.value,
-              onOverdue: _c.showOverdue,
-              onAsk: _c.sendCommand,
+              onOpenTask: _openTask,
+              onOpenDocument: _openDocument,
+              onOpenCategory: _openCategory,
+              onAdd: _addTyped,
             ),
           ),
         ],

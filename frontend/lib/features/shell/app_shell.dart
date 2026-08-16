@@ -50,6 +50,11 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   /// off). Created once with the shared store.
   late final CommandChatController _chat;
 
+  /// The ★ field's text controller — OWNED here so the chat overlay's quick-search
+  /// palette can read the live query as the user types (the field lives in the
+  /// bottom bar; the palette lives in the overlay).
+  final _searchController = TextEditingController();
+
   /// Whether the chat overlay is open — the morph target. Drives the bar morph +
   /// the overlay entrance, and gates system-back handling.
   bool _chatOpen = false;
@@ -118,6 +123,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
     registerCommandChatOpener(null);
     _morph.dispose();
     _chat.dispose();
+    _searchController.dispose();
     _store.dispose();
     super.dispose();
   }
@@ -170,6 +176,8 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
                     controller: _chat,
                     morph: _morph,
                     barSpace: barSpace,
+                    searchController: _searchController,
+                    onNavigated: _closeCommand,
                   ),
                 ),
 
@@ -190,6 +198,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
                         t: t,
                         tab: _tab,
                         busy: _chat.commandBusy,
+                        searchController: _searchController,
                         onTab: (i) {
                           // Tapping a nav tab closes the chat + switches tab.
                           _closeCommand();
@@ -221,6 +230,7 @@ class _BottomBar extends StatelessWidget {
     required this.t,
     required this.tab,
     required this.busy,
+    required this.searchController,
     required this.onTab,
     required this.onOpenCommand,
     required this.onCloseCommand,
@@ -230,6 +240,7 @@ class _BottomBar extends StatelessWidget {
   final double t;
   final int tab;
   final bool busy;
+  final TextEditingController searchController;
   final ValueChanged<int> onTab;
   final VoidCallback onOpenCommand;
   final VoidCallback onCloseCommand;
@@ -295,6 +306,7 @@ class _BottomBar extends StatelessWidget {
                   child: _RightHalf(
                     t: t,
                     busy: busy,
+                    controller: searchController,
                     onOpenCommand: onOpenCommand,
                     onSend: onSend,
                   ),
@@ -386,11 +398,16 @@ class _RightHalf extends StatefulWidget {
   const _RightHalf({
     required this.t,
     required this.busy,
+    required this.controller,
     required this.onOpenCommand,
     required this.onSend,
   });
   final double t;
   final bool busy;
+
+  /// The search/command field's controller — OWNED by the shell so the chat
+  /// overlay can read the live query for its quick-search palette.
+  final TextEditingController controller;
   final VoidCallback onOpenCommand;
   final ValueChanged<String> onSend;
 
@@ -399,9 +416,10 @@ class _RightHalf extends StatefulWidget {
 }
 
 class _RightHalfState extends State<_RightHalf> {
-  final _controller = TextEditingController();
   final _focus = FocusNode();
   bool _hasText = false;
+
+  TextEditingController get _controller => widget.controller;
 
   @override
   void initState() {
@@ -427,8 +445,8 @@ class _RightHalfState extends State<_RightHalf> {
 
   @override
   void dispose() {
+    // The controller is owned by the shell — don't dispose it here.
     _controller.removeListener(_onText);
-    _controller.dispose();
     _focus.dispose();
     super.dispose();
   }

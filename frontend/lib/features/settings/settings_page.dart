@@ -300,6 +300,49 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 22),
 
+          // --- CLOUD BACKUP ---
+          // One switch to keep everything on the account in the cloud. It's on by
+          // default. The status rows below tell the TRUTH about what's backed up
+          // right now: reminders always are (the server is their home); the
+          // standalone Documents library is still on-device until its server
+          // endpoint ships — so we never claim a file is in the cloud when it
+          // isn't. When OFF, the two status rows are hidden.
+          SettingsSection(
+            title: 'Cloud backup',
+            footnote: _profile.cloudBackup
+                ? 'Your reminders live safely in your account and sync across '
+                    'devices. Documents stay on this device for now — cloud '
+                    'backup for them is coming soon.'
+                : 'Backup is off. Your reminders still sync (the server is their '
+                    'home), but anything optional stays on this device.',
+            children: [
+              SettingsSwitchTile(
+                icon: Icons.cloud_upload_outlined,
+                title: 'Back up to the cloud',
+                subtitle: 'Keep everything saved to your account',
+                value: _profile.cloudBackup,
+                onChanged: (v) => _profile.setCloudBackup(v),
+              ),
+              if (_profile.cloudBackup) ...[
+                SettingsTile(
+                  icon: Icons.event_note_rounded,
+                  title: 'Reminders',
+                  subtitle: 'Saved to your account, synced across devices',
+                  trailing: const _SyncBadge(synced: true),
+                  showChevron: false,
+                ),
+                SettingsTile(
+                  icon: Icons.folder_outlined,
+                  title: 'Documents',
+                  subtitle: 'On this device — cloud backup coming soon',
+                  trailing: const _SyncBadge(synced: false),
+                  showChevron: false,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 22),
+
           // --- REMINDERS ---
           SettingsSection(
             title: 'Reminders',
@@ -475,5 +518,50 @@ class _LifecycleHook extends WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) onResume();
+  }
+}
+
+/// A tiny status pill for the Cloud backup rows: a filled accent "Synced" chip
+/// with a cloud-done glyph, or a quiet outlined "On device" chip. It states the
+/// literal truth — never "Synced" for something that only lives on the phone.
+class _SyncBadge extends StatelessWidget {
+  const _SyncBadge({required this.synced});
+  final bool synced;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = synced ? 'Synced' : 'On device';
+    final icon = synced ? Icons.cloud_done_rounded : Icons.smartphone_rounded;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: synced
+            ? AppColors.accent.withValues(alpha: 0.14)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: synced
+              ? AppColors.accent.withValues(alpha: 0.30)
+              : AppColors.cardBorder,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon,
+              size: 13,
+              color: synced ? AppColors.accent : AppColors.inkFaint),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: synced ? AppColors.accent : AppColors.inkFaint,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

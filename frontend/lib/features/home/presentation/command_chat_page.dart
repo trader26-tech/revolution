@@ -10,6 +10,7 @@ import '../../onboarding/presentation/widgets/magic_text.dart' show MagicText;
 import '../../update_flow/presentation/update_flow_sheet.dart';
 import 'widgets/command_chat.dart';
 import 'widgets/command_chat_controller.dart';
+import 'widgets/glance_view.dart';
 import 'widgets/interactive_flow.dart';
 
 /// The COMMAND CHAT content, rendered as an in-shell OVERLAY (not a route) so the
@@ -209,6 +210,28 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
 
   Widget _buildList() {
     final msgs = _c.chat;
+
+    // AT ROOT (just the seeded menu, nothing picked/typed): show the GLANCE —
+    // the user's money + reminders at a glance — instead of the CRUD menu. The
+    // moment anything moves the thread off-root (type in the field, pick an op,
+    // a seeded create), the normal conversation renders instead.
+    if (_c.isAtRoot) {
+      return ListView(
+        controller: _scroll,
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
+        children: [
+          AnimatedBuilder(
+            animation: Listenable.merge([_shimmer, widget.morph]),
+            builder: (context, _) => GlanceView(
+              store: _c.store,
+              progress: _shimmer.value,
+              onOverdue: _c.showOverdue,
+            ),
+          ),
+        ],
+      );
+    }
+
     return ListView.builder(
       controller: _scroll,
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),

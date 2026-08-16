@@ -395,6 +395,7 @@ class _CollectionPageState extends State<CollectionPage> {
       activeFilter: _groupByCategory ? _filter : null,
       onClearFilter: () => setState(() => _filter = null),
       isOccasions: category == TaskCategory.birthday,
+      isMedicine: category == TaskCategory.medicine,
       onTap: (t) => _edit(context, t),
       onDelete: (t) => _delete(context, t),
     );
@@ -437,6 +438,7 @@ class _GroupedList extends StatefulWidget {
     this.activeFilter,
     this.onClearFilter,
     this.isOccasions = false,
+    this.isMedicine = false,
   });
 
   final List<_Section> sections;
@@ -449,6 +451,7 @@ class _GroupedList extends StatefulWidget {
   final String? activeFilter;
   final VoidCallback? onClearFilter;
   final bool isOccasions;
+  final bool isMedicine;
 
   @override
   State<_GroupedList> createState() => _GroupedListState();
@@ -489,10 +492,18 @@ class _GroupedListState extends State<_GroupedList>
     final activeFilter = widget.activeFilter;
     final onClearFilter = widget.onClearFilter;
     final isOccasions = widget.isOccasions;
+    final isMedicine = widget.isMedicine;
     final children = <Widget>[
-      // Occasions get a count hero (no money) that toggles All → each type;
-      // everything else gets the spend hero.
-      if (isOccasions)
+      // Occasions → a count hero (All → each type). Medicines → a count hero with
+      // a morning/afternoon/evening/night dose breakdown (money is irrelevant for
+      // meds). Everything else → the spend hero.
+      if (isMedicine)
+        _MedicineHero(
+          title: title,
+          icon: icon,
+          items: [for (final s in sections) ...s.items],
+        )
+      else if (isOccasions)
         _OccasionHero(
           title: title,
           icon: icon,
@@ -1005,6 +1016,213 @@ class _OccasionHeroState extends State<_OccasionHero> {
   }
 }
 
+/// The MEDICINES hero — total medicines + a morning / afternoon / evening /
+/// night breakdown of how many doses fall in each part of the day (across all
+/// meds' dose times). Money is irrelevant for meds, so this replaces the spend
+/// hero. Same card styling as the others.
+class _MedicineHero extends StatelessWidget {
+  const _MedicineHero({
+    required this.title,
+    required this.icon,
+    required this.items,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Task> items;
+
+  /// Bucket every dose time (across all meds) into a part of the day.
+  /// morning 5–11 · afternoon 12–16 · evening 17–20 · night 21–4.
+  ({int morning, int afternoon, int evening, int night}) _buckets() {
+    var m = 0, a = 0, e = 0, n = 0;
+    for (final t in items) {
+      if (t.done) continue;
+      for (final s in t.doseTimes) {
+        final mins = _minutes(s);
+        if (mins == null) continue;
+        if (mins >= 300 && mins < 720) {
+          m++;
+        } else if (mins >= 720 && mins < 1020) {
+          a++;
+        } else if (mins >= 1020 && mins < 1260) {
+          e++;
+        } else {
+          n++;
+        }
+      }
+    }
+    return (morning: m, afternoon: a, evening: e, night: n);
+  }
+
+  int? _minutes(String hhmm) {
+    final parts = hhmm.split(':');
+    if (parts.length != 2) return null;
+    final h = int.tryParse(parts[0]);
+    final min = int.tryParse(parts[1]);
+    if (h == null || min == null) return null;
+    return h * 60 + min;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = items.where((t) => !t.done).length;
+    final b = _buckets();
+    final totalDoses = b.morning + b.afternoon + b.evening + b.night;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF241A44), Color(0xFF1A1330)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.18),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title + emblem.
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    height: 1.05,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _OrbitBadge(icon: icon),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // The big count — total medicines.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              ShaderMask(
+                shaderCallback: (r) => const LinearGradient(
+                  colors: [AppColors.ink, Color(0xFFB9A8FF)],
+                ).createShader(r),
+                child: Text(
+                  '$total',
+                  style: const TextStyle(
+                    fontSize: 32,
+                    height: 1.0,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.5,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  total == 1 ? 'medicine' : 'medicines',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.inkSoft.withValues(alpha: 0.95),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          if (totalDoses > 0) ...[
+            const SizedBox(height: 16),
+            // The dose breakdown by time of day.
+            Row(
+              children: [
+                _DosePart(
+                    icon: Icons.wb_twilight_rounded,
+                    label: 'Morning',
+                    count: b.morning),
+                _DosePart(
+                    icon: Icons.wb_sunny_rounded,
+                    label: 'Afternoon',
+                    count: b.afternoon),
+                _DosePart(
+                    icon: Icons.wb_cloudy_rounded,
+                    label: 'Evening',
+                    count: b.evening),
+                _DosePart(
+                    icon: Icons.nightlight_round,
+                    label: 'Night',
+                    count: b.night),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One time-of-day dose stat inside the medicine hero.
+class _DosePart extends StatelessWidget {
+  const _DosePart(
+      {required this.icon, required this.label, required this.count});
+  final IconData icon;
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = count > 0;
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon,
+              size: 20,
+              color: active
+                  ? AppColors.accent
+                  : AppColors.inkFaint.withValues(alpha: 0.6)),
+          const SizedBox(height: 6),
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: active ? AppColors.ink : AppColors.inkFaint,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+              color: AppColors.inkSoft.withValues(alpha: 0.85),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The little orbiting-planet emblem — a category icon with a ring + a moon,
 /// echoing the app's orbit identity.
 class _OrbitBadge extends StatelessWidget {
@@ -1209,7 +1427,8 @@ class _CollectionRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            // Only a short "when next" relative label ("in 8 days", "in 3 weeks").
+            // A short trailing label. Scheduled items → "when next" ("in 8 days");
+            // medicines (no date, but dose times) → how many doses a day.
             if (task.isScheduled)
               Container(
                 padding:
@@ -1226,6 +1445,25 @@ class _CollectionRow extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: urgent ? accent : AppColors.inkSoft,
+                  ),
+                ),
+              )
+            else if (task.doseTimes.isNotEmpty)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  task.doseTimes.length == 1
+                      ? 'once a day'
+                      : '${task.doseTimes.length}× a day',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.inkSoft,
                   ),
                 ),
               )

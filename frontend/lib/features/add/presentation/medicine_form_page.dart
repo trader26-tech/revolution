@@ -38,7 +38,7 @@ class _MedicineFormPageState extends State<MedicineFormPage> {
   final Set<int> _days = {};
 
   /// Course length in days. 0 = ongoing (no end).
-  int _courseDays = 7;
+  int _courseDays = 0; // 0 = Ongoing (the default for a medicine)
 
   bool get _isEdit => widget.editTask != null;
   bool get _valid => _name.text.trim().isNotEmpty && _times.isNotEmpty;

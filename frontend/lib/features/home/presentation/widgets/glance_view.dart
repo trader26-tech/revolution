@@ -17,6 +17,7 @@ class GlanceView extends StatelessWidget {
     required this.store,
     required this.progress,
     this.onOverdue,
+    this.onAsk,
   });
 
   final TaskStore store;
@@ -26,6 +27,9 @@ class GlanceView extends StatelessWidget {
 
   /// Tapping the overdue header runs this (e.g. show overdue details in chat).
   final VoidCallback? onOverdue;
+
+  /// Tapping an example question sends it as a query (fills the chat below).
+  final ValueChanged<String>? onAsk;
 
   @override
   Widget build(BuildContext context) {
@@ -51,45 +55,188 @@ class GlanceView extends StatelessWidget {
 
   Widget _content(BuildContext context, GlanceStats g) {
     if (g.isEmpty) return const _EmptyGlance();
-    if (g.hasNothingSoon) return const _AllClear();
 
-    final children = <Widget>[];
+    final children = <Widget>[
+      // ── The HEADER: a clear title + a one-line summary of what's ahead. ──
+      _Header(
+        overdueCount: g.overdue.length,
+        upcomingCount: g.upcomingCount,
+        allClear: g.hasNothingSoon,
+      ),
+      const SizedBox(height: 18),
+    ];
 
-    // ── Overdue (urgent) — pinned on top when present ──
-    if (g.overdue.isNotEmpty) {
-      children.add(_SectionHeader(
-        label: '${g.overdue.length} overdue',
-        tint: const Color(0xFFFF6B6B),
-        onTap: onOverdue,
-      ));
-      for (final t in g.overdue.take(4)) {
-        children.add(_GlanceItem(
-          task: t,
-          overdue: true,
-          onDone: () => store.toggleDone(t),
+    if (g.hasNothingSoon) {
+      children.add(const _AllClearBody());
+    } else {
+      // ── Overdue (urgent) — pinned on top when present ──
+      if (g.overdue.isNotEmpty) {
+        children.add(_SectionHeader(
+          label: 'Overdue',
+          tint: const Color(0xFFFF6B6B),
+          onTap: onOverdue,
         ));
+        for (final t in g.overdue.take(4)) {
+          children.add(_GlanceItem(
+            task: t,
+            overdue: true,
+            onDone: () => store.toggleDone(t),
+          ));
+        }
+        if (g.overdue.length > 4) {
+          children.add(_MoreLine('+${g.overdue.length - 4} more overdue'));
+        }
+        children.add(const SizedBox(height: 16));
       }
-      if (g.overdue.length > 4) {
-        children.add(_MoreLine('+${g.overdue.length - 4} more overdue'));
+
+      // ── The next 7 days, grouped by day ──
+      for (final day in g.days) {
+        children.add(_SectionHeader(label: _dayLabel(day.date)));
+        for (final t in day.tasks) {
+          children.add(_GlanceItem(
+            task: t,
+            onDone: () => store.toggleDone(t),
+          ));
+        }
+        children.add(const SizedBox(height: 12));
       }
-      children.add(const SizedBox(height: 14));
     }
 
-    // ── The next 7 days, grouped by day ──
-    for (final day in g.days) {
-      children.add(_SectionHeader(label: _dayLabel(day.date)));
-      for (final t in day.tasks) {
-        children.add(_GlanceItem(
-          task: t,
-          onDone: () => store.toggleDone(t),
-        ));
-      }
-      children.add(const SizedBox(height: 12));
-    }
+    // ── The text field's PURPOSE: ask about your reminders. Tappable prompts. ──
+    children.add(const SizedBox(height: 6));
+    children.add(_AskHints(onAsk: onAsk));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: children,
+    );
+  }
+}
+
+/// The glance header — a big title + a one-line summary of what lies ahead.
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.overdueCount,
+    required this.upcomingCount,
+    required this.allClear,
+  });
+  final int overdueCount;
+  final int upcomingCount;
+  final bool allClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final String subtitle;
+    if (allClear) {
+      subtitle = "You're all clear — nothing due in the next 7 days.";
+    } else {
+      final parts = <String>[];
+      if (overdueCount > 0) {
+        parts.add('$overdueCount overdue');
+      }
+      parts.add(upcomingCount == 1
+          ? '1 reminder this week'
+          : '$upcomingCount reminders this week');
+      subtitle = parts.join(' · ');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Your week ahead',
+          style: TextStyle(
+            color: AppColors.ink,
+            fontSize: 27,
+            height: 1.1,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          subtitle,
+          style: TextStyle(
+            color: overdueCount > 0
+                ? const Color(0xFFFF6B6B)
+                : AppColors.inkSoft.withValues(alpha: 0.95),
+            fontSize: 14.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// "Ask about your reminders" — gives the bottom text field a clear purpose with
+/// a few tappable example questions that send straight through.
+class _AskHints extends StatelessWidget {
+  const _AskHints({this.onAsk});
+  final ValueChanged<String>? onAsk;
+
+  static const _examples = [
+    "What's due this week?",
+    'Any bills this month?',
+    "What's overdue?",
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.auto_awesome_rounded,
+                size: 15, color: AppColors.accent.withValues(alpha: 0.9)),
+            const SizedBox(width: 7),
+            Text(
+              'Ask me anything below',
+              style: TextStyle(
+                color: AppColors.inkSoft.withValues(alpha: 0.9),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final q in _examples)
+              GestureDetector(
+                onTap: onAsk == null
+                    ? null
+                    : () {
+                        HapticFeedback.selectionClick();
+                        onAsk!(q);
+                      },
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    q,
+                    style: const TextStyle(
+                      color: AppColors.ink,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -281,37 +428,24 @@ class _EmptyGlance extends StatelessWidget {
   }
 }
 
-/// Tracked items exist, but nothing overdue and nothing in the next 7 days.
-class _AllClear extends StatelessWidget {
-  const _AllClear();
+/// Shown under the header when there's nothing overdue and nothing this week.
+class _AllClearBody extends StatelessWidget {
+  const _AllClearBody();
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            Icon(Icons.check_circle_rounded,
-                size: 24, color: AppColors.accent.withValues(alpha: 0.9)),
-            const SizedBox(width: 10),
-            const Text(
-              "You're all clear",
-              style: TextStyle(
-                color: AppColors.ink,
-                fontSize: 23,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
-              ),
+        Icon(Icons.check_circle_rounded,
+            size: 22, color: AppColors.accent.withValues(alpha: 0.9)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Enjoy the calm — nothing needs you right now.',
+            style: TextStyle(
+              color: AppColors.inkSoft.withValues(alpha: 0.95),
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
             ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Nothing due in the next 7 days. Enjoy the calm.',
-          style: TextStyle(
-            color: AppColors.inkSoft.withValues(alpha: 0.9),
-            fontSize: 14.5,
-            fontWeight: FontWeight.w500,
           ),
         ),
       ],

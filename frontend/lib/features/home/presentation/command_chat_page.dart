@@ -226,6 +226,7 @@ class _CommandChatOverlayState extends State<CommandChatOverlay>
               store: _c.store,
               progress: _shimmer.value,
               onOverdue: _c.showOverdue,
+              onAsk: _c.sendCommand,
             ),
           ),
         ],

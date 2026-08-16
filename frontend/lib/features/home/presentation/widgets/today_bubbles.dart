@@ -277,7 +277,6 @@ class _TodayBubblesState extends State<TodayBubbles>
                 _ConjuredLine(
                   key: ValueKey(active[i].id),
                   task: active[i],
-                  sentence: sentenceFor(active[i], widget.lineFor(active[i])),
                   // This line's own 0→1 materialise window. Sequential: line i
                   // only starts once line i-1's window has closed.
                   progress: _win(_itemStart(i), _itemStart(i) + _itemRevealMs),
@@ -457,7 +456,6 @@ class _ConjuredLine extends StatelessWidget {
   const _ConjuredLine({
     super.key,
     required this.task,
-    required this.sentence,
     required this.progress,
     required this.onTap,
     required this.onLongPress,
@@ -465,9 +463,6 @@ class _ConjuredLine extends StatelessWidget {
   });
 
   final Task task;
-
-  /// The single unified sentence to conjure (AI line or local fallback).
-  final String sentence;
 
   /// 0→1 across THIS line's materialise window.
   final double progress;
@@ -507,21 +502,50 @@ class _ConjuredLine extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    // ONE unified sentence — written out left-to-right in
-                    // reading order (reading mode), so it looks like it's being
-                    // typed as your eye moves across it, not conjured in a
-                    // scatter.
-                    child: MagicText(
-                      text: sentence,
-                      progress: progress,
-                      reading: true,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        height: 1.32,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.ink,
-                      ),
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Line 1 — the NAME, prominent. Shimmers in word by word.
+                        MagicText(
+                          text: task.title.trim().isEmpty
+                              ? 'Reminder'
+                              : task.title.trim(),
+                          progress: progress,
+                          reading: true,
+                          style: const TextStyle(
+                            fontSize: 16.5,
+                            height: 1.2,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        // Line 2 — the compact DETAIL (amount · context). Just the
+                        // facts, muted, fading in as the name settles.
+                        Builder(builder: (context) {
+                          final detail = _detailFor(task);
+                          if (detail.isEmpty) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: Opacity(
+                              opacity: Curves.easeOut
+                                  .transform((progress / 0.7).clamp(0.0, 1.0)),
+                              child: Text(
+                                detail,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.inkSoft,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
                     ),
                   ),
                 ),
@@ -777,7 +801,7 @@ class _ActionRow extends StatelessWidget {
   }
 }
 
-// ── Derived copy: ONE conversational sentence per item ───────────────────────
+// ── Derived copy: clean minimal facts per item ───────────────────────────────
 
 /// The amount in the task's own currency — "₹119", "₹1,240". Empty if none.
 String _amountPart(Task task) {
@@ -788,6 +812,44 @@ String _amountPart(Task task) {
       ? formatAmount(a.round().toString(), cur.grouping)
       : a.toStringAsFixed(2);
   return '${cur.symbol}$body';
+}
+
+/// The one compact DETAIL line under an item's name — just the facts, no
+/// sentence: the amount and a two-word context ("Subscription · renews today",
+/// "Bill · due today"). Kept to a single short line, so the feed reads clean and
+/// scannable rather than as chatty prose.
+String _detailFor(Task task) {
+  final amount = _amountPart(task);
+  final ctx = switch (task.category) {
+    TaskCategory.subscription => 'renews today',
+    TaskCategory.bills => 'due today',
+    TaskCategory.insurance => 'renews today',
+    TaskCategory.investment => 'invest today',
+    TaskCategory.policies => 'premium due',
+    TaskCategory.birthday => 'today',
+    TaskCategory.medicine => _doseTimesLabel(task),
+    TaskCategory.other => 'today',
+  };
+  if (amount.isEmpty) return ctx;
+  if (ctx.isEmpty) return amount;
+  return '$amount · $ctx';
+}
+
+/// For a medicine, a compact "8:00 AM, 2:00 PM" of its dose times (or "today").
+String _doseTimesLabel(Task task) {
+  if (task.doseTimes.isEmpty) return 'today';
+  String fmt(String hhmm) {
+    final parts = hhmm.split(':');
+    if (parts.length != 2) return hhmm;
+    final h = int.tryParse(parts[0]) ?? 0;
+    final m = parts[1];
+    final ap = h < 12 ? 'AM' : 'PM';
+    final h12 = h % 12 == 0 ? 12 : h % 12;
+    return '$h12:$m $ap';
+  }
+
+  final shown = task.doseTimes.take(3).map(fmt).join(', ');
+  return task.doseTimes.length > 3 ? '$shown…' : shown;
 }
 
 /// The ONE unified sentence to conjure for a reminder. Prefers the AI (Groq)

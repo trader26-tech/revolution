@@ -281,7 +281,7 @@ class MenuLine extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const MagicText(
-            text: 'What would you like to do?',
+            text: 'What do you want to do today?',
             progress: 1,
             reading: true,
             style: TextStyle(

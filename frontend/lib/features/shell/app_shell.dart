@@ -5,7 +5,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../home/browse_page.dart';
 import '../home/home_page.dart';
-import '../home/presentation/widgets/command_launcher.dart';
+import '../home/presentation/command_chat_page.dart';
+import '../home/presentation/widgets/command_chat_controller.dart';
 import '../tasks/data/task_store.dart';
 import '../update/data/update_service.dart';
 import '../update/presentation/update_prompt.dart';
@@ -29,19 +30,27 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   int _tab = 0;
 
-  /// COMMAND MODE — the bottom bar morphs between two states:
-  ///   false → [Home·Browse nav | left] + [circular ★ button | right]
-  ///   true  → [small dot-button | left] + [command text field | right]
-  /// [_morph] (0→1) drives the whole transition + the space-colour aurora wash.
-  bool _commandMode = false;
+  /// [_morph] used to drive an in-bar nav⇄command-field morph. The ★ now opens a
+  /// full-screen chat page instead, so the bar stays in its nav+★ resting state
+  /// (t=0); the controller is retained (kept at rest) to avoid churning the
+  /// bottom-bar widget tree, and can be reclaimed if an in-bar morph returns.
   late final AnimationController _morph;
 
-  /// Drives the command chat (parse + reply) — lives on Home; the shell owns the
-  /// input and forwards typed commands here.
+  /// Home's state handle (kept for the auth/verify plumbing + any future
+  /// shell→Home calls).
   final _homeKey = GlobalKey<HomePageState>();
 
   // One shared task store so Home and Browse stay in sync.
   final _store = TaskStore();
+
+  /// The command-chat engine — OWNED here so the conversation persists across
+  /// opening/closing the full-screen chat (reopening ★ resumes where you left
+  /// off). Created once with the shared store.
+  late final CommandChatController _chat;
+
+  /// Whether the full-screen [CommandChatPage] is currently pushed — so tapping a
+  /// nav tab can pop it.
+  bool _chatOpen = false;
 
   @override
   void initState() {
@@ -51,6 +60,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 240),
       reverseDuration: const Duration(milliseconds: 200),
     );
+    _chat = CommandChatController(_store);
     // Restore saved tasks (and their icons) from on-device storage.
     _store.load();
     // Check for a newer app version on launch, and prompt (blocking if the
@@ -59,20 +69,27 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   }
 
   /// The ★ opens the full-screen "What do you want to do today?" launcher — a
-  /// beautiful chooser over a cleared, blurred screen. Picking an operation
-  /// drops the user straight into that flow on Home (Create → the create card;
-  /// Read/Update/Delete → their reply line). Dismissed with no pick = no-op.
+  /// beautiful full-screen chat: the greeting "What do you want to do today?"
+  /// with the Create/Read/Update/Delete options + a free-text field, and the
+  /// whole conversation continues IN that page (picking Create does NOT bounce
+  /// back here). The controller is shell-owned, so reopening resumes the thread.
   Future<void> _openCommand() async {
-    // Make sure we're on Home so the chosen flow renders in its feed.
-    if (_tab != 0) setState(() => _tab = 0);
-    final op = await showCommandLauncher(context);
-    if (op == null || !mounted) return;
-    _homeKey.currentState?.startWithOp(op);
+    if (_chatOpen) return;
+    _chatOpen = true;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => CommandChatPage(controller: _chat)),
+    );
+    // Route popped (back button, or a nav-tab tap called maybePop).
+    if (mounted) _chatOpen = false;
   }
 
+  /// Pop the full-screen chat if it's open — used when a nav tab is tapped so
+  /// switching to Home/Browse closes the chat.
   void _closeCommand() {
-    setState(() => _commandMode = false);
-    _morph.reverse();
+    if (_chatOpen) {
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      _chatOpen = false;
+    }
   }
 
   /// Ask the backend if a newer build exists. When one does, show the update
@@ -88,6 +105,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   @override
   void dispose() {
     _morph.dispose();
+    _chat.dispose();
     _store.dispose();
     super.dispose();
   }
@@ -141,16 +159,16 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
                   child: _BottomBar(
                     t: t,
                     tab: _tab,
-                    commandBusy:
-                        _homeKey.currentState?.hasChat ?? false,
-                    onTab: (i) => setState(() {
-                      _tab = i;
-                      // Switching tab exits command mode back to the nav.
-                      if (_commandMode) _closeCommand();
-                    }),
+                    commandBusy: _chat.commandBusy,
+                    onTab: (i) {
+                      // Tapping a nav tab closes the full-screen chat (if open)
+                      // and switches to that tab.
+                      _closeCommand();
+                      setState(() => _tab = i);
+                    },
                     onOpenCommand: _openCommand,
                     onCloseCommand: _closeCommand,
-                    onSend: (text) => _homeKey.currentState?.sendCommand(text),
+                    onSend: _chat.sendCommand,
                   ),
                 ),
               ),

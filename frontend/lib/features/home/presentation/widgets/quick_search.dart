@@ -52,23 +52,47 @@ class QuickSearch extends StatelessWidget {
     );
   }
 
-  // ── Idle (empty query) — deliberately MINIMAL: one clean line, nothing else.
-  // The keyboard is already up (the field auto-focuses), so the user just types.
+  // ── Idle (empty query) — a clean heading + a few PINNED items the user is most
+  // likely to want (their most recent reminders), so retrieval is one tap with no
+  // typing. As soon as they type, results replace these.
   Widget _idle(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(top: 6),
-      child: Text(
-        'Search anything quickly',
-        style: TextStyle(
-          color: AppColors.ink,
-          fontSize: 25,
-          height: 1.15,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
+    final recent = _recentTasks();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 2, bottom: 2),
+          child: Text(
+            'Search anything quickly',
+            style: TextStyle(
+              color: AppColors.ink,
+              fontSize: 25,
+              height: 1.15,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
         ),
-      ),
+        if (recent.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _GroupLabel('Jump back in'),
+          const SizedBox(height: 4),
+          for (final t in recent)
+            _ResultRow(
+              icon: t.category.icon,
+              title: t.title,
+              subtitle: _taskMeta(t),
+              onTap: () => onOpenTask(t),
+            ),
+        ],
+      ],
     );
   }
+
+  /// The user's most recent reminders (newest first — the store inserts new tasks
+  /// at index 0), the best "frequent / recently used" signal we have. Up to 4.
+  List<Task> _recentTasks() =>
+      store.tasks.where((t) => !t.done).take(4).toList();
 
   String _categoryCount(TaskCategory c) {
     final n = store.tasks.where((t) => t.category == c && !t.done).length;

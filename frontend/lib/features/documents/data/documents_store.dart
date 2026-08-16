@@ -21,12 +21,34 @@ import 'doc_backup_service.dart';
 class DocumentsStore extends ChangeNotifier {
   DocumentsStore({DocBackupService? backup, ProfileStore? profile})
       : _backup = backup ?? DocBackupService(),
-        _profile = profile ?? ProfileStore.instance;
+        _profile = profile ?? ProfileStore.instance {
+    // React to the Settings toggle: when the user turns cloud backup ON, sync in
+    // the background so existing documents get pushed up (and any missing ones
+    // pulled down) without them leaving Settings.
+    _profile.addListener(_onProfileChanged);
+    _lastCloudOn = _profile.cloudBackup;
+  }
 
   final DocBackupService _backup;
   final ProfileStore _profile;
+  bool _lastCloudOn = false;
 
   bool get _cloudOn => _profile.cloudBackup;
+
+  void _onProfileChanged() {
+    final on = _profile.cloudBackup;
+    if (on && !_lastCloudOn && _loaded) {
+      // OFF → ON: back up everything not yet in the cloud (+ pull anything new).
+      unawaited(syncWithCloud());
+    }
+    _lastCloudOn = on;
+  }
+
+  @override
+  void dispose() {
+    _profile.removeListener(_onProfileChanged);
+    super.dispose();
+  }
 
   static const _foldersKey = 'doc_folders_v1';
   static const _itemsKey = 'doc_items_v1';

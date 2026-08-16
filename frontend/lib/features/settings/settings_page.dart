@@ -310,11 +310,11 @@ class _SettingsPageState extends State<SettingsPage> {
           SettingsSection(
             title: 'Cloud backup',
             footnote: _profile.cloudBackup
-                ? 'Your reminders live safely in your account and sync across '
-                    'devices. Documents stay on this device for now — cloud '
-                    'backup for them is coming soon.'
+                ? 'Everything is saved to your account and syncs across your '
+                    'devices — reminders and documents. New documents upload in '
+                    'the background as you add them.'
                 : 'Backup is off. Your reminders still sync (the server is their '
-                    'home), but anything optional stays on this device.',
+                    'home), but documents stay only on this device.',
             children: [
               SettingsSwitchTile(
                 icon: Icons.cloud_upload_outlined,
@@ -334,8 +334,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 SettingsTile(
                   icon: Icons.folder_outlined,
                   title: 'Documents',
-                  subtitle: 'On this device — cloud backup coming soon',
-                  trailing: const _SyncBadge(synced: false),
+                  subtitle: 'Backed up to your account, synced across devices',
+                  trailing: const _SyncBadge(synced: true),
                   showChevron: false,
                 ),
               ],

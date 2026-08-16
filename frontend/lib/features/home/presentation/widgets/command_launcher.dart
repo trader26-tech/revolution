@@ -69,7 +69,12 @@ class _LauncherView extends StatelessWidget {
       builder: (context, _) {
         final t = animation.value;
         final blur = 22.0 * scrim.value;
-        return Stack(
+        // A transparent Material ancestor — without it, every Text on this
+        // route renders with Flutter's yellow "missing Material" debug
+        // underlines (the route is a PopupRoute, which provides no Material).
+        return Material(
+          type: MaterialType.transparency,
+          child: Stack(
           children: [
             // Blurred, dimmed backdrop — the screen behind is "cleared".
             Positioned.fill(
@@ -141,6 +146,7 @@ class _LauncherView extends StatelessWidget {
               ),
             ),
           ],
+          ),
         );
       },
     );

@@ -220,7 +220,9 @@ class _BottomBar extends StatelessWidget {
   // Resting width of the nav pill so it HUGS the Home·Browse buttons instead of
   // stretching across the bar. Sized for the widest resting state (Home selected
   // → "Home" pill + a plain Browse icon) plus the pill's own side padding.
-  static const _navNatural = 184.0;
+  // Bumped from 184 to fit the larger selected pill (52px tall, 20px pad,
+  // 24px icon, 15.5 label) without the FittedBox scaling it down.
+  static const _navNatural = 200.0;
 
   @override
   Widget build(BuildContext context) {
@@ -604,7 +606,9 @@ class _NavButton extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        // vertical 4 so the taller 52px pill clears the 60px bar cleanly
+        // (52 + 8 = 60) without the FittedBox having to scale it down.
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,

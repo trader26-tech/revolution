@@ -176,7 +176,7 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
 
     // The overlay must clear the bottom bar: bar height + its bottom padding +
     // safe-area inset.
-    final barSpace = 60.0 + 14 + MediaQuery.of(context).padding.bottom;
+    final barSpace = 56.0 + 14 + MediaQuery.of(context).padding.bottom;
 
     return PopScope(
       // While the chat is open, system back closes IT (not the app).
@@ -283,8 +283,8 @@ class _BottomBar extends StatelessWidget {
   final VoidCallback onCloseCommand;
   final ValueChanged<String> onSend;
 
-  static const _h = 60.0; // bar height
-  static const _gap = 12.0; // gap between the nav pill and the search circle
+  static const _h = 56.0; // bar height — trimmed so the bar isn't top/bottom-heavy
+  static const _gap = 10.0; // gap between the nav pill and the search circle
 
   @override
   Widget build(BuildContext context) {
@@ -293,48 +293,129 @@ class _BottomBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, c) {
           final total = c.maxWidth;
-          // NAV STATE (t=0): the bar uses the FULL width — the nav pill fills
-          // everything left of the search circle, with just [_gap] between them.
-          // No empty middle: nav pill + gap + ★ circle == total.
-          // COMMAND STATE (t=1): the ★ grows into the full-width search field and
-          // the nav collapses to a dot on the left.
+
+          // ── AT REST (t≈0): ONE unified glass bar — Home · Browse · Docs · a
+          // search button, evenly spread across the FULL width. No nested pills,
+          // no wasted gaps. This is the clean resting face.
           //
-          // Right element: a circle (_h) at rest → grows to fill the bar as t→1.
-          final rightW = (_h + (total - _gap - _h - _h) * t).clamp(_h, total - _gap - _h);
-          // Left element (nav pill) takes ALL the remaining width — so the pill
-          // spans the bar and the three tabs spread across it. Shrinks to a dot
-          // as the search field expands over it.
+          // ── OPENING (t→1): cross-fade the unified bar out and the morphing
+          // two-element field in (dot on the left, the search field growing to
+          // fill the bar). The existing morph machinery drives that state.
+          final restOpacity = (1 - t / 0.35).clamp(0.0, 1.0);
+          final morphOpacity = ((t - 0.25) / 0.75).clamp(0.0, 1.0);
+
+          // The morphing (open) layout — kept as-is, shown only while opening.
+          final rightW =
+              (_h + (total - _gap - _h - _h) * t).clamp(_h, total - _gap - _h);
           final leftW = (total - _gap - rightW).clamp(_h, total);
 
           return SizedBox(
             height: _h,
-            child: Row(
-              mainAxisSize: MainAxisSize.max,
+            child: Stack(
               children: [
-                SizedBox(
-                  width: leftW,
-                  child: _NavHalf(
-                    collapsed: t,
-                    index: tab,
-                    onReopen: onCloseCommand,
-                    onChanged: onTab,
+                // The morphing dot + field (only meaningful while opening/open).
+                if (morphOpacity > 0.01)
+                  Opacity(
+                    opacity: morphOpacity,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        SizedBox(
+                          width: leftW,
+                          child: _NavHalf(
+                            collapsed: t,
+                            index: tab,
+                            onReopen: onCloseCommand,
+                            onChanged: onTab,
+                          ),
+                        ),
+                        const SizedBox(width: _gap),
+                        SizedBox(
+                          width: rightW,
+                          child: _RightHalf(
+                            t: t,
+                            busy: busy,
+                            controller: searchController,
+                            onOpenCommand: onOpenCommand,
+                            onSend: onSend,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: _gap),
-                SizedBox(
-                  width: rightW,
-                  child: _RightHalf(
-                    t: t,
-                    busy: busy,
-                    controller: searchController,
-                    onOpenCommand: onOpenCommand,
-                    onSend: onSend,
+
+                // The unified resting bar — the clean single pill with everything.
+                if (restOpacity > 0.01)
+                  Opacity(
+                    opacity: restOpacity,
+                    child: IgnorePointer(
+                      ignoring: restOpacity < 0.5,
+                      child: _UnifiedBar(
+                        tab: tab,
+                        onTab: onTab,
+                        onSearch: onOpenCommand,
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// The clean RESTING nav bar: one glass pill holding Home · Browse · Docs and a
+/// Search button, all evenly spread across the full width — no nested pills, no
+/// wasted space. The selected tab is an accent pill; Search is the last item and
+/// opens the command chat (which morphs it into a full search field).
+class _UnifiedBar extends StatelessWidget {
+  const _UnifiedBar({
+    required this.tab,
+    required this.onTab,
+    required this.onSearch,
+  });
+
+  final int tab;
+  final ValueChanged<int> onTab;
+  final VoidCallback onSearch;
+
+  @override
+  Widget build(BuildContext context) {
+    return _LiquidGlass(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Row(
+            children: [
+              for (var i = 0; i < _kNavItems.length; i++)
+                Expanded(
+                  child: _NavButton(
+                    item: _kNavItems[i],
+                    selected: i == tab,
+                    onTap: () => onTab(i),
+                  ),
+                ),
+              // The search item — a quiet glyph that expands into the search
+              // field (via the morph) when tapped. Same visual weight as a tab.
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    onSearch();
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: const SizedBox.expand(
+                    child: Icon(Icons.search_rounded,
+                        size: 24, color: AppColors.inkFaint),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -366,7 +447,7 @@ class _NavHalf extends StatelessWidget {
       onTap: collapsed > 0.5 ? onReopen : null,
       // Clip so nothing spills outside the pill while it's shrinking.
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(28),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -505,7 +586,7 @@ class _RightHalfState extends State<_RightHalf> {
             }
           : null,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(28),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -625,7 +706,7 @@ class _LiquidGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = Container(
-      height: 60,
+      height: 56,
       decoration: BoxDecoration(
         // Light frosted glass, blending to a solid accent as accentFill→1.
         gradient: LinearGradient(
@@ -638,7 +719,7 @@ class _LiquidGlass extends StatelessWidget {
                 AppColors.accent, accentFill)!,
           ],
         ),
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: Color.lerp(Colors.white.withValues(alpha: 0.22),
               Colors.transparent, accentFill)!,
@@ -658,9 +739,9 @@ class _LiquidGlass extends StatelessWidget {
       child: child,
     );
     return ClipRRect(
-      borderRadius: BorderRadius.circular(30),
+      borderRadius: BorderRadius.circular(28),
       child: GlassPanel(
-        borderRadius: 30,
+        borderRadius: 28,
         child: onTap == null
             ? content
             : GestureDetector(
@@ -706,63 +787,70 @@ class _NavButton extends StatelessWidget {
     // unselected tab is a quiet muted glyph + label. The pill hugs its own
     // content and lives inside an evenly-spread row, so it can never push a
     // sibling out — the bar can't overflow.
+    // Each tab fills its slot's FULL height (no dead vertical band) and is
+    // vertically centred. The SELECTED tab draws an accent pill INSET a few px
+    // from the glass edge, hugging its icon + label; unselected tabs are a quiet
+    // glyph. Only the selected tab shows a label, so the bar stays clean.
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-        height: 46,
-        padding: EdgeInsets.symmetric(horizontal: selected ? 16 : 10),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient: selected
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF9B7CFF), AppColors.accent],
-                )
-              : null,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: AppColors.accent.withValues(alpha: 0.42),
-                    blurRadius: 14,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 4),
+      child: SizedBox.expand(
+        child: Padding(
+          // Small inset so the selected pill sits INSIDE the glass, not touching.
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            padding: EdgeInsets.symmetric(horizontal: selected ? 16 : 8),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: selected
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF9B7CFF), AppColors.accent],
+                    )
+                  : null,
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.42),
+                        blurRadius: 14,
+                        spreadRadius: -2,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    selected ? item.active : item.icon,
+                    size: 22,
+                    color: selected ? Colors.white : AppColors.inkFaint,
                   ),
-                ]
-              : null,
-        ),
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeOutCubic,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                selected ? item.active : item.icon,
-                size: 22,
-                color: selected ? Colors.white : AppColors.inkFaint,
+                  if (selected) ...[
+                    const SizedBox(width: 7),
+                    Text(
+                      item.label,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              // Only the SELECTED tab shows its label (inside the pill) — so the
-              // bar reads as one sliding pill among quiet glyphs, and stays clean.
-              if (selected) ...[
-                const SizedBox(width: 7),
-                Text(
-                  item.label,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    letterSpacing: -0.1,
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),

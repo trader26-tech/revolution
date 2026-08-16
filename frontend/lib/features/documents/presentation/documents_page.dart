@@ -299,10 +299,6 @@ class _DocumentsPageState extends State<DocumentsPage>
     final rootFolders = store.foldersIn(null);
     final rootItems = store.itemsIn(null);
 
-    // Totals across the WHOLE library, for the hero.
-    final totalFiles = store.totalCount;
-    final totalFolders = store.folderCount;
-
     // Collect every tree row, then wrap each in the cascade so folders AND
     // their documents flow in one at a time (the recursion makes threading an
     // index inline awkward — building the flat list first keeps it clean).
@@ -319,12 +315,23 @@ class _DocumentsPageState extends State<DocumentsPage>
     ];
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 40),
       children: [
-        // The hero — same immersive card as the category pages: the big title,
-        // a count, and the orbit badge.
-        _DocumentsHero(fileCount: totalFiles, folderCount: totalFolders),
-        const SizedBox(height: 4),
+        // Just the header — a big, plain "Documents" title. No box, no count
+        // subtitle; the library reads as clean text lines below.
+        const Padding(
+          padding: EdgeInsets.fromLTRB(14, 6, 14, 10),
+          child: Text(
+            'Documents',
+            style: TextStyle(
+              fontSize: 30,
+              height: 1.05,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+              color: AppColors.ink,
+            ),
+          ),
+        ),
         // The tree — folders expand in place, each row cascading smoothly in.
         for (var i = 0; i < rows.length; i++)
           _CascadeIn(intro: _intro, index: i, child: rows[i]),
@@ -501,129 +508,6 @@ class _NavBar extends StatelessWidget {
   }
 }
 
-/// The Documents hero — the same immersive gradient card the category pages use:
-/// the big "Documents" title, a live count, and the orbit badge.
-class _DocumentsHero extends StatelessWidget {
-  const _DocumentsHero({required this.fileCount, required this.folderCount});
-  final int fileCount;
-  final int folderCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = <String>[
-      '$fileCount file${fileCount == 1 ? '' : 's'}',
-      if (folderCount > 0) '$folderCount folder${folderCount == 1 ? '' : 's'}',
-    ];
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF241A44), Color(0xFF1A1330)],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accent.withValues(alpha: 0.18),
-            blurRadius: 26,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Documents',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 22,
-                      height: 1.05,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      color: AppColors.ink,
-                    )),
-                const SizedBox(height: 3),
-                Text(
-                  parts.join(' · '),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.3,
-                    color: AppColors.accent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          _OrbitBadge(icon: Icons.folder_copy_rounded),
-        ],
-      ),
-    );
-  }
-}
-
-/// The little orbiting-planet emblem — a folder glyph with a ring + moon, the
-/// same motif the category heroes use, so Documents feels part of the family.
-class _OrbitBadge extends StatelessWidget {
-  const _OrbitBadge({required this.icon});
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 46,
-      height: 46,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.35),
-                width: 1.4,
-              ),
-            ),
-          ),
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.accent.withValues(alpha: 0.16),
-            ),
-            child: Icon(icon, size: 18, color: AppColors.accent),
-          ),
-          // A tiny orbiting "moon".
-          Positioned(
-            top: 2,
-            right: 4,
-            child: Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ── Tiles & rows ────────────────────────────────────────────────────────────
 
 /// A subtle "Add a document here" tile for an empty, expanded folder.
@@ -633,28 +517,20 @@ class _AddHereTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 5),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.glassBorder),
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            child: Row(
-              children: [
-                const Icon(Icons.add_rounded, size: 17, color: AppColors.accent),
-                const SizedBox(width: 8),
-                Text('Add to this folder',
-                    style: AppText.label.copyWith(color: AppColors.inkSoft)),
-              ],
-            ),
+    // A plain line — no box, matching the folder/doc rows.
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.add_rounded, size: 20, color: AppColors.accent),
+              const SizedBox(width: 10),
+              Text('Add to this folder',
+                  style: AppText.label.copyWith(color: AppColors.inkSoft)),
+            ],
           ),
         ),
       ),
@@ -687,107 +563,58 @@ class _FolderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Compact meta so it never crowds the name off the row — short units
-    // ("2 folders · 5 files" → "2 · 5" with glyphs would be cryptic, so keep
-    // short words): "5 files", plus "· 2 folders" only when it has subfolders.
-    final parts = <String>[
-      '$itemCount file${itemCount == 1 ? '' : 's'}',
-      if (subfolderCount > 0)
-        '$subfolderCount folder${subfolderCount == 1 ? '' : 's'}',
-    ];
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        color: expanded
-            ? AppColors.accent.withValues(alpha: 0.08)
-            : Colors.white.withValues(alpha: 0.035),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: expanded
-              ? AppColors.accent.withValues(alpha: 0.32)
-              : AppColors.glassBorder,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 11, 6, 11),
-            child: Row(
-              children: [
-                // Rotating caret — the expand/collapse cue (replaces the arrow).
-                AnimatedRotation(
-                  duration: const Duration(milliseconds: 200),
-                  turns: expanded ? 0.25 : 0.0,
-                  child: const Icon(Icons.chevron_right_rounded,
-                      size: 20, color: AppColors.inkSoft),
-                ),
-                const SizedBox(width: 4),
-                // A proper accent icon chip — matches the category row icons.
-                Container(
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: AppColors.accent.withValues(alpha: 0.3)),
-                  ),
-                  child: Icon(
-                    expanded ? Icons.folder_open_rounded : Icons.folder_rounded,
-                    size: 21,
-                    color: AppColors.accent,
+    // A plain LINE row — no box, no subtitle. Just a caret, the folder glyph,
+    // and the name, with a subtle press highlight. Tapping expands in place.
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 14, 6, 14),
+          child: Row(
+            children: [
+              // Rotating caret — the expand/collapse cue.
+              AnimatedRotation(
+                duration: const Duration(milliseconds: 200),
+                turns: expanded ? 0.25 : 0.0,
+                child: const Icon(Icons.chevron_right_rounded,
+                    size: 22, color: AppColors.inkFaint),
+              ),
+              const SizedBox(width: 10),
+              // A calm accent glyph — no chip box, just the icon.
+              Icon(
+                expanded ? Icons.folder_open_rounded : Icons.folder_rounded,
+                size: 26,
+                color: AppColors.accent,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  folder.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                    color: AppColors.ink,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        folder.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.2,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        parts.join(' · '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.inkSoft,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                _RowIconButton(
-                  icon: Icons.add_rounded,
-                  color: AppColors.accent,
-                  tooltip: 'Add inside',
-                  onTap: onAddInside,
-                ),
-                _RowMenu(
-                  items: [
-                    _MenuAction('rename', Icons.edit_outlined, 'Rename', onRename),
-                    _MenuAction('delete', Icons.delete_outline_rounded, 'Delete',
-                        onDelete, danger: true),
-                  ],
-                ),
-              ],
-            ),
+              ),
+              _RowIconButton(
+                icon: Icons.add_rounded,
+                color: AppColors.accent,
+                tooltip: 'Add inside',
+                onTap: onAddInside,
+              ),
+              _RowMenu(
+                items: [
+                  _MenuAction('rename', Icons.edit_outlined, 'Rename', onRename),
+                  _MenuAction('delete', Icons.delete_outline_rounded, 'Delete',
+                      onDelete, danger: true),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -812,57 +639,49 @@ class _DocRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.glassBorder),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onOpen,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 9, 6, 9),
-            child: Row(
-              children: [
-                // The actual document preview — image thumb / PDF first page.
-                DocThumbnail(doc: doc, size: 42),
-                const SizedBox(width: 12),
-                // Just the document name — the thumbnail already shows the type.
-                // File names are a touch lighter than folders (bold) so folders
-                // vs files read apart at a glance. Wraps to a second line.
-                Expanded(
-                  child: Text(
-                    doc.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
-                      color: AppColors.ink,
-                    ),
+    // A plain LINE row — no box. The thumbnail, the name, and the actions. Tap
+    // opens the in-app viewer like a normal screen.
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+          child: Row(
+            children: [
+              // The actual document preview — image thumb / PDF first page.
+              DocThumbnail(doc: doc, size: 44),
+              const SizedBox(width: 16),
+              // Just the document name — the thumbnail already shows the type.
+              Expanded(
+                child: Text(
+                  doc.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                    letterSpacing: -0.2,
+                    color: AppColors.ink,
                   ),
                 ),
-                _RowIconButton(
-                  icon: Icons.ios_share_rounded,
-                  color: AppColors.inkSoft,
-                  tooltip: 'Share',
-                  onTap: onShare,
-                ),
-                _RowMenu(
-                  items: [
-                    _MenuAction('open', Icons.open_in_new_rounded, 'Open', onOpen),
-                    _MenuAction('rename', Icons.edit_outlined, 'Rename', onRename),
-                    _MenuAction('delete', Icons.delete_outline_rounded, 'Delete',
-                        onDelete, danger: true),
-                  ],
-                ),
-              ],
-            ),
+              ),
+              _RowIconButton(
+                icon: Icons.ios_share_rounded,
+                color: AppColors.inkSoft,
+                tooltip: 'Share',
+                onTap: onShare,
+              ),
+              _RowMenu(
+                items: [
+                  _MenuAction('open', Icons.open_in_new_rounded, 'Open', onOpen),
+                  _MenuAction('rename', Icons.edit_outlined, 'Rename', onRename),
+                  _MenuAction('delete', Icons.delete_outline_rounded, 'Delete',
+                      onDelete, danger: true),
+                ],
+              ),
+            ],
           ),
         ),
       ),

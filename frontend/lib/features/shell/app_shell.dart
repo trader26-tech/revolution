@@ -430,10 +430,14 @@ class _RightHalfState extends State<_RightHalf> {
   @override
   void didUpdateWidget(_RightHalf old) {
     super.didUpdateWidget(old);
-    // Do NOT auto-focus — there's nothing to type when the chat first opens (you
-    // pick CRUD options). The keyboard rises only when the user TAPS the field.
-    // As the bar closes, drop focus so the keyboard dismisses with it.
-    if (widget.t < 0.3 && _focus.hasFocus) {
+    // The ★ is now a SEARCH — auto-focus the field as it opens so the keyboard is
+    // already up and the user can type immediately. Drop focus (dismiss keyboard)
+    // as the bar closes.
+    if (widget.t > 0.6 && old.t <= 0.6 && !_focus.hasFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.t > 0.6) _focus.requestFocus();
+      });
+    } else if (widget.t < 0.3 && _focus.hasFocus) {
       _focus.unfocus();
     }
   }

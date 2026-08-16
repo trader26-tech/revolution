@@ -52,42 +52,21 @@ class QuickSearch extends StatelessWidget {
     );
   }
 
-  // ── Idle (empty query) ─────────────────────────────────────────────────────
+  // ── Idle (empty query) — deliberately MINIMAL: one clean line, nothing else.
+  // The keyboard is already up (the field auto-focuses), so the user just types.
   Widget _idle(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Search anything',
-          style: TextStyle(
-            color: AppColors.ink,
-            fontSize: 26,
-            height: 1.1,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-          ),
+    return const Padding(
+      padding: EdgeInsets.only(top: 6),
+      child: Text(
+        'Search anything quickly',
+        style: TextStyle(
+          color: AppColors.ink,
+          fontSize: 25,
+          height: 1.15,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.5,
         ),
-        const SizedBox(height: 5),
-        Text(
-          'Find any reminder, document or category — start typing.',
-          style: TextStyle(
-            color: AppColors.inkSoft.withValues(alpha: 0.95),
-            fontSize: 14.5,
-            height: 1.35,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 18),
-        _GroupLabel('Jump to a category'),
-        const SizedBox(height: 4),
-        for (final c in TaskCategory.values)
-          _ResultRow(
-            icon: c.icon,
-            title: c.label,
-            subtitle: _categoryCount(c),
-            onTap: () => onOpenCategory(c),
-          ),
-      ],
+      ),
     );
   }
 

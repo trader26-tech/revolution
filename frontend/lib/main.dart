@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/auth_store.dart';
 import 'features/brand/data/custom_logo_store.dart';
+import 'features/lock/data/app_lock_store.dart';
 import 'features/onboarding/data/onboarding_store.dart';
 import 'features/onboarding/presentation/onboarding_gate.dart';
 import 'features/options/data/options_store.dart';
@@ -35,6 +36,7 @@ Future<void> main() async {
     OptionsStore.instance.load(), // saved lists / categories / payment methods
     ProfileStore.instance.load(), // name, notifications, defaults
     OnboardingStore.instance.load(), // whether the intro was completed
+    AppLockStore.instance.load(), // App Lock: enabled + auto-lock duration
   ]);
 
   runApp(const RevolutionApp());

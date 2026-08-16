@@ -7,6 +7,8 @@ import '../../core/widgets/app_toast.dart';
 import '../auth/data/auth_store.dart';
 import '../auth/domain/country_code.dart';
 import '../documents/data/documents_store.dart';
+import '../lock/data/app_lock_store.dart';
+import '../lock/presentation/lock_timer_pill.dart' show showAutoLockSheet;
 import '../onboarding/data/onboarding_store.dart';
 import '../reminders/data/reminder_scheduler.dart';
 import '../tasks/data/task_store.dart';
@@ -35,6 +37,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _auth = AuthStore.instance;
   final _profile = ProfileStore.instance;
+  final _lock = AppLockStore.instance;
 
   String _versionLabel = 'Version …';
 
@@ -372,6 +375,39 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ],
+            ],
+          ),
+          const SizedBox(height: 22),
+
+          // --- PRIVACY & LOCK ---
+          SettingsSection(
+            title: 'Privacy & Lock',
+            children: [
+              SettingsSwitchTile(
+                icon: Icons.lock_outline_rounded,
+                title: 'App Lock',
+                info: 'Require your fingerprint, face, or device PIN to open the '
+                    'app after it auto-locks.',
+                value: _lock.enabled,
+                onChanged: (v) async {
+                  await _lock.setEnabled(v);
+                  if (mounted) setState(() {});
+                },
+              ),
+              if (_lock.enabled)
+                SettingsTile(
+                  icon: Icons.timer_outlined,
+                  title: 'Auto-lock after',
+                  info: 'Locks this long after you unlock.',
+                  value: _lock.minutes == 60
+                      ? '1 hour'
+                      : '${_lock.minutes} min',
+                  onTap: () async {
+                    showAutoLockSheet(context);
+                    // Reflect any change when the sheet closes.
+                    if (mounted) setState(() {});
+                  },
+                ),
             ],
           ),
           const SizedBox(height: 22),

@@ -43,6 +43,12 @@ dependencies:
   # methods). Swappable for a DB-backed repo later — see OptionsStore.
   shared_preferences: ^2.3.0
 
+  # Native biometric / device-credential auth for the App Lock feature. Calls the
+  # OS BiometricPrompt (Android) / Face ID·Touch ID (iOS); falls back to the
+  # device PIN/pattern/passcode when no biometric is enrolled. See AppLockStore /
+  # AppLockGate.
+  local_auth: ^2.3.0
+
   # Fetching brand/app logos by domain (Clearbit-style) for the icon picker.
   http: ^1.2.0
   # MediaType for multipart document uploads (transitive via http; pinned direct

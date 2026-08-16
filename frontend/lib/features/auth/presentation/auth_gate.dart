@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../onboarding/presentation/screens/onboarding_finish_screen.dart'
     show showClaimSheet;
+import '../../lock/data/app_lock_store.dart';
+import '../../lock/presentation/app_lock_gate.dart';
 import '../../shell/app_shell.dart';
 import '../data/auth_store.dart';
 import '../data/phone_auth_service.dart';
@@ -65,7 +67,11 @@ class _AuthGateState extends State<AuthGate> {
         if (_auth.isLoggedIn) {
           return AuthGateController(
             verify: _startVerification,
-            child: const AppShell(verified: true),
+            // The signed-in app is wrapped in the App Lock gate: once the
+            // auto-lock session expires it overlays the native biometric/PIN
+            // lock. Only signed-in users are gated — onboarding/login below are
+            // never locked.
+            child: const AppLockGate(child: AppShell(verified: true)),
           );
         }
 
@@ -232,6 +238,10 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _safeLogin(String verifiedNumber) async {
     debugPrint('[AuthGate] _safeLogin start: $verifiedNumber '
         '(isLoggedIn before: ${_auth.isLoggedIn})');
+    // The user just proved identity via OTP — start a fresh App Lock session so
+    // the lock gate (which mounts the instant isLoggedIn flips) doesn't
+    // immediately re-lock them behind biometrics on their very first entry.
+    AppLockStore.instance.startSession();
     try {
       await _auth.login(verifiedNumber, name: _pendingName);
     } catch (e) {

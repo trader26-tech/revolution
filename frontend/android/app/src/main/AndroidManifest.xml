@@ -17,6 +17,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- App Lock: native biometric (fingerprint/face) with device-credential
+         fallback via local_auth. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <!-- In-app updates: the app downloads a newer APK (sideload distribution)
          and hands it to Android's package installer. REQUEST_INSTALL_PACKAGES
          lets us launch that install prompt directly, so the user doesn't have to

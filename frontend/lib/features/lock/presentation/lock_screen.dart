@@ -148,7 +148,8 @@ class _HaloMascotState extends State<_HaloMascot>
     super.initState();
     _loop = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2600),
+      // Slow + calm — one gentle float per ~5s, not a busy bounce.
+      duration: const Duration(milliseconds: 5200),
     )..repeat();
   }
 
@@ -168,17 +169,16 @@ class _HaloMascotState extends State<_HaloMascot>
         animation: _loop,
         builder: (context, _) {
           final t = _loop.value; // 0..1
-          // Two happy hops per loop — a springy up/down with squash on landing.
-          final hop = (math.sin(t * math.pi * 4)).abs(); // 0..1, two arcs
-          final lift = -14.0 * hop; // rises on each hop
-          // Stretch tall at peak, squash wide at the bottom of each hop.
-          final phase = math.sin(t * math.pi * 4);
-          final squash = -0.16 * phase; // +wider when low, taller when high
-          final tilt = 0.05 * math.sin(t * math.pi * 2); // gentle sway
-          // A cheerful double-blink once per loop.
+          // ONE slow, gentle float per loop — a soft rise and settle, no hop.
+          final wave = math.sin(t * math.pi * 2); // -1..1, single smooth cycle
+          final lift = -6.0 * (0.5 + 0.5 * wave); // drifts up ~6px and back
+          // A whisper of squash, in sympathy with the drift — barely there.
+          final squash = -0.05 * wave;
+          final tilt = 0.02 * math.sin(t * math.pi * 2); // faint sway
+          // A calm double-blink once per loop.
           final blink = _blinkAt(t);
-          // Halo pulses softly with the hops.
-          final glowA = 0.22 + 0.12 * hop;
+          // Halo breathes very softly.
+          final glowA = 0.22 + 0.06 * (0.5 + 0.5 * wave);
 
           return SizedBox(
             width: 176,
@@ -206,7 +206,8 @@ class _HaloMascotState extends State<_HaloMascot>
                     squash: squash,
                     tilt: tilt,
                     blink: blink,
-                    look: Offset(0.12 * math.sin(t * math.pi * 2), -0.1),
+                    // A slow, small wander of the gaze — calm, not darting.
+                    look: Offset(0.07 * math.sin(t * math.pi * 2), -0.06),
                     glow: false,
                   ),
                 ),

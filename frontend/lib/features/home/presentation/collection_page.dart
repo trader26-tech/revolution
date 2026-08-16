@@ -82,13 +82,6 @@ class _CollectionPageState extends State<CollectionPage> {
   TaskCategory? get category => widget.category;
 
   String get _title => category?.label ?? 'All reminders';
-
-  /// "a subscription" / "an SIP" / "a reminder" — for the floating Add button.
-  String get _addNoun {
-    final s = category?.singular ?? 'reminder';
-    final article = 'aeiou'.contains(s[0].toLowerCase()) ? 'an' : 'a';
-    return '$article $s';
-  }
   IconData get _icon => category?.icon ?? Icons.blur_on_rounded;
   Color get _accent => AppColors.accent;
 
@@ -322,10 +315,10 @@ class _CollectionPageState extends State<CollectionPage> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Slim nav bar: back (+ an optional filter). No top "+" — adding
-                  // now happens through the bottom command chat (tap the category
-                  // from Browse, or the ★), so a separate top add button is
-                  // redundant. The title lives BIG in the hero below.
+                  // Slim nav bar: back · (filter) · add. The "+" opens the chat
+                  // pre-scoped to this category (Revo asks the fields), so adding
+                  // is fast and conversational — but the top "+" stays where the
+                  // user expects it. The title lives BIG in the hero below.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 8, 16, 6),
                     child: Row(
@@ -337,7 +330,7 @@ class _CollectionPageState extends State<CollectionPage> {
                         ),
                         const Spacer(),
                         // Filter (the "All" view only) — narrow to one category.
-                        if (_groupByCategory)
+                        if (_groupByCategory) ...[
                           GlassIconButton(
                             icon: _filter == null
                                 ? Icons.tune_rounded
@@ -345,27 +338,19 @@ class _CollectionPageState extends State<CollectionPage> {
                             tooltip: 'Filter',
                             onTap: _openFilter,
                           ),
+                          const SizedBox(width: 10),
+                        ],
+                        GlassIconButton(
+                          icon: Icons.add_rounded,
+                          tooltip: 'Add',
+                          accent: true,
+                          onTap: () => _add(context),
+                        ),
                       ],
                     ),
                   ),
                   Expanded(
-                    child: Stack(
-                      children: [
-                        _buildBody(),
-                        // A prominent floating "Add" that opens the chat scoped
-                        // to this category — the one add affordance, thumb-reach.
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 20,
-                          child: Center(child: _AddCta(
-                            label: 'Add $_addNoun',
-                            accent: _accent,
-                            onTap: () => _add(context),
-                          )),
-                        ),
-                      ],
-                    ),
+                    child: _buildBody(),
                   ),
                 ],
               );

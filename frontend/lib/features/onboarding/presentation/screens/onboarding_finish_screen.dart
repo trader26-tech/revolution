@@ -6,7 +6,6 @@ import '../../../../core/widgets/starfield.dart';
 import '../../../auth/data/auth_store.dart';
 import '../../../auth/domain/country_code.dart';
 import '../../../auth/presentation/auth_gate.dart';
-import '../../../auth/presentation/widgets/app_logo.dart';
 import '../../../auth/presentation/widgets/country_flag.dart';
 import '../../../home/home_page.dart';
 import '../../../tasks/data/task_store.dart';
@@ -31,7 +30,8 @@ void showClaimSheet(
       opaque: true,
       transitionDuration: const Duration(milliseconds: 420),
       reverseTransitionDuration: const Duration(milliseconds: 280),
-      pageBuilder: (context, _, _) => _ClaimPage(onVerify: verify),
+      pageBuilder: (context, _, _) =>
+          SetupPage(onVerify: verify, isRoot: false),
       transitionsBuilder: (context, anim, _, child) {
         // A calm fade + gentle rise — the page settles in, no harsh slam.
         final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
@@ -255,19 +255,25 @@ class _HomePreview extends StatelessWidget {
 /// account. The whole canvas is the Orbit space theme — a live starfield behind
 /// the brandmark — so the first impression feels crafted and premium, not a
 /// plain card. Two large fields (name, then number) and one confident CTA.
-class _ClaimPage extends StatefulWidget {
-  const _ClaimPage({required this.onVerify});
+/// The full-page "Set up" screen (name + phone) — public so the AuthGate can
+/// render it directly as the logged-out root. [isRoot] hides the back button
+/// when it IS the root (nothing to pop to).
+class SetupPage extends StatefulWidget {
+  const SetupPage({super.key, required this.onVerify, this.isRoot = true});
 
   /// The gate's verification trigger, captured above the page (where the
   /// AuthGateController is in scope) and passed in — the page's own context
   /// can't reach the controller.
   final Future<void> Function(String phoneE164, {String? name}) onVerify;
 
+  /// True when this page is the gate's root (no back affordance shown).
+  final bool isRoot;
+
   @override
-  State<_ClaimPage> createState() => _ClaimPageState();
+  State<SetupPage> createState() => _SetupPageState();
 }
 
-class _ClaimPageState extends State<_ClaimPage> {
+class _SetupPageState extends State<SetupPage> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _nameFocus = FocusNode();
@@ -347,51 +353,36 @@ class _ClaimPageState extends State<_ClaimPage> {
           child: SafeArea(
             child: Column(
               children: [
-                // A small back affordance, top-left — this is a pushed page.
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded,
-                          color: AppColors.inkSoft),
-                      onPressed: () => Navigator.of(context).maybePop(),
+                // A small back affordance, top-left — only when this is a pushed
+                // page (not the logged-out root, which has nothing to pop to).
+                if (!widget.isRoot)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded,
+                            color: AppColors.inkSoft),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
                     ),
-                  ),
-                ),
+                  )
+                else
+                  const SizedBox(height: 12),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 8),
-                        // The brandmark — the orbit logo, glowing, centered high
-                        // on the page so it anchors the whole screen.
-                        const Center(child: AppLogo(size: 76)),
-                        const SizedBox(height: 30),
-                        Row(
-                          children: [
-                            const Icon(Icons.lock_open_rounded,
-                                size: 14, color: AppColors.accent),
-                            const SizedBox(width: 6),
-                            Text(
-                              'ONE LAST STEP',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 2,
-                                color: AppColors.accent.withValues(alpha: 0.9),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 24),
+                        // Simple, text-only header — no logo. Just "Set up" and a
+                        // one-line explainer, then the two fields.
                         const Text(
-                          'Save your reminders',
+                          'Set up',
                           style: TextStyle(
-                            fontSize: 32,
-                            height: 1.08,
+                            fontSize: 34,
+                            height: 1.05,
                             fontWeight: FontWeight.w800,
                             color: AppColors.ink,
                             letterSpacing: -0.8,

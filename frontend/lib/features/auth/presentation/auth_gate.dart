@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../onboarding/presentation/screens/onboarding_finish_screen.dart'
-    show showClaimSheet;
+    show SetupPage;
 import '../../lock/data/app_lock_store.dart';
 import '../../lock/presentation/app_lock_gate.dart';
 import '../../shell/app_shell.dart';
@@ -84,18 +84,13 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        // NOT verified. If onboarding handed us a [child] — the
-        // OnboardingFinishScreen, which already shows the user's REAL Home
-        // preview (populated with the items they just picked) plus the name +
-        // phone claim sheet — render THAT. It owns the populated TaskStore, so
-        // the preview shows their actual reminders (Netflix, etc.), not an empty
-        // "add your first task" state.
-        //
-        // Only when there's no such child (e.g. a logged-out cold relaunch with
-        // no onboarding context) do we fall back to the generic preview lock.
+        // NOT verified → go STRAIGHT to the simple "Set up" page (name + phone),
+        // no frozen preview / "This is your space" gate in between. Both the
+        // onboarding path and a logged-out cold relaunch land on the same clean
+        // setup screen; verifying drops the user right into the app.
         return AuthGateController(
           verify: _startVerification,
-          child: widget.child ?? _PreviewLock(onVerify: _startVerifyFromBanner),
+          child: SetupPage(onVerify: _startVerification),
         );
       },
     );

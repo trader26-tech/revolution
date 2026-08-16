@@ -209,6 +209,10 @@ class _BottomBar extends StatelessWidget {
 
   static const _h = 60.0; // bar height
   static const _gap = 12.0; // gap between the two elements
+  // Resting width of the nav pill so it HUGS the Home·Browse buttons instead of
+  // stretching across the bar. Sized for the widest resting state (Home selected
+  // → "Home" pill + a plain Browse icon) plus the pill's own side padding.
+  static const _navNatural = 184.0;
 
   @override
   Widget build(BuildContext context) {
@@ -217,15 +221,20 @@ class _BottomBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, c) {
           final total = c.maxWidth;
-          // Widths are derived so left + gap + right == total EXACTLY at every
-          // t — no independent clamps that could sum past `total` and overflow.
-          //   right: circle (_h) → full command field
-          //   left : rest → shrinks to a small dot (never below _h)
-          final rightMin = _h;
-          final rightMax = total - _gap - _h; // leave a dot's width on the left
-          final rightW = (rightMin + (rightMax - rightMin) * t)
+          // NAV STATE (t=0): the left pill HUGS its Home·Browse buttons (natural
+          // width, pinned left) with the ★ circle right beside it — the whole bar
+          // stays compact on the left, not stretched across the full width.
+          // COMMAND STATE (t=1): the field expands to fill, the nav shrinks to a
+          // dot. We interpolate the LEFT width from its compact natural size to a
+          // small dot, and derive the right as the exact remainder so nothing
+          // overflows at any t.
+          //
+          // `_navNatural` is the pill's resting content width (2 buttons + its own
+          // side padding). At t=0 the left pill is exactly that; as t→1 it
+          // collapses to a dot (_h) and the right half takes everything else.
+          final leftW = (_navNatural + (_h - _navNatural) * t)
               .clamp(_h, total - _gap - _h);
-          final leftW = total - _gap - rightW; // exact remainder
+          final rightW = total - _gap - leftW; // exact remainder
 
           return SizedBox(
             height: _h,
@@ -290,23 +299,31 @@ class _NavHalf extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // The pill's Home·Browse row — centered, min-width buttons, kept from
-            // overflowing by a FittedBox scaleDown.
+            // The pill's Home·Browse row — hugged to the LEFT with a little inset,
+            // min-width buttons, kept from overflowing by a FittedBox scaleDown
+            // while the pill is mid-shrink.
             if (navOpacity > 0.01)
-              Opacity(
-                opacity: navOpacity,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var i = 0; i < 2; i++)
-                        _NavButton(
-                          item: _kNavItems[i],
-                          selected: i == index,
-                          onTap: () => onChanged(i),
-                        ),
-                    ],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Opacity(
+                    opacity: navOpacity,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (var i = 0; i < 2; i++)
+                            _NavButton(
+                              item: _kNavItems[i],
+                              selected: i == index,
+                              onTap: () => onChanged(i),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

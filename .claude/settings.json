@@ -8,7 +8,8 @@
       "Bash(awk 'NR>=362 && NR<=460 {print NR\": \"$0}' lib/features/add/presentation/subscription_form_page.dart)",
       "Bash(grep -n \"'Documents'\\\\|totalCount\\\\|folderCount\\\\|EdgeInsets.fromLTRB\\(14, 6\\\\|Text\\(\\\\s*$\\\\|_buildBody\\\\|store.foldersIn\\(null\\)\" lib/features/documents/presentation/documents_page.dart)",
       "Bash(git log *)",
-      "Bash(./scripts/run-ios.sh)"
+      "Bash(./scripts/run-ios.sh)",
+      "Bash(./build_apk.sh)"
     ]
   },
   "model": "claude-opus-4-8",

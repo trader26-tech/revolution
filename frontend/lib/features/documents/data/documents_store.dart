@@ -37,6 +37,7 @@ class DocumentsStore extends ChangeNotifier {
     // with the real account id, so a returning user's folders come back.
     _auth.addListener(_onAuthChanged);
     _lastLoggedIn = _auth.isLoggedIn;
+    _lastClaimed = _auth.isClaimed;
   }
 
   final DocBackupService _backup;
@@ -44,6 +45,7 @@ class DocumentsStore extends ChangeNotifier {
   final AuthStore _auth;
   bool _lastCloudOn = false;
   bool _lastLoggedIn = false;
+  bool _lastClaimed = false;
 
   bool get _cloudOn => _profile.cloudBackup;
 
@@ -58,12 +60,22 @@ class DocumentsStore extends ChangeNotifier {
 
   void _onAuthChanged() {
     final loggedIn = _auth.isLoggedIn;
-    // Rising edge of login → pull the account's documents (retrying, so a cold
-    // backend or a claim that just landed doesn't lose them).
-    if (loggedIn && !_lastLoggedIn && _loaded) {
+    final claimed = _auth.isClaimed;
+    // Pull the account's documents when EITHER:
+    //   • login just flipped on (rising edge of isLoggedIn), OR
+    //   • the server pairing just completed (rising edge of isClaimed) — this is
+    //     the key case a plain login-edge misses: the app may already be logged
+    //     in at startup (so no login edge fires), and the claim that puts the
+    //     CANONICAL account uuid in place lands a beat later. Restoring only
+    //     after the claim guarantees we list the RIGHT account, not the empty
+    //     anonymous one — the exact reason documents didn't come back.
+    final loginEdge = loggedIn && !_lastLoggedIn;
+    final claimEdge = claimed && !_lastClaimed;
+    if ((loginEdge || claimEdge) && loggedIn && _loaded) {
       unawaited(refreshFromCloud());
     }
     _lastLoggedIn = loggedIn;
+    _lastClaimed = claimed;
   }
 
   @override
@@ -188,10 +200,16 @@ class DocumentsStore extends ChangeNotifier {
       _loaded = true;
       notifyListeners();
     }
-    // With cloud backup on, reconcile with the account in the background: pull
-    // down anything this device is missing, then push up anything not yet backed
-    // up. Never blocks the initial paint.
-    if (_cloudOn) unawaited(syncWithCloud());
+    // With cloud backup on, reconcile with the account in the background. If the
+    // user is ALREADY logged in at load time (a returning user on a fresh
+    // install, or a persisted session), use the full refresh — it retries
+    // through a cold backend AND reconciles orphaned carriers — so their
+    // documents come back even when no auth edge fires after this point. If not
+    // yet logged in, the plain sync is enough; the auth/claim edge will refresh
+    // once login lands.
+    if (_cloudOn) {
+      unawaited(_auth.isLoggedIn ? refreshFromCloud() : syncWithCloud());
+    }
   }
 
   /// Full two-way reconcile with the cloud (best-effort, background):

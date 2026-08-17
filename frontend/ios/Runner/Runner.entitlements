@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Firebase phone auth (OTP) on iOS silently verifies the device via APNs
+	     before it will send the SMS. Without this entitlement iOS never registers
+	     for push, so verifyPhoneNumber can't complete and no code screen appears.
+	     "development" for dev builds; Xcode/release flips it to "production". -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

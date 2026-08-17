@@ -44,6 +44,12 @@ class AuthStore extends ChangeNotifier {
   String? get name => _name;
   bool get isLoggedIn => _phone != null && _phone!.isNotEmpty;
 
+  /// Whether the server pairing (/claim) has completed for this session — i.e.
+  /// the app is now using the CANONICAL account uuid. Cloud restore should wait
+  /// for this (a restore run before the claim lists the wrong/anonymous account
+  /// and comes back empty).
+  bool get isClaimed => _claimed;
+
   /// Restore a saved session. Call at startup (after [ApiClient.init], which
   /// restores the account uuid itself).
   ///
@@ -150,6 +156,10 @@ class AuthStore extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_claimedKey, _claimed);
     } catch (_) {}
+    // Announce the claim result so listeners keyed on the CANONICAL account
+    // (e.g. DocumentsStore's cloud restore) can run now that the real uuid is in
+    // place — the claim often lands a beat AFTER login flips isLoggedIn true.
+    notifyListeners();
   }
 
   /// Sign out — forget the number and start a FRESH anonymous session, so the
@@ -164,6 +174,13 @@ class AuthStore extends ChangeNotifier {
       await prefs.remove(_phoneKey);
       await prefs.remove(_nameKey);
       await prefs.remove(_claimedKey);
+    } catch (_) {}
+    // CRITICAL: sign out of Firebase too. Otherwise Firebase keeps this device's
+    // verified phone, and the next [load] (finding no local session) falls back
+    // to `FirebaseAuth.currentUser.phoneNumber` and silently logs the user right
+    // back in — the "I signed out but I'm still signed in after a restart" bug.
+    try {
+      await FirebaseAuth.instance.signOut();
     } catch (_) {}
     try {
       await _api.resetToAnonymous();

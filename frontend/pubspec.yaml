@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 2.0.0+6
+version: 2.1.0+7
 
 environment:
   # Was ^3.13.0-282.1.beta — the beta SDK `flutter create` happened to be run
@@ -63,6 +63,11 @@ dependencies:
   # the Android build fails whichever way the flag is set. 8.x uses the older
   # Groovy script and works alongside the rest. Same PackageInfo API.
   package_info_plus: ^8.0.0
+  # Google Play In-App Updates — the ONLY Play-compliant way to force an update
+  # (Play forbids an app downloading/sideloading its own APK). Drives the
+  # blocking immediateUpdate flow when the server marks a build as below
+  # min-supported. No-op on non-Play installs (e.g. the sideloaded landing APK).
+  in_app_update: ^4.2.3
   flutter_local_notifications: ^22.2.0
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0

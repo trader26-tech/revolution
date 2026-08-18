@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +17,9 @@ import '../reminders/data/reminder_scheduler.dart';
 import '../tasks/data/task_store.dart';
 import '../tasks/domain/task.dart' show TaskCategory;
 import '../update/data/update_service.dart';
+import '../update/data/play_update_service.dart';
 import '../update/presentation/update_prompt.dart';
+import '../update/presentation/forced_update_gate.dart';
 
 /// The app shell: two tabs behind a floating glass nav — Home (today's bubbles)
 /// and Browse (the launcher to every category's collection + Documents).
@@ -67,6 +71,14 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   /// Whether the chat overlay is open — the morph target. Drives the bar morph +
   /// the overlay entrance, and gates system-back handling.
   bool _chatOpen = false;
+
+  /// True when the backend marks this build below the mandatory minimum AND the
+  /// Play update flow didn't complete — the whole app is then replaced by the
+  /// [ForcedUpdateGate] so it can't be used until the user updates.
+  bool _forcedUpdate = false;
+
+  /// "What's new" text from the backend, shown on the forced-update gate.
+  String _forcedNotes = '';
 
   @override
   void initState() {
@@ -132,9 +144,37 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
   /// when it's forced, so every device converges on the latest version. Fails
   /// silently offline; it re-checks on the next launch.
   Future<void> _checkForUpdate() async {
+    // Our backend decides whether an update is available and, crucially, whether
+    // it's MANDATORY (installed build < server's min_supported_version). You
+    // control that flag on the backend — nothing here is hardcoded.
     final info = await UpdateService.instance.check();
-    if (!mounted || !info.available) return;
-    await showUpdatePrompt(context, info);
+    if (!mounted) return;
+
+    // On a Play build, updates go through Google Play In-App Updates (Play policy
+    // forbids the app sideloading its own APK). We still let OUR server dictate
+    // whether it's forced.
+    if (PlayUpdateService.instance.isAndroidPlayContext) {
+      if (info.forced) {
+        final outcome = await PlayUpdateService.instance.run(forced: true);
+        if (!mounted) return;
+        // Play couldn't complete the required update (user dismissed / not yet
+        // serviceable) → hard-gate the whole app until they update.
+        if (outcome == PlayUpdateOutcome.blockedNeedsUpdate) {
+          setState(() {
+            _forcedUpdate = true;
+            _forcedNotes = info.notes;
+          });
+        }
+      } else if (info.available) {
+        // Optional: kick a silent background (flexible) Play update. No UI block.
+        unawaited(PlayUpdateService.instance.run(forced: false));
+      }
+      return;
+    }
+
+    // Non-Play (sideloaded landing-page APK): keep the existing download-APK
+    // prompt — dismissible when optional, blocking when forced.
+    if (info.available) await showUpdatePrompt(context, info);
   }
 
   /// First-run notification permission ask. Guarded by a persisted flag so the
@@ -164,6 +204,12 @@ class _AppShellState extends State<AppShell> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // A required update that Play couldn't complete → the app is REPLACED by an
+    // unescapable gate. Nothing below is built or reachable until they update.
+    if (_forcedUpdate) {
+      return ForcedUpdateGate(notes: _forcedNotes);
+    }
+
     final pages = [
       // isActive == "this page is the visible tab" — drives each page's entrance
       // replay. Command mode is an OVERLAY on Home, so Home stays active.

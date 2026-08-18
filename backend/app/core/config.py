@@ -12,12 +12,26 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_role_key: str = ""
 
-    # In-app update (Android, sideloaded APK). Bump these via env to roll out a
-    # new build — no code change needed.
-    #   latest_version      — the newest build number (Task's pubspec "+N")
-    #   min_supported_version — anything below this must update (forced)
-    #   apk_url             — where the Update button sends the user to download
-    #   update_notes        — short "what's new" shown in the prompt
+    # In-app update control. Bump these via env to roll out a new build — no code
+    # change needed. This is the SINGLE place you decide whether a version is
+    # mandatory: set `min_supported_version` to the build number everyone must be
+    # on, and any installed build below it is FORCED to update.
+    #
+    #   latest_version        — the newest build number (pubspec "+N")
+    #   min_supported_version — anything BELOW this is forced (mandatory update).
+    #                           Leave it low for an optional roll-out; raise it to
+    #                           a build number to make that build the required
+    #                           standard for ALL apps. THIS is your mandatory knob.
+    #   apk_url               — download URL for the SIDELOADED (landing-page)
+    #                           build only. The Play Store build ignores this and
+    #                           updates through Google Play In-App Updates instead
+    #                           (Play forbids an app installing its own APK).
+    #   update_notes          — short "what's new" shown in the prompt / gate.
+    #
+    # Example — make build 12 the required standard for everyone:
+    #   LATEST_VERSION=12  MIN_SUPPORTED_VERSION=12
+    # Optional roll-out of build 12 (users may defer):
+    #   LATEST_VERSION=12  MIN_SUPPORTED_VERSION=7
     latest_version: int = 1
     min_supported_version: int = 1
     apk_url: str = ""

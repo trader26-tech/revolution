@@ -13,6 +13,7 @@ import '../onboarding/data/onboarding_store.dart';
 import '../reminders/data/reminder_scheduler.dart';
 import '../tasks/data/task_store.dart';
 import '../update/data/update_service.dart';
+import '../update/data/play_update_service.dart';
 import '../update/presentation/update_prompt.dart';
 import 'data/profile_store.dart';
 import 'presentation/sheets/edit_sheets.dart';
@@ -89,6 +90,16 @@ class _SettingsPageState extends State<SettingsPage> {
     final info = await UpdateService.instance.check();
     if (!mounted) return;
     setState(() => _checkingUpdate = false);
+    // On a Play build, route through Google Play In-App Updates (policy-safe);
+    // a manual tap runs whichever flavour of update the server indicates.
+    if (PlayUpdateService.instance.isAndroidPlayContext) {
+      if (info.available) {
+        await PlayUpdateService.instance.run(forced: info.forced);
+      } else {
+        _toast("You're on the latest version");
+      }
+      return;
+    }
     if (info.available) {
       await showUpdatePrompt(context, info);
     } else {
